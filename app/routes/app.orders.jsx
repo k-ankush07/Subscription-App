@@ -1,6 +1,6 @@
 import React from 'react'
 
-function Index() {
+function orders() {
   return (
     <div>
       
@@ -8,4 +8,4 @@ function Index() {
   )
 }
 
-export default Index
+export default orders
