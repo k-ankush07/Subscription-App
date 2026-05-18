@@ -4,7 +4,7 @@ import { Page } from '@shopify/polaris';
 function plan() {
     return (
 
-        <Page title="Plan page">
+        <Page title="Selling plans">
             <Planpage />
         </Page>
 
