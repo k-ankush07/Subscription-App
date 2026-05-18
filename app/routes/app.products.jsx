@@ -147,7 +147,6 @@ export default function ProductsPage() {
               type="hidden"
               name="productId"
               value={node.id}
-              
             />
 
             <div style={{ marginBottom: "10px" }}>

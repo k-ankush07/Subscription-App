@@ -1,6 +1,12 @@
-import React from 'react'
-import {MediaCard,Page} from '@shopify/polaris';
+import React, { useCallback, useState } from 'react'
+import {MediaCard,Page,TextField,FormLayout} from '@shopify/polaris';
 function Templates() {
+     const [value, setValue] = useState('');
+
+  const handleChange = useCallback(
+  (newValue) => setValue(newValue),
+  [],
+);
   return (
     <Page>
      <MediaCard
@@ -23,8 +29,22 @@ function Templates() {
         src="https://subscriptions-assets.kachingappz.app/kaching-tutorial.jpg"
       />
     </MediaCard>
+
+
+  <Page
+     
+    >
+ <FormLayout>
+      <TextField label="Title" onChange={() => {}} autoComplete="off" />
+        
+      <TextField label="Internal description" onChange={() => {}} autoComplete="off" />
+         
+    </FormLayout>
+    </Page>
+      
     </Page>
   )
 }
 
 export default Templates
+
