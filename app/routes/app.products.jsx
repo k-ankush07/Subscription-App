@@ -6,8 +6,25 @@ import {
 import { authenticate } from "../shopify.server";
 
 export const loader = async ({ request }) => {
-  const { admin } = await authenticate.admin(request);
+  const { admin , session } = await authenticate.admin(request);
+  console.log(session.shop,"helo");
 
+
+console.log(session.shop, "SHOP DOMAIN");
+
+const abc = await admin.graphql(`
+{
+  shop {
+    id
+    name
+  }
+}
+`);
+
+const xyz = await abc.json();
+
+console.log(xyz.data.shop.id, "SHOP ID");
+  
   const response = await admin.graphql(`
     query {
       products(first: 10) {
