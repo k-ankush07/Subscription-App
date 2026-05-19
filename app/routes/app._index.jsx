@@ -1,30 +1,27 @@
 import React from 'react'
-import {Page, Grid, LegacyCard} from '@shopify/polaris';
-import {MediaCard} from '@shopify/polaris';
-import {Thumbnail} from '@shopify/polaris';
+import {Page, Grid,LegacyCard, Scrollable} from '@shopify/polaris';
 function Index() {
   return (
    <Page fullWidth>
-         <MediaCard
-      title="Getting Started"
-      primaryAction={{
-        content: 'Learn about getting started',
-        onAction: () => {},
-      }}
-      description="Discover how Shopify can power up your entrepreneurial journey."
-      popoverActions={[{content: 'Dismiss', onAction: () => {}}]}
-    >
-      <img
-        alt=""
-        width="100%"
-        height="100%"
-        style={{
-          objectFit: 'cover',
-          objectPosition: 'center',
-        }}
-        src="https://burst.shopifycdn.com/photos/business-woman-smiling-in-office.jpg?width=1850"
-      />
-    </MediaCard>
+        <LegacyCard title="Terms of service" sectioned>
+      <Scrollable shadow style={{height: '200px'}} >
+        <p>
+          By signing up for the Shopify service (“Service”) or any of the
+          services of Shopify Inc. (“Shopify”) you are agreeing to be bound by
+          the following terms and conditions (“Terms of Service”). The Services
+          offered by Shopify under the Terms of Service include various products
+          and services to help you create and manage a retail store, whether an
+          online store (“Online Services”), a physical retail store (“POS
+          Services”), or both. Any new features or tools which are added to the
+          current Service shall be also subject to the Terms of Service. You can
+          review the current version of the Terms of Service at any time at
+          https://www.shopify.com/legal/terms. Shopify reserves the right to
+          update and change the Terms of Service by posting updates and changes
+          to the Shopify website. You are advised to check the Terms of Service
+          from time to time for any updates or changes that may impact you.By signing up for the Shopify service (“Service”) or any of the services of Shopify Inc. (“Shopify”) you are agreeing to be bound by the following terms and conditions (“Terms of Service”). The Services offered by Shopify under the Terms of Service include various products and services to help you create and manage a retail store, whether an online store (“Online Services”), a physical retail store (“POS Services”), or both. Any new features or tools which are added to the current Service shall be also subject to the Terms of Service. You can review the current version of the Terms of Service at any time at https://www.shopify.com/legal/terms. Shopify reserves the right to update and change the Terms of Service by posting updates and changes to the Shopify website. You are advised to check the Terms of Service from time to time for any updates or changes that may impact you.By signing up for the Shopify service (“Service”) or any of the services of Shopify Inc. (“Shopify”) you are agreeing to be bound by the following terms and conditions (“Terms of Service”). The Services offered by Shopify under the Terms of Service include various products and services to help you create and manage a retail store, whether an online store (“Online Services”), a physical retail store (“POS Services”), or both. Any new features or tools which are added to the current Service shall be also subject to the Terms of Service. You can review the current version of the Terms of Service at any time at https://www.shopify.com/legal/terms. Shopify reserves the right to update and change the Terms of Service by posting updates and changes to the Shopify website. You are advised to check the Terms of Service from time to time for any updates or changes that may impact you.By signing up for the Shopify service (“Service”) or any of the services of Shopify Inc. (“Shopify”) you are agreeing to be bound by the following terms and conditions (“Terms of Service”). The Services offered by Shopify under the Terms of Service include various products and services to help you create and manage a retail store, whether an online store (“Online Services”), a physical retail store (“POS Services”), or both. Any new features or tools which are added to the current Service shall be also subject to the Terms of Service. You can review the current version of the Terms of Service at any time at https://www.shopify.com/legal/terms. Shopify reserves the right to update and change the Terms of Service by posting updates and changes to the Shopify website. You are advised to check the Terms of Service from time to time for any updates or changes that may impact you.
+        </p>
+      </Scrollable>
+    </LegacyCard>
     </Page>
   )
 }
