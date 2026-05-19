@@ -1,114 +1,117 @@
-import React, {useState} from 'react';
-
-import {
-  Page,
-  Frame,
-  TextField,
-  Card,
-  BlockStack,
-  Button,
-  InlineStack,
-} from '@shopify/polaris';
+import React, { useEffect, useState, useRef } from 'react';
+import { Page, TextField, Card, BlockStack, Frame, Spinner } from '@shopify/polaris';
+import { SaveBar, useAppBridge } from '@shopify/app-bridge-react';
 
 function Index() {
+  const shopify = useAppBridge();
+  const saveButtonRef = useRef(null);
 
-  // SAVED DATA
-  const [savedData, setSavedData] = useState({
-    title: 'My Product',
-    description: 'Nice product',
-    price: '100',
-  });
-
-  // FORM DATA
+  const [savedData, setSavedData] = useState({ title: '', description: '', price: '' });
   const [formData, setFormData] = useState(savedData);
+  const [loading, setLoading] = useState(false);
 
-  // HANDLE CHANGE
+  const isDirty = JSON.stringify(formData) !== JSON.stringify(savedData);
+
+  useEffect(() => {
+    if (isDirty) {
+      shopify.saveBar.show('mo-save-bar');
+    } else {
+      shopify.saveBar.hide('mo-save-bar');
+    }
+  }, [isDirty]);
+
+  //  Toggle loading attribute on the Save button directly
+  useEffect(() => {
+    if (saveButtonRef.current) {
+      if (loading) {
+        saveButtonRef.current.setAttribute('loading', ''); // triggers built-in spinner
+        saveButtonRef.current.setAttribute('disabled', '');
+      } else {
+        saveButtonRef.current.removeAttribute('loading');
+        saveButtonRef.current.removeAttribute('disabled');
+      }
+    }
+  }, [loading]);
+
   const handleChange = (field, value) => {
-    setFormData({
-      ...formData,
-      [field]: value,
-    });
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  // SAVE
-  const handleSave = (e) => {
-    e.preventDefault();
+  const handleSave = async () => {
+    setLoading(true);
+
+    await new Promise((resolve) => setTimeout(resolve, 2000));
 
     setSavedData(formData);
+    localStorage.setItem("formData", JSON.stringify(formData));
 
-    console.log('Saved:', formData);
+    setLoading(false);
+    shopify.saveBar.hide('mo-save-bar');
   };
 
-  // DISCARD
   const handleDiscard = () => {
     setFormData(savedData);
+    shopify.saveBar.hide('mo-save-bar');
   };
+
+  useEffect(() => {
+    const data = localStorage.getItem("formData");
+    if (data) {
+      const parsedData = JSON.parse(data);
+      setSavedData(parsedData);
+      setFormData(parsedData);
+    }
+  }, []);
 
   return (
     <Frame>
+      <Page title="Subscription-App" fullWidth>
 
-      <Page
-        title="Subscription-App"
-        fullWidth
-      >
+        {loading && <Spinner accessibilityLabel="Small spinner example" size="small" />}
 
-        <form data-save-bar onSubmit={handleSave}>
+        <SaveBar id="mo-save-bar">
+          {/*  ref + loading attribute triggers SaveBar's native spinner */}
+          <button
+            ref={saveButtonRef}
+            variant="primary"
+            onClick={handleSave}
+          >
+            Save
+          </button>
+          <button onClick={handleDiscard} disabled={loading}>
+            Discard
+          </button>
+        </SaveBar>
 
-          <Card roundedAbove="sm">
+        <Card roundedAbove="sm">
+          <BlockStack gap="400">
 
-            <BlockStack gap="400">
+            <TextField
+              label="Product Title"
+              value={formData.title}
+              onChange={(value) => handleChange('title', value)}
+              autoComplete="off"
+            />
 
-              <TextField
-                label="Product Title"
-                value={formData.title}
-                onChange={(value) =>
-                  handleChange('title', value)
-                }
-                autoComplete="off"
-              />
+            <TextField
+              label="Description"
+              value={formData.description}
+              onChange={(value) => handleChange('description', value)}
+              multiline={4}
+              autoComplete="off"
+            />
 
-              <TextField
-                label="Description"
-                value={formData.description}
-                onChange={(value) =>
-                  handleChange('description', value)
-                }
-                multiline={4}
-                autoComplete="off"
-              />
+            <TextField
+              label="Price"
+              value={formData.price}
+              onChange={(value) => handleChange('price', value)}
+              autoComplete="off"
+            />
 
-              <TextField
-                label="Price"
-                value={formData.price}
-                onChange={(value) =>
-                  handleChange('price', value)
-                }
-                autoComplete="off"
-              />
-
-              {/* Hidden buttons for save bar */}
-              <InlineStack gap="200">
-                <button type="submit" hidden>
-                  Save
-                </button>
-
-                <button
-                  type="reset"
-                  hidden
-                  onClick={handleDiscard}
-                >
-                  Discard
-                </button>
-              </InlineStack>
-
-            </BlockStack>
-
-          </Card>
-
-        </form>
+          </BlockStack>
+        </Card>
 
       </Page>
-
     </Frame>
   );
 }
