@@ -16,10 +16,7 @@ function Planpage() {
         action={{content: 'Create Plain',
             onAction: handleClick
         }}
-        // secondaryAction={{
-        //   content: 'Learn more',
-        //   url: 'https://help.shopify.com',
-        // }}
+       
         image="https://subscriptions.kachingappz.app/images/empty-subscriptions-list-state.png"
       >
         <p>Allow customers to purchase products or services on a recurring basis.</p>
