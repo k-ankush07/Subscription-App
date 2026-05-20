@@ -1,35 +1,31 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { Page, TextField, Card, BlockStack, Frame, Spinner } from '@shopify/polaris';
-import { SaveBar, useAppBridge } from '@shopify/app-bridge-react';
+import React, { useEffect, useState } from 'react';
+import { Page, TextField, Card, BlockStack, Frame } from '@shopify/polaris';
 
 function Index() {
-  const shopify = useAppBridge();
-  const saveButtonRef = useRef(null);
-
+  
   const [savedData, setSavedData] = useState({ title: '', description: '', price: '' });
   const [formData, setFormData] = useState(savedData);
   const [loading, setLoading] = useState(false);
 
   const isDirty = JSON.stringify(formData) !== JSON.stringify(savedData);
 
+  
   useEffect(() => {
-    if (isDirty) {
-      shopify.saveBar.show('mo-save-bar');
-    } else {
-      shopify.saveBar.hide('mo-save-bar');
-    }
+    const saveBar = document.getElementById('my-save-bar');
+    if (!saveBar) return;
+    isDirty ? saveBar.show() : saveBar.hide();
   }, [isDirty]);
 
-  //  Toggle loading attribute on the Save button directly
+ 
   useEffect(() => {
-    if (saveButtonRef.current) {
-      if (loading) {
-        saveButtonRef.current.setAttribute('loading', ''); // triggers built-in spinner
-        saveButtonRef.current.setAttribute('disabled', '');
-      } else {
-        saveButtonRef.current.removeAttribute('loading');
-        saveButtonRef.current.removeAttribute('disabled');
-      }
+    const saveBtn = document.querySelector('#abc');
+    if (!saveBtn) return;
+    if (loading) {
+      saveBtn.setAttribute('loading', '');
+      saveBtn.setAttribute('disabled', '');
+    } else {
+      saveBtn.removeAttribute('loading');
+      saveBtn.removeAttribute('disabled');
     }
   }, [loading]);
 
@@ -38,24 +34,24 @@ function Index() {
   };
 
   const handleSave = async () => {
-    setLoading(true);
+    setLoading(true); 
 
     await new Promise((resolve) => setTimeout(resolve, 2000));
 
     setSavedData(formData);
-    localStorage.setItem("formData", JSON.stringify(formData));
+    localStorage.setItem('formData', JSON.stringify(formData));
 
     setLoading(false);
-    shopify.saveBar.hide('mo-save-bar');
+    document.getElementById('my-save-bar')?.hide();
   };
 
   const handleDiscard = () => {
     setFormData(savedData);
-    shopify.saveBar.hide('mo-save-bar');
+    document.getElementById('my-save-bar')?.hide();
   };
 
   useEffect(() => {
-    const data = localStorage.getItem("formData");
+    const data = localStorage.getItem('formData');
     if (data) {
       const parsedData = JSON.parse(data);
       setSavedData(parsedData);
@@ -67,21 +63,10 @@ function Index() {
     <Frame>
       <Page title="Subscription-App" fullWidth>
 
-        {loading && <Spinner accessibilityLabel="Small spinner example" size="small" />}
-
-        <SaveBar id="mo-save-bar">
-          {/*  ref + loading attribute triggers SaveBar's native spinner */}
-          <button
-            ref={saveButtonRef}
-            variant="primary"
-            onClick={handleSave}
-          >
-            Save
-          </button>
-          <button onClick={handleDiscard} disabled={loading}>
-            Discard
-          </button>
-        </SaveBar>
+        <ui-save-bar id="my-save-bar">
+          <button variant="primary" id='abc' onClick={handleSave}>Save</button>
+          <button onClick={handleDiscard}>Discard</button>
+        </ui-save-bar>
 
         <Card roundedAbove="sm">
           <BlockStack gap="400">

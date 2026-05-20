@@ -7,7 +7,7 @@ embedded = true
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "write_products,write_metaobjects,write_metaobject_definitions"
+scopes = "write_products,write_metaobjects,write_metaobject_definitions,read_own_subscription_contracts,write_own_subscription_contracts,read_products,write_products,read_own_subscription_contracts,read_purchase_options"
 
 [product.metafields.app.demo_info]
 type = "single_line_text_field"
@@ -35,6 +35,9 @@ type = "multi_line_text_field"
 
 [webhooks]
 api_version = "2026-07"
+[[webhooks.subscriptions]]
+  uri = "/webhooks/subscriptions/create"
+  topics = ["subscription_contracts/create"]
 
   [[webhooks.subscriptions]]
   uri = "/webhooks/app/uninstalled"
@@ -48,5 +51,4 @@ api_version = "2026-07"
 redirect_urls = [ "https://example.com/api/auth" ]
 
 [build]
-include_config_on_deploy = true
 automatically_update_urls_on_dev = true
