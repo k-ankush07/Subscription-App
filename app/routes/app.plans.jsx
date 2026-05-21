@@ -9,7 +9,7 @@ import { useLoaderData } from "react-router";
 
 export const loader = async ({ request }) => {
   const { admin } = await authenticate.admin(request);
-// 
+// orders
   const response = await admin.graphql(
     `#graphql
   query {
