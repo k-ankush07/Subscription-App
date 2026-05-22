@@ -1,13 +1,17 @@
 import React from 'react'
-import Templates from "../routes/components/Templates"
-function create() {
+import Templates from "./components/Templates"
+
+
+function Create() {
+
+  
   return (
    <>
-    <Templates />
+    <Templates  />
    </>
      
    
   )
 }
 
-export default create
+export default Create
