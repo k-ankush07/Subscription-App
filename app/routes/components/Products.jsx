@@ -17,9 +17,9 @@ import {
     ChevronDownIcon,
     ChevronUpIcon,
 } from "@shopify/polaris-icons";
-import {useAuthenticatedFetch} from '../utils/useAuthenticatedFetch'
+// import { useAuthenticatedFetch } from '../utils/useAuthenticatedFetch'
 
-const Products = forwardRef(function Products({  onSelect, selectedItems = [], onPaginationChange }, ref) {
+const Products = forwardRef(function Products({ onSelect, selectedItems = [], onPaginationChange }, ref) {
 
     const authenticatedFetch = useAuthenticatedFetch();
 
@@ -35,7 +35,6 @@ const Products = forwardRef(function Products({  onSelect, selectedItems = [], o
     const searchDebounceRef = useRef(null);
     const currentSearchRef = useRef("");
     const [currency, setCurrency] = useState("");
-
     const cursorRef = useRef(null);
     const cursorStackRef = useRef([]);
 
@@ -53,7 +52,8 @@ const Products = forwardRef(function Products({  onSelect, selectedItems = [], o
         handlePrev,
         handleNext,
     }));
- 
+   
+
     useEffect(() => {
         onPaginationChange?.({
             hasPrevious: cursorStack.length > 0,
@@ -79,8 +79,8 @@ const Products = forwardRef(function Products({  onSelect, selectedItems = [], o
             const q = searchQuery !== undefined ? searchQuery : currentSearchRef.current;
             const res = await authenticatedFetch(`/api/products?cursor=${cursorValue || ""}&query=${encodeURIComponent(q)}`);
             const data = await res.json();
-             const currency = data?.data?.shop?.currencyCode;
-             setCurrency(currency);
+            const currency = data?.data?.shop?.currencyCode;
+            setCurrency(currency);
 
             const edges = data?.data?.products?.edges || [];
 
@@ -140,60 +140,81 @@ const Products = forwardRef(function Products({  onSelect, selectedItems = [], o
         await loadMore(prevCursor, currentSearchRef.current);
     };
 
-    const toggleSelect = (variant, product) => {
+    const toggleProduct = (product) => {
+        const allVariantIds = product.variants.map(v => v.id);
+
+        const isFullySelected = allVariantIds.every(id =>
+            selected.some(s => s.id === id)
+        );
+
         let updated;
-        const exists = selected.some((v) => v.id === variant.id);
+
+        if (isFullySelected) {
+            // remove all variants of this product
+            updated = selected.filter(
+                v => !allVariantIds.includes(v.id)
+            );
+        } else {
+            // add all variants (avoid duplicates)
+            const newVariants = product.variants.map(v => ({
+                ...v,
+                productTitle: product.title,
+                productImage: product.image,
+                handle: product.handle,
+            }));
+
+            const merged = [...selected, ...newVariants];
+
+            // remove duplicates
+            updated = merged.filter(
+                (item, index, arr) =>
+                    arr.findIndex(v => v.id === item.id) === index
+            );
+        }
+
+        setSelected(updated);
+        onSelect(updated);
+    };
+    const toggleSelect = (variant, product) => {
+        const exists = selected.some(v => v.id === variant.id);
+
+        let updated;
 
         if (exists) {
-            updated = [];
+            // remove only this variant
+            updated = selected.filter(v => v.id !== variant.id);
         } else {
+            // add variant
             updated = [
+                ...selected,
                 {
                     ...variant,
                     productTitle: product.title,
                     productImage: product.image,
                     handle: product.handle,
-                },
+                }
             ];
         }
 
         setSelected(updated);
         onSelect(updated);
+    };
+    const getProductState = (product) => {
+        const variantIds = product.variants.map(v => v.id);
+
+        const selectedCount = selected.filter(v =>
+            variantIds.includes(v.id)
+        ).length;
+
+        if (selectedCount === 0) return "none";
+        if (selectedCount === variantIds.length) return "all";
+        return "partial";
     };
 
     const isSelected = (id) => selected.some((v) => v.id === id);
 
-    const isProductSelected = (product) => {
-        return selected.some((v) =>
-            product.variants.some((pv) => pv.id === v.id)
-        );
-    };
 
-    const toggleProduct = (product) => {
-        const firstVariant = product.variants[0];
 
-        const isAlreadySelected = selected.some(
-            (v) => v.id === firstVariant.id
-        );
-
-        let updated;
-
-        if (isAlreadySelected) {
-            updated = [];
-        } else {
-            updated = [
-                {
-                    ...firstVariant,
-                    productTitle: product.title,
-                    productImage: product.image,
-                    handle: product.handle,
-                },
-            ];
-        }
-
-        setSelected(updated);
-        onSelect(updated);
-    };
 
     const toggleVariants = (productId) => {
         setOpenProducts((prev) => ({
@@ -210,175 +231,176 @@ const Products = forwardRef(function Products({  onSelect, selectedItems = [], o
     });
 
     return (
-       <Card title='Products'>
-         <BlockStack gap="300">
-            <InlineStack gap="200">
-                <div style={{ flex: 1 }}>
-                    <TextField
-                        placeholder="Search products"
-                        value={search}
-                        onChange={setSearch}
-                        autoComplete="off"
-                    />
-                </div>
-            </InlineStack>
-
-
-            <div style={{ borderTop: "1px solid #e1e3e5", position: "relative", minHeight: "200px" }}>
-                {loading && (
-                    <>
-                        <div
-                            style={{
-                                position: "absolute",
-                                top: 0,
-                                left: 0,
-                                right: 0,
-                                bottom: 0,
-                                background: "rgba(255,255,255,0.7)",
-                                zIndex: 10,
-                            }}
+        <Card title='Products'>
+            <BlockStack gap="300">
+                <InlineStack gap="200">
+                    <div style={{ flex: 1 }}>
+                        <TextField
+                            placeholder="Search products"
+                            value={search}
+                            onChange={setSearch}
+                            autoComplete="off"
                         />
-                        <div
-                            style={{
-                                position: "fixed",
-                                top: "50%",
-                                left: "50%",
-                                transform: "translate(-50%, -50%)",
-                                zIndex: 11,
-                            }}
-                        >
-                            <Spinner accessibilityLabel="Loading products" size="large" />
-                        </div>
-                    </>
-                )}
-                {visibleProducts.length === 0 ? (
-                    <div style={{ padding: "20px", textAlign: "center" }}>
-                        <Text tone="subdued">No items to display</Text>
                     </div>
-                ) : (visibleProducts.map((product, index) => (
-                    <div key={product.id}>
-                        <div
-                            style={{
-                                padding: "10px 0",
-                                borderBottom:
-                                    index !== products.length - 1
-                                        ? "1px solid #e1e3e5"
-                                        : "none",
-                            }}
-                        >
-                            <InlineStack align="space-between" wrap={false} gap="500">
+                </InlineStack>
 
-                                {/* LEFT SIDE */}
-                                <div style={{ flex: 1 }}>
-                                    <InlineStack gap="200" align="start" blockAlign="start" wrap={false}>
-                                        <Checkbox
-                                            checked={isProductSelected(product)}
-                                            onChange={() => toggleProduct(product)}
-                                        />
 
-                                        <div style={{ minWidth: "40px" }}>
-                                            <Thumbnail source={product.image} size="small" />
-                                        </div>
-
-                                        <div
-                                            style={{ cursor: "pointer" }}
-                                            onClick={() => toggleVariants(product.id)}
-                                        >
-                                            <BlockStack>
-                                                <Text fontWeight="medium">{product.title}</Text>
-
-                                                {product.variants.length > 0 && (
-                                                    <InlineStack gap="50" align="left">
-                                                        <div style={{ display: "inline-flex", alignItems: "center" }}>
-                                                            <Text tone="subdued" variant="bodySm">
-                                                                {product.variants.length} variants
-                                                            </Text>
-                                                            {product.variants.length > 1 && (
-                                                                <Icon source={openProducts[product.id] ? ChevronUpIcon : ChevronDownIcon} />
-                                                            )}
-                                                        </div>
-                                                    </InlineStack>
-                                                )}
-                                            </BlockStack>
-                                        </div>
-                                    </InlineStack>
-                                </div>
-
-                                {/* RIGHT SIDE */}
-                                <div style={{
-                                    display: "flex", gap: "8px", justifyContent: "flex-end", minWidth: product.variants.every((v) => !v.available)
-                                        ? "165px"
-                                        : "90px",
-                                }}>
-                                    <div
-                                        style={{
-                                            lineHeight: 1,
-                                            display: "flex",
-                                            alignItems: "center",
-                                            height: "25px",
-                                            gap: "8px"
-                                        }}
-                                    >
-                                        {product.status !== "ACTIVE" && (
-                                            <Badge tone={product.status === "DRAFT" ? "info" : "warning"}>
-                                                {product.status === "DRAFT" ? "Draft" : "Archived"}
-                                            </Badge>
-                                        )}
-                                        {product.variants.every((v) => !v.available) && (
-                                            <Badge tone="warning">Out of stock</Badge>
-                                        )}
-                                    </div>
-                                    <Text alignment="end">{product.price} {currency}</Text>
-                                </div>
-
-                            </InlineStack>
+                <div style={{ borderTop: "1px solid #e1e3e5", position: "relative", minHeight: "200px" }}>
+                    {loading && (
+                        <>
+                            <div
+                                style={{
+                                    position: "absolute",
+                                    top: 0,
+                                    left: 0,
+                                    right: 0,
+                                    bottom: 0,
+                                    background: "rgba(255,255,255,0.7)",
+                                    zIndex: 10,
+                                }}
+                            />
+                            <div
+                                style={{
+                                    position: "fixed",
+                                    top: "50%",
+                                    left: "50%",
+                                    transform: "translate(-50%, -50%)",
+                                    zIndex: 11,
+                                }}
+                            >
+                                <Spinner accessibilityLabel="Loading products" size="large" />
+                            </div>
+                        </>
+                    )}
+                    {visibleProducts.length === 0 ? (
+                        <div style={{ padding: "20px", textAlign: "center" }}>
+                            <Text tone="subdued">No items to display</Text>
                         </div>
+                    ) : (visibleProducts.map((product, index) => (
+                        <div key={product.id}>
+                            <div
+                                style={{
+                                    padding: "10px 0",
+                                    borderBottom:
+                                        index !== products.length - 1
+                                            ? "1px solid #e1e3e5"
+                                            : "none",
+                                }}
+                            >
+                                <InlineStack align="space-between" wrap={false} gap="500">
 
-                        {product.variants.length > 1 &&
-                            openProducts[product.id] &&
-                            product.variants.map((v) => {
-                                if (showSelected && !isSelected(v.id)) return null;
+                                    {/* LEFT SIDE */}
+                                    <div style={{ flex: 1 }}>
+                                        <InlineStack gap="200" align="start" blockAlign="start" wrap={false}>
+                                            <Checkbox
+                                                checked={getProductState(product) === "all"}
+                                                onChange={() => toggleProduct(product)}
 
-                                return (
-                                    <div
-                                        key={v.id}
-                                        style={{
-                                            padding: "8px 0 8px 40px",
-                                            borderBottom: "1px solid #f1f2f3",
-                                        }}
-                                    >
-                                        <InlineStack align="space-between">
+                                            />
 
-                                            <InlineStack gap="200" align="center">
-                                                <Checkbox
-                                                    checked={isSelected(v.id)}
-                                                    onChange={() => toggleSelect(v, product)}
-                                                />
+                                            <div style={{ minWidth: "40px" }}>
+                                                <Thumbnail source={product.image} size="small" />
+                                            </div>
 
-                                                <Thumbnail
-                                                    source={v.image || product.image}
-                                                    size="extraSmall"
-                                                />
+                                            <div
+                                                style={{ cursor: "pointer" }}
+                                                onClick={() => toggleVariants(product.id)}
+                                            >
+                                                <BlockStack>
+                                                    <Text fontWeight="medium">{product.title}</Text>
 
-                                                <Text>{v.title}</Text>
-                                            </InlineStack>
-
-                                            <InlineStack gap="200">
-                                                {!v.available && (
-                                                    <Badge tone="warning">Out of stock</Badge>
-                                                )}
-                                                <Text>{v.price} {currency}</Text>
-                                            </InlineStack>
+                                                    {product.variants.length > 0 && (
+                                                        <InlineStack gap="50" align="left">
+                                                            <div style={{ display: "inline-flex", alignItems: "center" }}>
+                                                                <Text tone="subdued" variant="bodySm">
+                                                                    {product.variants.length} variants
+                                                                </Text>
+                                                                {product.variants.length > 1 && (
+                                                                    <Icon source={openProducts[product.id] ? ChevronUpIcon : ChevronDownIcon} />
+                                                                )}
+                                                            </div>
+                                                        </InlineStack>
+                                                    )}
+                                                </BlockStack>
+                                            </div>
                                         </InlineStack>
                                     </div>
-                                );
-                            })}
-                    </div>
-                ))
-                )}
-            </div>
-        </BlockStack>
-       </Card>
+
+                                    {/* RIGHT SIDE */}
+                                    <div style={{
+                                        display: "flex", gap: "8px", justifyContent: "flex-end", minWidth: product.variants.every((v) => !v.available)
+                                            ? "165px"
+                                            : "90px",
+                                    }}>
+                                        <div
+                                            style={{
+                                                lineHeight: 1,
+                                                display: "flex",
+                                                alignItems: "center",
+                                                height: "25px",
+                                                gap: "8px"
+                                            }}
+                                        >
+                                            {product.status !== "ACTIVE" && (
+                                                <Badge tone={product.status === "DRAFT" ? "info" : "warning"}>
+                                                    {product.status === "DRAFT" ? "Draft" : "Archived"}
+                                                </Badge>
+                                            )}
+                                            {product.variants.every((v) => !v.available) && (
+                                                <Badge tone="warning">Out of stock</Badge>
+                                            )}
+                                        </div>
+                                        <Text alignment="end">{product.price} {currency}</Text>
+                                    </div>
+
+                                </InlineStack>
+                            </div>
+
+                            {product.variants.length > 1 &&
+                                openProducts[product.id] &&
+                                product.variants.map((v) => {
+                                    if (showSelected && !isSelected(v.id)) return null;
+
+                                    return (
+                                        <div
+                                            key={v.id}
+                                            style={{
+                                                padding: "8px 0 8px 40px",
+                                                borderBottom: "1px solid #f1f2f3",
+                                            }}
+                                        >
+                                            <InlineStack align="space-between">
+
+                                                <InlineStack gap="200" align="center">
+                                                    <Checkbox
+                                                        checked={isSelected(v.id)}
+                                                        onChange={() => toggleSelect(v, product)}
+                                                    />
+
+                                                    <Thumbnail
+                                                        source={v.image || product.image}
+                                                        size="extraSmall"
+                                                    />
+
+                                                    <Text>{v.title}</Text>
+                                                </InlineStack>
+
+                                                <InlineStack gap="200">
+                                                    {!v.available && (
+                                                        <Badge tone="warning">Out of stock</Badge>
+                                                    )}
+                                                    <Text>{v.price} {currency}</Text>
+                                                </InlineStack>
+                                            </InlineStack>
+                                        </div>
+                                    );
+                                })}
+                        </div>
+                    ))
+                    )}
+                </div>
+            </BlockStack>
+        </Card>
     );
 });
 
