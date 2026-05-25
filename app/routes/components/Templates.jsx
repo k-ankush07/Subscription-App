@@ -68,6 +68,9 @@ function Templates({ products, nextCursor, hasNextPage }) {
       [key]: value
     }));
   };
+   const addOption = () => {
+    setOptions((prev) => [...prev, { ...defaultOption }]);
+  };
   useEffect(() => {
     const { swap, variant, quantity } = productChanges;
 
@@ -272,7 +275,7 @@ function Templates({ products, nextCursor, hasNextPage }) {
               </BlockStack>
             </Card>
             {/* <DeliveryOption /> */}
-            <DeliveryOption options={options} setOptions={setOptions} />
+            <DeliveryOption options={options} setOptions={setOptions}   addOption={addOption} />
           </BlockStack>
         </Grid.Cell>
 

@@ -623,8 +623,9 @@ function DeliveryOptionCard({ option, index, onChange, onDelete,
   );
 }
 
-function DeliveryOptions({ options, setOptions }) {
+function DeliveryOptions({ options, setOptions, addOption}) {
   // const [options, setOptions] = useState([{ ...defaultOption }]);
+  
 
 
   const handleChange = (index, field, value) => {
@@ -633,9 +634,7 @@ function DeliveryOptions({ options, setOptions }) {
     );
   };
 
-  const addOption = () => {
-    setOptions((prev) => [...prev, { ...defaultOption }]);
-  };
+
   const deleteOption = (index) => {
     setOptions((prev) => prev.filter((_, i) => i !== index));
   };
