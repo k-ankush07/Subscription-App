@@ -3,7 +3,7 @@ import {
   BlockStack, Button, Card, Checkbox, Divider,
   Icon, InlineGrid, InlineStack, Select, Text, TextField, Banner, InlineError
 } from "@shopify/polaris";
-import { DuplicateIcon } from "@shopify/polaris-icons";
+import { DuplicateIcon, DeleteIcon } from "@shopify/polaris-icons";
 
 const defaultOption = {
   name: "",
@@ -34,7 +34,8 @@ const defaultOption = {
   minQuantity: "1",
 };
 
-function DeliveryOptionCard({ option, index, onChange }) {
+function DeliveryOptionCard({ option, index, onChange, onDelete,
+  onDuplicate, }) {
   const update = (field) => (value) => onChange(index, field, value);
   const updateChecked = (field) => (checked) => onChange(index, field, checked);
   const [showActions, setShowActions] = useState(false);
@@ -44,9 +45,22 @@ function DeliveryOptionCard({ option, index, onChange }) {
       <BlockStack gap="400">
         <InlineStack align="space-between">
           <Text as="h3" variant="headingSm">Option #{index + 1}</Text>
-          <div style={{ margin: 0 }}>
-            <Icon source={DuplicateIcon} tone="base" />
-          </div>
+          <InlineStack gap="300">
+            <Button
+              icon={DuplicateIcon}
+              variant="tertiary"
+              onClick={() => onDuplicate(index)}
+            />
+
+            {index !== 0 && (
+  <Button
+    icon={DeleteIcon}
+    tone="critical"
+    variant="tertiary"
+    onClick={() => onDelete(index)}
+  />
+)}
+          </InlineStack>
 
         </InlineStack>
 
@@ -123,33 +137,33 @@ function DeliveryOptionCard({ option, index, onChange }) {
             <InlineGrid columns={2} gap="400">
 
               {/* BILLING FREQUENCY */}
-             <BlockStack gap="200">
-  <Text>Billing frequency</Text>
+              <BlockStack gap="200">
+                <Text>Billing frequency</Text>
 
-  <TextField
-  label=""
-  type="number"
-  min={1}
-  prefix="Every"
-  autoComplete="off"
-  value={option.billingFrequency || ""}
-  onChange={(value) => {
-    // 0 aur negative block
-    if (Number(value) < 0) return;
+                <TextField
+                  label=""
+                  type="number"
+                  min={1}
+                  prefix="Every"
+                  autoComplete="off"
+                  value={option.billingFrequency || ""}
+                  onChange={(value) => {
+                    // 0 aur negative block
+                    if (Number(value) < 0) return;
 
-    update("billingFrequency")(value);
-  }}
-  error={
-    option.billingFrequency &&
-    option.deliveryFrequency &&
-    Number(option.billingFrequency) %
-      Number(option.deliveryFrequency) !==
-      0
-      ? `Billing frequency must be multiple of ${option.deliveryFrequency}`
-      : ""
-  }
-/>
-</BlockStack>
+                    update("billingFrequency")(value);
+                  }}
+                  error={
+                    option.billingFrequency &&
+                      option.deliveryFrequency &&
+                      Number(option.billingFrequency) %
+                      Number(option.deliveryFrequency) !==
+                      0
+                      ? `Billing frequency must be multiple of ${option.deliveryFrequency}`
+                      : ""
+                  }
+                />
+              </BlockStack>
 
               {/* BILLING INTERVAL */}
               <BlockStack gap="200">
@@ -336,12 +350,12 @@ function DeliveryOptionCard({ option, index, onChange }) {
                   <TextField
                     label=""
                     prefix={
-                      option.shippingDiscountType  === "percentage"
+                      option.shippingDiscountType === "percentage"
                         ? ""
                         : "₹"
                     }
                     suffix={
-                      option.shippingDiscountType  === "percentage"
+                      option.shippingDiscountType === "percentage"
                         ? "%"
                         : ""
                     }
@@ -620,6 +634,21 @@ function DeliveryOptions() {
   const addOption = () => {
     setOptions((prev) => [...prev, { ...defaultOption }]);
   };
+  const deleteOption = (index) => {
+  setOptions((prev) => prev.filter((_, i) => i !== index));
+};
+
+const duplicateOption = (index) => {
+  setOptions((prev) => {
+    const copied = { ...prev[index] };
+
+    return [
+      ...prev.slice(0, index + 1),
+      copied,
+      ...prev.slice(index + 1),
+    ];
+  });
+};
 
   return (
     <div style={{ paddingBottom: "30px" }}>
@@ -633,6 +662,8 @@ function DeliveryOptions() {
               option={opt}
               index={i}
               onChange={handleChange}
+  onDelete={deleteOption}
+  onDuplicate={duplicateOption}
             />
           ))}
 
