@@ -5,34 +5,7 @@ import {
 } from "@shopify/polaris";
 import { DuplicateIcon, DeleteIcon } from "@shopify/polaris-icons";
 
-const defaultOption = {
-  name: "",
-  billingType: "pay",
-  billingFrequency: "",
-  billingInterval: "weeks",
-  deliveryInterval: "days",
-  minOrders: "disabled",
-  maxOrders: "unlimited",
-  giveDiscount: false,
-  discountAmount: "",
-  discountType: "amount",
-  changeDiscountAfter: false,
-  discountAmount2: "",
-  afterOrders: "",
-  discountType2: "amount",
-  giveShippingDiscount: false,
-  shippingDiscount: "",
-  shippingAfterOrders: "",
-  shippingDiscountType: "fixed",
-  allowAutoActions: false,
-  changeQtyAfterOrders: false,
-  changeQtyQuantity: "1",
-  changeQtyAfterOrdersNum: "1",
-  removeFreeProducts: false,
-  removeFreeAfterOrders: "1",
-  setMinQty: false,
-  minQuantity: "1",
-};
+
 
 function DeliveryOptionCard({ option, index, onChange, onDelete,
   onDuplicate, }) {
@@ -44,7 +17,11 @@ function DeliveryOptionCard({ option, index, onChange, onDelete,
     <Card>
       <BlockStack gap="400">
         <InlineStack align="space-between">
-          <Text as="h3" variant="headingSm">Option #{index + 1}</Text>
+          <Text as="h3" variant="headingSm">
+            {option.name
+              ? option.name
+              : `Option #${index + 1}`}
+          </Text>
           <InlineStack gap="300">
             <Button
               icon={DuplicateIcon}
@@ -53,13 +30,13 @@ function DeliveryOptionCard({ option, index, onChange, onDelete,
             />
 
             {index !== 0 && (
-  <Button
-    icon={DeleteIcon}
-    tone="critical"
-    variant="tertiary"
-    onClick={() => onDelete(index)}
-  />
-)}
+              <Button
+                icon={DeleteIcon}
+
+                variant="tertiary"
+                onClick={() => onDelete(index)}
+              />
+            )}
           </InlineStack>
 
         </InlineStack>
@@ -104,9 +81,15 @@ function DeliveryOptionCard({ option, index, onChange, onDelete,
 
             <TextField
               label=""
+              type="number"
+              min={0}
               autoComplete="off"
               value={option.deliveryFrequency}
-              onChange={update("deliveryFrequency")}
+              onChange={(value) => {
+                if (Number(value) < 0) return;
+
+                update("deliveryFrequency")(value);
+              }}
             />
           </BlockStack>
 
@@ -143,12 +126,11 @@ function DeliveryOptionCard({ option, index, onChange, onDelete,
                 <TextField
                   label=""
                   type="number"
-                  min={1}
+                  min={0}
                   prefix="Every"
                   autoComplete="off"
                   value={option.billingFrequency || ""}
                   onChange={(value) => {
-                    // 0 aur negative block
                     if (Number(value) < 0) return;
 
                     update("billingFrequency")(value);
@@ -156,10 +138,12 @@ function DeliveryOptionCard({ option, index, onChange, onDelete,
                   error={
                     option.billingFrequency &&
                       option.deliveryFrequency &&
-                      Number(option.billingFrequency) %
-                      Number(option.deliveryFrequency) !==
-                      0
-                      ? `Billing frequency must be multiple of ${option.deliveryFrequency}`
+                      (
+                        Number(option.billingFrequency) <= Number(option.deliveryFrequency) ||
+                        Number(option.billingFrequency) %
+                        Number(option.deliveryFrequency) !== 0
+                      )
+                      ? `Billing frequency must be greater than and multiple of ${option.deliveryFrequency}`
                       : ""
                   }
                 />
@@ -245,6 +229,8 @@ function DeliveryOptionCard({ option, index, onChange, onDelete,
                   <Text>Discount amount</Text>
                   <TextField
                     label=""
+                    type="number"
+                     min={0}
                     prefix={
                       option.discountType === "percentage"
                         ? ""
@@ -287,6 +273,8 @@ function DeliveryOptionCard({ option, index, onChange, onDelete,
                     <Text>Discount amount</Text>
                     <TextField
                       label=""
+                      min={0}
+                      type="number"
                       prefix={
                         option.discountType2 === "percentage"
                           ? ""
@@ -306,6 +294,8 @@ function DeliveryOptionCard({ option, index, onChange, onDelete,
                     <Text>After # of orders</Text>
                     <TextField
                       label=""
+                      type="number"
+                      min={1}
                       autoComplete="off"
                       value={option.afterOrders}
                       onChange={update("afterOrders")}
@@ -349,6 +339,8 @@ function DeliveryOptionCard({ option, index, onChange, onDelete,
                   <Text>Discount</Text>
                   <TextField
                     label=""
+                    type="number"
+                      min={0}
                     prefix={
                       option.shippingDiscountType === "percentage"
                         ? ""
@@ -368,6 +360,8 @@ function DeliveryOptionCard({ option, index, onChange, onDelete,
                   <Text>After # of orders</Text>
                   <TextField
                     label=""
+                    type="number"
+                      min={1}
                     autoComplete="off"
                     value={option.shippingAfterOrders}
                     onChange={update("shippingAfterOrders")}
@@ -539,6 +533,8 @@ function DeliveryOptionCard({ option, index, onChange, onDelete,
                   <Text>Quantity</Text>
                   <TextField
                     label=""
+                    type="number"
+                      min={0}
                     autoComplete="off"
                     value={option.changeQtyQuantity}
                     onChange={update("changeQtyQuantity")}
@@ -549,6 +545,8 @@ function DeliveryOptionCard({ option, index, onChange, onDelete,
                   <Text>After # of orders</Text>
                   <TextField
                     label=""
+                    type="number"
+                      min={1}
                     autoComplete="off"
                     value={option.changeQtyAfterOrdersNum}
                     onChange={update("changeQtyAfterOrdersNum")}
@@ -581,6 +579,8 @@ function DeliveryOptionCard({ option, index, onChange, onDelete,
                 <Text>After # of orders</Text>
                 <TextField
                   label=""
+                  type="number"
+                      min={1}
                   autoComplete="off"
                   value={option.removeFreeAfterOrders}
                   onChange={update("removeFreeAfterOrders")}
@@ -608,6 +608,8 @@ function DeliveryOptionCard({ option, index, onChange, onDelete,
               <Text>Minimum quantity</Text>
               <TextField
                 label=""
+                type="number"
+                      min={0}
                 autoComplete="off"
                 value={option.minQuantity}
                 onChange={update("minQuantity")}
@@ -621,8 +623,8 @@ function DeliveryOptionCard({ option, index, onChange, onDelete,
   );
 }
 
-function DeliveryOptions() {
-  const [options, setOptions] = useState([{ ...defaultOption }]);
+function DeliveryOptions({ options, setOptions }) {
+  // const [options, setOptions] = useState([{ ...defaultOption }]);
 
 
   const handleChange = (index, field, value) => {
@@ -635,20 +637,20 @@ function DeliveryOptions() {
     setOptions((prev) => [...prev, { ...defaultOption }]);
   };
   const deleteOption = (index) => {
-  setOptions((prev) => prev.filter((_, i) => i !== index));
-};
+    setOptions((prev) => prev.filter((_, i) => i !== index));
+  };
 
-const duplicateOption = (index) => {
-  setOptions((prev) => {
-    const copied = { ...prev[index] };
+  const duplicateOption = (index) => {
+    setOptions((prev) => {
+      const copied = { ...prev[index] };
 
-    return [
-      ...prev.slice(0, index + 1),
-      copied,
-      ...prev.slice(index + 1),
-    ];
-  });
-};
+      return [
+        ...prev.slice(0, index + 1),
+        copied,
+        ...prev.slice(index + 1),
+      ];
+    });
+  };
 
   return (
     <div style={{ paddingBottom: "30px" }}>
@@ -662,8 +664,8 @@ const duplicateOption = (index) => {
               option={opt}
               index={i}
               onChange={handleChange}
-  onDelete={deleteOption}
-  onDuplicate={duplicateOption}
+              onDelete={deleteOption}
+              onDuplicate={duplicateOption}
             />
           ))}
 

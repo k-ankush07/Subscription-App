@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router';
 import Products from "../components/Products";
 import DeliveryOption from "../components/DeliveryOptions";
-
+import  { defaultOption } from "../constants/deliveryOption"
 import {
   FormLayout,
   Card,
@@ -18,13 +18,15 @@ import {
   MediaCard,
   Checkbox
 } from "@shopify/polaris";
-import { CheckboxIcon } from '@shopify/polaris-icons';
+
 
 function Templates({ products, nextCursor, hasNextPage }) {
   const navigate = useNavigate();
-
+  const [options, setOptions] = useState([{ ...defaultOption }]);
   const [openProductModal, setOpenProductModal] = useState(false);
   const [tempSelected, setTempSelected] = useState([]);
+  const [title, setTitle] = useState("Subscribe and save");
+  const [description, setDescription] = useState("Plan1");
   const [productChanges, setProductChanges] = useState({
     swap: false,
     variant: false,
@@ -41,6 +43,7 @@ function Templates({ products, nextCursor, hasNextPage }) {
   const handleClick = () => {
     navigate('/app/plans');
   };
+
   const text = {
     swap: {
       on: "Customers will be able to swap their current product to a different product in this selling plan group via the customer portal.",
@@ -108,14 +111,16 @@ function Templates({ products, nextCursor, hasNextPage }) {
               <FormLayout>
                 <TextField
                   label="Title"
-                  value="Subscribe and save"
+                  value={title}
+                  onChange={(val) => setTitle(val)}
                   autoComplete="off"
                   helpText="Customers will see this on the storefront product pages that have subscriptions."
                 />
 
                 <TextField
                   label="Internal description"
-                  value="Plan1"
+                  value={description}
+                  onChange={(val) => setDescription(val)}
                   autoComplete="off"
                   helpText="For your reference only"
                 />
@@ -140,7 +145,7 @@ function Templates({ products, nextCursor, hasNextPage }) {
                 </InlineStack>
               </BlockStack>
             </Card>
-           
+
 
             <Modal
               open={openProductModal}
@@ -249,52 +254,167 @@ function Templates({ products, nextCursor, hasNextPage }) {
                 </div>
               </BlockStack>
             </Card>
-            <DeliveryOption />
+            {/* <DeliveryOption /> */}
+            <DeliveryOption options={options} setOptions={setOptions} />
           </BlockStack>
         </Grid.Cell>
 
         {/* RIGHT SIDE */}
-        <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 2, lg: 4 }}>
-          <div style={{position:"sticky", top:"0px"}}>
+        {/* <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 2, lg: 4 }}>
+          <div style={{ position: "sticky", top: "0px" }}>
             <Card>
-            <BlockStack gap="300">
+              <BlockStack gap="300">
 
-              <div>
-                <Text variant="headingMd" as="h2">
-                  Summary
-                </Text>
-                <ul style={{ paddingLeft: '18px', margin: 0 }}>
-                  <li>1 delivery</li>
-                </ul>
-              </div>
+                <div>
+                  <Text variant="headingMd" as="h2">
+                    Summary
+                  </Text>
+                  <ul style={{ paddingLeft: '18px', margin: 0 }}>
+                    <li>1 delivery</li>
+                  </ul>
+                </div>
 
 
-              <div>
-                <Text variant="headingMd" as="h2">
-                  Customer product changes
-                </Text>
-                <ul style={{ paddingLeft: '18px', margin: 0 }}>
-                  <li> Allow product swaps</li>
-                  <li>Allow variant changes</li>
-                  <li>Allow quantity changes</li>
-                  <li>Keep discounts on product changes</li>
-                </ul>
-              </div>
+                <div>
+                  <Text variant="headingMd" as="h2">
+                    Customer product changes
+                  </Text>
+                  <ul style={{ paddingLeft: '18px', margin: 0 }}>
+                    <li> Allow product swaps</li>
+                    <li>Allow variant changes</li>
+                    <li>Allow quantity changes</li>
+                    <li>Keep discounts on product changes</li>
+                  </ul>
+                </div>
 
-              <div>
-                <Text variant="headingMd" as="h2">
-                  Option 1
-                </Text>
-                <ul style={{ paddingLeft: '18px', margin: 0 }}>
-                  <li>Delivery: every 2 months</li>
-                  <li>Save 10% off on the initial order and all future orders</li>
-                </ul>
-              </div>
+                <div>
+                  <Text variant="headingMd" as="h2">
+                    Option 1
+                  </Text>
+                  <ul style={{ paddingLeft: '18px', margin: 0 }}>
+                    <li>Delivery: every 2 months</li>
+                    <li>Save 10% off on the initial order and all future orders</li>
+                  </ul>
+                </div>
 
-            </BlockStack>
+              </BlockStack>
 
-           
-          </Card>
+
+            </Card>
+          </div>
+        </Grid.Cell> */}
+        {/* RIGHT SIDE - DYNAMIC SUMMARY */}
+        <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 2, lg: 4 }}>
+          <div style={{ position: "sticky", top: "0px" }}>
+            <Card>
+              <BlockStack gap="300">
+
+                {/* PLAN SUMMARY */}
+                <div>
+                  <Text variant="headingMd" as="h2">Summary</Text>
+                  <ul style={{ paddingLeft: '18px', margin: 0 }}>
+                    <li>{options.length} delivery option{options.length !== 1 ? 's' : ''}</li>
+                  </ul>
+                </div>
+
+                {/* CUSTOMER CHANGES */}
+                <div>
+                 
+                  {Object.values(productChanges).every(v => !v) ? (
+                   ""
+                  ) : (
+                    <>
+                     <Text variant="headingMd" as="h2">Customer product changes</Text>
+                    <ul style={{ paddingLeft: '18px', margin: 0 }}>
+                      {productChanges.swap && <li>Allow product swaps</li>}
+                      {productChanges.variant && <li>Allow variant changes</li>}
+                      {productChanges.quantity && <li>Allow quantity changes</li>}
+                      {productChanges.keepDiscount && <li>Keep discounts on product changes</li>}
+                    </ul>
+                    </>
+                  )}
+                </div>
+
+                {/* DELIVERY OPTIONS */}
+                {options.map((opt, i) => (
+                  <div key={i}>
+                    <Text variant="headingMd" as="h2">
+                      {opt.name || `Option ${i + 1}`}
+                    </Text>
+                    <ul style={{ paddingLeft: '18px', margin: 0 }}>
+
+                      {/* Delivery */}
+                      {opt.deliveryFrequency && (
+                        <li>Delivery: every {opt.deliveryFrequency} {opt.deliveryInterval}</li>
+                      )}
+
+                      {/* Billing type */}
+                      <li>{opt.billingType === 'prepaid' ? 'Pre-paid' : 'Pay as you go'}</li>
+
+                      {/* Orders range */}
+                      {opt.minOrders !== 'disabled' && (
+                        <li>Min {opt.minOrders} orders</li>
+                      )}
+                      {opt.maxOrders !== 'unlimited' && (
+                        <li>Max {opt.maxOrders} orders</li>
+                      )}
+
+                      {/* Discount */}
+                      {opt.giveDiscount && opt.discountAmount && (
+                        <li>
+                          {opt.discountType === 'percentage'
+                            ? `${opt.discountAmount}% off`
+                            : opt.discountType === 'fixed'
+                              ? `Fixed price ₹${opt.discountAmount}`
+                              : `₹${opt.discountAmount} off`}
+                          {opt.changeDiscountAfter && opt.discountAmount2 && opt.afterOrders
+                            ? `, then ${opt.discountType2 === 'percentage'
+                              ? `${opt.discountAmount2}%`
+                              : `₹${opt.discountAmount2}`} after ${opt.afterOrders} orders`
+                            : ''}
+                        </li>
+                      )}
+
+                      {/* Shipping discount */}
+                      {opt.giveShippingDiscount && opt.shippingDiscount && (
+                        <li>
+                          Shipping: {opt.shippingDiscountType === 'percentage'
+                            ? `${opt.shippingDiscount}% off`
+                            : `₹${opt.shippingDiscount} off`}
+                          {opt.shippingAfterOrders ? ` after ${opt.shippingAfterOrders} orders` : ''}
+                        </li>
+                      )}
+
+                      {/* Change Qty After Orders */}
+                      {opt.changeQtyAfterOrders && opt.changeQtyQuantity && (
+                        <li>
+                          Change qty to {opt.changeQtyQuantity} after {opt.changeQtyAfterOrdersNum} orders
+                        </li>
+                      )}
+
+                      {/* Remove Free Products */}
+                      {opt.removeFreeProducts && (
+                        <li>
+                          Remove free products after {opt.removeFreeAfterOrders} orders
+                        </li>
+                      )}
+
+                      {/* Min quantity */}
+                      {opt.setMinQty && opt.minQuantity && (
+                        <li>Min qty: {opt.minQuantity}</li>
+                      )}
+
+                      {/* Min quantity */}
+                      {opt.setMinQty && opt.minQuantity && (
+                        <li>Min qty: {opt.minQuantity}</li>
+                      )}
+
+                    </ul>
+                  </div>
+                ))}
+
+              </BlockStack>
+            </Card>
           </div>
         </Grid.Cell>
 
