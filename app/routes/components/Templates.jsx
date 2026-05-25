@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router';
 import Products from "../components/Products";
+import DeliveryOption from "../components/DeliveryOptions";
 
 import {
   FormLayout,
@@ -139,6 +140,7 @@ function Templates({ products, nextCursor, hasNextPage }) {
                 </InlineStack>
               </BlockStack>
             </Card>
+           
 
             <Modal
               open={openProductModal}
@@ -247,7 +249,7 @@ function Templates({ products, nextCursor, hasNextPage }) {
                 </div>
               </BlockStack>
             </Card>
-            
+            <DeliveryOption />
           </BlockStack>
         </Grid.Cell>
 
@@ -290,6 +292,8 @@ function Templates({ products, nextCursor, hasNextPage }) {
               </div>
 
             </BlockStack>
+
+           
           </Card>
           </div>
         </Grid.Cell>

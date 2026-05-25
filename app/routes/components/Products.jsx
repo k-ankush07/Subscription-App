@@ -17,7 +17,7 @@ import {
     ChevronDownIcon,
     ChevronUpIcon,
 } from "@shopify/polaris-icons";
-// import { useAuthenticatedFetch } from '../utils/useAuthenticatedFetch'
+import { useAuthenticatedFetch } from '../utils/useAuthenticatedFetch'
 
 const Products = forwardRef(function Products({ onSelect, selectedItems = [], onPaginationChange }, ref) {
 
