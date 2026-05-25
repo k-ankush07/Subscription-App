@@ -135,7 +135,7 @@ function DeliveryOptionCard({ option, index, onChange }) {
   value={option.billingFrequency || ""}
   onChange={(value) => {
     // 0 aur negative block
-    if (Number(value) <= 0) return;
+    if (Number(value) < 0) return;
 
     update("billingFrequency")(value);
   }}
