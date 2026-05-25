@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import Products from "../components/Products";
 import DeliveryOption from "../components/DeliveryOptions";
-import  { defaultOption } from "../constants/deliveryOption"
+import { defaultOption } from "../constants/deliveryOption"
 import {
   FormLayout,
   Card,
@@ -28,10 +28,10 @@ function Templates({ products, nextCursor, hasNextPage }) {
   const [title, setTitle] = useState("Subscribe and save");
   const [description, setDescription] = useState("Plan1");
   const [productChanges, setProductChanges] = useState({
-    swap: false,
-    variant: false,
-    quantity: false,
-    keepDiscount: false,
+    swap: true,
+    variant: true,
+    quantity: true,
+    keepDiscount: true,
   });
   const [pagination, setPagination] = useState({
     hasPrevious: false,
@@ -68,7 +68,18 @@ function Templates({ products, nextCursor, hasNextPage }) {
       [key]: value
     }));
   };
+  useEffect(() => {
+    const { swap, variant, quantity } = productChanges;
 
+    const allOff = !swap && !variant && !quantity;
+
+    if (allOff) {
+      setProductChanges(prev => ({
+        ...prev,
+        keepDiscount: false
+      }));
+    }
+  }, [productChanges.swap, productChanges.variant, productChanges.quantity]);
   return (
     <Page
       backAction={{
@@ -77,10 +88,11 @@ function Templates({ products, nextCursor, hasNextPage }) {
       }}
       title="Plan name"
       primaryAction={{ content: 'Publish' }}
-      secondaryActions={[
-        { content: 'Save as draft' },
-      ]}
+      // secondaryActions={[
+      //   { content: 'Save as draft' },
+      // ]}
     >
+      
 
       <Grid>
 
@@ -239,6 +251,11 @@ function Templates({ products, nextCursor, hasNextPage }) {
                 <div style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
                   <Checkbox
                     checked={productChanges.keepDiscount}
+                    disabled={
+                      !productChanges.swap &&
+                      !productChanges.variant &&
+                      !productChanges.quantity
+                    }
                     onChange={(val) => handleChange("keepDiscount", val)}
                   />
                   <div>
@@ -319,18 +336,18 @@ function Templates({ products, nextCursor, hasNextPage }) {
 
                 {/* CUSTOMER CHANGES */}
                 <div>
-                 
+
                   {Object.values(productChanges).every(v => !v) ? (
-                   ""
+                    ""
                   ) : (
                     <>
-                     <Text variant="headingMd" as="h2">Customer product changes</Text>
-                    <ul style={{ paddingLeft: '18px', margin: 0 }}>
-                      {productChanges.swap && <li>Allow product swaps</li>}
-                      {productChanges.variant && <li>Allow variant changes</li>}
-                      {productChanges.quantity && <li>Allow quantity changes</li>}
-                      {productChanges.keepDiscount && <li>Keep discounts on product changes</li>}
-                    </ul>
+                      <Text variant="headingMd" as="h2">Customer product changes</Text>
+                      <ul style={{ paddingLeft: '18px', margin: 0 }}>
+                        {productChanges.swap && <li>Allow product swaps</li>}
+                        {productChanges.variant && <li>Allow variant changes</li>}
+                        {productChanges.quantity && <li>Allow quantity changes</li>}
+                        {productChanges.keepDiscount && <li>Keep discounts on product changes</li>}
+                      </ul>
                     </>
                   )}
                 </div>
