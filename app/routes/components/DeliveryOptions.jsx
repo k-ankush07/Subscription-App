@@ -7,72 +7,73 @@ import { DuplicateIcon, DeleteIcon } from "@shopify/polaris-icons";
 import Products from "./Products";
 import AutomaticActions from "./AutomaticActions";
 
-function DeliveryOptionCard({ option, index, onChange, onDelete, onDuplicate, products, nextCursor, hasNextPage }) {
+function DeliveryOptionCard({ option, index, onChange, onDelete, onDuplicate, products, nextCursor, hasNextPage,isDuplicate  }) {
   const update = (field) => (value) => onChange(index, field, value);
   const [showActions, setShowActions] = useState(false);
   const [modalType, setModalType] = useState(null);
   const [tempSelected, setTempSelected] = useState([]);
+
   const [pagination, setPagination] = useState({
     hasPrevious: false, hasNext: false,
     handlePrev: () => { }, handleNext: () => { },
   });
-    useEffect(() => {
-      console.log("selectedProductssdw =>", tempSelected);
-    }, [tempSelected]);
+  useEffect(() => {
+    console.log("selectedProductssdw =>", tempSelected);
+  }, [tempSelected]);
 
 
- const updateChecked = (field) => (checked) => {
-  onChange(index, field, checked);
+  const updateChecked = (field) => (checked) => {
+    onChange(index, field, checked);
 
-  // Give discount OFF → reset related fields
-  if (field === "giveDiscount" && !checked) {
-    onChange(index, "discountAmount", "");
-    onChange(index, "discountType", "amount");
-    onChange(index, "changeDiscountAfter", false);
-    onChange(index, "discountAmount2", "");
-    onChange(index, "afterOrders", "");
-    onChange(index, "discountType2", "amount");
-  }
+    // Give discount OFF → reset related fields
+    if (field === "giveDiscount" && !checked) {
+      onChange(index, "discountAmount", "");
+      onChange(index, "discountType", "amount");
+      onChange(index, "changeDiscountAfter", false);
+      onChange(index, "discountAmount2", "");
+      onChange(index, "afterOrders", "");
+      onChange(index, "discountType2", "amount");
+    }
 
-  //  Shipping discount OFF → reset
-  if (field === "giveShippingDiscount" && !checked) {
-    onChange(index, "shippingDiscount", "");
-    onChange(index, "shippingAfterOrders", "");
-    onChange(index, "shippingDiscountType", "fixed");
-  }
+    //  Shipping discount OFF → reset
+    if (field === "giveShippingDiscount" && !checked) {
+      onChange(index, "shippingDiscount", "");
+      onChange(index, "shippingAfterOrders", "");
+      onChange(index, "shippingDiscountType", "fixed");
+    }
 
-  //  Auto actions OFF → reset EVERYTHING
-  if (field === "allowAutoActions" && !checked) {
-    setShowActions(false);
+    //  Auto actions OFF → reset EVERYTHING
+    if (field === "allowAutoActions" && !checked) {
+      setShowActions(false);
 
-    onChange(index, "changeQtyAfterOrders", false);
-    onChange(index, "changeQtyQuantity", "");
-    onChange(index, "changeQtyAfterOrdersNum", "");
-    onChange(index, "changeQtyProducts", []);
+      onChange(index, "changeQtyAfterOrders", false);
+      onChange(index, "changeQtyQuantity", "");
+      onChange(index, "changeQtyAfterOrdersNum", "");
+      onChange(index, "changeQtyProducts", []);
 
-    onChange(index, "removeFreeProducts", false);
-    onChange(index, "removeFreeAfterOrders", "");
-    onChange(index, "removeFreeProductsList", []);
-  }
+      onChange(index, "removeFreeProducts", false);
+      onChange(index, "removeFreeAfterOrders", "");
+      onChange(index, "removeFreeProductsList", []);
+    }
 
-  //  Change qty OFF → reset
-  if (field === "changeQtyAfterOrders" && !checked) {
-    onChange(index, "changeQtyQuantity", "");
-    onChange(index, "changeQtyAfterOrdersNum", "");
-    onChange(index, "changeQtyProducts", []);
-  }
+    //  Change qty OFF → reset
+    if (field === "changeQtyAfterOrders" && !checked) {
+      onChange(index, "changeQtyQuantity", "");
+      onChange(index, "changeQtyAfterOrdersNum", "");
+      onChange(index, "changeQtyProducts", []);
+    }
 
-  //  Remove free OFF → reset
-  if (field === "removeFreeProducts" && !checked) {
-    onChange(index, "removeFreeAfterOrders", "");
-    onChange(index, "removeFreeProductsList", []);
-  }
+    //  Remove free OFF → reset
+    if (field === "removeFreeProducts" && !checked) {
+      onChange(index, "removeFreeAfterOrders", "");
+      onChange(index, "removeFreeProductsList", []);
+    }
 
-  //  Set min qty OFF → reset
-  if (field === "setMinQty" && !checked) {
-    onChange(index, "minQuantity", "");
-  }
-};
+    //  Set min qty OFF → reset
+    if (field === "setMinQty" && !checked) {
+      onChange(index, "minQuantity", "");
+    }
+  };
   return (
     <Card>
       <BlockStack gap="400">
@@ -150,6 +151,7 @@ function DeliveryOptionCard({ option, index, onChange, onDelete, onDuplicate, pr
 
                 update("deliveryFrequency")(value);
               }}
+               error={isDuplicate ? "This delivery frequency already exists" : ""}
             />
           </BlockStack>
 
@@ -451,13 +453,13 @@ function DeliveryOptionCard({ option, index, onChange, onDelete, onDuplicate, pr
         <Divider />
 
         <AutomaticActions
-  option={option}
-  index={index}
-  onChange={onChange}
-  updateChecked={updateChecked}
-  showActions={showActions}
-  setShowActions={setShowActions}
-/>
+          option={option}
+          index={index}
+          onChange={onChange}
+          updateChecked={updateChecked}
+          showActions={showActions}
+          setShowActions={setShowActions}
+        />
 
         <Divider />
 
@@ -638,16 +640,51 @@ function DeliveryOptionCard({ option, index, onChange, onDelete, onDuplicate, pr
   );
 }
 
-function DeliveryOptions({ options, setOptions, addOption, products, nextCursor, hasNextPage,    }) {
+function DeliveryOptions({ options, setOptions, addOption, products, nextCursor, hasNextPage, }) {
   // const [options, setOptions] = useState([{ ...defaultOption }]);
 
 
+const isDuplicateFrequency = (options, currentIndex) => {
+  const current = options[currentIndex];
 
-  const handleChange = (index, field, value) => {
-    setOptions((prev) =>
-      prev.map((opt, i) => (i === index ? { ...opt, [field]: value } : opt))
+  if (!current?.deliveryFrequency || !current?.deliveryInterval) return false;
+
+  return options.some((opt, i) => {
+    if (i === currentIndex) return false;
+
+    return (
+      Number(opt.deliveryFrequency) === Number(current.deliveryFrequency) &&
+      opt.deliveryInterval === current.deliveryInterval
     );
-  };
+  });
+};
+  const handleChange = (index, field, value) => {
+  setOptions((prev) => {
+    const updated = prev.map((opt, i) =>
+      i === index ? { ...opt, [field]: value } : opt
+    );
+
+    // check only when frequency or interval changes
+    if (field === "deliveryFrequency" || field === "deliveryInterval") {
+      const current = updated[index];
+
+      const duplicate = updated.some((opt, i) => {
+        if (i === index) return false;
+
+        return (
+          Number(opt.deliveryFrequency) === Number(current.deliveryFrequency) &&
+          opt.deliveryInterval === current.deliveryInterval
+        );
+      });
+
+      if (duplicate) {
+  return prev; // silently block update
+}
+    }
+
+    return updated;
+  });
+};
 
 
   const deleteOption = (index) => {
@@ -683,7 +720,8 @@ function DeliveryOptions({ options, setOptions, addOption, products, nextCursor,
               products={products}
               nextCursor={nextCursor}
               hasNextPage={hasNextPage}
-             
+              isDuplicate={isDuplicateFrequency(options, i)}
+
             />
           ))}
 
