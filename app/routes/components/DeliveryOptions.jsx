@@ -1,18 +1,22 @@
 import React, { useState } from "react";
 import {
   BlockStack, Button, Card, Checkbox, Divider,
-  Icon, InlineGrid, InlineStack, Select, Text, TextField, Banner, InlineError
+  Icon, InlineGrid, InlineStack, Select, Text, TextField, Banner, InlineError,Modal, Pagination
 } from "@shopify/polaris";
 import { DuplicateIcon, DeleteIcon } from "@shopify/polaris-icons";
+import Products from "./Products";
 
 
-
-function DeliveryOptionCard({ option, index, onChange, onDelete,
-onDuplicate, }) {
+function DeliveryOptionCard({ option, index, onChange, onDelete, onDuplicate, products, nextCursor, hasNextPage }) {
   const update = (field) => (value) => onChange(index, field, value);
   const updateChecked = (field) => (checked) => onChange(index, field, checked);
   const [showActions, setShowActions] = useState(false);
-
+  const [modalType, setModalType] = useState(null);
+  const [tempSelected, setTempSelected] = useState([]);
+  const [pagination, setPagination] = useState({
+    hasPrevious: false, hasNext: false,
+    handlePrev: () => { }, handleNext: () => { },
+  });
   return (
     <Card>
       <BlockStack gap="400">
@@ -230,7 +234,7 @@ onDuplicate, }) {
                   <TextField
                     label=""
                     type="number"
-                     min={0}
+                    min={0}
                     prefix={
                       option.discountType === "percentage"
                         ? ""
@@ -340,7 +344,7 @@ onDuplicate, }) {
                   <TextField
                     label=""
                     type="number"
-                      min={0}
+                    min={0}
                     prefix={
                       option.shippingDiscountType === "percentage"
                         ? ""
@@ -361,7 +365,7 @@ onDuplicate, }) {
                   <TextField
                     label=""
                     type="number"
-                      min={1}
+                    min={1}
                     autoComplete="off"
                     value={option.shippingAfterOrders}
                     onChange={update("shippingAfterOrders")}
@@ -534,7 +538,7 @@ onDuplicate, }) {
                   <TextField
                     label=""
                     type="number"
-                      min={0}
+                    min={0}
                     autoComplete="off"
                     value={option.changeQtyQuantity}
                     onChange={update("changeQtyQuantity")}
@@ -546,7 +550,7 @@ onDuplicate, }) {
                   <TextField
                     label=""
                     type="number"
-                      min={1}
+                    min={1}
                     autoComplete="off"
                     value={option.changeQtyAfterOrdersNum}
                     onChange={update("changeQtyAfterOrdersNum")}
@@ -554,8 +558,10 @@ onDuplicate, }) {
                   />
                 </BlockStack>
               </InlineGrid>
-              <Button>Select products</Button>
-              
+              <Button onClick={() => { setTempSelected([]); setModalType('changeQty'); }}>
+                Select products
+              </Button>
+
               <InlineError message="At least one product must be selected" fieldID="myFieldID" />
             </BlockStack>
           )}
@@ -579,17 +585,21 @@ onDuplicate, }) {
                 <TextField
                   label=""
                   type="number"
-                      min={1}
+                  min={1}
                   autoComplete="off"
                   value={option.removeFreeAfterOrders}
                   onChange={update("removeFreeAfterOrders")}
                   helpText="After how many orders to remove free products from subscription"
                 />
               </BlockStack>
-              <Button>Select products</Button>
-             
+              <Button onClick={() => { setTempSelected([]); setModalType('removeFree'); }}>
+                Select products
+              </Button>
+
               <InlineError message="At least one product must be selected" fieldID="myFieldID" />
+             
             </BlockStack>
+
           )}
 
           {/* Set minimum quantity */}
@@ -617,13 +627,51 @@ onDuplicate, }) {
           )}
         </BlockStack>
       </BlockStack>
+       <Modal
+                open={modalType !== null}
+                onClose={() => setModalType(null)}
+                title="Select Products"
+                primaryAction={{
+                  content: 'Save',
+                  onAction: () => {
+                    if (modalType === 'changeQty') {
+                      onChange(index, 'changeQtyProducts', tempSelected);
+                    } else {
+                      onChange(index, 'removeFreeProducts', tempSelected);
+                    }
+                    setModalType(null);
+                  }
+                }}
+                secondaryActions={[{ content: 'Close', onAction: () => setModalType(null) }]}
+                footer={
+                  <InlineStack align="space-between">
+                    <Pagination
+                      hasPrevious={pagination.hasPrevious}
+                      onPrevious={pagination.handlePrev}
+                      hasNext={pagination.hasNext}
+                      onNext={pagination.handleNext}
+                    />
+                  </InlineStack>
+                }
+              >
+                <Modal.Section>
+                  <Products
+                    products={products}
+                    hasNextPage={hasNextPage}
+                    nextCursor={nextCursor}
+                    selectedItems={tempSelected}
+                    onSelect={setTempSelected}
+                    onPaginationChange={setPagination}
+                  />
+                </Modal.Section>
+              </Modal>
     </Card>
   );
 }
 
-function DeliveryOptions({ options, setOptions, addOption}) {
+function DeliveryOptions({ options, setOptions, addOption,products, nextCursor, hasNextPage  }) {
   // const [options, setOptions] = useState([{ ...defaultOption }]);
-  
+
 
 
   const handleChange = (index, field, value) => {
@@ -663,6 +711,9 @@ function DeliveryOptions({ options, setOptions, addOption}) {
               onChange={handleChange}
               onDelete={deleteOption}
               onDuplicate={duplicateOption}
+              products={products}           // ← add karo
+      nextCursor={nextCursor}       // ← add karo
+      hasNextPage={hasNextPage} 
             />
           ))}
 

@@ -276,7 +276,9 @@ function Templates({ products, nextCursor, hasNextPage }) {
                 </div>
               </BlockStack>
             </Card>
-            <DeliveryOption options={options} setOptions={setOptions} addOption={addOption} />
+
+            <DeliveryOption options={options} setOptions={setOptions}   addOption={addOption} products={products} nextCursor={nextCursor}    
+  hasNextPage={hasNextPage}  />
           </BlockStack>
         </Grid.Cell>
 
