@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   BlockStack, Button, Card, Checkbox, Divider,
-  Icon, InlineGrid, InlineStack, Select, Text, TextField, Banner, InlineError,Modal, Pagination
+  Icon, InlineGrid, InlineStack, Select, Text, TextField, Banner, InlineError, Modal, Pagination
 } from "@shopify/polaris";
 import { DuplicateIcon, DeleteIcon } from "@shopify/polaris-icons";
 import Products from "./Products";
@@ -9,7 +9,6 @@ import Products from "./Products";
 
 function DeliveryOptionCard({ option, index, onChange, onDelete, onDuplicate, products, nextCursor, hasNextPage }) {
   const update = (field) => (value) => onChange(index, field, value);
-  const updateChecked = (field) => (checked) => onChange(index, field, checked);
   const [showActions, setShowActions] = useState(false);
   const [modalType, setModalType] = useState(null);
   const [tempSelected, setTempSelected] = useState([]);
@@ -17,6 +16,24 @@ function DeliveryOptionCard({ option, index, onChange, onDelete, onDuplicate, pr
     hasPrevious: false, hasNext: false,
     handlePrev: () => { }, handleNext: () => { },
   });
+    useEffect(() => {
+      console.log("selectedProductssdw =>", tempSelected);
+    }, [tempSelected]);
+
+
+    const updateChecked = (field) => (checked) => {
+  onChange(index, field, checked);
+
+  // REMOVE FREE PRODUCTS RESET
+  if (field === "removeFreeProducts" && !checked) {
+    onChange(index, "removeFreeProductsList", []);
+  }
+
+  // CHANGE QTY PRODUCTS RESET
+  if (field === "changeQtyAfterOrders" && !checked) {
+    onChange(index, "changeQtyProducts", []);
+  }
+};
   return (
     <Card>
       <BlockStack gap="400">
@@ -558,11 +575,19 @@ function DeliveryOptionCard({ option, index, onChange, onDelete, onDuplicate, pr
                   />
                 </BlockStack>
               </InlineGrid>
-              <Button onClick={() => { setTempSelected([]); setModalType('changeQty'); }}>
-                Select products
+              {/* Change Qty wala button */}
+              <Button onClick={() => {
+                setTempSelected(option.changeQtyProducts || []);  // ← pehle se saved restore karo
+                setModalType('changeQty');
+              }}>
+                Select products {option.changeQtyProducts?.length > 0
+                  ? `(${option.changeQtyProducts.length} selected)`
+                  : ''}
               </Button>
-
-              <InlineError message="At least one product must be selected" fieldID="myFieldID" />
+              {/* Change Qty section mein */}
+              {option.changeQtyAfterOrders && (!option.changeQtyProducts || option.changeQtyProducts.length === 0) && (
+                <InlineError message="At least one product must be selected" fieldID="changeQtyField" />
+              )}
             </BlockStack>
           )}
 
@@ -592,12 +617,19 @@ function DeliveryOptionCard({ option, index, onChange, onDelete, onDuplicate, pr
                   helpText="After how many orders to remove free products from subscription"
                 />
               </BlockStack>
-              <Button onClick={() => { setTempSelected([]); setModalType('removeFree'); }}>
-                Select products
+              {/* Remove Free wala button */}
+              <Button onClick={() => {
+                setTempSelected(option.removeFreeProductsList || []);  // ← pehle se saved restore karo
+                setModalType('removeFree');
+              }}>
+                Select products {option.removeFreeProductsList?.length > 0
+                  ? `(${option.removeFreeProductsList.length} selected)`
+                  : ''}
               </Button>
-
-              <InlineError message="At least one product must be selected" fieldID="myFieldID" />
-             
+              {/* Remove Free section mein */}
+              {option.removeFreeProducts && (!option.removeFreeProductsList || option.removeFreeProductsList.length === 0) && (
+                <InlineError message="At least one product must be selected" fieldID="removeFreeField" />
+              )}
             </BlockStack>
 
           )}
@@ -627,49 +659,50 @@ function DeliveryOptionCard({ option, index, onChange, onDelete, onDuplicate, pr
           )}
         </BlockStack>
       </BlockStack>
-       <Modal
-                open={modalType !== null}
-                onClose={() => setModalType(null)}
-                title="Select Products"
-                primaryAction={{
-                  content: 'Save',
-                  onAction: () => {
-                    if (modalType === 'changeQty') {
-                      onChange(index, 'changeQtyProducts', tempSelected);
-                    } else {
-                      onChange(index, 'removeFreeProducts', tempSelected);
-                    }
-                    setModalType(null);
-                  }
-                }}
-                secondaryActions={[{ content: 'Close', onAction: () => setModalType(null) }]}
-                footer={
-                  <InlineStack align="space-between">
-                    <Pagination
-                      hasPrevious={pagination.hasPrevious}
-                      onPrevious={pagination.handlePrev}
-                      hasNext={pagination.hasNext}
-                      onNext={pagination.handleNext}
-                    />
-                  </InlineStack>
-                }
-              >
-                <Modal.Section>
-                  <Products
-                    products={products}
-                    hasNextPage={hasNextPage}
-                    nextCursor={nextCursor}
-                    selectedItems={tempSelected}
-                    onSelect={setTempSelected}
-                    onPaginationChange={setPagination}
-                  />
-                </Modal.Section>
-              </Modal>
+      <Modal
+        open={modalType !== null}
+        onClose={() => setModalType(null)}
+        title="Select Products"
+        primaryAction={{
+          content: 'Save',
+          onAction: () => {
+            if (modalType === 'changeQty') {
+              onChange(index, 'changeQtyProducts', tempSelected);
+              // tempSelected format: [{ productId: "gid://...", variantIds: ["gid://..."] }]
+            } else {
+              onChange(index, 'removeFreeProductsList', tempSelected);
+            }
+            setModalType(null);
+          }
+        }}
+        secondaryActions={[{ content: 'Close', onAction: () => setModalType(null) }]}
+        footer={
+          <InlineStack align="space-between">
+            <Pagination
+              hasPrevious={pagination.hasPrevious}
+              onPrevious={pagination.handlePrev}
+              hasNext={pagination.hasNext}
+              onNext={pagination.handleNext}
+            />
+          </InlineStack>
+        }
+      >
+        <Modal.Section>
+          <Products
+            products={products}
+            hasNextPage={hasNextPage}
+            nextCursor={nextCursor}
+            selectedItems={tempSelected}
+            onSelect={setTempSelected}
+            onPaginationChange={setPagination}
+          />
+        </Modal.Section>
+      </Modal>
     </Card>
   );
 }
 
-function DeliveryOptions({ options, setOptions, addOption,products, nextCursor, hasNextPage  }) {
+function DeliveryOptions({ options, setOptions, addOption, products, nextCursor, hasNextPage,    }) {
   // const [options, setOptions] = useState([{ ...defaultOption }]);
 
 
@@ -711,9 +744,10 @@ function DeliveryOptions({ options, setOptions, addOption,products, nextCursor, 
               onChange={handleChange}
               onDelete={deleteOption}
               onDuplicate={duplicateOption}
-              products={products}           // ← add karo
-      nextCursor={nextCursor}       // ← add karo
-      hasNextPage={hasNextPage} 
+              products={products}
+              nextCursor={nextCursor}
+              hasNextPage={hasNextPage}
+             
             />
           ))}
 

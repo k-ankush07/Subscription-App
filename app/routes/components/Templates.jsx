@@ -16,8 +16,10 @@ import {
   Grid,
   Pagination,
   MediaCard,
-  Checkbox
+  Checkbox,
+  Icon
 } from "@shopify/polaris";
+import { DeleteIcon } from "@shopify/polaris-icons";
 
 
 function Templates({ products, nextCursor, hasNextPage }) {
@@ -25,9 +27,10 @@ function Templates({ products, nextCursor, hasNextPage }) {
   const [options, setOptions] = useState([{ ...defaultOption }]);
   const [openProductModal, setOpenProductModal] = useState(false);
   const [tempSelected, setTempSelected] = useState([]);
+  const [selectedProducts, setSelectedProducts] = useState([]);
   const [title, setTitle] = useState("Subscribe and save");
   const [description, setDescription] = useState("Plan1");
-  
+
   const [productChanges, setProductChanges] = useState({
     swap: true,
     variant: true,
@@ -37,14 +40,14 @@ function Templates({ products, nextCursor, hasNextPage }) {
   const [pagination, setPagination] = useState({
     hasPrevious: false,
     hasNext: false,
-    handlePrev: () => {},
-    handleNext: () => {},
+    handlePrev: () => { },
+    handleNext: () => { },
   });
 
   const handleClick = () => {
     navigate('/app/plans');
   };
- 
+
 
   const text = {
     swap: {
@@ -70,7 +73,7 @@ function Templates({ products, nextCursor, hasNextPage }) {
       [key]: value
     }));
   };
-   const addOption = () => {
+  const addOption = () => {
     setOptions((prev) => [...prev, { ...defaultOption }]);
   };
   useEffect(() => {
@@ -85,6 +88,10 @@ function Templates({ products, nextCursor, hasNextPage }) {
       }));
     }
   }, [productChanges.swap, productChanges.variant, productChanges.quantity]);
+
+  useEffect(() => {
+    console.log("selectedProductssdw =>", selectedProducts);
+  }, [selectedProducts]);
   return (
     <Page
       backAction={{
@@ -93,11 +100,11 @@ function Templates({ products, nextCursor, hasNextPage }) {
       }}
       title={description || 'Create subscription plan'}
       primaryAction={{ content: 'Publish' }}
-      // secondaryActions={[
-      //   { content: 'Save as draft' },
-      // ]}
+    // secondaryActions={[
+    //   { content: 'Save as draft' },
+    // ]}
     >
-      
+
 
       <Grid>
 
@@ -149,11 +156,66 @@ function Templates({ products, nextCursor, hasNextPage }) {
                 <Text variant="headingMd" as="h2">
                   Products
                 </Text>
+                {selectedProducts.length > 0 && (
+                  <BlockStack gap="200">
+
+                    {selectedProducts.map((product) => (
+                      <div
+                        key={product.productId}
+                        style={{
+                          border: "1px solid #dfe3e8",
+                          borderRadius: "12px",
+                          padding: "10px",
+                        }}
+                      >
+                        <InlineStack
+                          align="space-between"
+                          blockAlign="center"
+                        >
+                          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                            <img
+                              src={product.productImage}
+                              alt={product.productTitle}
+                              style={{
+                                width: "45px",
+                                height: "45px",
+                                borderRadius: "8px",
+                                objectFit: "cover",
+                              }}
+                            />
+
+                            <Text fontWeight="medium">
+                              {product.productTitle}
+                            </Text>
+                          </div>
+
+                          <Button
+
+                            onClick={() => {
+                              setSelectedProducts((prev) =>
+                                prev.filter(
+                                  (p) => p.productId !== product.productId
+                                )
+                              );
+                            }}
+                          >
+                            <Icon
+                              source={DeleteIcon}
+                              tone="base"
+                            />
+                          </Button>
+
+                        </InlineStack>
+                      </div>
+                    ))}
+
+                  </BlockStack>
+                )}
 
                 <InlineStack>
                   <Button
                     onClick={() => {
-                      setTempSelected([]);
+                      setTempSelected(selectedProducts);
                       setOpenProductModal(true);
                     }}
                   >
@@ -171,8 +233,9 @@ function Templates({ products, nextCursor, hasNextPage }) {
               primaryAction={{
                 content: 'Save',
                 onAction: () => {
+                  setSelectedProducts(tempSelected);
                   setOpenProductModal(false);
-                  setTempSelected([]);
+
                 }
               }}
               secondaryActions={[
@@ -277,8 +340,8 @@ function Templates({ products, nextCursor, hasNextPage }) {
               </BlockStack>
             </Card>
 
-            <DeliveryOption options={options} setOptions={setOptions}   addOption={addOption} products={products} nextCursor={nextCursor}    
-  hasNextPage={hasNextPage}  />
+            <DeliveryOption options={options} setOptions={setOptions} addOption={addOption} products={products} nextCursor={nextCursor}
+              hasNextPage={hasNextPage}  />
           </BlockStack>
         </Grid.Cell>
 
