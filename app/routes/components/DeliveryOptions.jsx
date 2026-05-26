@@ -8,7 +8,7 @@ import { DuplicateIcon, DeleteIcon } from "@shopify/polaris-icons";
 
 
 function DeliveryOptionCard({ option, index, onChange, onDelete,
-  onDuplicate, }) {
+onDuplicate, }) {
   const update = (field) => (value) => onChange(index, field, value);
   const updateChecked = (field) => (checked) => onChange(index, field, checked);
   const [showActions, setShowActions] = useState(false);
@@ -555,9 +555,8 @@ function DeliveryOptionCard({ option, index, onChange, onDelete,
                 </BlockStack>
               </InlineGrid>
               <Button>Select products</Button>
-              <Text tone="critical" variant="bodySm">
-                <InlineError message="At least one product must be selected" fieldID="myFieldID" />
-              </Text>
+              
+              <InlineError message="At least one product must be selected" fieldID="myFieldID" />
             </BlockStack>
           )}
 
@@ -588,9 +587,8 @@ function DeliveryOptionCard({ option, index, onChange, onDelete,
                 />
               </BlockStack>
               <Button>Select products</Button>
-              <Text tone="critical" variant="bodySm">
-                <InlineError message="At least one product must be selected" fieldID="myFieldID" />
-              </Text>
+             
+              <InlineError message="At least one product must be selected" fieldID="myFieldID" />
             </BlockStack>
           )}
 
@@ -609,7 +607,7 @@ function DeliveryOptionCard({ option, index, onChange, onDelete,
               <TextField
                 label=""
                 type="number"
-                      min={0}
+                min={1}
                 autoComplete="off"
                 value={option.minQuantity}
                 onChange={update("minQuantity")}

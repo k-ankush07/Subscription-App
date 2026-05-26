@@ -18,6 +18,7 @@ export  const defaultOption = {
   shippingAfterOrders: "",
   shippingDiscountType: "fixed",
   allowAutoActions: false,
+  automationCycles: [],
   changeQtyAfterOrders: false,
   changeQtyQuantity: "1",
   changeQtyAfterOrdersNum: "1",
@@ -25,4 +26,5 @@ export  const defaultOption = {
   removeFreeAfterOrders: "1",
   setMinQty: false,
   minQuantity: "1",
+  selectedProducts: [],
 };

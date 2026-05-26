@@ -27,6 +27,7 @@ function Templates({ products, nextCursor, hasNextPage }) {
   const [tempSelected, setTempSelected] = useState([]);
   const [title, setTitle] = useState("Subscribe and save");
   const [description, setDescription] = useState("Plan1");
+  
   const [productChanges, setProductChanges] = useState({
     swap: true,
     variant: true,
@@ -36,13 +37,14 @@ function Templates({ products, nextCursor, hasNextPage }) {
   const [pagination, setPagination] = useState({
     hasPrevious: false,
     hasNext: false,
-    handlePrev: () => { },
-    handleNext: () => { },
+    handlePrev: () => {},
+    handleNext: () => {},
   });
 
   const handleClick = () => {
     navigate('/app/plans');
   };
+ 
 
   const text = {
     swap: {
@@ -89,7 +91,7 @@ function Templates({ products, nextCursor, hasNextPage }) {
         content: 'Products',
         onAction: handleClick,
       }}
-      title="Plan name"
+      title={description || 'Create subscription plan'}
       primaryAction={{ content: 'Publish' }}
       // secondaryActions={[
       //   { content: 'Save as draft' },
@@ -274,55 +276,11 @@ function Templates({ products, nextCursor, hasNextPage }) {
                 </div>
               </BlockStack>
             </Card>
-            {/* <DeliveryOption /> */}
-            <DeliveryOption options={options} setOptions={setOptions}   addOption={addOption} />
+            <DeliveryOption options={options} setOptions={setOptions} addOption={addOption} />
           </BlockStack>
         </Grid.Cell>
 
-        {/* RIGHT SIDE */}
-        {/* <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 2, lg: 4 }}>
-          <div style={{ position: "sticky", top: "0px" }}>
-            <Card>
-              <BlockStack gap="300">
 
-                <div>
-                  <Text variant="headingMd" as="h2">
-                    Summary
-                  </Text>
-                  <ul style={{ paddingLeft: '18px', margin: 0 }}>
-                    <li>1 delivery</li>
-                  </ul>
-                </div>
-
-
-                <div>
-                  <Text variant="headingMd" as="h2">
-                    Customer product changes
-                  </Text>
-                  <ul style={{ paddingLeft: '18px', margin: 0 }}>
-                    <li> Allow product swaps</li>
-                    <li>Allow variant changes</li>
-                    <li>Allow quantity changes</li>
-                    <li>Keep discounts on product changes</li>
-                  </ul>
-                </div>
-
-                <div>
-                  <Text variant="headingMd" as="h2">
-                    Option 1
-                  </Text>
-                  <ul style={{ paddingLeft: '18px', margin: 0 }}>
-                    <li>Delivery: every 2 months</li>
-                    <li>Save 10% off on the initial order and all future orders</li>
-                  </ul>
-                </div>
-
-              </BlockStack>
-
-
-            </Card>
-          </div>
-        </Grid.Cell> */}
         {/* RIGHT SIDE - DYNAMIC SUMMARY */}
         <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 2, lg: 4 }}>
           <div style={{ position: "sticky", top: "0px" }}>

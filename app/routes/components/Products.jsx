@@ -85,7 +85,6 @@ const Products = forwardRef(function Products({ onSelect, selectedItems = [], on
             const edges = data?.data?.products?.edges || [];
 
             if (edges.length === 0) {
-                console.log("No products found");
                 return;
             }
 
@@ -105,9 +104,7 @@ const Products = forwardRef(function Products({ onSelect, selectedItems = [], on
                     handle: p.node.handle,
                 }))
             }));
-
             setProducts(newProducts);
-            console.log(newProducts)
 
             const lastCursor = edges[edges.length - 1]?.cursor;
             setCursor(lastCursor);
@@ -158,6 +155,7 @@ const Products = forwardRef(function Products({ onSelect, selectedItems = [], on
             // add all variants (avoid duplicates)
             const newVariants = product.variants.map(v => ({
                 ...v,
+                productId: product.id,
                 productTitle: product.title,
                 productImage: product.image,
                 handle: product.handle,
@@ -189,6 +187,7 @@ const Products = forwardRef(function Products({ onSelect, selectedItems = [], on
                 ...selected,
                 {
                     ...variant,
+                    productId: product.id,
                     productTitle: product.title,
                     productImage: product.image,
                     handle: product.handle,

@@ -55,6 +55,6 @@ export const loader = async ({ request }) => {
 
   const res = await admin.graphql(query);
   const data = await res.json();
-  console.log(data.data.shop.currencyCode);
+  // console.log(data.data.shop.currencyCode);
   return json(data);
 };
