@@ -21,17 +21,56 @@ function DeliveryOptionCard({ option, index, onChange, onDelete, onDuplicate, pr
     }, [tempSelected]);
 
 
-    const updateChecked = (field) => (checked) => {
+ const updateChecked = (field) => (checked) => {
   onChange(index, field, checked);
 
-  // REMOVE FREE PRODUCTS RESET
-  if (field === "removeFreeProducts" && !checked) {
+  // Give discount OFF → reset related fields
+  if (field === "giveDiscount" && !checked) {
+    onChange(index, "discountAmount", "");
+    onChange(index, "discountType", "amount");
+    onChange(index, "changeDiscountAfter", false);
+    onChange(index, "discountAmount2", "");
+    onChange(index, "afterOrders", "");
+    onChange(index, "discountType2", "amount");
+  }
+
+  //  Shipping discount OFF → reset
+  if (field === "giveShippingDiscount" && !checked) {
+    onChange(index, "shippingDiscount", "");
+    onChange(index, "shippingAfterOrders", "");
+    onChange(index, "shippingDiscountType", "fixed");
+  }
+
+  //  Auto actions OFF → reset EVERYTHING
+  if (field === "allowAutoActions" && !checked) {
+    setShowActions(false);
+
+    onChange(index, "changeQtyAfterOrders", false);
+    onChange(index, "changeQtyQuantity", "");
+    onChange(index, "changeQtyAfterOrdersNum", "");
+    onChange(index, "changeQtyProducts", []);
+
+    onChange(index, "removeFreeProducts", false);
+    onChange(index, "removeFreeAfterOrders", "");
     onChange(index, "removeFreeProductsList", []);
   }
 
-  // CHANGE QTY PRODUCTS RESET
+  //  Change qty OFF → reset
   if (field === "changeQtyAfterOrders" && !checked) {
+    onChange(index, "changeQtyQuantity", "");
+    onChange(index, "changeQtyAfterOrdersNum", "");
     onChange(index, "changeQtyProducts", []);
+  }
+
+  //  Remove free OFF → reset
+  if (field === "removeFreeProducts" && !checked) {
+    onChange(index, "removeFreeAfterOrders", "");
+    onChange(index, "removeFreeProductsList", []);
+  }
+
+  //  Set min qty OFF → reset
+  if (field === "setMinQty" && !checked) {
+    onChange(index, "minQuantity", "");
   }
 };
   return (
