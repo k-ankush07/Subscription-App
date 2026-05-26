@@ -5,7 +5,7 @@ import {
 } from "@shopify/polaris";
 import { DuplicateIcon, DeleteIcon } from "@shopify/polaris-icons";
 import Products from "./Products";
-
+import AutomaticActions from "./AutomaticActions";
 
 function DeliveryOptionCard({ option, index, onChange, onDelete, onDuplicate, products, nextCursor, hasNextPage }) {
   const update = (field) => (value) => onChange(index, field, value);
@@ -450,117 +450,14 @@ function DeliveryOptionCard({ option, index, onChange, onDelete, onDuplicate, pr
 
         <Divider />
 
-        {/* AUTOMATIC ACTIONS */}
-        <BlockStack gap="300">
-          <Text as="h3" variant="headingSm">Automatic actions</Text>
-          <Checkbox
-            label="Allow automatic actions (swap, add or remove products)"
-            checked={option.allowAutoActions}
-            onChange={updateChecked("allowAutoActions")}
-          />
-          {option.allowAutoActions && (
-            <>
-              <Banner tone="info">
-                <Text variant="bodySm">
-                  Automatic actions can change the subscription price. The price
-                  updates to the replacement product's price at the time of the
-                  swap. <a href="#">Learn more</a>
-                </Text>
-              </Banner>
-              <Button fullWidth onClick={() => setShowActions(!showActions)}>
-                + Add action
-              </Button>
-
-              {showActions && (
-                <Card>
-                  <BlockStack gap="400">
-
-                    {/* SWAP PRODUCTS */}
-                    <BlockStack gap="200">
-                      <Text as="h3" variant="headingSm">
-                        Swap to different product(s)
-                      </Text>
-
-                      <div
-                        style={{
-                          padding: "10px",
-                          border: "1px solid #dfe3e8",
-                          borderRadius: "8px",
-                          cursor: "pointer",
-                        }}
-                      >
-                        <Text>Add product swap</Text>
-                      </div>
-
-                      <div
-                        style={{
-                          padding: "10px",
-                          border: "1px solid #dfe3e8",
-                          borderRadius: "8px",
-                          cursor: "pointer",
-                        }}
-                      >
-                        <Text>Add variant swap</Text>
-                      </div>
-                    </BlockStack>
-
-                    <Divider />
-
-                    {/* ADD PRODUCT */}
-                    <BlockStack gap="200">
-                      <Text as="h3" variant="headingSm">
-                        Add product to subscription
-                      </Text>
-
-                      <div
-                        style={{
-                          padding: "10px",
-                          border: "1px solid #dfe3e8",
-                          borderRadius: "8px",
-                          cursor: "pointer",
-                        }}
-                      >
-                        <Text>Add product</Text>
-                      </div>
-                    </BlockStack>
-
-                    <Divider />
-
-                    {/* REMOVE PRODUCT */}
-                    <BlockStack gap="200">
-                      <Text as="h3" variant="headingSm">
-                        Remove from subscription
-                      </Text>
-
-                      <div
-                        style={{
-                          padding: "10px",
-                          border: "1px solid #dfe3e8",
-                          borderRadius: "8px",
-                          cursor: "pointer",
-                        }}
-                      >
-                        <Text>Remove product</Text>
-                      </div>
-
-                      <div
-                        style={{
-                          padding: "10px",
-                          border: "1px solid #dfe3e8",
-                          borderRadius: "8px",
-                          cursor: "pointer",
-                        }}
-                      >
-                        <Text>Remove specific variant</Text>
-                      </div>
-                    </BlockStack>
-
-                  </BlockStack>
-                </Card>
-              )}
-            </>
-          )}
-        </BlockStack>
+        <AutomaticActions
+  option={option}
+  index={index}
+  onChange={onChange}
+  updateChecked={updateChecked}
+  showActions={showActions}
+  setShowActions={setShowActions}
+/>
 
         <Divider />
 
