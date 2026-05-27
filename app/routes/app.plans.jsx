@@ -23,7 +23,7 @@ function plans() {
 
   const handleClick = async () => {
     setLoading(true);
-     await new Promise((resolve) => setTimeout(resolve, 2000));
+     await new Promise((resolve) => setTimeout(resolve, 1000));
     navigate('/app/plan/create');
   };
 
@@ -47,15 +47,15 @@ function plans() {
   ];
 
 
-useEffect(()=>
-{
-  let plan= JSON.parse(localStorage.getItem("planPayload"))
-  if (plan) {
-    setData([plan]); // array bana diya
-  }
-  // setData(plan)
-  console.log("sbjfbf",plan )
-},[])
+// useEffect(()=>
+// {
+//   let plan= JSON.parse(localStorage.getItem("planPayload"))
+//   if (plan) {
+//     setData([plan]); // array bana diya
+//   }
+//   // setData(plan)
+//   console.log("sbjfbf",plan )
+// },[])
   const {
     selectedResources,
     allResourcesSelected,
