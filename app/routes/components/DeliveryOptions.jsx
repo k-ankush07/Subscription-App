@@ -7,7 +7,7 @@ import { DuplicateIcon, DeleteIcon } from "@shopify/polaris-icons";
 import Products from "./Products";
 import AutomaticActions from "./AutomaticActions";
 
-function DeliveryOptionCard({ option, index, onChange, onDelete, onDuplicate, products, nextCursor, hasNextPage,isDuplicate  }) {
+function DeliveryOptionCard({ option, index, onChange, onDelete, onDuplicate, products, nextCursor, hasNextPage, isDuplicate, selectedProducts }) {
   const update = (field) => (value) => onChange(index, field, value);
   const [showActions, setShowActions] = useState(false);
   const [modalType, setModalType] = useState(null);
@@ -17,9 +17,9 @@ function DeliveryOptionCard({ option, index, onChange, onDelete, onDuplicate, pr
     hasPrevious: false, hasNext: false,
     handlePrev: () => { }, handleNext: () => { },
   });
-  useEffect(() => {
-    console.log("selectedProductssdw =>", tempSelected);
-  }, [tempSelected]);
+  // useEffect(() => {
+  //   console.log("selectedProductssdw =>", tempSelected);
+  // }, [tempSelected]);
 
 
   const updateChecked = (field) => (checked) => {
@@ -74,6 +74,7 @@ function DeliveryOptionCard({ option, index, onChange, onDelete, onDuplicate, pr
       onChange(index, "minQuantity", "");
     }
   };
+
   return (
     <Card>
       <BlockStack gap="400">
@@ -151,7 +152,7 @@ function DeliveryOptionCard({ option, index, onChange, onDelete, onDuplicate, pr
 
                 update("deliveryFrequency")(value);
               }}
-               error={isDuplicate ? "This delivery frequency already exists" : ""}
+              error={isDuplicate ? "This delivery frequency already exists" : ""}
             />
           </BlockStack>
 
@@ -450,152 +451,157 @@ function DeliveryOptionCard({ option, index, onChange, onDelete, onDuplicate, pr
           )}
         </BlockStack>
 
-        <Divider />
+        {selectedProducts?.length > 0 && (
+          <>
 
-        <AutomaticActions
-          option={option}
-          index={index}
-          onChange={onChange}
-          updateChecked={updateChecked}
-          showActions={showActions}
-          setShowActions={setShowActions}
-        />
+<Divider />
 
-        <Divider />
+            <AutomaticActions
+              option={option}
+              index={index}
+              onChange={onChange}
+              updateChecked={updateChecked}
+              showActions={showActions}
+              setShowActions={setShowActions}
 
-        {/* SETTINGS */}
-        <BlockStack gap="300">
-          <Text as="h3" variant="headingSm">Settings</Text>
+            />
+            <Divider />
 
-          {/* Change product quantity */}
-          <Checkbox
-            label="Change product quantity after specific number of orders"
-            checked={option.changeQtyAfterOrders}
-            onChange={updateChecked("changeQtyAfterOrders")}
-          />
-          {option.changeQtyAfterOrders && (
+            {/* SETTINGS */}
             <BlockStack gap="300">
-              <Banner tone="warning">
-                <BlockStack gap="100">
-                  <Text variant="bodySm">
-                    • This setting applies to the selected products for both new
-                    and recurring subscription orders.
-                  </Text>
-                  <Text variant="bodySm">
-                    • Product & bundle discounts will be readjusted for the new
-                    quantity
-                  </Text>
+              <Text as="h3" variant="headingSm">Settings</Text>
+
+              {/* Change product quantity */}
+              <Checkbox
+                label="Change product quantity after specific number of orders"
+                checked={option.changeQtyAfterOrders}
+                onChange={updateChecked("changeQtyAfterOrders")}
+              />
+              {option.changeQtyAfterOrders && (
+                <BlockStack gap="300">
+                  <Banner tone="warning">
+                    <BlockStack gap="100">
+                      <Text variant="bodySm">
+                        • This setting applies to the selected products for both new
+                        and recurring subscription orders.
+                      </Text>
+                      <Text variant="bodySm">
+                        • Product & bundle discounts will be readjusted for the new
+                        quantity
+                      </Text>
+                    </BlockStack>
+                  </Banner>
+                  <InlineGrid columns={2} gap="400">
+                    <BlockStack gap="200">
+                      <Text>Quantity</Text>
+                      <TextField
+                        label=""
+                        type="number"
+                        min={0}
+                        autoComplete="off"
+                        value={option.changeQtyQuantity}
+                        onChange={update("changeQtyQuantity")}
+                        helpText="Quantity will not be greater than the initial order quantity"
+                      />
+                    </BlockStack>
+                    <BlockStack gap="200">
+                      <Text>After # of orders</Text>
+                      <TextField
+                        label=""
+                        type="number"
+                        min={1}
+                        autoComplete="off"
+                        value={option.changeQtyAfterOrdersNum}
+                        onChange={update("changeQtyAfterOrdersNum")}
+                        helpText="After how many orders to change quantity"
+                      />
+                    </BlockStack>
+                  </InlineGrid>
+                  {/* Change Qty wala button */}
+                  <Button onClick={() => {
+                    setTempSelected(option.changeQtyProducts || []);  // ← pehle se saved restore karo
+                    setModalType('changeQty');
+                  }}>
+                    Select products {option.changeQtyProducts?.length > 0
+                      ? `(${option.changeQtyProducts.length} selected)`
+                      : ''}
+                  </Button>
+                  {/* Change Qty section mein */}
+                  {option.changeQtyAfterOrders && (!option.changeQtyProducts || option.changeQtyProducts.length === 0) && (
+                    <InlineError message="At least one product must be selected" fieldID="changeQtyField" />
+                  )}
                 </BlockStack>
-              </Banner>
-              <InlineGrid columns={2} gap="400">
-                <BlockStack gap="200">
-                  <Text>Quantity</Text>
-                  <TextField
-                    label=""
-                    type="number"
-                    min={0}
-                    autoComplete="off"
-                    value={option.changeQtyQuantity}
-                    onChange={update("changeQtyQuantity")}
-                    helpText="Quantity will not be greater than the initial order quantity"
-                  />
+              )}
+
+              {/* Remove free products */}
+              <Checkbox
+                label="Remove free products from subscription after specific number of orders"
+                checked={option.removeFreeProducts}
+                onChange={updateChecked("removeFreeProducts")}
+              />
+              {option.removeFreeProducts && (
+                <BlockStack gap="300">
+                  <Banner tone="warning">
+                    <Text variant="bodySm">
+                      • This setting applies to the selected products for both new
+                      and recurring subscription orders.
+                    </Text>
+                  </Banner>
+                  <BlockStack gap="200">
+                    <Text>After # of orders</Text>
+                    <TextField
+                      label=""
+                      type="number"
+                      min={1}
+                      autoComplete="off"
+                      value={option.removeFreeAfterOrders}
+                      onChange={update("removeFreeAfterOrders")}
+                      helpText="After how many orders to remove free products from subscription"
+                    />
+                  </BlockStack>
+                  {/* Remove Free wala button */}
+                  <Button onClick={() => {
+                    setTempSelected(option.removeFreeProductsList || []);  // ← pehle se saved restore karo
+                    setModalType('removeFree');
+                  }}>
+                    Select products {option.removeFreeProductsList?.length > 0
+                      ? `(${option.removeFreeProductsList.length} selected)`
+                      : ''}
+                  </Button>
+                  {/* Remove Free section mein */}
+                  {option.removeFreeProducts && (!option.removeFreeProductsList || option.removeFreeProductsList.length === 0) && (
+                    <InlineError message="At least one product must be selected" fieldID="removeFreeField" />
+                  )}
                 </BlockStack>
+
+              )}
+
+              {/* Set minimum quantity */}
+              <Checkbox
+                label="Set minimum quantity for this plan"
+                checked={option.setMinQty}
+                onChange={updateChecked("setMinQty")}
+              />
+              {option.setMinQty && (
                 <BlockStack gap="200">
-                  <Text>After # of orders</Text>
+                  <Text tone="subdued" variant="bodySm">
+                    Has no effect when using Kaching Bundles
+                  </Text>
+                  <Text>Minimum quantity</Text>
                   <TextField
                     label=""
                     type="number"
                     min={1}
                     autoComplete="off"
-                    value={option.changeQtyAfterOrdersNum}
-                    onChange={update("changeQtyAfterOrdersNum")}
-                    helpText="After how many orders to change quantity"
+                    value={option.minQuantity}
+                    onChange={update("minQuantity")}
+                    helpText="When this plan is selected, the product quantity will automatically be set to this value and customers will not be able to select a lower quantity. For example, set this to 2 if you want customers to purchase at least 2 units with this subscription plan. Has no effect when using Kaching Bundles."
                   />
                 </BlockStack>
-              </InlineGrid>
-              {/* Change Qty wala button */}
-              <Button onClick={() => {
-                setTempSelected(option.changeQtyProducts || []);  // ← pehle se saved restore karo
-                setModalType('changeQty');
-              }}>
-                Select products {option.changeQtyProducts?.length > 0
-                  ? `(${option.changeQtyProducts.length} selected)`
-                  : ''}
-              </Button>
-              {/* Change Qty section mein */}
-              {option.changeQtyAfterOrders && (!option.changeQtyProducts || option.changeQtyProducts.length === 0) && (
-                <InlineError message="At least one product must be selected" fieldID="changeQtyField" />
               )}
             </BlockStack>
-          )}
-
-          {/* Remove free products */}
-          <Checkbox
-            label="Remove free products from subscription after specific number of orders"
-            checked={option.removeFreeProducts}
-            onChange={updateChecked("removeFreeProducts")}
-          />
-          {option.removeFreeProducts && (
-            <BlockStack gap="300">
-              <Banner tone="warning">
-                <Text variant="bodySm">
-                  • This setting applies to the selected products for both new
-                  and recurring subscription orders.
-                </Text>
-              </Banner>
-              <BlockStack gap="200">
-                <Text>After # of orders</Text>
-                <TextField
-                  label=""
-                  type="number"
-                  min={1}
-                  autoComplete="off"
-                  value={option.removeFreeAfterOrders}
-                  onChange={update("removeFreeAfterOrders")}
-                  helpText="After how many orders to remove free products from subscription"
-                />
-              </BlockStack>
-              {/* Remove Free wala button */}
-              <Button onClick={() => {
-                setTempSelected(option.removeFreeProductsList || []);  // ← pehle se saved restore karo
-                setModalType('removeFree');
-              }}>
-                Select products {option.removeFreeProductsList?.length > 0
-                  ? `(${option.removeFreeProductsList.length} selected)`
-                  : ''}
-              </Button>
-              {/* Remove Free section mein */}
-              {option.removeFreeProducts && (!option.removeFreeProductsList || option.removeFreeProductsList.length === 0) && (
-                <InlineError message="At least one product must be selected" fieldID="removeFreeField" />
-              )}
-            </BlockStack>
-
-          )}
-
-          {/* Set minimum quantity */}
-          <Checkbox
-            label="Set minimum quantity for this plan"
-            checked={option.setMinQty}
-            onChange={updateChecked("setMinQty")}
-          />
-          {option.setMinQty && (
-            <BlockStack gap="200">
-              <Text tone="subdued" variant="bodySm">
-                Has no effect when using Kaching Bundles
-              </Text>
-              <Text>Minimum quantity</Text>
-              <TextField
-                label=""
-                type="number"
-                min={1}
-                autoComplete="off"
-                value={option.minQuantity}
-                onChange={update("minQuantity")}
-                helpText="When this plan is selected, the product quantity will automatically be set to this value and customers will not be able to select a lower quantity. For example, set this to 2 if you want customers to purchase at least 2 units with this subscription plan. Has no effect when using Kaching Bundles."
-              />
-            </BlockStack>
-          )}
-        </BlockStack>
+          </>
+        )}
       </BlockStack>
       <Modal
         open={modalType !== null}
@@ -605,10 +611,16 @@ function DeliveryOptionCard({ option, index, onChange, onDelete, onDuplicate, pr
           content: 'Save',
           onAction: () => {
             if (modalType === 'changeQty') {
-              onChange(index, 'changeQtyProducts', tempSelected);
+              onChange(index, 'changeQtyProducts', tempSelected.map(p => ({
+                productId: p.productId,
+                variantIds: p.variantIds || []
+              })));
               // tempSelected format: [{ productId: "gid://...", variantIds: ["gid://..."] }]
             } else {
-              onChange(index, 'removeFreeProductsList', tempSelected);
+              onChange(index, 'removeFreeProductsList', tempSelected.map(p => ({
+                productId: p.productId,
+                variantIds: p.variantIds || []
+              })));
             }
             setModalType(null);
           }
@@ -640,52 +652,51 @@ function DeliveryOptionCard({ option, index, onChange, onDelete, onDuplicate, pr
   );
 }
 
-function DeliveryOptions({ options, setOptions, addOption, products, nextCursor, hasNextPage, }) {
-  // const [options, setOptions] = useState([{ ...defaultOption }]);
+function DeliveryOptions({ options, setOptions, addOption, products, nextCursor, hasNextPage, selectedProducts }) {
 
 
-const isDuplicateFrequency = (options, currentIndex) => {
-  const current = options[currentIndex];
+  const isDuplicateFrequency = (options, currentIndex) => {
+    const current = options[currentIndex];
 
-  if (!current?.deliveryFrequency || !current?.deliveryInterval) return false;
+    if (!current?.deliveryFrequency || !current?.deliveryInterval) return false;
 
-  return options.some((opt, i) => {
-    if (i === currentIndex) return false;
+    return options.some((opt, i) => {
+      if (i === currentIndex) return false;
 
-    return (
-      Number(opt.deliveryFrequency) === Number(current.deliveryFrequency) &&
-      opt.deliveryInterval === current.deliveryInterval
-    );
-  });
-};
+      return (
+        Number(opt.deliveryFrequency) === Number(current.deliveryFrequency) &&
+        opt.deliveryInterval === current.deliveryInterval
+      );
+    });
+  };
   const handleChange = (index, field, value) => {
-  setOptions((prev) => {
-    const updated = prev.map((opt, i) =>
-      i === index ? { ...opt, [field]: value } : opt
-    );
+    setOptions((prev) => {
+      const updated = prev.map((opt, i) =>
+        i === index ? { ...opt, [field]: value } : opt
+      );
 
-    // check only when frequency or interval changes
-    if (field === "deliveryFrequency" || field === "deliveryInterval") {
-      const current = updated[index];
+      if (field === "deliveryFrequency" || field === "deliveryInterval") {
+        const current = updated[index];
 
-      const duplicate = updated.some((opt, i) => {
-        if (i === index) return false;
+        const isDuplicate = updated.some((opt, i) => {
+          if (i === index) return false;
 
-        return (
-          Number(opt.deliveryFrequency) === Number(current.deliveryFrequency) &&
-          opt.deliveryInterval === current.deliveryInterval
-        );
-      });
+          return (
+            Number(opt.deliveryFrequency) === Number(current.deliveryFrequency) &&
+            opt.deliveryInterval === current.deliveryInterval
+          );
+        });
 
-      if (duplicate) {
-  return prev; // silently block update
-}
-    }
+        // instead of blocking → mark error
+        updated[index] = {
+          ...updated[index],
+          isDuplicate: isDuplicate,
+        };
+      }
 
-    return updated;
-  });
-};
-
+      return updated;
+    });
+  };
 
   const deleteOption = (index) => {
     setOptions((prev) => prev.filter((_, i) => i !== index));
@@ -721,7 +732,7 @@ const isDuplicateFrequency = (options, currentIndex) => {
               nextCursor={nextCursor}
               hasNextPage={hasNextPage}
               isDuplicate={isDuplicateFrequency(options, i)}
-
+              selectedProducts={selectedProducts}
             />
           ))}
 

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import Products from "../components/Products";
 import DeliveryOption from "../components/DeliveryOptions";
 import { defaultOption } from "../constants/deliveryOption"
+import { handlePublish as buildPayload } from "../utils/handlePublish.js";
 import {
   FormLayout,
   Card,
@@ -17,7 +18,8 @@ import {
   Pagination,
   MediaCard,
   Checkbox,
-  Icon
+  Icon,
+  Banner
 } from "@shopify/polaris";
 import { DeleteIcon } from "@shopify/polaris-icons";
 
@@ -30,7 +32,7 @@ function Templates({ products, nextCursor, hasNextPage }) {
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [title, setTitle] = useState("Subscribe and save");
   const [description, setDescription] = useState("Plan1");
-
+const [publishErrors, setPublishErrors] = useState([]);
   const [productChanges, setProductChanges] = useState({
     swap: true,
     variant: true,
@@ -89,21 +91,54 @@ function Templates({ products, nextCursor, hasNextPage }) {
     }
   }, [productChanges.swap, productChanges.variant, productChanges.quantity]);
 
-  useEffect(() => {
-    console.log("selectedProductssdw =>", selectedProducts);
-  }, [selectedProducts]);
+  // useEffect(() => {
+  //   console.log("selectedProductssdw =>", selectedProducts);
+  // }, [selectedProducts]);
+ const handlePublishClick = () => {
+  const payload = buildPayload({
+    selectedProducts,
+    options,
+    productChanges,
+    title,
+    description,
+    setPublishErrors,
+  });
+
+  if (!payload) return;
+
+  console.log("FINAL PAYLOAD:", payload);
+
+  // yaha backend call bhi kar sakta hai
+};
   return (
+    
     <Page
       backAction={{
         content: 'Products',
         onAction: handleClick,
       }}
       title={description || 'Create subscription plan'}
-      primaryAction={{ content: 'Publish' }}
+      primaryAction={{ content: 'Publish',
+         onAction: handlePublishClick
+       }}
+      
     // secondaryActions={[
     //   { content: 'Save as draft' },
     // ]}
+    >{publishErrors.length > 0 && (
+  <div style={{ marginBottom: "16px" }}>
+    <Banner
+      title={`There ${publishErrors.length === 1 ? 'is 1 error' : `are ${publishErrors.length} errors`} with this plan`}
+      tone="critical"
     >
+      <ul style={{ paddingLeft: "18px", margin: 0 }}>
+        {publishErrors.map((err, i) => (
+          <li key={i}>{err}</li>
+        ))}
+      </ul>
+    </Banner>
+  </div>
+)}
 
 
       <Grid>
@@ -341,7 +376,7 @@ function Templates({ products, nextCursor, hasNextPage }) {
             </Card>
 
             <DeliveryOption options={options} setOptions={setOptions} addOption={addOption} products={products} nextCursor={nextCursor}
-              hasNextPage={hasNextPage}  />
+              hasNextPage={hasNextPage} selectedProducts={selectedProducts}  />
           </BlockStack>
         </Grid.Cell>
 
