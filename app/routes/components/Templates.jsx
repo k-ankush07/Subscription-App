@@ -34,7 +34,7 @@ function validate({ selectedProducts, options }) {
     errors.noProducts = "Please select at least one product to continue.";
   }
 
-  // 2. Duplicate delivery (frequency + interval combo must be unique across options)
+  // 2. Duplicate delivery (frequency must be unique across options)
   const deliveryKeys = options.map(
     (o) => `${o.deliveryFrequency ?? ''}|${o.deliveryInterval ?? ''}`
   );
@@ -135,10 +135,10 @@ function Templates({ products, nextCursor, hasNextPage }) {
     handleNext: () => {},
   });
 
-  // ─── Live validation ────────────────────────────────────────────────────────
+  //  validation 
   const errors = validate({ selectedProducts, options });
   const isValid = Object.keys(errors).length === 0;
-  // ──────────────────────────────────────────────────────────────────────────
+  
 
   // isDirty
   const isDirty =
@@ -173,13 +173,15 @@ function Templates({ products, nextCursor, hasNextPage }) {
 
     setLoading(true);
     const payload = buildPayload({ selectedProducts, options, productChanges, title, description });
-    localStorage.setItem("planPayload", JSON.stringify(payload));
+    // localStorage.setItem("planPayload", JSON.stringify(payload));
+   
     if (!payload) { setLoading(false); return; }
 
     await new Promise((resolve) => setTimeout(resolve, 2000));
     setTimeout(() => navigate(`/app/plans`), 1000);
 
     setSavedState({ title, description, selectedProducts, options, productChanges });
+     console.log("ddata",payload)
     setLoading(false);
   };
 
@@ -273,7 +275,7 @@ function Templates({ products, nextCursor, hasNextPage }) {
         <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 4, lg: 8 }}>
           <BlockStack gap="500">
 
-            {/* ── Global error banner (show after submit) ── */}
+            {/*  Global error banner (show after submit)  */}
             {submitted && !isValid && (
               <Banner tone="critical" title="Please fix the following errors before publishing">
                 <BlockStack gap="100">
@@ -414,7 +416,7 @@ function Templates({ products, nextCursor, hasNextPage }) {
               </Modal.Section>
             </Modal>
 
-            {/* ── Customer product changes ── */}
+            {/*  Customer product changes  */}
             <Card>
               <BlockStack gap="200">
                 <Text variant="headingMd" as="h2">Customer product changes</Text>
