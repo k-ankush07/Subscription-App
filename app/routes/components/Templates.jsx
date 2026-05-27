@@ -19,7 +19,8 @@ import {
   MediaCard,
   Checkbox,
   Icon,
-  Banner
+  Banner,
+  InlineError
 } from "@shopify/polaris";
 import { DeleteIcon } from "@shopify/polaris-icons";
 
@@ -32,7 +33,21 @@ function Templates({ products, nextCursor, hasNextPage }) {
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [title, setTitle] = useState("Subscribe and save");
   const [description, setDescription] = useState("Plan1");
-const [publishErrors, setPublishErrors] = useState([]);
+  const [publishErrors, setPublishErrors] = useState([]);
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [savedState, setSavedState] = useState({
+    title: "Subscribe and save",
+    description: "Plan1",
+    selectedProducts: [],
+    options: [{ ...defaultOption }],
+    productChanges: {
+      swap: true,
+      variant: true,
+      quantity: true,
+      keepDiscount: true,
+    },
+  });
   const [productChanges, setProductChanges] = useState({
     swap: true,
     variant: true,
@@ -46,8 +61,84 @@ const [publishErrors, setPublishErrors] = useState([]);
     handleNext: () => { },
   });
 
+
+  // isDirty = current form !== last saved
+  const isDirty =
+    title !== savedState.title ||
+    description !== savedState.description ||
+    JSON.stringify(selectedProducts) !== JSON.stringify(savedState.selectedProducts) ||
+    JSON.stringify(options) !== JSON.stringify(savedState.options) ||
+    JSON.stringify(productChanges) !== JSON.stringify(savedState.productChanges);
+
+  // Save bar show/hide
+  useEffect(() => {
+    const saveBar = document.getElementById('templates-save-bar');
+    if (!saveBar) return;
+    isDirty ? saveBar.show() : saveBar.hide();
+  }, [isDirty]);
+
+  // Publish click — save hone ke baad savedState update karo
+  const handlePublishClick = async () => {
+    setLoading(true);
+
+    const payload = buildPayload({
+      selectedProducts,
+      options,
+      productChanges,
+      title,
+      description,
+      setPublishErrors,
+    });
+
+    if (!payload) {
+      setLoading(false);
+      return;
+    }
+    // fake 2 sec delay
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    setTimeout(() => {
+      navigate("/app/plans")
+    }, 1000)
+    console.log("FINAL PAYLOAD:", payload);
+    // await yourBackendCall(payload);
+
+    setSavedState({ title, description, selectedProducts, options, productChanges });
+
+    // isDirty ab false ho jayega → useEffect bar hide kar dega
+    setLoading(false);
+
+  };
+
+  // Discard — saved state pe wapas le jao
+  const handleDiscard = () => {
+    setTitle(savedState.title);
+    setDescription(savedState.description);
+    setSelectedProducts(savedState.selectedProducts);
+    setOptions(savedState.options);
+    setProductChanges(savedState.productChanges)
+    setPublishErrors([]);
+    // isDirty ab false ho jayega → useEffect bar hide kar dega
+  };
+
+
+  useEffect(() => {
+    const saveBtn = document.getElementById('templates-save-btn');
+    if (!saveBtn) return;
+    if (loading) {
+      saveBtn.setAttribute('loading', '');
+      saveBtn.setAttribute('disabled', '');
+    } else {
+      saveBtn.removeAttribute('loading');
+      saveBtn.removeAttribute('disabled');
+    }
+  }, [loading]);
+
   const handleClick = () => {
-    navigate('/app/plans');
+    if (isDirty) {
+      setShowLeaveModal(true);
+    } else {
+      navigate('/app/plans');
+    }
   };
 
 
@@ -91,59 +182,80 @@ const [publishErrors, setPublishErrors] = useState([]);
     }
   }, [productChanges.swap, productChanges.variant, productChanges.quantity]);
 
-  // useEffect(() => {
-  //   console.log("selectedProductssdw =>", selectedProducts);
-  // }, [selectedProducts]);
- const handlePublishClick = () => {
-  const payload = buildPayload({
-    selectedProducts,
-    options,
-    productChanges,
-    title,
-    description,
-    setPublishErrors,
-  });
 
-  if (!payload) return;
-
-  console.log("FINAL PAYLOAD:", payload);
-
-  // yaha backend call bhi kar sakta hai
-};
   return (
-    
+
     <Page
       backAction={{
         content: 'Products',
         onAction: handleClick,
+
       }}
       title={description || 'Create subscription plan'}
-      primaryAction={{ content: 'Publish',
-         onAction: handlePublishClick
-       }}
-      
+      primaryAction={{
+        content: 'Publish',
+        onAction: handlePublishClick,
+        loading: loading,
+      }}
+
     // secondaryActions={[
     //   { content: 'Save as draft' },
     // ]}
-    >{publishErrors.length > 0 && (
-  <div style={{ marginBottom: "16px" }}>
-    <Banner
-      title={`There ${publishErrors.length === 1 ? 'is 1 error' : `are ${publishErrors.length} errors`} with this plan`}
-      tone="critical"
     >
-      <ul style={{ paddingLeft: "18px", margin: 0 }}>
-        {publishErrors.map((err, i) => (
-          <li key={i}>{err}</li>
-        ))}
-      </ul>
-    </Banner>
-  </div>
-)}
+      {publishErrors.length > 0 && (
+        <div style={{ marginBottom: "16px" }}>
+          <Banner
+            title={`There ${publishErrors.length === 1 ? 'is 1 error' : `are ${publishErrors.length} errors`} with this plan`}
+            tone="critical"
+          >
+            <ul style={{ paddingLeft: "18px", margin: 0 }}>
+              {publishErrors.map((err, i) => (
+                <li key={i}>{err}</li>
+              ))}
+            </ul>
+          </Banner>
+        </div>
+      )}
+      <ui-save-bar id="templates-save-bar">
+        <button variant="primary" id="templates-save-btn" onClick={handlePublishClick}>
+          Save
+        </button>
+        <button onClick={handleDiscard}>Discard</button>
+      </ui-save-bar>
 
+
+      {/* back button model  */}
+      <Modal
+        open={showLeaveModal}
+        onClose={() => setShowLeaveModal(false)}
+        title="Unsaved changes"
+        primaryAction={{
+          content: "Save",
+          loading: loading,
+          onAction: async () => {
+            setShowLeaveModal(false);
+            await handlePublishClick(true);
+          },
+        }}
+        secondaryActions={[
+          {
+            content: "Discard",
+            destructive: true,
+            onAction: () => {
+              handleDiscard();
+              setShowLeaveModal(false);
+            },
+          },
+        ]}
+      >
+        <Modal.Section>
+          <Text>
+            You have unsaved changes. Do you want to save before leaving?
+          </Text>
+        </Modal.Section>
+      </Modal>
 
       <Grid>
-
-
         {/* LEFT SIDE */}
         <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 4, lg: 8 }}>
           <BlockStack gap="500">
@@ -191,6 +303,7 @@ const [publishErrors, setPublishErrors] = useState([]);
                 <Text variant="headingMd" as="h2">
                   Products
                 </Text>
+
                 {selectedProducts.length > 0 && (
                   <BlockStack gap="200">
 
@@ -246,7 +359,7 @@ const [publishErrors, setPublishErrors] = useState([]);
 
                   </BlockStack>
                 )}
-
+                
                 <InlineStack>
                   <Button
                     onClick={() => {
@@ -257,6 +370,12 @@ const [publishErrors, setPublishErrors] = useState([]);
                     Select products
                   </Button>
                 </InlineStack>
+                {publishErrors.includes("At least one product must be selected") && (
+                  <InlineError
+                    message="At least one product must be selected"
+                    fieldID="products-error"
+                  />
+                )}
               </BlockStack>
             </Card>
 
@@ -376,7 +495,7 @@ const [publishErrors, setPublishErrors] = useState([]);
             </Card>
 
             <DeliveryOption options={options} setOptions={setOptions} addOption={addOption} products={products} nextCursor={nextCursor}
-              hasNextPage={hasNextPage} selectedProducts={selectedProducts}  />
+              hasNextPage={hasNextPage} selectedProducts={selectedProducts} />
           </BlockStack>
         </Grid.Cell>
 

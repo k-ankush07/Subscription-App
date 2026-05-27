@@ -28,7 +28,7 @@ import {
 import { useAuthenticatedFetch } from "../utils/useAuthenticatedFetch";
 
 const Products = forwardRef(function Products(
-    { onPaginationChange, selectedItems = [], onSelect },  // ← add kiya
+    { onPaginationChange, selectedItems = [], onSelect },
     ref
 ) {
     const authenticatedFetch = useAuthenticatedFetch();
@@ -172,7 +172,7 @@ const Products = forwardRef(function Products(
                 {
                     productId: product.id,
                     productTitle: product.title,
-                     productImage: product.image,
+                    productImage: product.image,
                     variantIds: product.variants.map((v) => v.id),
                 },
             ]);
@@ -209,7 +209,7 @@ const Products = forwardRef(function Products(
                 {
                     productId: product.id,
                     productTitle: product.title,
-                       productImage: product.image,
+                    productImage: product.image,
                     variantIds: [variantId],
                 },
             ]);

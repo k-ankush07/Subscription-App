@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 import {
   Card,
@@ -18,8 +18,11 @@ import { useNavigate } from 'react-router';
 
 function plans() {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
 
-  const handleClick = () => {
+  const handleClick = async () => {
+    setLoading(true);
+     await new Promise((resolve) => setTimeout(resolve, 2000));
     navigate('/app/plan/create');
   };
 
@@ -36,7 +39,7 @@ function plans() {
       planTitle: 'Plan #1',
       products: 'Vittelo Belt',
       deliveryFrequency: 'Every month',
-      pricing: '10% off',
+      pricing: '70% off',
     },
   
    
@@ -85,6 +88,7 @@ function plans() {
     ? {
         content: 'Create Plan',
         onAction: handleClick,
+        loading: loading,
       }
     : null
       }

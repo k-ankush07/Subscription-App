@@ -152,7 +152,13 @@ function DeliveryOptionCard({ option, index, onChange, onDelete, onDuplicate, pr
 
                 update("deliveryFrequency")(value);
               }}
-              error={isDuplicate ? "This delivery frequency already exists" : ""}
+               error={
+    !option.deliveryFrequency
+      ? "Delivery frequency is required"
+      : isDuplicate
+        ? "This delivery frequency already exists"
+        : ""
+  }
             />
           </BlockStack>
 
@@ -189,26 +195,28 @@ function DeliveryOptionCard({ option, index, onChange, onDelete, onDuplicate, pr
                 <TextField
                   label=""
                   type="number"
-                  min={0}
+                  min={1}
                   prefix="Every"
                   autoComplete="off"
                   value={option.billingFrequency || ""}
                   onChange={(value) => {
-                    if (Number(value) < 0) return;
+                    if (Number(value) < 1) return;
 
                     update("billingFrequency")(value);
                   }}
-                  error={
-                    option.billingFrequency &&
-                      option.deliveryFrequency &&
-                      (
-                        Number(option.billingFrequency) <= Number(option.deliveryFrequency) ||
-                        Number(option.billingFrequency) %
-                        Number(option.deliveryFrequency) !== 0
-                      )
-                      ? `Billing frequency must be greater than and multiple of ${option.deliveryFrequency}`
-                      : ""
-                  }
+                 error={
+  !option.billingFrequency ||
+  Number(option.billingFrequency) <= 0
+    ? "Billing frequency is required"
+    : option.deliveryFrequency &&
+      (
+        Number(option.billingFrequency) <= Number(option.deliveryFrequency) ||
+        Number(option.billingFrequency) %
+        Number(option.deliveryFrequency) !== 0
+      )
+      ? `Billing frequency must be greater than and multiple of ${option.deliveryFrequency}`
+      : ""
+}
                 />
               </BlockStack>
 
@@ -454,7 +462,7 @@ function DeliveryOptionCard({ option, index, onChange, onDelete, onDuplicate, pr
         {selectedProducts?.length > 0 && (
           <>
 
-<Divider />
+{/* <Divider />
 
             <AutomaticActions
               option={option}
@@ -464,7 +472,7 @@ function DeliveryOptionCard({ option, index, onChange, onDelete, onDuplicate, pr
               showActions={showActions}
               setShowActions={setShowActions}
 
-            />
+            /> */}
             <Divider />
 
             {/* SETTINGS */}
