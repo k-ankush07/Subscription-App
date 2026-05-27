@@ -98,22 +98,6 @@ options.forEach((opt, i) => {
     }
   }
 
-  if (!opt.deliveryFrequency || Number(opt.deliveryFrequency) <= 0) {
-    errors.push(`${label}: Delivery frequency is required`);
-  }
-
-  // if (opt.billingType === "prepaid") {
-  //   if (!opt.billingFrequency) {
-  //     errors.push(`${label}: Billing frequency is required for prepaid`);
-  //   } else if (
-  //     Number(opt.billingFrequency) <= Number(opt.deliveryFrequency) ||
-  //     Number(opt.billingFrequency) % Number(opt.deliveryFrequency) !== 0
-  //   ) {
-  //     errors.push(
-  //       `${label}: Billing frequency must be greater and multiple of delivery frequency`
-  //     );
-  //   }
-  // }
   if (opt.billingType === "prepaid") {
 
   if (
@@ -130,7 +114,7 @@ options.forEach((opt, i) => {
     Number(opt.billingFrequency) % Number(opt.deliveryFrequency) !== 0
   ) {
     errors.push(
-      `${label}: Billing frequency must be greater and multiple of delivery frequency`
+      `${label}: Billing frequency must be  multiple of delivery frequency`
     );
   }
 }
@@ -176,8 +160,10 @@ if (errors.length > 0) return null;
     description,
     options,
     productChanges,
+   
     selectedProducts: selectedProducts.map((p) => ({
       productId: p.productId,
+      productTitle: p.productTitle,
       variantIds: p.variantIds || [],
     })),
   };

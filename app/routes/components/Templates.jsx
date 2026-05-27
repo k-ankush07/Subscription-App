@@ -76,12 +76,15 @@ function Templates({ products, nextCursor, hasNextPage }) {
     if (!saveBar) return;
     isDirty ? saveBar.show() : saveBar.hide();
   }, [isDirty]);
+  
 
   // Publish click — save hone ke baad savedState update karo
   const handlePublishClick = async () => {
+
     setLoading(true);
 
     const payload = buildPayload({
+      
       selectedProducts,
       options,
       productChanges,
@@ -89,7 +92,7 @@ function Templates({ products, nextCursor, hasNextPage }) {
       description,
       setPublishErrors,
     });
-
+    localStorage.setItem("planPayload", JSON.stringify(payload))
     if (!payload) {
       setLoading(false);
       return;
@@ -97,7 +100,7 @@ function Templates({ products, nextCursor, hasNextPage }) {
     // fake 2 sec delay
     await new Promise((resolve) => setTimeout(resolve, 2000));
     setTimeout(() => {
-      navigate("/app/plans")
+      navigate(`/app/plans`)
     }, 1000)
     console.log("FINAL PAYLOAD:", payload);
     // await yourBackendCall(payload);
@@ -181,7 +184,15 @@ function Templates({ products, nextCursor, hasNextPage }) {
       }));
     }
   }, [productChanges.swap, productChanges.variant, productChanges.quantity]);
-
+useEffect(() => {
+  if (selectedProducts.length > 0) {
+    setPublishErrors((prev) =>
+      prev.filter(
+        (err) => err !== "At least one product must be selected"
+      )
+    );
+  }
+}, [selectedProducts]);
 
   return (
 
@@ -495,7 +506,7 @@ function Templates({ products, nextCursor, hasNextPage }) {
             </Card>
 
             <DeliveryOption options={options} setOptions={setOptions} addOption={addOption} products={products} nextCursor={nextCursor}
-              hasNextPage={hasNextPage} selectedProducts={selectedProducts} />
+              hasNextPage={hasNextPage} selectedProducts={selectedProducts}setPublishErrors={setPublishErrors} />
           </BlockStack>
         </Grid.Cell>
 

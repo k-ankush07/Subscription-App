@@ -135,10 +135,6 @@ const Products = forwardRef(function Products(
         }));
     };
 
-    //  Selection helpers 
-    //   const isProductSelected = (productId) =>
-    //     selectedItems.some((p) => p.productId === productId);
-
     const isProductSelected = (product) => {
         const selectedProduct = selectedItems.find(
             (p) => p.productId === product.id

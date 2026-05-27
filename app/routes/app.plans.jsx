@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 import {
   Card,
@@ -19,6 +19,7 @@ import { useNavigate } from 'react-router';
 function plans() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [data, setData]= useState([])
 
   const handleClick = async () => {
     setLoading(true);
@@ -46,6 +47,15 @@ function plans() {
   ];
 
 
+useEffect(()=>
+{
+  let plan= JSON.parse(localStorage.getItem("planPayload"))
+  if (plan) {
+    setData([plan]); // array bana diya
+  }
+  // setData(plan)
+  console.log("sbjfbf",plan )
+},[])
   const {
     selectedResources,
     allResourcesSelected,

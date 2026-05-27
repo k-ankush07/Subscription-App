@@ -7,7 +7,7 @@ import { DuplicateIcon, DeleteIcon } from "@shopify/polaris-icons";
 import Products from "./Products";
 import AutomaticActions from "./AutomaticActions";
 
-function DeliveryOptionCard({ option, index, onChange, onDelete, onDuplicate, products, nextCursor, hasNextPage, isDuplicate, selectedProducts }) {
+function DeliveryOptionCard({ option, index, onChange, onDelete, onDuplicate, products, nextCursor, hasNextPage, isDuplicate, selectedProducts, setPublishErrors, }) {
   const update = (field) => (value) => onChange(index, field, value);
   const [showActions, setShowActions] = useState(false);
   const [modalType, setModalType] = useState(null);
@@ -146,19 +146,21 @@ function DeliveryOptionCard({ option, index, onChange, onDelete, onDuplicate, pr
               type="number"
               min={0}
               autoComplete="off"
-              value={option.deliveryFrequency}
+              value={option.deliveryFrequency || 1}
               onChange={(value) => {
-                if (Number(value) < 0) return;
+                // blank hone na do
+                if (value === "" || Number(value) < 1) {
+                  update("deliveryFrequency")("1");
+                  return;
+                }
 
                 update("deliveryFrequency")(value);
               }}
-               error={
-    !option.deliveryFrequency
-      ? "Delivery frequency is required"
-      : isDuplicate
-        ? "This delivery frequency already exists"
-        : ""
-  }
+              error={
+                isDuplicate
+                  ? "This delivery frequency already exists"
+                  : ""
+              }
             />
           </BlockStack>
 
@@ -195,7 +197,7 @@ function DeliveryOptionCard({ option, index, onChange, onDelete, onDuplicate, pr
                 <TextField
                   label=""
                   type="number"
-                  min={1}
+                  min={0}
                   prefix="Every"
                   autoComplete="off"
                   value={option.billingFrequency || ""}
@@ -204,19 +206,19 @@ function DeliveryOptionCard({ option, index, onChange, onDelete, onDuplicate, pr
 
                     update("billingFrequency")(value);
                   }}
-                 error={
-  !option.billingFrequency ||
-  Number(option.billingFrequency) <= 0
-    ? "Billing frequency is required"
-    : option.deliveryFrequency &&
-      (
-        Number(option.billingFrequency) <= Number(option.deliveryFrequency) ||
-        Number(option.billingFrequency) %
-        Number(option.deliveryFrequency) !== 0
-      )
-      ? `Billing frequency must be greater than and multiple of ${option.deliveryFrequency}`
-      : ""
-}
+                  error={
+                    !option.billingFrequency ||
+                      Number(option.billingFrequency) <= 0
+                      ? "Billing frequency is required"
+                      : option.deliveryFrequency &&
+                        (
+                          Number(option.billingFrequency) <= Number(option.deliveryFrequency) ||
+                          Number(option.billingFrequency) %
+                          Number(option.deliveryFrequency) !== 0
+                        )
+                        ? `Billing frequency must be multiple of ${option.deliveryFrequency}`
+                        : ""
+                  }
                 />
               </BlockStack>
 
@@ -462,7 +464,7 @@ function DeliveryOptionCard({ option, index, onChange, onDelete, onDuplicate, pr
         {selectedProducts?.length > 0 && (
           <>
 
-{/* <Divider />
+            {/* <Divider />
 
             <AutomaticActions
               option={option}
