@@ -175,44 +175,130 @@ const Products = forwardRef(function Products(
         }
     };
 
-    const toggleVariant = (product, variantId) => {
-        const existingProduct = selectedItems.find((p) => p.productId === product.id);
-        if (existingProduct) {
-            const hasVariant = existingProduct.variantIds.includes(variantId);
-            if (hasVariant) {
-                const newVariantIds = existingProduct.variantIds.filter((id) => id !== variantId);
-                if (newVariantIds.length === 0) {
-                    onSelect(selectedItems.filter((p) => p.productId !== product.id));
-                } else {
-                    onSelect(
-                        selectedItems.map((p) =>
-                            p.productId === product.id ? { ...p, variantIds: newVariantIds } : p
-                        )
-                    );
-                }
+    // const toggleVariant = (product, variantId) => {
+    //     const existingProduct = selectedItems.find((p) => p.productId === product.id);
+    //     if (existingProduct) {
+    //         const hasVariant = existingProduct.variantIds.includes(variantId);
+    //         if (hasVariant) {
+    //             const newVariantIds = existingProduct.variantIds.filter((id) => id !== variantId);
+    //             if (newVariantIds.length === 0) {
+    //                 onSelect(selectedItems.filter((p) => p.productId !== product.id));
+    //             } else {
+    //                 onSelect(
+    //                     selectedItems.map((p) =>
+    //                         p.productId === product.id ? { ...p, variantIds: newVariantIds } : p
+    //                     )
+    //                 );
+    //             }
+    //         } else {
+    //             onSelect(
+    //                 selectedItems.map((p) =>
+    //                     p.productId === product.id
+    //                         ? { ...p, variantIds: [...p.variantIds, variantId] }
+    //                         : p
+    //                 )
+    //             );
+    //         }
+    //     } else {
+    //         onSelect([
+    //             ...selectedItems,
+    //             {
+    //                 productId: product.id,
+    //                 productTitle: product.title,
+    //                 productImage: product.image,
+    //                 variantIds: [variantId],
+    //             },
+    //         ]);
+    //     }
+    // };
+
+const toggleVariant = (product, variantId) => {
+    const variant = product.variants.find((v) => v.id === variantId);
+
+    const existingProduct = selectedItems.find(
+        (p) => p.productId === product.id
+    );
+
+    if (existingProduct) {
+
+        const hasVariant =
+            existingProduct.variantIds.includes(variantId);
+
+        if (hasVariant) {
+
+            const newVariantIds =
+                existingProduct.variantIds.filter(
+                    (id) => id !== variantId
+                );
+
+            const newVariantTitles =
+                existingProduct.variantTitles.filter(
+                    (_, index) =>
+                        existingProduct.variantIds[index] !== variantId
+                );
+
+            if (newVariantIds.length === 0) {
+
+                onSelect(
+                    selectedItems.filter(
+                        (p) => p.productId !== product.id
+                    )
+                );
+
             } else {
+
                 onSelect(
                     selectedItems.map((p) =>
                         p.productId === product.id
-                            ? { ...p, variantIds: [...p.variantIds, variantId] }
+                            ? {
+                                ...p,
+                                variantIds: newVariantIds,
+                                variantTitles: newVariantTitles,
+                            }
                             : p
                     )
                 );
             }
+
         } else {
-            onSelect([
-                ...selectedItems,
-                {
-                    productId: product.id,
-                    productTitle: product.title,
-                    productImage: product.image,
-                    variantIds: [variantId],
-                },
-            ]);
+
+            onSelect(
+                selectedItems.map((p) =>
+                    p.productId === product.id
+                        ? {
+                            ...p,
+
+                            variantIds: [
+                                ...p.variantIds,
+                                variantId,
+                            ],
+
+                            variantTitles: [
+                                ...(p.variantTitles || []),
+                                variant.title,
+                            ],
+                        }
+                        : p
+                )
+            );
         }
-    };
 
+    } else {
 
+        onSelect([
+            ...selectedItems,
+            {
+                productId: product.id,
+                productTitle: product.title,
+                productImage: product.image,
+
+                variantIds: [variantId],
+
+                variantTitles: [variant.title],
+            },
+        ]);
+    }
+};
     return (
         <Card title="Products">
             <BlockStack gap="300">

@@ -110,8 +110,13 @@ function ActionCard({ action, onDelete, onAddDest, onDeleteDest, onChangeType })
 
   const productName =
     action.productName || action.sourceProductName || "Unknown product";
-  const variantName = action.sourceVariantName || action.variantName || null;
-  const subLabel = variantName
+  // const variantNames = action.sourceVariantName || action.variantName || [];
+  const variantNames = Array.isArray(
+  action.sourceVariantName || action.variantName
+)
+  ? (action.sourceVariantName || action.variantName)
+  : [];
+  const subLabel = variantNames.length > 0
     ? null
     : action.type === "swap"
       ? "Will match all variants"
@@ -153,11 +158,15 @@ function ActionCard({ action, onDelete, onAddDest, onDeleteDest, onChangeType })
             <Text variant="bodySm" fontWeight="semibold">
               {productName}
             </Text>
-            {variantName && (
-              <div>
-                <span style={styles.variantTag}>{variantName}</span>
-              </div>
-            )}
+         {variantNames.length > 0 && (
+  <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+    {variantNames.map((variant, index) => (
+      <span key={index} style={styles.variantTag}>
+        {variant}
+      </span>
+    ))}
+  </div>
+)}
             {subLabel && (
               <Text variant="bodySm" tone="subdued">
                 {subLabel}
@@ -425,6 +434,7 @@ function AutomaticActions({
       openPicker("Select product", false, (selected) => {
         if (!selected?.length) return;
         const item = selected[0];
+         console.log("SELECTED ITEM", item);
         addToCycle(cycleId, {
           type: "swap",
           sourceProductId: item.productId,
@@ -438,6 +448,7 @@ function AutomaticActions({
             item.productImage ||
             "",
           // matchAll: true,
+          isVariant:false,
           dests: [],
         });
       });
@@ -452,15 +463,22 @@ function AutomaticActions({
             item.title ||
             item.productTitle ||
             item.productId,
-          sourceVariantId: item.variantIds?.[0],
-          sourceVariantName:
-            item.variantTitle ||
-            item.variantIds?.[0],
+           isProduct:false,
+          sourceVariantId: item.variantIds,
+          // sourceVariantName:
+          //   item.variantTitle ||
+          //   item.varianttitle ||
+          //   item.variantIds,
+          sourceVariantName: Array.isArray(item.variantTitles)
+  ? item.variantTitles
+  : item.variantTitles
+    ? [item.variantTitles]
+    : [],
           imageUrl:
             item.imageUrl ||
             item.productImage ||
             "",
-          matchAll: false,
+          // matchAll: false,
           dests: [],
         });
       });
@@ -475,6 +493,7 @@ function AutomaticActions({
             item.title ||
             item.productTitle ||
             item.productId,
+            isVariant:false,
 
           imageUrl:
             item.imageUrl ||
@@ -493,6 +512,7 @@ function AutomaticActions({
             item.title ||
             item.productTitle ||
             item.productId,
+            isVariant:false,
 
           imageUrl:
             item.imageUrl ||
@@ -512,18 +532,23 @@ function AutomaticActions({
             item.title ||
             item.productTitle ||
             item.productId,
-          variantId: item.variantIds?.[0],
+          isProduct:false,
+          variantId: item.variantIds,
 
 
-          variantName:
-            item.variantTitle ||
-            item.variantIds?.[0],
+          // variantName:
+          //   item.variantTitle ||
+          //   item.variantId,
+          variantName: Array.isArray(item.variantTitles)
+  ? item.variantTitles
+  : item.variantTitles
+    ? [item.variantTitles]
+    : [],
 
           imageUrl:
             item.imageUrl ||
             item.productImage ||
             "",
-          isVariant: true,
         });
       });
     } else if (actionType === "add-dest" && actionIdx !== null) {
@@ -539,7 +564,7 @@ function AutomaticActions({
           addDestToCycle(cycleId, actionIdx, {
             id: item.productId,
             name: isVariantSwap
-              ? `${item.title || item.productTitle || item.productId} — ${item.variantTitle || item.variantIds?.[0]
+              ? `${item.title || item.productTitle || item.productId} — ${item.variantTitle || item.variantIds
               }`
               : item.title ||
               item.productTitle ||
