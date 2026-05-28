@@ -20,7 +20,7 @@ function DeliveryOptionCard({
   const [tempSelected, setTempSelected] = useState([]);
   const [changeQtyProductsAttempted, setChangeQtyProductsAttempted] = useState(false);
   const [removeFreeProductsAttempted, setRemoveFreeProductsAttempted] = useState(false);
-const [showActions, setShowActions] = useState(false);
+  const [showActions, setShowActions] = useState(false);
   const [pagination, setPagination] = useState({
     hasPrevious: false, hasNext: false,
     handlePrev: () => {}, handleNext: () => {},
@@ -149,16 +149,47 @@ const [showActions, setShowActions] = useState(false);
             <InlineGrid columns={2} gap="400">
               <BlockStack gap="200">
                 <Text>Billing frequency</Text>
-                <TextField
+                {/* <TextField
                   label=""
                   type="number"
-                  min={0}
+                  min={1}
                   prefix="Every"
                   autoComplete="off"
                   value={option.billingFrequency || ""}
                   onChange={(value) => { if (Number(value) < 1) return; update("billingFrequency")(value); }}
                   error={billingError ? "Must be a multiple of delivery frequency" : undefined}
-                />
+                /> */}
+                <TextField
+  label=""
+  type="number"
+  min={1}
+  prefix="Every"
+  autoComplete="off"
+  value={option.billingFrequency || ""}
+  onChange={(value) => {
+    // allow empty while typing
+    if (value === "") {
+      update("billingFrequency")("");
+      return;
+    }
+
+    // prevent less than 1
+    if (Number(value) < 1) return;
+
+    update("billingFrequency")(value);
+  }}
+  error={
+    submitted && option.billingType === "prepaid"
+      ? !option.billingFrequency
+        ? "Billing frequency is required"
+        : Number(option.billingFrequency) < Number(option.deliveryFrequency)
+        ? "Billing frequency must be greater than or equal to delivery frequency"
+        : Number(option.billingFrequency) % Number(option.deliveryFrequency) !== 0
+        ? "Billing frequency must be a multiple of delivery frequency"
+        : undefined
+      : undefined
+  }
+/>
               </BlockStack>
               <BlockStack gap="200">
                 <Text>Delivery interval</Text>
@@ -317,7 +348,7 @@ const [showActions, setShowActions] = useState(false);
           )}
         </BlockStack>
            <Divider />
-  <AutomaticActions
+             <AutomaticActions
               option={option}
               index={index}
               onChange={onChange}
@@ -510,11 +541,33 @@ function DeliveryOptions({
   validationErrors = {},
   submitted = false,
 }) {
+  // const handleChange = (index, field, value) => {
+  //   setOptions((prev) =>
+  //     prev.map((opt, i) => (i === index ? { ...opt, [field]: value } : opt))
+  //   );
+  // };
   const handleChange = (index, field, value) => {
-    setOptions((prev) =>
-      prev.map((opt, i) => (i === index ? { ...opt, [field]: value } : opt))
-    );
-  };
+  setOptions((prev) =>
+    prev.map((opt, i) => {
+      if (i !== index) return opt;
+
+      const updated = { ...opt, [field]: value };
+
+      // IMPORTANT: when switching billing type, reset only dependent fields
+      if (field === "billingType") {
+        if (value === "pay") {
+          updated.billingFrequency = "";
+        }
+
+        if (value === "prepaid") {
+          updated.billingFrequency = opt.billingFrequency || "";
+        }
+      }
+
+      return updated;
+    })
+  );
+};
 
   const deleteOption = (index) => {
     setOptions((prev) => prev.filter((_, i) => i !== index));

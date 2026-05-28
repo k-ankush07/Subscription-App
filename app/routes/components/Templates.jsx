@@ -29,12 +29,12 @@ import { DeleteIcon } from "@shopify/polaris-icons";
 function validate({ selectedProducts, options }) {
   const errors = {};
 
-  // 1. No products selected
+  // No products selected
   if (selectedProducts.length === 0) {
     errors.noProducts = "Please select at least one product to continue.";
   }
 
-  // 2. Duplicate delivery (frequency must be unique across options)
+  //  Duplicate delivery (frequency must be unique across options)
   const deliveryKeys = options.map(
     (o) => `${o.deliveryFrequency ?? ''}|${o.deliveryInterval ?? ''}`
   );
@@ -54,7 +54,7 @@ function validate({ selectedProducts, options }) {
     };
   }
 
-  // 3. Per-option: billing frequency not a multiple of delivery frequency
+  // Per-option billing frequency not a multiple of delivery frequency
   const billingErrors = {};
   options.forEach((o, i) => {
     if (o.billingType === 'prepaid') {
@@ -70,7 +70,7 @@ function validate({ selectedProducts, options }) {
     errors.billingMultiple = billingErrors;
   }
 
-  // 4. Settings: changeQty ON but no products selected
+  //  Settings changeQty ON but no products selected
   const changeQtyErrors = [];
   options.forEach((o, i) => {
     if (o.changeQtyAfterOrders && !(o.changeQtyProducts?.length > 0)) {
@@ -81,7 +81,7 @@ function validate({ selectedProducts, options }) {
     errors.changeQtyProducts = changeQtyErrors;
   }
 
-  // 5. Settings: removeFreeProducts ON but no products selected
+  //  Settings removeFreeProducts ON but no products selected
   const removeFreeErrors = [];
   options.forEach((o, i) => {
     if (o.removeFreeProducts && !(o.removeFreeProductsList?.length > 0)) {
@@ -105,7 +105,7 @@ function Templates({ products, nextCursor, hasNextPage }) {
   const [description, setDescription] = useState("Plan1");
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [loading, setLoading] = useState(false);
-  // Show validation errors only after first publish attempt
+  // Show validation errors 
   const [submitted, setSubmitted] = useState(false);
 
   const [savedState, setSavedState] = useState({
@@ -173,7 +173,7 @@ function Templates({ products, nextCursor, hasNextPage }) {
 
     setLoading(true);
     const payload = buildPayload({ selectedProducts, options, productChanges, title, description });
-    // localStorage.setItem("planPayload", JSON.stringify(payload));
+
    
     if (!payload) { setLoading(false); return; }
 
@@ -446,7 +446,7 @@ function Templates({ products, nextCursor, hasNextPage }) {
               </BlockStack>
             </Card>
 
-            {/* ── Delivery options — pass errors down ── */}
+            {/*  Delivery options — pass errors down  */}
             <DeliveryOption
               options={options}
               setOptions={setOptions}
