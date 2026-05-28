@@ -55,22 +55,56 @@ function validate({ selectedProducts, options }) {
   }
 
   // Per-option billing frequency not a multiple of delivery frequency
-  const billingErrors = {};
-  options.forEach((o, i) => {
-    if (o.billingType === 'prepaid') {
-      const df = Number(o.deliveryFrequency);
-      const bf = Number(o.billingFrequency);
-      if (df && bf && bf % df !== 0) {
-        billingErrors[i] =
-          ` Billing frequency  must be a multiple of delivery frequency .`;
-      }
-    }
-  });
-  if (Object.keys(billingErrors).length > 0) {
-    errors.billingMultiple = billingErrors;
-  }
+  // const billingErrors = {};
+  // options.forEach((o, i) => {
+  //   if (o.billingType === 'prepaid') {
+  //     const df = Number(o.deliveryFrequency);
+  //     const bf = Number(o.billingFrequency);
+  //     if (df && bf && bf % df !== 0) {
+  //       billingErrors[i] =
+  //         ` Billing frequency  must be a multiple of delivery frequency .`;
+  //     }
+  //   }
+  // });
+  // if (Object.keys(billingErrors).length > 0) {
+  //   errors.billingMultiple = billingErrors;
+  // }
 
   //  Settings changeQty ON but no products selected
+  const billingErrors = {};
+
+options.forEach((o, i) => {
+  if (o.billingType === 'prepaid') {
+    const df = Number(o.deliveryFrequency);
+    const bf = Number(o.billingFrequency);
+
+    // required validation
+    if (!o.deliveryFrequency || !o.billingFrequency) {
+      billingErrors[i] =
+        ' Billing frequency are required.';
+      return;
+    }
+
+    // greater than validation
+    if (bf <= df) {
+      billingErrors[i] =
+        'Billing frequency must be greater than delivery frequency.';
+      return;
+    }
+
+    // multiple validation
+    if (bf % df !== 0) {
+      billingErrors[i] =
+        'Billing frequency must be a multiple of delivery frequency.';
+    }
+  }
+});
+
+if (Object.keys(billingErrors).length > 0) {
+  errors.billingMultiple = billingErrors;
+}
+  
+  
   const changeQtyErrors = [];
   options.forEach((o, i) => {
     if (o.changeQtyAfterOrders && !(o.changeQtyProducts?.length > 0)) {

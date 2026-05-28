@@ -149,7 +149,7 @@ function DeliveryOptionCard({
             <InlineGrid columns={2} gap="400">
               <BlockStack gap="200">
                 <Text>Billing frequency</Text>
-                {/* <TextField
+                <TextField
                   label=""
                   type="number"
                   min={1}
@@ -157,39 +157,8 @@ function DeliveryOptionCard({
                   autoComplete="off"
                   value={option.billingFrequency || ""}
                   onChange={(value) => { if (Number(value) < 1) return; update("billingFrequency")(value); }}
-                  error={billingError ? "Must be a multiple of delivery frequency" : undefined}
-                /> */}
-                <TextField
-  label=""
-  type="number"
-  min={1}
-  prefix="Every"
-  autoComplete="off"
-  value={option.billingFrequency || ""}
-  onChange={(value) => {
-    // allow empty while typing
-    if (value === "") {
-      update("billingFrequency")("");
-      return;
-    }
-
-    // prevent less than 1
-    if (Number(value) < 1) return;
-
-    update("billingFrequency")(value);
-  }}
-  error={
-    submitted && option.billingType === "prepaid"
-      ? !option.billingFrequency
-        ? "Billing frequency is required"
-        : Number(option.billingFrequency) < Number(option.deliveryFrequency)
-        ? "Billing frequency must be greater than or equal to delivery frequency"
-        : Number(option.billingFrequency) % Number(option.deliveryFrequency) !== 0
-        ? "Billing frequency must be a multiple of delivery frequency"
-        : undefined
-      : undefined
-  }
-/>
+                  error={billingError ? billingError  : undefined}
+                />
               </BlockStack>
               <BlockStack gap="200">
                 <Text>Delivery interval</Text>
