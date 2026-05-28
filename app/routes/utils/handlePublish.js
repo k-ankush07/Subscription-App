@@ -8,13 +8,59 @@ export const handlePublish = ({
   return {
     title,
     description,
-    options,
     productChanges,
-   
     selectedProducts: selectedProducts.map((p) => ({
       productId: p.productId,
       productTitle: p.productTitle,
       variantIds: p.variantIds || [],
     })),
+    options: options.map((opt) => ({
+      ...opt,  
+      automationCycles: (opt.automationCycles || []).map((cycle) => ({
+        orders: cycle.orders,
+        actions: cycle.actions.map((action) => {
+          const base = {
+            type: action.type,
+            isVariant: action.isVariant ?? false,
+            imageUrl: action.imageUrl || "",
+          };
+
+          if (action.type === "swap") {
+            return {
+              ...base,
+              sourceProductId: action.sourceProductId,
+              sourceProductName: action.sourceProductName,
+              sourceVariantId: action.sourceVariantId || [],
+              sourceVariantName: action.sourceVariantName || [],
+              dests: (action.dests || []).map((d) => ({
+                id: d.id,
+                name: d.name,
+                imageUrl: d.imageUrl || "",
+              })),
+            };
+          }
+
+          if (action.type === "add") {
+            return {
+              ...base,
+              productId: action.productId,
+              productName: action.productName,
+            };
+          }
+
+          if (action.type === "remove") {
+            return {
+              ...base,
+              productId: action.productId,
+              productName: action.productName,
+              variantId: action.variantId || [],
+              variantName: action.variantName || [],
+            };
+          }
+
+          return base;
+        }),
+      })),
+    })),
   };
-};
+};  

@@ -65,7 +65,7 @@ function ActionDropdown({ onSelect, onClose, position = "top" }) {
         zIndex: 200,
         boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
         padding: "6px 0",
-        minWidth: 200,
+        width: "207px",
       }}
     >
       {sections.map((section) => (
@@ -112,10 +112,10 @@ function ActionCard({ action, onDelete, onAddDest, onDeleteDest, onChangeType })
     action.productName || action.sourceProductName || "Unknown product";
   // const variantNames = action.sourceVariantName || action.variantName || [];
   const variantNames = Array.isArray(
-  action.sourceVariantName || action.variantName
-)
-  ? (action.sourceVariantName || action.variantName)
-  : [];
+    action.sourceVariantName || action.variantName
+  )
+    ? (action.sourceVariantName || action.variantName)
+    : [];
   const subLabel = variantNames.length > 0
     ? null
     : action.type === "swap"
@@ -158,15 +158,15 @@ function ActionCard({ action, onDelete, onAddDest, onDeleteDest, onChangeType })
             <Text variant="bodySm" fontWeight="semibold">
               {productName}
             </Text>
-         {variantNames.length > 0 && (
-  <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-    {variantNames.map((variant, index) => (
-      <span key={index} style={styles.variantTag}>
-        {variant}
-      </span>
-    ))}
-  </div>
-)}
+            {variantNames.length > 0 && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                {variantNames.map((variant, index) => (
+                  <span key={index} style={styles.variantTag}>
+                    {variant}
+                  </span>
+                ))}
+              </div>
+            )}
             {subLabel && (
               <Text variant="bodySm" tone="subdued">
                 {subLabel}
@@ -230,7 +230,7 @@ function ActionCard({ action, onDelete, onAddDest, onDeleteDest, onChangeType })
                     {dest.imageUrl ? (
                       <img src={dest.imageUrl} alt="" style={styles.destThumb} />
                     ) : (
-                      <div style={{ ...styles.destThumb, background: "var(--p-color-bg-surface)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13 }}>🖼️</div>
+                      <div style={{ ...styles.destThumb, background: "var(--p-color-bg-surface)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13 }}></div>
                     )}
                     <div style={{ flex: 1 }}>
                       <Text variant="bodySm">{dest.name}</Text>
@@ -360,8 +360,9 @@ function AutomaticActions({
   products,
   nextCursor,
   hasNextPage,
+  index,  
 }) {
-  const [cycles, setCycles] = useState([]); 
+  const [cycles, setCycles] = useState([]);
   const [showMainDropdown, setShowMainDropdown] = useState(false);
 
   // Modal state
@@ -382,6 +383,10 @@ function AutomaticActions({
     console.log("data", cycles);
 
   }, [cycles]);
+//   useEffect(() => {
+//   onChange(index, "automationCycles", cycles);
+//   console.log("sfnsdjkbf", cycles)
+// }, [cycles]);
   const openPicker = (title, pickVariant, callback) => {
     setModalTitle(title);
     setModalPickVariant(pickVariant);
@@ -434,7 +439,6 @@ function AutomaticActions({
       openPicker("Select product", false, (selected) => {
         if (!selected?.length) return;
         const item = selected[0];
-         console.log("SELECTED ITEM", item);
         addToCycle(cycleId, {
           type: "swap",
           sourceProductId: item.productId,
@@ -447,8 +451,7 @@ function AutomaticActions({
             item.imageUrl ||
             item.productImage ||
             "",
-          // matchAll: true,
-          isVariant:false,
+          isVariant: false,
           dests: [],
         });
       });
@@ -463,22 +466,18 @@ function AutomaticActions({
             item.title ||
             item.productTitle ||
             item.productId,
-           isProduct:false,
+          // isProduct: false,
           sourceVariantId: item.variantIds,
-          // sourceVariantName:
-          //   item.variantTitle ||
-          //   item.varianttitle ||
-          //   item.variantIds,
+
           sourceVariantName: Array.isArray(item.variantTitles)
-  ? item.variantTitles
-  : item.variantTitles
-    ? [item.variantTitles]
-    : [],
+            ? item.variantTitles
+            : item.variantTitles
+              ? [item.variantTitles]
+              : [],
           imageUrl:
             item.imageUrl ||
             item.productImage ||
             "",
-          // matchAll: false,
           dests: [],
         });
       });
@@ -493,7 +492,7 @@ function AutomaticActions({
             item.title ||
             item.productTitle ||
             item.productId,
-            isVariant:false,
+          isVariant: false,
 
           imageUrl:
             item.imageUrl ||
@@ -512,7 +511,7 @@ function AutomaticActions({
             item.title ||
             item.productTitle ||
             item.productId,
-            isVariant:false,
+          isVariant: false,
 
           imageUrl:
             item.imageUrl ||
@@ -532,18 +531,16 @@ function AutomaticActions({
             item.title ||
             item.productTitle ||
             item.productId,
-          isProduct:false,
+          // isProduct: false,
           variantId: item.variantIds,
 
 
-          // variantName:
-          //   item.variantTitle ||
-          //   item.variantId,
+
           variantName: Array.isArray(item.variantTitles)
-  ? item.variantTitles
-  : item.variantTitles
-    ? [item.variantTitles]
-    : [],
+            ? item.variantTitles
+            : item.variantTitles
+              ? [item.variantTitles]
+              : [],
 
           imageUrl:
             item.imageUrl ||
@@ -593,15 +590,15 @@ function AutomaticActions({
 
 
   const deleteAction = (cycleId, ai) =>
-  setCycles((prev) =>
-    prev
-      .map((c) =>
-        c.id === cycleId
-          ? { ...c, actions: c.actions.filter((_, i) => i !== ai) }
-          : c
-      )
-      .filter((c) => c.actions.length > 0)
-  );
+    setCycles((prev) =>
+      prev
+        .map((c) =>
+          c.id === cycleId
+            ? { ...c, actions: c.actions.filter((_, i) => i !== ai) }
+            : c
+        )
+        .filter((c) => c.actions.length > 0)
+    );
 
   const deleteDestination = (cycleId, ai, di) =>
     setCycles((prev) =>
@@ -665,23 +662,23 @@ function AutomaticActions({
           </Banner>
 
           {/* Cycle cards */}
-{cycles
-  .filter((cycle) => cycle.actions.length > 0)
-  .map((cycle) => (
-    <CycleCard
-      key={cycle.id}
-      cycle={cycle}
-      onDelete={() => deleteCycle(cycle.id)}
-      onUpdateOrders={(v) => updateOrders(cycle.id, v)}
-      onAddAction={(key) => resolveActionType(key, cycle.id)}
-      onDeleteAction={(ai) => deleteAction(cycle.id, ai)}
-      onAddDest={(ai) => resolveActionType("add-dest", cycle.id, ai)}
-      onDeleteDest={(ai, di) => deleteDestination(cycle.id, ai, di)}
-      onChangeActionType={(ai, newType) =>
-        changeActionType(cycle.id, ai, newType)
-      }
-    />
-  ))}
+          {cycles
+            .filter((cycle) => cycle.actions.length > 0)
+            .map((cycle) => (
+              <CycleCard
+                key={cycle.id}
+                cycle={cycle}
+                onDelete={() => deleteCycle(cycle.id)}
+                onUpdateOrders={(v) => updateOrders(cycle.id, v)}
+                onAddAction={(key) => resolveActionType(key, cycle.id)}
+                onDeleteAction={(ai) => deleteAction(cycle.id, ai)}
+                onAddDest={(ai) => resolveActionType("add-dest", cycle.id, ai)}
+                onDeleteDest={(ai, di) => deleteDestination(cycle.id, ai, di)}
+                onChangeActionType={(ai, newType) =>
+                  changeActionType(cycle.id, ai, newType)
+                }
+              />
+            ))}
 
           {/* Main Add action button */}
           <div style={{ position: "relative" }}>
