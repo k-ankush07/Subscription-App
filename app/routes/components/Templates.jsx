@@ -135,7 +135,7 @@ function Templates({ products, nextCursor, hasNextPage }) {
     handleNext: () => {},
   });
 
-  //  validation 
+  //  validation
   const errors = validate({ selectedProducts, options });
   const isValid = Object.keys(errors).length === 0;
   
