@@ -23,7 +23,7 @@ function plans() {
 
   const handleClick = async () => {
     setLoading(true);
-     await new Promise((resolve) => setTimeout(resolve, 1000));
+     await new Promise((resolve) => setTimeout(resolve, 500));
     navigate('/app/plan/create');
   };
 

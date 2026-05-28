@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router';
 import Products from "../components/Products";
 import DeliveryOption from "../components/DeliveryOptions";
 import { defaultOption } from "../constants/deliveryOption"
-import { handlePublish as buildPayload } from "../utils/handlePublish.js";
+import { handlePublish as buildPayload } from "../utils/handlePublish";
 import {
   FormLayout,
   Card,
