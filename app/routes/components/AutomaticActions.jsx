@@ -1,6 +1,6 @@
-import React from "react";
+import React, { useState } from "react";
 import { BlockStack, Button, Card, Checkbox, Divider, Text, Banner } from "@shopify/polaris";
-
+import { Modal } from "@shopify/polaris";
 function AutomaticActions({
   option,
   index,
@@ -9,6 +9,7 @@ function AutomaticActions({
   showActions,
   setShowActions,
 }) {
+  const [activeAction, setActiveAction] = useState(null);
   return (
     <BlockStack gap="300">
       <Text as="h3" variant="headingSm">
@@ -43,11 +44,11 @@ function AutomaticActions({
                 <BlockStack gap="200">
                   <Text as="h3" variant="headingSm">Swap to different product(s)</Text>
 
-                  <div style={boxStyle}>
+                  <div style={boxStyle} onClick={() => setActiveAction("swap_product")}>
                     <Text>Add product swap</Text>
                   </div>
 
-                  <div style={boxStyle}>
+                  <div style={boxStyle} onClick={() => setActiveAction("swap_variant")}>
                     <Text>Add variant swap</Text>
                   </div>
                 </BlockStack>
@@ -58,7 +59,7 @@ function AutomaticActions({
                 <BlockStack gap="200">
                   <Text as="h3" variant="headingSm">Add product to subscription</Text>
 
-                  <div style={boxStyle}>
+                  <div style={boxStyle} onClick={() => setActiveAction("add_product")}>
                     <Text>Add product</Text>
                   </div>
                 </BlockStack>
@@ -69,11 +70,11 @@ function AutomaticActions({
                 <BlockStack gap="200">
                   <Text as="h3" variant="headingSm">Remove from subscription</Text>
 
-                  <div style={boxStyle}>
+                  <div style={boxStyle} onClick={() => setActiveAction("remove_product")}>
                     <Text>Remove product</Text>
                   </div>
 
-                  <div style={boxStyle}>
+                  <div style={boxStyle} onClick={() => setActiveAction("remove_variant")}>
                     <Text>Remove specific variant</Text>
                   </div>
                 </BlockStack>
@@ -83,6 +84,19 @@ function AutomaticActions({
           )}
         </>
       )}
+      <Modal
+  open={activeAction !== null}
+  onClose={() => setActiveAction(null)}
+  title="Action"
+>
+  <Modal.Section>
+    {activeAction === "swap_product" && <Text>Swap Product UI</Text>}
+    {activeAction === "swap_variant" && <Text>Swap Variant UI</Text>}
+    {activeAction === "add_product" && <Text>Add Product UI</Text>}
+    {activeAction === "remove_product" && <Text>Remove Product UI</Text>}
+    {activeAction === "remove_variant" && <Text>Remove Variant UI</Text>}
+  </Modal.Section>
+</Modal>
     </BlockStack>
   );
 }

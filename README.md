@@ -243,4 +243,9 @@ gid://shopify/Shop/69853577402 SHOP ID
 
 
 
- 
+ Add save bar and adding functionallity Disacrd and save and show spinner in button when click on save button
+ show error if prodcut, is not select and try to submit , billing fequency is not multiple of delivery frequency, also show error if same  delievry frequency in multiple delivery options.
+ open a model when user click back with save and inside model added button discard and save give normal english
+
+
+

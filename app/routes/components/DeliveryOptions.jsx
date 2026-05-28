@@ -6,6 +6,7 @@ import {
 } from "@shopify/polaris";
 import { DuplicateIcon, DeleteIcon } from "@shopify/polaris-icons";
 import Products from "./Products";
+import AutomaticActions from "./AutomaticActions";
 
 function DeliveryOptionCard({
   option, index, onChange, onDelete, onDuplicate,
@@ -19,13 +20,13 @@ function DeliveryOptionCard({
   const [tempSelected, setTempSelected] = useState([]);
   const [changeQtyProductsAttempted, setChangeQtyProductsAttempted] = useState(false);
   const [removeFreeProductsAttempted, setRemoveFreeProductsAttempted] = useState(false);
-
+const [showActions, setShowActions] = useState(false);
   const [pagination, setPagination] = useState({
     hasPrevious: false, hasNext: false,
     handlePrev: () => {}, handleNext: () => {},
   });
 
-  // Derived errors — trigger on submit OR after modal was opened and closed empty
+  // Derived errors — trigger on submit 
   const changeQtyProductsError =
     (submitted || changeQtyProductsAttempted) &&
     option.changeQtyAfterOrders &&
@@ -63,7 +64,7 @@ function DeliveryOptionCard({
       setRemoveFreeProductsAttempted(false);
     }
     if (field === "setMinQty" && !checked) {
-      onChange(index, "minQuantity", "");
+      onChange(index, "minQuantity", "0");
     }
   };
 
@@ -315,10 +316,22 @@ function DeliveryOptionCard({
             </>
           )}
         </BlockStack>
+           <Divider />
+  <AutomaticActions
+              option={option}
+              index={index}
+              onChange={onChange}
+              updateChecked={updateChecked}
+              showActions={showActions}
+              setShowActions={setShowActions}
 
+            />
         {/* SETTINGS */}
         {selectedProducts?.length > 0 && (
           <>
+       
+
+          
             <Divider />
             <BlockStack gap="300">
               <Text as="h3" variant="headingSm">Settings</Text>
@@ -341,7 +354,7 @@ function DeliveryOptionCard({
                     <BlockStack gap="200">
                       <Text>Quantity</Text>
                       <TextField
-                        label="" type="number" min={0} autoComplete="off"
+                        label="" type="number"  autoComplete="off"
                         value={option.changeQtyQuantity} onChange={update("changeQtyQuantity")}
                         helpText="Quantity will not be greater than the initial order quantity"
                       />
@@ -349,7 +362,7 @@ function DeliveryOptionCard({
                     <BlockStack gap="200">
                       <Text>After # of orders</Text>
                       <TextField
-                        label="" type="number" min={1} autoComplete="off"
+                        label="" type="number"  autoComplete="off"
                         value={option.changeQtyAfterOrdersNum} onChange={update("changeQtyAfterOrdersNum")}
                         helpText="After how many orders to change quantity"
                       />
@@ -389,7 +402,7 @@ function DeliveryOptionCard({
                   <BlockStack gap="200">
                     <Text>After # of orders</Text>
                     <TextField
-                      label="" type="number" min={1} autoComplete="off"
+                      label="" type="number"  autoComplete="off"
                       value={option.removeFreeAfterOrders} onChange={update("removeFreeAfterOrders")}
                       helpText="After how many orders to remove free products from subscription"
                     />
@@ -424,7 +437,7 @@ function DeliveryOptionCard({
                   <Text tone="subdued" variant="bodySm">Has no effect when using Kaching Bundles</Text>
                   <Text>Minimum quantity</Text>
                   <TextField
-                    label="" type="number" min={1} autoComplete="off"
+                    label="" type="number" min={0} autoComplete="off"
                     value={option.minQuantity} onChange={update("minQuantity")}
                     helpText="When this plan is selected, the product quantity will automatically be set to this value and customers will not be able to select a lower quantity."
                   />

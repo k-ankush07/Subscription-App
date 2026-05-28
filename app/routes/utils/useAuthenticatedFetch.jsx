@@ -1,5 +1,3 @@
-
-
 export function useAuthenticatedFetch() {
 
   return async (url, options = {}) => {
