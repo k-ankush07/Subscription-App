@@ -239,7 +239,7 @@ function Templates({ products, nextCursor, hasNextPage }) {
       off: "Customers won't be able to swap their product to a different product in the customer portal.",
     },
     variant: {
-      on: "Customers will be able to change to a different variant of the same product",
+      on: "Customers will be able to change to a different variant of the same product  (e.g., size, color).",
       off: "Customers won't be able to change the product variant in the customer portal.",
     },
     quantity: {

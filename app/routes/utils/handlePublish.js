@@ -21,7 +21,6 @@ export const handlePublish = ({
         actions: cycle.actions.map((action) => {
           const base = {
             type: action.type,
-            isVariant: action.isVariant ?? false,
             imageUrl: action.imageUrl || "",
           };
           if (action.type === "swap") {
@@ -49,8 +48,8 @@ export const handlePublish = ({
               ...base,
               productId: action.productId,
               productName: action.productName,
-              variantId: action.variantId || [],
-              variantName: action.variantName || [],
+               variantId: action.variantId || [],
+             variantName: action.variantName || [],
             };
           }
 
