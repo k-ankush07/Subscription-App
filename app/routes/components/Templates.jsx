@@ -212,7 +212,7 @@ function Templates({ products, nextCursor, hasNextPage }) {
     if (!payload) { setLoading(false); return; }
 
     await new Promise((resolve) => setTimeout(resolve, 2000));
-    setTimeout(() => navigate(`/app/plans`), 1000);
+    // setTimeout(() => navigate(`/app/plans`), 1000);
 
     setSavedState({ title, description, selectedProducts, options, productChanges });
      console.log("ddata",payload)

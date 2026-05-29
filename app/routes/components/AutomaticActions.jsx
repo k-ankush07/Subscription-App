@@ -25,7 +25,7 @@ function AutomaticActions({
   const [cycles, setCycles] = useState([]);
   const [showMainDropdown, setShowMainDropdown] = useState(false);
   //  this new state near other modal states
-const [modalSingleSelect, setModalSingleSelect] = useState(false);
+  const [modalSingleSelect, setModalSingleSelect] = useState(false);
 
   // Modal state
   const [modalOpen, setModalOpen] = useState(false);
@@ -36,23 +36,23 @@ const [modalSingleSelect, setModalSingleSelect] = useState(false);
   const [pagination, setPagination] = useState({
     hasPrevious: false,
     hasNext: false,
-    handlePrev: () => {},
-    handleNext: () => {},
+    handlePrev: () => { },
+    handleNext: () => { },
   });
 
   useEffect(() => {
     console.log("===== CYCLES DATA =====");
     console.log("data", cycles);
   }, [cycles]);
-   useEffect(() => {
-  onChange(index, "automationCycles", cycles);
-  // console.log("sfnsdjkbf", cycles)
-}, [cycles]);
+  useEffect(() => {
+    onChange(index, "automationCycles", cycles);
+    // console.log("sfnsdjkbf", cycles)
+  }, [cycles]);
 
   const openPicker = (title, pickVariant, callback, singleSelect = false) => {
     setModalTitle(title);
     setModalPickVariant(pickVariant);
-     setModalSingleSelect(singleSelect);
+    setModalSingleSelect(singleSelect);
     setTempSelected([]);
     setModalCallback(() => callback);
     setModalOpen(true);
@@ -87,20 +87,69 @@ const [modalSingleSelect, setModalSingleSelect] = useState(false);
       prev.map((c) =>
         c.id === cycleId
           ? {
-              ...c,
-              actions: c.actions.map((a, idx) =>
-                idx === ai ? { ...a, dests: [...(a.dests || []), dest] } : a
-              ),
-            }
+            ...c,
+            actions: c.actions.map((a, idx) =>
+              idx === ai ? { ...a, dests: [...(a.dests || []), dest] } : a
+            ),
+          }
           : c
       )
     );
   };
 
   const resolveActionType = (actionType, cycleId, actionIdx = null) => {
-   if (actionType === "swap-product") {
+    if (actionType === "swap-product") {
+      openPicker(
+        "Select product",
+        false,
+        (selected) => {
+          if (!selected?.length) return;
+
+          const item = selected[0];
+
+          addToCycle(cycleId, {
+            type: "swap",
+            sourceProductId: item.productId,
+            sourceProductName:
+              item.title || item.productTitle || item.productId,
+            imageUrl: item.imageUrl || item.productImage || "",
+            isVariant: false,
+            dests: [],
+          });
+        },
+        true //  SINGLE SELECT ENABLED
+      );
+    } else if (actionType === "swap-variant") {
+      openPicker(
+        "Select variant",
+        true,
+        (selected) => {
+          if (!selected?.length) return;
+
+          const item = selected[0];
+
+          addToCycle(cycleId, {
+            type: "swap",
+            sourceProductId: item.productId,
+            sourceProductName:
+              item.title || item.productTitle || item.productId,
+            isVariant: true,
+            sourceVariantId: item.variantIds,
+            sourceVariantName: Array.isArray(item.variantTitles)
+              ? item.variantTitles
+              : item.variantTitles
+                ? [item.variantTitles]
+                : [],
+            imageUrl: item.imageUrl || item.productImage || "",
+            variantImages: item.variantImages || [],
+            dests: [],
+          });
+        },
+        true // 
+      );
+    }  else if (actionType === "add-product") {
   openPicker(
-    "Select product",
+    "Select product to add",
     false,
     (selected) => {
       if (!selected?.length) return;
@@ -108,71 +157,49 @@ const [modalSingleSelect, setModalSingleSelect] = useState(false);
       const item = selected[0];
 
       addToCycle(cycleId, {
-        type: "swap",
-        sourceProductId: item.productId,
-        sourceProductName:
-          item.title || item.productTitle || item.productId,
+        type: "add",
+        productId: item.productId,
+        productName: item.title || item.productTitle || item.productId,
         imageUrl: item.imageUrl || item.productImage || "",
-        isVariant: false,
-        dests: [],
+        VariantId: item.variantIds,
+        VariantName: Array.isArray(item.variantTitles)
+              ? item.variantTitles
+              : item.variantTitles
+                ? [item.variantTitles]
+                : [],
+             variantImages: item.variantImages || [],
+
+
+        quantity: 1,
+        discountValue: "",
+        discountType: "amount",
       });
     },
-    true //  SINGLE SELECT ENABLED
+    true
   );
-}else if (actionType === "swap-variant") {
-      openPicker(
-  "Select variant",
-  true,
-  (selected) => {
-    if (!selected?.length) return;
 
-    const item = selected[0];
+} else if (actionType === "remove-product") {
 
-    addToCycle(cycleId, {
-      type: "swap",
-      sourceProductId: item.productId,
-      sourceProductName:
-        item.title || item.productTitle || item.productId,
-      sourceVariantId: item.variantIds,
-      sourceVariantName: Array.isArray(item.variantTitles)
-        ? item.variantTitles
-        : item.variantTitles
-        ? [item.variantTitles]
-        : [],
-      imageUrl: item.imageUrl || item.productImage || "",
-      dests: [],
-    });
-  },
-  true // 
-);
-    }  else if (actionType === "add-product") {
-  openPicker("Select product to add", false, (selected) => {
-    if (!selected?.length) return;
-    const item = selected[0];
-    addToCycle(cycleId, {
-      type: "add",
-      productId: item.productId,
-      productName: item.title || item.productTitle || item.productId,
-      isVariant: false,
-      imageUrl: item.imageUrl || item.productImage || "",
-      quantity: 1,
-      discountValue: "",
-      discountType: "amount",
-    });
-  }, true);  //  singleSelect = true else if (actionType === "remove-product") {
-      openPicker("Select product to remove", false, (selected) => {
-        if (!selected?.length) return;
-        const item = selected[0];
-        addToCycle(cycleId, {
-          type: "remove",
-          productId: item.productId,
-          productName: item.title || item.productTitle || item.productId,
-          isVariant: false,
-          imageUrl: item.imageUrl || item.productImage || "",
-        });
-      },
-     true);
-    } else if (actionType === "remove-variant") {
+  openPicker(
+    "Select product to remove",
+    false,
+    (selected) => {
+      if (!selected?.length) return;
+
+      const item = selected[0];
+
+      addToCycle(cycleId, {
+        type: "remove",
+        productId: item.productId,
+        productName: item.title || item.productTitle || item.productId,
+        isVariant: false,
+        imageUrl: item.imageUrl || item.productImage || "",
+      });
+    },
+    true
+  );
+
+} else if (actionType === "remove-variant") {
       openPicker("Select variant to remove", true, (selected) => {
         if (!selected?.length) return;
         const item = selected[0];
@@ -184,47 +211,35 @@ const [modalSingleSelect, setModalSingleSelect] = useState(false);
           variantName: Array.isArray(item.variantTitles)
             ? item.variantTitles
             : item.variantTitles
-            ? [item.variantTitles]
-            : [],
+              ? [item.variantTitles]
+              : [],
+            variantImages: item.variantImages || [],
           imageUrl: item.imageUrl || item.productImage || "",
         });
       });
-    }  else if (actionType === "add-dest" && actionIdx !== null) {
-  const cycle = cycles.find((c) => c.id === cycleId);
-  const action = cycle?.actions[actionIdx];
-  const isVariantSwap = !!action?.sourceVariantId;
-  openPicker(
-    isVariantSwap ? "Select destination variant" : "Select destination product",
-    isVariantSwap,
-    (selected) => {
-      if (!selected?.length) return;
-      //  loop ALL selected instead of only selected[0]
-  //     selected.forEach((item) => {
-  //       addDestToCycle(cycleId, actionIdx, {
-  //         id: item.productId,
-  //         name: isVariantSwap
-  // ? `${item.productTitle} — ${
-  //     Array.isArray(item.variantTitles)
-  //       ? item.variantTitles.join(", ")
-  //       : item.variantTitles || ""
-  //   }`
-  // : item.productTitle,
-  //         imageUrl: item.imageUrl || item.productImage || "",
-  //       });
-  //     });
-  selected.forEach((item) => {
-  addDestToCycle(cycleId, actionIdx, {
-    id: item.productId,
-    name: item.productTitle,
-    variantNames: item.variantTitles || [],
-    variantIds: item.variantIds || [],
-    imageUrl: item.productImage || "",
-  });
-});
-    },
-    false  //  singleSelect = false, allow multi select
-  );
-}
+    } else if (actionType === "add-dest" && actionIdx !== null) {
+      const cycle = cycles.find((c) => c.id === cycleId);
+      const action = cycle?.actions[actionIdx];
+      const isVariantSwap = !!action?.sourceVariantId;
+      openPicker(
+        isVariantSwap ? "Select destination variant" : "Select destination product",
+        isVariantSwap,
+        (selected) => {
+          if (!selected?.length) return;
+          selected.forEach((item) => {
+            addDestToCycle(cycleId, actionIdx, {
+              id: item.productId,
+              name: item.productTitle,
+              variantNames: item.variantTitles || [],
+              variantIds: item.variantIds || [],
+              variantImages: item.variantImages || [],
+              imageUrl: item.productImage || "",
+            });
+          });
+        },
+        false  //  singleSelect = false, allow multi select
+      );
+    }
   };
 
   // "Add action" button: create new cycle then add action
@@ -254,13 +269,13 @@ const [modalSingleSelect, setModalSingleSelect] = useState(false);
       prev.map((c) =>
         c.id === cycleId
           ? {
-              ...c,
-              actions: c.actions.map((a, idx) =>
-                idx === ai
-                  ? { ...a, dests: a.dests.filter((_, i) => i !== di) }
-                  : a
-              ),
-            }
+            ...c,
+            actions: c.actions.map((a, idx) =>
+              idx === ai
+                ? { ...a, dests: a.dests.filter((_, i) => i !== di) }
+                : a
+            ),
+          }
           : c
       )
     );
@@ -275,11 +290,11 @@ const [modalSingleSelect, setModalSingleSelect] = useState(false);
       prev.map((c) =>
         c.id === cycleId
           ? {
-              ...c,
-              actions: c.actions.map((a, idx) =>
-                idx === ai ? { ...a, type: newType } : a
-              ),
-            }
+            ...c,
+            actions: c.actions.map((a, idx) =>
+              idx === ai ? { ...a, type: newType } : a
+            ),
+          }
           : c
       )
     );

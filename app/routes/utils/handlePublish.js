@@ -15,7 +15,7 @@ export const handlePublish = ({
       variantIds: p.variantIds || [],
     })),
     options: options.map((opt) => ({
-      ...opt,  
+      ...opt,
       automationCycles: (opt.automationCycles || []).map((cycle) => ({
         orders: cycle.orders,
         actions: cycle.actions.map((action) => {
@@ -24,20 +24,24 @@ export const handlePublish = ({
             isVariant: action.isVariant ?? false,
             imageUrl: action.imageUrl || "",
           };
-
           if (action.type === "swap") {
-            return {
+            const payload = {
               ...base,
               sourceProductId: action.sourceProductId,
               sourceProductName: action.sourceProductName,
-              sourceVariantId: action.sourceVariantId || [],
-              sourceVariantName: action.sourceVariantName || [],
               dests: (action.dests || []).map((d) => ({
                 id: d.id,
                 name: d.name,
                 imageUrl: d.imageUrl || "",
               })),
             };
+
+            if (action.isVariant) {
+              payload.sourceVariantId = action.sourceVariantId || [];
+              payload.sourceVariantName = action.sourceVariantName || [];
+            }
+
+            return payload;
           }
 
           if (action.type === "add") {
@@ -45,6 +49,8 @@ export const handlePublish = ({
               ...base,
               productId: action.productId,
               productName: action.productName,
+              variantId: action.variantId || [],
+              variantName: action.variantName || [],
             };
           }
 
