@@ -236,10 +236,10 @@ Internationalization:
 
 - [Internationalizing your app](https://shopify.dev/docs/apps/best-practices/internationalization/getting-started)
 
+
+
 dev-lalit.myshopify.com SHOP DOMAIN
 gid://shopify/Shop/69853577402 SHOP ID
-
-
 
 
 
