@@ -241,5 +241,7 @@ Internationalization:
 
 
 
+dev-lalit.myshopify.com SHOP DOMAIN
+gid://shopify/Shop/69853577402 SHOP ID
 
 
