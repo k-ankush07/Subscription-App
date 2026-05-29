@@ -73,38 +73,38 @@ function validate({ selectedProducts, options }) {
   //  Settings changeQty ON but no products selected
   const billingErrors = {};
 
-options.forEach((o, i) => {
-  if (o.billingType === 'prepaid') {
-    const df = Number(o.deliveryFrequency);
-    const bf = Number(o.billingFrequency);
+  options.forEach((o, i) => {
+    if (o.billingType === 'prepaid') {
+      const df = Number(o.deliveryFrequency);
+      const bf = Number(o.billingFrequency);
 
-    // required validation
-    if (!o.deliveryFrequency || !o.billingFrequency) {
-      billingErrors[i] =
-        ' Billing frequency are required.';
-      return;
-    }
+      // required validation
+      if (!o.deliveryFrequency || !o.billingFrequency) {
+        billingErrors[i] =
+          ' Billing frequency are required.';
+        return;
+      }
 
-    // greater than validation
-    if (bf <= df) {
-      billingErrors[i] =
-        'Billing frequency must be greater than delivery frequency.';
-      return;
-    }
+      // greater than validation
+      if (bf <= df) {
+        billingErrors[i] =
+          'Billing frequency must be greater than delivery frequency.';
+        return;
+      }
 
-    // multiple validation
-    if (bf % df !== 0) {
-      billingErrors[i] =
-        'Billing frequency must be a multiple of delivery frequency.';
+      // multiple validation
+      if (bf % df !== 0) {
+        billingErrors[i] =
+          'Billing frequency must be a multiple of delivery frequency.';
+      }
     }
+  });
+
+  if (Object.keys(billingErrors).length > 0) {
+    errors.billingMultiple = billingErrors;
   }
-});
 
-if (Object.keys(billingErrors).length > 0) {
-  errors.billingMultiple = billingErrors;
-}
-  
-  
+
   const changeQtyErrors = [];
   options.forEach((o, i) => {
     if (o.changeQtyAfterOrders && !(o.changeQtyProducts?.length > 0)) {
@@ -165,14 +165,14 @@ function Templates({ products, nextCursor, hasNextPage }) {
   const [pagination, setPagination] = useState({
     hasPrevious: false,
     hasNext: false,
-    handlePrev: () => {},
-    handleNext: () => {},
+    handlePrev: () => { },
+    handleNext: () => { },
   });
 
   //  validation
   const errors = validate({ selectedProducts, options });
   const isValid = Object.keys(errors).length === 0;
-  
+
 
   // isDirty
   const isDirty =
@@ -208,14 +208,14 @@ function Templates({ products, nextCursor, hasNextPage }) {
     setLoading(true);
     const payload = buildPayload({ selectedProducts, options, productChanges, title, description });
 
-   
+
     if (!payload) { setLoading(false); return; }
 
     await new Promise((resolve) => setTimeout(resolve, 2000));
     // setTimeout(() => navigate(`/app/plans`), 1000);
 
     setSavedState({ title, description, selectedProducts, options, productChanges });
-     console.log("ddata",payload)
+    console.log("ddata", payload)
     setLoading(false);
   };
 
@@ -335,7 +335,7 @@ function Templates({ products, nextCursor, hasNextPage }) {
 
             <MediaCard
               title="New to Kaching Subscriptions?"
-              primaryAction={{ content: 'Optional tutorials', onAction: () => {} }}
+              primaryAction={{ content: 'Optional tutorials', onAction: () => { } }}
               description="Discover how Shopify can power up your entrepreneurial journey."
             >
               <img
@@ -371,7 +371,7 @@ function Templates({ products, nextCursor, hasNextPage }) {
               <BlockStack gap="300">
                 <Text variant="headingMd" as="h2">Products</Text>
 
-                
+
 
                 {selectedProducts.length > 0 && (
                   <BlockStack gap="200">
@@ -387,8 +387,16 @@ function Templates({ products, nextCursor, hasNextPage }) {
                               alt={product.productTitle}
                               style={{ width: "45px", height: "45px", borderRadius: "8px", objectFit: "cover" }}
                             />
-                            <Text fontWeight="medium">{product.productTitle}</Text>
+
+                            <div>
+                              <Text fontWeight="medium">{product.productTitle}</Text>
+                              <p>
+                                ({product.variantIds?.length || 0}  variants selected)
+                              </p>
+                            </div>
+
                           </div>
+
                           <Button
                             onClick={() =>
                               setSelectedProducts((prev) =>
@@ -535,12 +543,12 @@ function Templates({ products, nextCursor, hasNextPage }) {
                           {opt.discountType === 'percentage'
                             ? `${opt.discountAmount}% off`
                             : opt.discountType === 'fixed'
-                            ? `Fixed price ₹${opt.discountAmount}`
-                            : `₹${opt.discountAmount} off`}
+                              ? `Fixed price ₹${opt.discountAmount}`
+                              : `₹${opt.discountAmount} off`}
                           {opt.changeDiscountAfter && opt.discountAmount2 && opt.afterOrders
                             ? `, then ${opt.discountType2 === 'percentage'
-                                ? `${opt.discountAmount2}%`
-                                : `₹${opt.discountAmount2}`} after ${opt.afterOrders} orders`
+                              ? `${opt.discountAmount2}%`
+                              : `₹${opt.discountAmount2}`} after ${opt.afterOrders} orders`
                             : ''}
                         </li>
                       )}

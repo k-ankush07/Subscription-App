@@ -42,8 +42,7 @@ function plans() {
       deliveryFrequency: 'Every month',
       pricing: '70% off',
     },
-  
-   
+
   ];
 
 

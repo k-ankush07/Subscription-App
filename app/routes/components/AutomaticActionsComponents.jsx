@@ -72,8 +72,8 @@ export function ActionDropdown({ onSelect, onClose }) {
               key={item.key}
               style={styles.dropdownItem}
               onMouseEnter={(e) =>
-                (e.currentTarget.style.background =
-                  "var(--p-color-bg-surface-secondary)")
+              (e.currentTarget.style.background =
+                "var(--p-color-bg-surface-secondary)")
               }
               onMouseLeave={(e) =>
                 (e.currentTarget.style.background = "transparent")
@@ -128,8 +128,8 @@ export function ActionCard({
     variantNames.length > 0
       ? null
       : action.type === "swap" && !action.isVariant
-      ? "Will match all variants"
-      : null;
+        ? "Will match all variants"
+        : null;
 
   return (
     <div style={styles.actionCard}>
@@ -341,11 +341,7 @@ export function ActionCard({
                 action.dests.map((dest, di) => (
                   <div key={di} style={styles.destCard}>
                     {dest.imageUrl ? (
-                      <img
-                        src={dest.imageUrl}
-                        alt=""
-                        style={styles.destThumb}
-                      />
+                     ""
                     ) : (
                       <div
                         style={{
@@ -360,32 +356,37 @@ export function ActionCard({
                     )}
                     <div style={{ flex: 1 }}>
                       <Text variant="bodySm">{dest.name}</Text>
-                      {dest.variantNames?.length > 0 && (
-                        <div
-                          style={{
-                            display: "flex",
-                            flexWrap: "wrap",
-                            gap: 4,
-                          }}
-                        >
-                          {dest.variantNames.map((v, idx) => (
-                            <span key={idx} style={styles.variantTag}>
-                              {v}
-                            </span>
+                      {(dest.variants?.length > 0 || dest.variantNames?.length > 0) && (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 6 }}>
+                          {(dest.variants || dest.variantNames || []).map((variant, idx) => (
+                            <div
+                              key={idx}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 8,
+                                flexWrap: "wrap",
+                              }}
+                            >
+                              {/* image (if exists like screenshot) */}
+                              {dest.variantImages?.[idx] && (
+                                <img
+                                  src={dest.variantImages[idx]}
+                                  width={24}
+                                  height={24}
+                                  style={{ borderRadius: 4 }}
+                                  alt=""
+                                />
+                              )}
+
+                              {/* variant title */}
+                              <span style={styles.variantTag}>
+                                {typeof variant === "string" ? variant : variant.title}
+                              </span>
+                            </div>
                           ))}
                         </div>
                       )}
-                      {dest.variantTitles?.map((title, idx2) => (
-                        <div key={idx2} style={{ display: "flex", gap: 8 }}>
-                          <img
-                            src={dest.variantImages?.[idx2]}
-                            width={24}
-                            height={24}
-                            alt=""
-                          />
-                          <span>{title}</span>
-                        </div>
-                      ))}
                     </div>
                     <button
                       style={{ ...styles.iconBtn, marginLeft: "auto" }}

@@ -146,7 +146,7 @@ const Products = forwardRef(function Products(
     }));
   };
 
-  // ── Selection helpers — UNCHANGED ─────────────────────────────────────────────
+  //  Selection helpers — UNCHANGED 
 
   const isProductSelected = (product) => {
     const selectedProduct = selectedItems.find(
@@ -169,7 +169,7 @@ const Products = forwardRef(function Products(
     );
   };
 
-  // ── Toggle handlers ────────────────────────────────────────────────────────────
+  //  Toggle handlers 
 
   // UNCHANGED
   const toggleProduct = (product) => {
@@ -180,8 +180,9 @@ const Products = forwardRef(function Products(
       variantIds: product.variants.map((v) => v.id),
       variantTitles: product.variants.map((v) => v.title),
       variantImages: product.variants.map((v) => v.image || product.image),
+       totalVariants: product.variants.length,
     };
-
+    console.log(item.totalVariants,"hdchsfjhsdjh")
     const exists = selectedItems.find((p) => p.productId === product.id);
 
     if (singleSelect) {
@@ -215,13 +216,14 @@ const Products = forwardRef(function Products(
             variantIds: [variantId],
             variantTitles: [variant.title],
             variantImages: [variant.image || product.image],
+            totalVariants: product.variants.length,
           },
         ]);
         return;
       }
     }
 
-    // UNCHANGED from original ──────────────────────────────────────────────────
+    // UNCHANGED from original 
 
     const existingProduct = selectedItems.find(
       (p) => p.productId === product.id
@@ -289,8 +291,7 @@ const Products = forwardRef(function Products(
     }
   };
 
-  // ── Render ────────────────────────────────────────────────────────────────────
-
+ 
   return (
     <Card title="Products">
       <BlockStack gap="300">
@@ -404,8 +405,8 @@ const Products = forwardRef(function Products(
                           </div>
 
                           {/*
-                            hideVariants=true → no chevron icon, clicking product name does nothing variant-related.
-                            hideVariants=false → original behaviour (chevron + expand on click).
+                            hideVariants=true  no chevron icon, clicking product name does nothing variant-related.
+                            hideVariants=false original behaviour (chevron + expand on click).
                           */}
                           <div
                             style={{
@@ -457,8 +458,8 @@ const Products = forwardRef(function Products(
 
                   {/*
                     Variant rows:
-                    - hideVariants=true  → never shown
-                    - hideVariants=false → shown when expanded (original behaviour)
+                     hideVariants=true  never shown
+                     hideVariants=false  shown when expanded (original behaviour)
                   */}
                   {!hideVariants &&
                     product.variants.length > 1 &&
