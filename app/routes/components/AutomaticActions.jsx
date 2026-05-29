@@ -485,20 +485,40 @@ function AutomaticActions({
       openPicker("Select product to add", false, (selected) => {
         if (!selected?.length) return;
         const item = selected[0];
-        addToCycle(cycleId, {
-          type: "add",
-          productId: item.productId,
-          productName:
-            item.title ||
-            item.productTitle ||
-            item.productId,
-          isVariant: false,
+        // addToCycle(cycleId, {
+        //   type: "add",
+        //   productId: item.productId,
+        //   productName:
+        //     item.title ||
+        //     item.productTitle ||
+        //     item.productId,
+        //   isVariant: false,
 
-          imageUrl:
-            item.imageUrl ||
-            item.productImage ||
-            "",
-        });
+        //   imageUrl:
+        //     item.imageUrl ||
+        //     item.productImage ||
+        //     "",
+        // });
+     
+        addToCycle(cycleId, {
+  type: "add",
+  productId: item.productId,
+  productName:
+    item.title ||
+    item.productTitle ||
+    item.productId,
+
+  isVariant: false,
+
+  imageUrl:
+    item.imageUrl ||
+    item.productImage ||
+    "",
+
+  quantity: 1,
+  discountValue: "",
+  discountType: "amount",
+});
       });
     } else if (actionType === "remove-product") {
       openPicker("Select product to remove", false, (selected) => {

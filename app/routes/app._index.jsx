@@ -17,7 +17,7 @@ import { useNavigate } from 'react-router';
 function Index() {
   const navigate= useNavigate()
   return (
-    <Frame>
+  
       <Page
         title="Subscriptions"
         subtitle="Manage your subscription plans and customers"
@@ -47,7 +47,7 @@ function Index() {
           </Layout>
         </BlockStack>
       </Page>
-    </Frame>
+   
   );
 }
 
