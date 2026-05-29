@@ -24,6 +24,8 @@ function AutomaticActions({
 }) {
   const [cycles, setCycles] = useState([]);
   const [showMainDropdown, setShowMainDropdown] = useState(false);
+  //  this new state near other modal states
+const [modalSingleSelect, setModalSingleSelect] = useState(false);
 
   // Modal state
   const [modalOpen, setModalOpen] = useState(false);
@@ -42,10 +44,15 @@ function AutomaticActions({
     console.log("===== CYCLES DATA =====");
     console.log("data", cycles);
   }, [cycles]);
+   useEffect(() => {
+  onChange(index, "automationCycles", cycles);
+  console.log("sfnsdjkbf", cycles)
+}, [cycles]);
 
-  const openPicker = (title, pickVariant, callback) => {
+  const openPicker = (title, pickVariant, callback, singleSelect = false) => {
     setModalTitle(title);
     setModalPickVariant(pickVariant);
+     setModalSingleSelect(singleSelect);
     setTempSelected([]);
     setModalCallback(() => callback);
     setModalOpen(true);
@@ -91,53 +98,68 @@ function AutomaticActions({
   };
 
   const resolveActionType = (actionType, cycleId, actionIdx = null) => {
-    if (actionType === "swap-product") {
-      openPicker("Select product", false, (selected) => {
-        if (!selected?.length) return;
-        const item = selected[0];
-        addToCycle(cycleId, {
-          type: "swap",
-          sourceProductId: item.productId,
-          sourceProductName: item.title || item.productTitle || item.productId,
-          imageUrl: item.imageUrl || item.productImage || "",
-          isVariant: false,
-          dests: [],
-        });
+   if (actionType === "swap-product") {
+  openPicker(
+    "Select product",
+    false,
+    (selected) => {
+      if (!selected?.length) return;
+
+      const item = selected[0];
+
+      addToCycle(cycleId, {
+        type: "swap",
+        sourceProductId: item.productId,
+        sourceProductName:
+          item.title || item.productTitle || item.productId,
+        imageUrl: item.imageUrl || item.productImage || "",
+        isVariant: false,
+        dests: [],
       });
-    } else if (actionType === "swap-variant") {
-      openPicker("Select variant", true, (selected) => {
-        if (!selected?.length) return;
-        const item = selected[0];
-        addToCycle(cycleId, {
-          type: "swap",
-          sourceProductId: item.productId,
-          sourceProductName: item.title || item.productTitle || item.productId,
-          sourceVariantId: item.variantIds,
-          sourceVariantName: Array.isArray(item.variantTitles)
-            ? item.variantTitles
-            : item.variantTitles
-            ? [item.variantTitles]
-            : [],
-          imageUrl: item.imageUrl || item.productImage || "",
-          dests: [],
-        });
-      });
-    } else if (actionType === "add-product") {
-      openPicker("Select product to add", false, (selected) => {
-        if (!selected?.length) return;
-        const item = selected[0];
-        addToCycle(cycleId, {
-          type: "add",
-          productId: item.productId,
-          productName: item.title || item.productTitle || item.productId,
-          isVariant: false,
-          imageUrl: item.imageUrl || item.productImage || "",
-          quantity: 1,
-          discountValue: "",
-          discountType: "amount",
-        });
-      });
-    } else if (actionType === "remove-product") {
+    },
+    true //  SINGLE SELECT ENABLED
+  );
+}else if (actionType === "swap-variant") {
+      openPicker(
+  "Select variant",
+  true,
+  (selected) => {
+    if (!selected?.length) return;
+
+    const item = selected[0];
+
+    addToCycle(cycleId, {
+      type: "swap",
+      sourceProductId: item.productId,
+      sourceProductName:
+        item.title || item.productTitle || item.productId,
+      sourceVariantId: item.variantIds,
+      sourceVariantName: Array.isArray(item.variantTitles)
+        ? item.variantTitles
+        : item.variantTitles
+        ? [item.variantTitles]
+        : [],
+      imageUrl: item.imageUrl || item.productImage || "",
+      dests: [],
+    });
+  },
+  true // ✅
+);
+    }  else if (actionType === "add-product") {
+  openPicker("Select product to add", false, (selected) => {
+    if (!selected?.length) return;
+    const item = selected[0];
+    addToCycle(cycleId, {
+      type: "add",
+      productId: item.productId,
+      productName: item.title || item.productTitle || item.productId,
+      isVariant: false,
+      imageUrl: item.imageUrl || item.productImage || "",
+      quantity: 1,
+      discountValue: "",
+      discountType: "amount",
+    });
+  }, true);  //  singleSelect = true else if (actionType === "remove-product") {
       openPicker("Select product to remove", false, (selected) => {
         if (!selected?.length) return;
         const item = selected[0];
@@ -148,7 +170,8 @@ function AutomaticActions({
           isVariant: false,
           imageUrl: item.imageUrl || item.productImage || "",
         });
-      });
+      },
+     true);
     } else if (actionType === "remove-variant") {
       openPicker("Select variant to remove", true, (selected) => {
         if (!selected?.length) return;
@@ -166,28 +189,29 @@ function AutomaticActions({
           imageUrl: item.imageUrl || item.productImage || "",
         });
       });
-    } else if (actionType === "add-dest" && actionIdx !== null) {
-      const cycle = cycles.find((c) => c.id === cycleId);
-      const action = cycle?.actions[actionIdx];
-      const isVariantSwap = !!action?.sourceVariantId;
-      openPicker(
-        isVariantSwap ? "Select destination variant" : "Select destination product",
-        isVariantSwap,
-        (selected) => {
-          if (!selected?.length) return;
-          const item = selected[0];
-          addDestToCycle(cycleId, actionIdx, {
-            id: item.productId,
-            name: isVariantSwap
-              ? `${item.title || item.productTitle || item.productId} — ${
-                  item.variantTitle || item.variantIds
-                }`
-              : item.title || item.productTitle || item.productId,
-            imageUrl: item.imageUrl || item.productImage || "",
-          });
-        }
-      );
-    }
+    }  else if (actionType === "add-dest" && actionIdx !== null) {
+  const cycle = cycles.find((c) => c.id === cycleId);
+  const action = cycle?.actions[actionIdx];
+  const isVariantSwap = !!action?.sourceVariantId;
+  openPicker(
+    isVariantSwap ? "Select destination variant" : "Select destination product",
+    isVariantSwap,
+    (selected) => {
+      if (!selected?.length) return;
+      //  loop ALL selected instead of only selected[0]
+      selected.forEach((item) => {
+        addDestToCycle(cycleId, actionIdx, {
+          id: item.productId,
+          name: isVariantSwap
+            ? `${item.title || item.productTitle || item.productId} — ${item.variantTitle || item.variantIds}`
+            : item.title || item.productTitle || item.productId,
+          imageUrl: item.imageUrl || item.productImage || "",
+        });
+      });
+    },
+    false  //  singleSelect = false, allow multi select
+  );
+}
   };
 
   // "Add action" button: create new cycle then add action
@@ -338,6 +362,7 @@ function AutomaticActions({
             onSelect={setTempSelected}
             onPaginationChange={setPagination}
             pickVariant={modalPickVariant}
+            singleSelect={modalSingleSelect}
           />
         </Modal.Section>
       </Modal>
