@@ -3,7 +3,7 @@ import { Text, Badge, InlineStack, TextField, Icon } from "@shopify/polaris";
 import { DeleteIcon } from '@shopify/polaris-icons';
 import {styles} from "../ui/automationAction/styles.js"
 //  Action Dropdown Popover 
-export function ActionDropdown({ onSelect, onClose, position = "top" }) {
+export function ActionDropdown({ onSelect, onClose }) {
   const ref = useRef(null);
 
   useEffect(() => {
@@ -222,11 +222,20 @@ export function ActionCard({ action, onDelete, onAddDest, onDeleteDest, onChange
                     )}
                     <div style={{ flex: 1 }}>
                       <Text variant="bodySm">{dest.name}</Text>
-                      {dest.variantName && (
+                      {/* {dest.variantName && (
                         <Text variant="bodySm" tone="subdued">
                           {dest.variantName}
                         </Text>
-                      )}
+                      )} */}
+                      {dest.variantNames?.length > 0 && (
+  <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+    {dest.variantNames.map((v, idx) => (
+      <span key={idx} style={styles.variantTag}>
+        {v}
+      </span>
+    ))}
+  </div>
+)}
                     </div>
                     <button
                       style={{ ...styles.iconBtn, marginLeft: "auto" }}

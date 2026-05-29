@@ -245,3 +245,6 @@ gid://shopify/Shop/69853577402 SHOP ID
 
 
 
+jab me add product pr click kr ke  
+
+1.add swap destination pr click kru tab product ke agr product select hua hai tb full product + varient show ho unka name image or or varient select hua hai to vairnt hi show kro image + name 

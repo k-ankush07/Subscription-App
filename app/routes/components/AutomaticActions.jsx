@@ -46,7 +46,7 @@ const [modalSingleSelect, setModalSingleSelect] = useState(false);
   }, [cycles]);
    useEffect(() => {
   onChange(index, "automationCycles", cycles);
-  console.log("sfnsdjkbf", cycles)
+  // console.log("sfnsdjkbf", cycles)
 }, [cycles]);
 
   const openPicker = (title, pickVariant, callback, singleSelect = false) => {
@@ -143,7 +143,7 @@ const [modalSingleSelect, setModalSingleSelect] = useState(false);
       dests: [],
     });
   },
-  true // ✅
+  true // 
 );
     }  else if (actionType === "add-product") {
   openPicker("Select product to add", false, (selected) => {
@@ -199,15 +199,28 @@ const [modalSingleSelect, setModalSingleSelect] = useState(false);
     (selected) => {
       if (!selected?.length) return;
       //  loop ALL selected instead of only selected[0]
-      selected.forEach((item) => {
-        addDestToCycle(cycleId, actionIdx, {
-          id: item.productId,
-          name: isVariantSwap
-            ? `${item.title || item.productTitle || item.productId} — ${item.variantTitle || item.variantIds}`
-            : item.title || item.productTitle || item.productId,
-          imageUrl: item.imageUrl || item.productImage || "",
-        });
-      });
+  //     selected.forEach((item) => {
+  //       addDestToCycle(cycleId, actionIdx, {
+  //         id: item.productId,
+  //         name: isVariantSwap
+  // ? `${item.productTitle} — ${
+  //     Array.isArray(item.variantTitles)
+  //       ? item.variantTitles.join(", ")
+  //       : item.variantTitles || ""
+  //   }`
+  // : item.productTitle,
+  //         imageUrl: item.imageUrl || item.productImage || "",
+  //       });
+  //     });
+  selected.forEach((item) => {
+  addDestToCycle(cycleId, actionIdx, {
+    id: item.productId,
+    name: item.productTitle,
+    variantNames: item.variantTitles || [],
+    variantIds: item.variantIds || [],
+    imageUrl: item.productImage || "",
+  });
+});
     },
     false  //  singleSelect = false, allow multi select
   );
