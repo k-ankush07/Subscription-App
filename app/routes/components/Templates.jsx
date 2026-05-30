@@ -54,22 +54,6 @@ function validate({ selectedProducts, options }) {
     };
   }
 
-  // Per-option billing frequency not a multiple of delivery frequency
-  // const billingErrors = {};
-  // options.forEach((o, i) => {
-  //   if (o.billingType === 'prepaid') {
-  //     const df = Number(o.deliveryFrequency);
-  //     const bf = Number(o.billingFrequency);
-  //     if (df && bf && bf % df !== 0) {
-  //       billingErrors[i] =
-  //         ` Billing frequency  must be a multiple of delivery frequency .`;
-  //     }
-  //   }
-  // });
-  // if (Object.keys(billingErrors).length > 0) {
-  //   errors.billingMultiple = billingErrors;
-  // }
-
   //  Settings changeQty ON but no products selected
   const billingErrors = {};
 
@@ -212,7 +196,7 @@ function Templates({ products, nextCursor, hasNextPage }) {
     if (!payload) { setLoading(false); return; }
 
     await new Promise((resolve) => setTimeout(resolve, 2000));
-    // setTimeout(() => navigate(`/app/plans`), 1000);
+    setTimeout(() => navigate(`/app/plans`), 1000);
 
     setSavedState({ title, description, selectedProducts, options, productChanges });
     console.log("ddata", payload)

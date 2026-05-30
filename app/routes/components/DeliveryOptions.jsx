@@ -316,7 +316,11 @@ function DeliveryOptionCard({
             </>
           )}
         </BlockStack>
-           <Divider />
+           
+        {/* SETTINGS */}
+        {selectedProducts?.length > 0 && (
+          <>
+       <Divider />
              <AutomaticActions
               option={option}
               index={index}
@@ -326,10 +330,6 @@ function DeliveryOptionCard({
               setShowActions={setShowActions}
 
             />
-        {/* SETTINGS */}
-        {selectedProducts?.length > 0 && (
-          <>
-       
 
           
             <Divider />
@@ -510,11 +510,6 @@ function DeliveryOptions({
   validationErrors = {},
   submitted = false,
 }) {
-  // const handleChange = (index, field, value) => {
-  //   setOptions((prev) =>
-  //     prev.map((opt, i) => (i === index ? { ...opt, [field]: value } : opt))
-  //   );
-  // };
   const handleChange = (index, field, value) => {
   setOptions((prev) =>
     prev.map((opt, i) => {
