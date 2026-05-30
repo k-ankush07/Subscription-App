@@ -383,18 +383,20 @@ export function ActionCard({
                               <span style={styles.variantTag}>
                                 {typeof variant === "string" ? variant : variant.title}
                               </span>
+                              <Icon source={DeleteIcon} tone="base" />
                             </div>
+                            
                           ))}
                         </div>
                       )}
                     </div>
-                    <button
+                    {/* <button
                       style={{ ...styles.iconBtn, marginLeft: "auto" }}
                       onClick={() => onDeleteDest(di)}
                       title="Remove destination"
                     >
                       <Icon source={DeleteIcon} tone="base" />
-                    </button>
+                    </button> */}
                   </div>
                 ))
               ) : (
