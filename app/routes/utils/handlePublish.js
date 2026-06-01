@@ -1,5 +1,6 @@
 export const handlePublish = ({
   shop,
+  planId,
   selectedProducts,
   options,
   productChanges,
@@ -8,6 +9,7 @@ export const handlePublish = ({
 }) => {
   return {
     shop,
+    planId,
     title,
     description,
     productChanges,

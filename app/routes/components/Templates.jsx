@@ -113,12 +113,11 @@ function validate({ selectedProducts, options }) {
   return errors; // {} = valid
 }
 
-function Templates({shop}) {
+function Templates({shop,singlePlanId,singlePlanData}) {
 
   
   // console.log("product", products,"nextCursor", nextCursor, "hasNextPage", hasNextPage);
   const API_URL = import.meta.env.VITE_API_URL;
-  console.log("log", API_URL)
   const navigate = useNavigate();
   const [options, setOptions] = useState([{ ...defaultOption }]);
   const [openProductModal, setOpenProductModal] = useState(false);
@@ -157,6 +156,8 @@ function Templates({shop}) {
     handlePrev: () => { },
     handleNext: () => { },
   });
+      const planId = Date.now();
+  
 
   //  validation
   const errors = validate({ selectedProducts, options });
@@ -199,16 +200,14 @@ function Templates({shop}) {
 
   const payload = buildPayload({
     shop,
+    planId,
     selectedProducts,
     options,
     productChanges,
     title,
     description,
   });
-
-  console.log("=== Publish Started ===");
-  console.log("Payload:", payload);
-
+  console.log("planid", payload)
   try {
     const response = await fetch(`https://habitant-startling-cassette.ngrok-free.dev/plans/create`, {
       method: "POST",
@@ -217,21 +216,8 @@ function Templates({shop}) {
       },
       body: JSON.stringify(payload),
     });
-
-    console.log("Response Status:", response.status);
-    console.log("Response OK:", response.ok);
-    console.log("Response Headers:", [...response.headers.entries()]);
-
     const data = await response.json();
-
-    console.log("=== API Response ===");
-    console.log(data);
-    console.log("Success:", data.success);
-    console.log("Message:", data.message);
-
     if (data.success) {
-      console.log("Plan created successfully");
-
       setSavedState({
         title,
         description,
@@ -239,18 +225,12 @@ function Templates({shop}) {
         options,
         productChanges,
       });
-
-      navigate("/app/plans");
+     navigate(`/app/plan/${planId}`);
     } else {
       console.error("API returned success: false", data);
     }
   } catch (error) {
-    console.error("=== Publish Error ===");
-    console.error("Message:", error.message);
-    console.error("Stack:", error.stack);
-    console.error("Full Error:", error);
   } finally {
-    console.log("=== Publish Finished ===");
     setLoading(false);
   }
 };

@@ -6,6 +6,7 @@ const createPlan = async (req, res) => {
   try {
     const {
       shop,
+      planId,
       title,
       description,
       selectedProducts,
@@ -15,6 +16,7 @@ const createPlan = async (req, res) => {
 
     const plan = await Plan.create({
       shop,
+      planId,
       title,
       description,
       selectedProducts,
@@ -36,26 +38,53 @@ const createPlan = async (req, res) => {
 };
 
 
-// const getALLPlans = async (req, res) => {
-//   try {
-//     const plans = await Plan.find();
+const getALLPlans = async (req, res) => {
+  try {
+    const plans = await Plan.find();
 
-//     res.status(200).json({
-//       success: true,
-//       count: plans.length,
-//       data: plans,
-//     });
-//   } catch (error) {
-//     res.status(500).json({
-//       success: false,
-//       message: error.message,
-//     });
-//   }
-// };
+    res.status(200).json({
+      success: true,
+      count: plans.length,
+      data: plans,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+const getPlanByPlanId = async (req, res) => {
+  try {
+    const { planId } = req.params;
+
+    console.log("Searching planId:", planId);
+
+    const plan = await Plan.findOne({ planId });
+
+    console.log("Found plan:", plan);
+
+    if (!plan) {
+      return res.status(404).json({
+        success: false,
+        message: "Plan not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: plan,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
 
 
 
 
-
-
-export {  createPlan };
+export {  createPlan ,getALLPlans,getPlanByPlanId};
