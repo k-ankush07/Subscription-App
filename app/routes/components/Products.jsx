@@ -28,7 +28,7 @@ const Products = forwardRef(function Products(
     selectedItems = [],
     onSelect,
     pickVariant,
-    singleSelect = false,
+    singleSelect = false, // select single product
     singleProductVariant = false, // only one product's variants selectable at a time
     hideVariants = false,          // NEW: hide variant rows entirely (for swap-product, add-product, remove-product)
     ...rest

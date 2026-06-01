@@ -30,7 +30,7 @@ function AutomaticActions({
 
   // Modal state
   const [modalOpen, setModalOpen] = useState(false);
-  const [modalTitle, setModalTitle] = useState("Select product");
+  const [modalTitle, setModalTitle] = useState("");
   const [modalPickVariant, setModalPickVariant] = useState(false);
   const [tempSelected, setTempSelected] = useState([]);
   const [modalCallback, setModalCallback] = useState(null);

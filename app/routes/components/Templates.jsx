@@ -113,7 +113,9 @@ function validate({ selectedProducts, options }) {
   return errors; // {} = valid
 }
 
-function Templates({ products, nextCursor, hasNextPage }) {
+function Templates() {
+  // console.log("product", products,"nextCursor", nextCursor, "hasNextPage", hasNextPage);
+  
   const navigate = useNavigate();
   const [options, setOptions] = useState([{ ...defaultOption }]);
   const [openProductModal, setOpenProductModal] = useState(false);
@@ -195,7 +197,7 @@ function Templates({ products, nextCursor, hasNextPage }) {
 
     if (!payload) { setLoading(false); return; }
 
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    // await new Promise((resolve) => setTimeout(resolve, 2000));  // fake api delay
     setTimeout(() => navigate(`/app/plans`), 1000);
 
     setSavedState({ title, description, selectedProducts, options, productChanges });
@@ -432,9 +434,9 @@ function Templates({ products, nextCursor, hasNextPage }) {
             >
               <Modal.Section>
                 <Products
-                  products={products}
-                  hasNextPage={hasNextPage}
-                  nextCursor={nextCursor}
+                  // products={products}
+                  // hasNextPage={hasNextPage}
+                  // nextCursor={nextCursor}
                   selectedItems={tempSelected}
                   onSelect={setTempSelected}
                   onPaginationChange={setPagination}
@@ -477,9 +479,9 @@ function Templates({ products, nextCursor, hasNextPage }) {
               options={options}
               setOptions={setOptions}
               addOption={addOption}
-              products={products}
-              nextCursor={nextCursor}
-              hasNextPage={hasNextPage}
+              // products={products}
+              // nextCursor={nextCursor}
+              // hasNextPage={hasNextPage}
               selectedProducts={selectedProducts}
               // validation props
               validationErrors={showErrors}
