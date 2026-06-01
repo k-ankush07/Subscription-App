@@ -8,6 +8,8 @@ const plans =((req, res)=>
 
 
 const createPlan = async (req, res) => {
+
+  console.log(req.body)
   try {
     const {
       shop,
@@ -19,6 +21,7 @@ const createPlan = async (req, res) => {
     } = req.body;
 
     const plan = await Plan.create({
+      shop,
       title,
       description,
       selectedProducts,

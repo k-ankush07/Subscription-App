@@ -1,4 +1,5 @@
 export const handlePublish = ({
+  shop,
   selectedProducts,
   options,
   productChanges,
@@ -6,6 +7,7 @@ export const handlePublish = ({
   description,
 }) => {
   return {
+    shop,
     title,
     description,
     productChanges,

@@ -45,16 +45,6 @@ function plans() {
 
   ];
 
-
-// useEffect(()=>
-// {
-//   let plan= JSON.parse(localStorage.getItem("planPayload"))
-//   if (plan) {
-//     setData([plan]); // array bana diya
-//   }
-//   // setData(plan)
-//   console.log("sbjfbf",plan )
-// },[])
   const {
     selectedResources,
     allResourcesSelected,

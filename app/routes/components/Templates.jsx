@@ -113,7 +113,9 @@ function validate({ selectedProducts, options }) {
   return errors; // {} = valid
 }
 
-function Templates() {
+function Templates({shop}) {
+
+  
   // console.log("product", products,"nextCursor", nextCursor, "hasNextPage", hasNextPage);
   const API_URL = import.meta.env.VITE_API_URL;
   console.log("log", API_URL)
@@ -187,9 +189,8 @@ function Templates() {
     }
   }, [loading]);
 
-  
 
-const handlePublishClick = async () => {
+ const handlePublishClick = async () => {
   setSubmitted(true);
 
   if (!isValid) return;
@@ -197,6 +198,7 @@ const handlePublishClick = async () => {
   setLoading(true);
 
   const payload = buildPayload({
+    shop,
     selectedProducts,
     options,
     productChanges,
@@ -204,13 +206,11 @@ const handlePublishClick = async () => {
     description,
   });
 
-  if (!payload) {
-    setLoading(false);
-    return;
-  }
+  // console.log("=== Publish Started ===");
+  console.log("Payload:", payload);
 
   try {
-    const response = await fetch(`${API_URL}/plans/create`, {
+    const response = await fetch(`https://habitant-startling-cassette.ngrok-free.dev/plans/create`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -218,11 +218,13 @@ const handlePublishClick = async () => {
       body: JSON.stringify(payload),
     });
 
+
+
     const data = await response.json();
 
-    console.log("API Response:", data);
-
     if (data.success) {
+   
+
       setSavedState({
         title,
         description,
@@ -232,32 +234,19 @@ const handlePublishClick = async () => {
       });
 
       navigate("/app/plans");
+    } else {
+      console.error("API returned success: false", data);
     }
   } catch (error) {
-    console.error("Publish Error:", error);
+    console.error("=== Publish Error ===");
+    console.error("Message:", error.message);
+    console.error("Stack:", error.stack);
+    console.error("Full Error:", error);
   } finally {
+    console.log("=== Publish Finished ===");
     setLoading(false);
   }
 };
-
-  // const handlePublishClick = async () => {
-  //   setSubmitted(true); // show errors from now on
-
-  //   if (!isValid) return; // block save if errors
-
-  //   setLoading(true);
-  //   const payload = buildPayload({ selectedProducts, options, productChanges, title, description });
-
-
-  //   if (!payload) { setLoading(false); return; }
-
-  //   // await new Promise((resolve) => setTimeout(resolve, 2000));  // fake api delay
-  //   setTimeout(() => navigate(`/app/plans`), 1000);
-
-  //   setSavedState({ title, description, selectedProducts, options, productChanges });
-  //   console.log("ddata", payload)
-  //   setLoading(false);
-  // };
 
   const handleDiscard = () => {
     setTitle(savedState.title);
