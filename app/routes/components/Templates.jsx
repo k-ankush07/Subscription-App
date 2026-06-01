@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useParams } from 'react-router';
 import Products from "../components/Products";
 import DeliveryOption from "../components/DeliveryOptions";
 import { defaultOption } from "../constants/deliveryOption"
@@ -115,7 +115,8 @@ function validate({ selectedProducts, options }) {
 
 function Templates() {
   // console.log("product", products,"nextCursor", nextCursor, "hasNextPage", hasNextPage);
-  
+  const API_URL = import.meta.env.VITE_API_URL;
+  console.log("log", API_URL)
   const navigate = useNavigate();
   const [options, setOptions] = useState([{ ...defaultOption }]);
   const [openProductModal, setOpenProductModal] = useState(false);
@@ -186,24 +187,77 @@ function Templates() {
     }
   }, [loading]);
 
-  const handlePublishClick = async () => {
-    setSubmitted(true); // show errors from now on
+  
 
-    if (!isValid) return; // block save if errors
+const handlePublishClick = async () => {
+  setSubmitted(true);
 
-    setLoading(true);
-    const payload = buildPayload({ selectedProducts, options, productChanges, title, description });
+  if (!isValid) return;
 
+  setLoading(true);
 
-    if (!payload) { setLoading(false); return; }
+  const payload = buildPayload({
+    selectedProducts,
+    options,
+    productChanges,
+    title,
+    description,
+  });
 
-    // await new Promise((resolve) => setTimeout(resolve, 2000));  // fake api delay
-    setTimeout(() => navigate(`/app/plans`), 1000);
-
-    setSavedState({ title, description, selectedProducts, options, productChanges });
-    console.log("ddata", payload)
+  if (!payload) {
     setLoading(false);
-  };
+    return;
+  }
+
+  try {
+    const response = await fetch(`${API_URL}/plans/create`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await response.json();
+
+    console.log("API Response:", data);
+
+    if (data.success) {
+      setSavedState({
+        title,
+        description,
+        selectedProducts,
+        options,
+        productChanges,
+      });
+
+      navigate("/app/plans");
+    }
+  } catch (error) {
+    console.error("Publish Error:", error);
+  } finally {
+    setLoading(false);
+  }
+};
+
+  // const handlePublishClick = async () => {
+  //   setSubmitted(true); // show errors from now on
+
+  //   if (!isValid) return; // block save if errors
+
+  //   setLoading(true);
+  //   const payload = buildPayload({ selectedProducts, options, productChanges, title, description });
+
+
+  //   if (!payload) { setLoading(false); return; }
+
+  //   // await new Promise((resolve) => setTimeout(resolve, 2000));  // fake api delay
+  //   setTimeout(() => navigate(`/app/plans`), 1000);
+
+  //   setSavedState({ title, description, selectedProducts, options, productChanges });
+  //   console.log("ddata", payload)
+  //   setLoading(false);
+  // };
 
   const handleDiscard = () => {
     setTitle(savedState.title);
