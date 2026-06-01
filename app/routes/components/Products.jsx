@@ -182,7 +182,7 @@ const Products = forwardRef(function Products(
       variantImages: product.variants.map((v) => v.image || product.image),
        totalVariants: product.variants.length,
     };
-    console.log(item.totalVariants,"hdchsfjhsdjh")
+    console.log(item.productImage,"hdchsfjhsdjh")
     const exists = selectedItems.find((p) => p.productId === product.id);
 
     if (singleSelect) {

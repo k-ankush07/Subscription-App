@@ -22,9 +22,9 @@ export default function PlanId() {
   const plan = useLoaderData();
   const shop = plan.shop;
   const planId= plan.planId;
-  console.log("shop", shop)
-  console.log("plan", plan)
-  console.log("planId", planId)
+  // console.log("shop", shop)
+  // console.log("plan", plan)
+  // console.log("planId", planId)
   if (!plan) return <div>No plan found</div>;
 
   return (

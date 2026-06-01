@@ -1,6 +1,6 @@
 
 
-import React,{ useState, useEffect } from "react";
+import React,{ useState, useEffect, useRef } from "react";
 import {
   BlockStack,
   Button,
@@ -24,7 +24,17 @@ function AutomaticActions({
   hasNextPage,
   index,
 }) {
-  const [cycles, setCycles] = useState([]);
+ const [cycles, setCycles] = useState(() => {
+  if (!option.automationCycles?.length) return [];
+  return option.automationCycles.map((cycle) => ({
+    ...cycle,
+    id: cycle.id ?? Date.now() + Math.random(),
+    actions: (cycle.actions || []).map((action) => ({
+      ...action,
+      _id: action._id ?? Date.now() + Math.random(),
+    })),
+  }));
+});
   const [showMainDropdown, setShowMainDropdown] = useState(false);
   const [modalSingleSelect, setModalSingleSelect] = useState(false);
 
@@ -47,13 +57,22 @@ function AutomaticActions({
   const [hideVariants, setHideVariants] = useState(false);
 
   useEffect(() => {
-    console.log("===== CYCLES DATA =====");
-    console.log("data", cycles);
+    // console.log("===== CYCLES DATA =====");
+    // console.log("data", cycles);
   }, [cycles]);
 
-  useEffect(() => {
-    onChange(index, "automationCycles", cycles);
-  }, [cycles]);
+  // useEffect(() => {
+  //   onChange(index, "automationCycles", cycles);
+  // }, [cycles]);
+  const isFirstRender = useRef(true);
+
+useEffect(() => {
+  if (isFirstRender.current) {
+    isFirstRender.current = false;
+    return;
+  }
+  onChange(index, "automationCycles", cycles);
+}, [cycles]);
 
   const openPicker = (
     title,

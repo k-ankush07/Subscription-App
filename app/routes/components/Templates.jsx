@@ -113,52 +113,66 @@ function validate({ selectedProducts, options }) {
   return errors; // {} = valid
 }
 
-function Templates({shop,singlePlanId,singlePlanData}) {
-
-  
+function Templates({ shop, singlePlanId, singlePlanData }) {
+  // console.log("ncsdjkkjvkdvkdjv", singlePlanId)
+  //  console.log('singlePlanDatasinglePlanDatasinglePlanData', singlePlanData.selectedProducts)
   // console.log("product", products,"nextCursor", nextCursor, "hasNextPage", hasNextPage);
   const API_URL = import.meta.env.VITE_API_URL;
   const navigate = useNavigate();
-  const [options, setOptions] = useState([{ ...defaultOption }]);
   const [openProductModal, setOpenProductModal] = useState(false);
   const [tempSelected, setTempSelected] = useState([]);
-  const [selectedProducts, setSelectedProducts] = useState([]);
-  const [title, setTitle] = useState("Subscribe and save");
-  const [description, setDescription] = useState("Plan1");
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [loading, setLoading] = useState(false);
   // Show validation errors 
   const [submitted, setSubmitted] = useState(false);
 
   const [savedState, setSavedState] = useState({
-    title: "Subscribe and save",
-    description: "Plan1",
-    selectedProducts: [],
-    options: [{ ...defaultOption }],
-    productChanges: {
+    title: singlePlanData?.title ?? "Subscribe and save",
+    description: singlePlanData?.description ?? "Plan1",
+    selectedProducts: singlePlanData?.selectedProducts ?? [],
+    options: singlePlanData?.options ?? [{ ...defaultOption }],
+    productChanges: singlePlanData?.productChanges ?? {
       swap: true,
       variant: true,
       quantity: true,
       keepDiscount: true,
     },
   });
-
-  const [productChanges, setProductChanges] = useState({
-    swap: true,
-    variant: true,
-    quantity: true,
-    keepDiscount: true,
-  });
-
   const [pagination, setPagination] = useState({
     hasPrevious: false,
     hasNext: false,
     handlePrev: () => { },
     handleNext: () => { },
   });
-      const planId = Date.now();
-  
 
+  const isEditing = !!singlePlanId;
+  const planId = isEditing ? singlePlanId : Date.now();
+
+  // Initialize state from singlePlanData if editing
+  const [options, setOptions] = useState(
+    singlePlanData?.options ?? [{ ...defaultOption }]
+  );
+  const [selectedProducts, setSelectedProducts] = useState(
+    singlePlanData?.selectedProducts ?? []
+  );
+  // console.log("sjvshchsdjhcvjs", selectedProducts);
+
+  const [title, setTitle] = useState(
+    singlePlanData?.title ?? "Subscribe and save"
+  );
+  const [description, setDescription] = useState(
+    singlePlanData?.description ?? "Plan1"
+  );
+  const [productChanges, setProductChanges] = useState(
+    singlePlanData?.productChanges ?? {
+      swap: true,
+      variant: true,
+      quantity: true,
+      keepDiscount: true,
+    }
+  );
   //  validation
   const errors = validate({ selectedProducts, options });
   const isValid = Object.keys(errors).length === 0;
@@ -191,50 +205,48 @@ function Templates({shop,singlePlanId,singlePlanData}) {
   }, [loading]);
 
 
- const handlePublishClick = async () => {
-  setSubmitted(true);
+  const handlePublishClick = async () => {
+    setSubmitted(true);
+    if (!isValid) return;
+    setLoading(true);
 
-  if (!isValid) return;
-
-  setLoading(true);
-
-  const payload = buildPayload({
-    shop,
-    planId,
-    selectedProducts,
-    options,
-    productChanges,
-    title,
-    description,
-  });
-  console.log("planid", payload)
-  try {
-    const response = await fetch(`https://habitant-startling-cassette.ngrok-free.dev/plans/create`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
+    const payload = buildPayload({
+      shop,
+      planId,
+      selectedProducts,
+      options,
+      productChanges,
+      title,
+      description,
     });
-    const data = await response.json();
-    if (data.success) {
-      setSavedState({
-        title,
-        description,
-        selectedProducts,
-        options,
-        productChanges,
-      });
-     navigate(`/app/plan/${planId}`);
-    } else {
-      console.error("API returned success: false", data);
-    }
-  } catch (error) {
-  } finally {
-    setLoading(false);
-  }
-};
 
+    try {
+      // Use PUT for update, POST for create
+      const url = isEditing
+        ? `https://habitant-startling-cassette.ngrok-free.dev/plans/update/${planId}`  // ✅ localhost nahi
+        : `https://habitant-startling-cassette.ngrok-free.dev/plans/create`;
+
+      const response = await fetch(url, {
+        method: isEditing ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setSavedState({ title, description, selectedProducts, options, productChanges });
+        setTimeout(() => {
+          navigate(`/app/plan/${planId}`);
+        }, 1000)
+      } else {
+        console.error("API returned success: false", data);
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
   const handleDiscard = () => {
     setTitle(savedState.title);
     setDescription(savedState.description);
@@ -286,12 +298,44 @@ function Templates({shop,singlePlanId,singlePlanData}) {
   // Errors to display (only after submit)
   const showErrors = submitted ? errors : {};
 
+
+  const handleDeletePlan = async () => {
+    try {
+      const res = await fetch(
+        `https://habitant-startling-cassette.ngrok-free.dev/plans/${singlePlanId}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      const data = await res.json();
+
+      if (data.success) {
+        setTimeout(() => navigate("/app/plans"), 1000)
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
   return (
+
     <Page
-      backAction={{ content: 'Products', onAction: handleClick }}
-      title={description || 'Create subscription plan'}
-      primaryAction={{ content: 'Publish', onAction: handlePublishClick, loading: loading }}
+      backAction={{ content: 'Plans', onAction: isEditing ? () => navigate("/app/plans") : handleClick }}
+      title={isEditing ? `Edit: ${description}` : (description || 'Create subscription plan')}
+      primaryAction={{ content: isEditing ? 'Update' : 'Publish', onAction: handlePublishClick, loading }}
+      secondaryActions={
+        singlePlanId
+          ? [
+            {
+              content: "Delete Plan",
+              destructive: true,
+              onAction: () => setShowDeleteModal(true),
+            },
+          ]
+          : []
+      }
     >
+
       <ui-save-bar id="templates-save-bar">
         <button variant="primary" id="templates-save-btn" onClick={handlePublishClick}>Save</button>
         <button onClick={handleDiscard}>Discard</button>
@@ -518,6 +562,31 @@ function Templates({shop,singlePlanId,singlePlanData}) {
               submitted={submitted}
             />
           </BlockStack>
+
+          <Modal
+            open={showDeleteModal}
+            onClose={() => setShowDeleteModal(false)}
+            title="Delete plan"
+            primaryAction={{
+              content: "Delete",
+              destructive: true,
+              onAction: async () => {
+                setShowDeleteModal(false);
+                await handleDeletePlan();
+              },
+            }}
+            secondaryActions={[
+              {
+                content: "Cancel",
+                onAction: () => setShowDeleteModal(false),
+              },
+            ]}
+          >
+            <Modal.Section>
+              <Text>Are you sure you want to delete this plan?</Text>
+            </Modal.Section>
+          </Modal>
+
         </Grid.Cell>
 
         {/* RIGHT SIDE */}

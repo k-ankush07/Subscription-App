@@ -59,7 +59,6 @@ const getPlanByPlanId = async (req, res) => {
   try {
     const { planId } = req.params;
 
-    console.log("Searching planId:", planId);
 
     const plan = await Plan.findOne({ planId });
 
@@ -84,7 +83,83 @@ const getPlanByPlanId = async (req, res) => {
   }
 };
 
+const updatePlan = async (req, res) => {
+  try {
+    const { planId } = req.params;
+
+    const {
+      shop,
+      title,
+      description,
+      selectedProducts,
+      productChanges,
+      options,
+    } = req.body;
+
+    const updatedPlan = await Plan.findOneAndUpdate(
+      { planId },
+      {
+        shop,
+        title,
+        description,
+        selectedProducts,
+        productChanges,
+        options,
+      },
+      {
+        new: true,        // return updated document
+        runValidators: true,
+      }
+    );
+
+    if (!updatedPlan) {
+      return res.status(404).json({
+        success: false,
+        message: "Plan not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Plan updated successfully",
+      data: updatedPlan,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+
+const deletePlan = async (req, res) => {
+  try {
+    const { planId } = req.params;
+
+    const deletedPlan = await Plan.findOneAndDelete({ planId });
+
+    if (!deletedPlan) {
+      return res.status(404).json({
+        success: false,
+        message: "Plan not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Plan deleted successfully",
+      data: deletedPlan,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
 
 
 
-export {  createPlan ,getALLPlans,getPlanByPlanId};
+
+export {  createPlan ,getALLPlans,getPlanByPlanId,updatePlan,deletePlan};

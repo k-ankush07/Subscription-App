@@ -40,9 +40,13 @@ function plans() {
 
   const handleClick = async () => {
     setLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    navigate('/app/plan/create');
+    setTimeout(() => navigate('/app/plan/create'), 500)
   };
+  const handelapiclick = (id) => {
+    setTimeout(() => {
+      navigate(`/app/plan/${id}`)
+    }, 500);
+  }
 
   // const plans = [
   //     {
@@ -114,6 +118,7 @@ function plans() {
         key={id}
         selected={selectedResources.includes(id)}
         position={index}
+        onClick={() => handelapiclick(id)}
       >
         <IndexTable.Cell>
           <Text as="span" fontWeight="bold">
@@ -133,7 +138,10 @@ function plans() {
         </IndexTable.Cell>
 
         <IndexTable.Cell>
-          {`${opt.discountAmount || "-"} ${opt.discountType === "percentage" ? "%" : "₹"} off`}
+          {/* {`${opt.discountAmount || "No Discount"} ${opt.discountType === "percentage" ? "%" : "₹"} off`} */}
+          {opt.discountAmount
+            ? `${opt.discountAmount} ${opt.discountType === "percentage" ? "%" : "₹"} off`
+            : "No Discount"}
 
         </IndexTable.Cell>
 
