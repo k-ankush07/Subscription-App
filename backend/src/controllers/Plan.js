@@ -1,11 +1,4 @@
-
 import Plan from "../model/planModel.js"
-const plans =((req, res)=>
-{
-    res.send("hello")
-})
-
-
 
 const createPlan = async (req, res) => {
 
@@ -43,7 +36,26 @@ const createPlan = async (req, res) => {
 };
 
 
+// const getALLPlans = async (req, res) => {
+//   try {
+//     const plans = await Plan.find();
+
+//     res.status(200).json({
+//       success: true,
+//       count: plans.length,
+//       data: plans,
+//     });
+//   } catch (error) {
+//     res.status(500).json({
+//       success: false,
+//       message: error.message,
+//     });
+//   }
+// };
 
 
 
-export { plans, createPlan };
+
+
+
+export {  createPlan };

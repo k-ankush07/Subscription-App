@@ -15,6 +15,16 @@ import {
 import { DuplicateIcon } from '@shopify/polaris-icons';
 
 import { useNavigate } from 'react-router';
+import { json } from "@remix-run/node";
+import { authenticate } from "../shopify.server";
+import { useLoaderData } from 'react-router';
+
+export const loader = async ({ request }) => {
+  const { session } = await authenticate.admin(request);
+  return json({
+    shop: session.shop,
+  });
+};
 
 function plans() {
   const navigate = useNavigate();

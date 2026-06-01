@@ -206,7 +206,7 @@ function Templates({shop}) {
     description,
   });
 
-  // console.log("=== Publish Started ===");
+  console.log("=== Publish Started ===");
   console.log("Payload:", payload);
 
   try {
@@ -218,12 +218,19 @@ function Templates({shop}) {
       body: JSON.stringify(payload),
     });
 
-
+    console.log("Response Status:", response.status);
+    console.log("Response OK:", response.ok);
+    console.log("Response Headers:", [...response.headers.entries()]);
 
     const data = await response.json();
 
+    console.log("=== API Response ===");
+    console.log(data);
+    console.log("Success:", data.success);
+    console.log("Message:", data.message);
+
     if (data.success) {
-   
+      console.log("Plan created successfully");
 
       setSavedState({
         title,
