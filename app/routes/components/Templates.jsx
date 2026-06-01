@@ -320,7 +320,11 @@ function Templates({ shop, singlePlanId, singlePlanData }) {
   return (
 
     <Page
-      backAction={{ content: 'Plans', onAction: isEditing ? () => navigate("/app/plans") : handleClick }}
+      // backAction={{ content: 'Plans', onAction: isEditing ? () => navigate("/app/plans") : handleClick }}
+      backAction={{ 
+  content: 'Plans', 
+  onAction: handleClick 
+}}
       title={isEditing ? `Edit: ${description}` : (description || 'Create subscription plan')}
       primaryAction={{ content: isEditing ? 'Update' : 'Publish', onAction: handlePublishClick, loading }}
       secondaryActions={
@@ -356,6 +360,7 @@ function Templates({ shop, singlePlanId, singlePlanData }) {
         secondaryActions={[{
           content: "Discard",
           destructive: true,
+           loading: loading,
           onAction: () => { handleDiscard(); setShowLeaveModal(false); },
         }]}
       >
@@ -665,3 +670,7 @@ function Templates({ shop, singlePlanId, singlePlanData }) {
 }
 
 export default Templates;
+
+
+
+

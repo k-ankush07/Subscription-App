@@ -31,7 +31,7 @@ export const loader = async ({ request }) => {
 
 function plans() {
   const { plan } = useLoaderData()
-  console.log("plansssss", plan);
+ 
 
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
