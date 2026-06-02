@@ -327,18 +327,6 @@ function Templates({ shop, singlePlanId, singlePlanData, dublicateplanPlanId, du
         loading: loading,
         onAction: handleClick
       }}
-      // title={isEditing ? `Edit: ${description}` : (description || 'Create subscription plan')}
-      //   secondaryActions={
-      //   singlePlanId
-      //     ? [
-      //       {
-      //         content: "Delete Plan",
-      //         destructive: true,
-      //         onAction: () => setShowDeleteModal(true),
-      //       },
-      //     ]
-      //     : []
-      // }
       title={isEditing ? `Edit: ${description}` : isDuplicate ? `Duplicate: ${description}` : (description || 'Create subscription plan')}
 
       secondaryActions={
