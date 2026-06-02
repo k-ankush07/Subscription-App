@@ -221,12 +221,14 @@ function plans() {
                 >
                   <Text>All</Text>
 
-                  <Button
+                  
+                    <Button
                     icon={SearchIcon}
                     variant="tertiary"
                     accessibilityLabel="Search"
                     onClick={() => setShowSearch(true)}
                   />
+                  
                 </div>
               ) : (
                 <div

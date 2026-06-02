@@ -235,9 +235,12 @@ function Templates({ shop, singlePlanId, singlePlanData }) {
       const data = await response.json();
       if (data.success) {
         setSavedState({ title, description, selectedProducts, options, productChanges });
-        setTimeout(() => {
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        // setTimeout(() => {
+        //   navigate(`/app/plan/${planId}`);
+        // }, 2000)
           navigate(`/app/plan/${planId}`);
-        }, 1000)
+      return;
       } else {
         console.error("API returned success: false", data);
       }
