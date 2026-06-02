@@ -5,7 +5,6 @@ import Templates from "./components/Templates"
 
 // This runs on the SERVER — no CORS, no mixed content issues
 const API_URL = import.meta.env.VITE_API_URL;
-console.log("API_URL", API_URL);
 export async function loader({ params }) {
     const { id } = params;
 
@@ -23,7 +22,7 @@ export async function loader({ params }) {
 
 function Plandublicate() {
     const dublicateplan = useLoaderData();
-    console.log("Plandublicate data:", dublicateplan); 
+    // console.log("Plandublicate data:", dublicateplan); 
     const shop = dublicateplan.shop;
     const planId = dublicateplan.id;
 

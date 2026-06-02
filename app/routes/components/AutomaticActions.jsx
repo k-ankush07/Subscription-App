@@ -61,9 +61,7 @@ function AutomaticActions({
     // console.log("data", cycles);
   }, [cycles]);
 
-  // useEffect(() => {
-  //   onChange(index, "automationCycles", cycles);
-  // }, [cycles]);
+
   const isFirstRender = useRef(true);
 
 useEffect(() => {

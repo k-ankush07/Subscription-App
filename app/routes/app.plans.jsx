@@ -77,7 +77,7 @@ function plans() {
   };
   const handelDublicate= (planId)=>
   {
-    console.log("planId", planId)
+    // console.log("planId", planId)
 
     const id = planId;
     navigate(`/app/plan/${id}/dublicate`)
