@@ -75,6 +75,11 @@ function plans() {
       console.error("Delete failed:", error);
     }
   };
+  const handelDublicate= (planId)=>
+  {
+    console.log("planId", planId)
+    navigate(`/app/plan/${planId}/dublicate`)
+  }
 
   const bulkDelete = async () => {
     try {
@@ -151,6 +156,7 @@ function plans() {
             icon={DuplicateIcon}
             tone="base"
             onClick={(e) => {
+              handelDublicate(id)
               e.stopPropagation();
             }}
           />

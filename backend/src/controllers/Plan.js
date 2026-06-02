@@ -1,8 +1,6 @@
 import Plan from "../model/planModel.js"
 
 const createPlan = async (req, res) => {
-
-  console.log(req.body)
   try {
     const {
       shop,

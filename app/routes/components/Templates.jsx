@@ -113,10 +113,8 @@ function validate({ selectedProducts, options }) {
   return errors; // {} = valid
 }
 
-function Templates({ shop, singlePlanId, singlePlanData }) {
-  // console.log("ncsdjkkjvkdvkdjv", singlePlanId)
-  //  console.log('singlePlanDatasinglePlanDatasinglePlanData', singlePlanData.selectedProducts)
-  // console.log("product", products,"nextCursor", nextCursor, "hasNextPage", hasNextPage);
+function Templates({ shop, singlePlanId, singlePlanData,dublicateplanPlanId,dublicateplanPlanData, isDuplicate=false }) {
+
   const API_URL = import.meta.env.VITE_API_URL;
   const navigate = useNavigate();
   const [openProductModal, setOpenProductModal] = useState(false);
@@ -157,7 +155,6 @@ function Templates({ shop, singlePlanId, singlePlanData }) {
   const [selectedProducts, setSelectedProducts] = useState(
     singlePlanData?.selectedProducts ?? []
   );
-  // console.log("sjvshchsdjhcvjs", selectedProducts);
 
   const [title, setTitle] = useState(
     singlePlanData?.title ?? "Subscribe and save"
@@ -236,9 +233,6 @@ function Templates({ shop, singlePlanId, singlePlanData }) {
       if (data.success) {
         setSavedState({ title, description, selectedProducts, options, productChanges });
         await new Promise((resolve) => setTimeout(resolve, 2000));
-        // setTimeout(() => {
-        //   navigate(`/app/plan/${planId}`);
-        // }, 2000)
           navigate(`/app/plan/${planId}`);
       return;
       } else {
@@ -323,9 +317,9 @@ function Templates({ shop, singlePlanId, singlePlanData }) {
   return (
 
     <Page
-      // backAction={{ content: 'Plans', onAction: isEditing ? () => navigate("/app/plans") : handleClick }}
       backAction={{ 
   content: 'Plans', 
+  loading :loading,
   onAction: handleClick 
 }}
       title={isEditing ? `Edit: ${description}` : (description || 'Create subscription plan')}
