@@ -7,6 +7,7 @@ const createPlan = async (req, res) => {
       planId,
       title,
       description,
+       shopifyGroupId,
       selectedProducts,
       productChanges,
       options,
@@ -16,6 +17,7 @@ const createPlan = async (req, res) => {
       shop,
       planId,
       title,
+       shopifyGroupId,
       description,
       selectedProducts,
       productChanges,
@@ -158,6 +160,25 @@ const deletePlan = async (req, res) => {
 };
 
 
+const getPlanByShopifyGroupId = async (req, res) => {
+  try {
+    const { shopifyGroupId } = req.params;
+    
+    // URL se sirf number aata hai jaise 1608712378
+    // DB mein full GID hai: gid://shopify/SellingPlanGroup/1608712378
+    const fullId = `gid://shopify/SellingPlanGroup/${shopifyGroupId}`;
+    
+    const plan = await Plan.findOne({ shopifyGroupId: fullId });
+    
+    if (!plan) {
+      return res.status(404).json({ success: false, message: "Plan not found" });
+    }
+    
+    res.status(200).json({ success: true, data: plan });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
 
 
-export {  createPlan ,getALLPlans,getPlanByPlanId,updatePlan,deletePlan};
+export {  createPlan ,getALLPlans,getPlanByPlanId,updatePlan,deletePlan,getPlanByShopifyGroupId };
