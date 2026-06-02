@@ -286,8 +286,8 @@ function plans() {
                 { title: 'Products' },
                 { title: 'Delivery frequency' },
                 { title: 'Pricing' },
-                { title: 'Actions' },
-                { title: 'DELETE' },
+                { title: 'Dublicate' },
+                { title: 'Delete' },
               ]}
             >
               {rowMarkup}
