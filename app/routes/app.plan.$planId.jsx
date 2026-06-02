@@ -5,10 +5,12 @@ import { useLoaderData } from "react-router";
 import Templates from "./components/Templates"
 
 // This runs on the SERVER — no CORS, no mixed content issues
+const API_URL = import.meta.env.VITE_API_URL;
 export async function loader({ params }) {
   const { planId } = params;
+   
 
-  const res = await fetch(`http://localhost:5000/plans/${planId}`);
+  const res = await fetch(`${API_URL}/plans/${planId}`);
   const data = await res.json();
 
   if (!data.success) {

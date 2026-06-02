@@ -19,10 +19,14 @@ import { json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 import { useLoaderData } from 'react-router';
 
+
+
+  const API_URL = import.meta.env.VITE_API_URL;
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
 
-  const res = await fetch("https://habitant-startling-cassette.ngrok-free.dev/plans/getAllPlans");
+
+  const res = await fetch(`${API_URL}/plans/getAllPlans`);
   const data = await res.json();
   // console.log("bjfdjf", data)
 
@@ -47,25 +51,6 @@ function plans() {
       navigate(`/app/plan/${id}`)
     }, 500);
   }
-
-  // const plans = [
-  //     {
-  //     id: '1',
-  //     planTitle: 'Plan #1',
-  //     products: 'Vittelo Belt',
-  //     deliveryFrequency: 'Every month',
-  //     pricing: '10% off',
-  //   },
-  //   {
-  //     id: '2',
-  //     planTitle: 'Plan #1',
-  //     products: 'Vittelo Belt',
-  //     deliveryFrequency: 'Every month',
-  //     pricing: '70% off',
-  //   },
-
-  // ];
-
 
   const {
     selectedResources,

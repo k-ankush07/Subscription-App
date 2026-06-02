@@ -223,8 +223,8 @@ function Templates({ shop, singlePlanId, singlePlanData }) {
     try {
       // Use PUT for update, POST for create
       const url = isEditing
-        ? `https://habitant-startling-cassette.ngrok-free.dev/plans/update/${planId}`  // ✅ localhost nahi
-        : `https://habitant-startling-cassette.ngrok-free.dev/plans/create`;
+        ? `${API_URL}/plans/update/${planId}`  
+        : `${API_URL}/plans/create`;
 
       const response = await fetch(url, {
         method: isEditing ? "PUT" : "POST",

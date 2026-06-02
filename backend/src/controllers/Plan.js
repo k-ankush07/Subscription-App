@@ -107,7 +107,7 @@ const updatePlan = async (req, res) => {
         options,
       },
       {
-        new: true,        // return updated document
+        new: true,        
         runValidators: true,
       }
     );
