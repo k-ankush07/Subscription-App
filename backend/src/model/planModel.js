@@ -12,6 +12,10 @@ const planSchema= new mongoose.Schema({
     type:String,
     required:true
   },
+  shopifyGroupId: {
+  type: String,
+  default: null,
+},
   title:{
     type:String,
     required: true
