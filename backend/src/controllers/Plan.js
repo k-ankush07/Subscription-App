@@ -62,7 +62,7 @@ const getPlanByPlanId = async (req, res) => {
 
     const plan = await Plan.findOne({ planId });
 
-    console.log("Found plan:", plan);
+    // console.log("Found plan:", plan);
 
     if (!plan) {
       return res.status(404).json({

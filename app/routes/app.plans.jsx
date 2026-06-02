@@ -4,16 +4,14 @@ import {
   Card,
   IndexTable,
   Text,
-  Icon,
   useIndexResourceState,
   LegacyCard,
   EmptyState,
   Page,
-  Button,
+  Button, TextField
 } from '@shopify/polaris';
 
-import { DuplicateIcon } from '@shopify/polaris-icons';
-
+import { DuplicateIcon, DeleteIcon, SearchIcon } from '@shopify/polaris-icons';
 import { useNavigate } from 'react-router';
 import { json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
@@ -21,26 +19,35 @@ import { useLoaderData } from 'react-router';
 
 
 
-  const API_URL = import.meta.env.VITE_API_URL;
+const API_URL = import.meta.env.VITE_API_URL;
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
 
 
   const res = await fetch(`${API_URL}/plans/getAllPlans`);
   const data = await res.json();
-  // console.log("bjfdjf", data)
 
   return json({ shop: session.shop, plan: data.data });
 };
 
 function plans() {
   const { plan } = useLoaderData()
- 
+
 
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [data, setData] = useState([])
   const [plans, setPlans] = useState(plan)
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchValue, setSearchValue] = useState("");
+
+  const {
+    selectedResources,
+    allResourcesSelected,
+    handleSelectionChange,
+  } = useIndexResourceState(plans, {
+    resourceIDResolver: (resource) =>
+      resource.planId || resource._id,
+  });
 
   const handleClick = async () => {
     setLoading(true);
@@ -51,44 +58,54 @@ function plans() {
       navigate(`/app/plan/${id}`)
     }, 500);
   }
+  const deletePlan = async (planId) => {
+    try {
+      const res = await fetch(`${API_URL}/plans/${planId}`, {
+        method: "DELETE",
+      });
 
-  const {
-    selectedResources,
-    allResourcesSelected,
-    handleSelectionChange,
-  } = useIndexResourceState(plans);
+      const data = await res.json();
 
-  // const rowMarkup = plans.map(
-  //   ({ planId, description, products, deliveryFrequency, pricing }, index) => (
-  //     <IndexTable.Row
-  //       id={ planId}
-  //       key={ planId}
-  //       selected={selectedResources.includes( planId)}
-  //       position={index}
-  //       onClick={() => {}}
-  //     >
-  //       <IndexTable.Cell>
-  //         <Text as="span" variant="bodyMd" fontWeight="bold">
-  //           {description}
-  //         </Text>
-  //       </IndexTable.Cell>
+      if (res.ok) {
+        setPlans((prev) => prev.filter((p) => (p.planId || p._id) !== planId));
+      } else {
+        console.error(data.message);
+      }
+    } catch (error) {
+      console.error("Delete failed:", error);
+    }
+  };
 
-  //       <IndexTable.Cell>{products}</IndexTable.Cell>
+  const bulkDelete = async () => {
+    try {
+      await Promise.all(
+        selectedResources.map((id) =>
+          fetch(`${API_URL}/plans/${id}`, {
+            method: "DELETE",
+          })
+        )
+      );
 
-  //       <IndexTable.Cell>{deliveryFrequency}</IndexTable.Cell>
+      setPlans((prev) =>
+        prev.filter((p) => !selectedResources.includes(p.planId || p._id))
+      );
+    } catch (err) {
+      console.error(err);
+    }
+  };
+  
+  const filteredPlans = plans.filter((plan) => {
+  const title =
+    plan.options?.[0]?.description || plan.description || "";
 
-  //       <IndexTable.Cell>{pricing}</IndexTable.Cell>
+  return title.toLowerCase().includes(searchValue.toLowerCase());
+});
 
-  //       <IndexTable.Cell>
-  //         <Icon source={DuplicateIcon} tone="base" />
-  //       </IndexTable.Cell>
-  //     </IndexTable.Row>
-  //   )
-  // );
 
-  const rowMarkup = plans.map((plan, index) => {
+  const rowMarkup = filteredPlans.map((plan, index) => {
     const id = plan.planId || plan._id;
     const opt = plan.options?.[0] || {};
+  
 
     const selectedProducts = plan.selectedProducts ?? [];
 
@@ -123,7 +140,6 @@ function plans() {
         </IndexTable.Cell>
 
         <IndexTable.Cell>
-          {/* {`${opt.discountAmount || "No Discount"} ${opt.discountType === "percentage" ? "%" : "₹"} off`} */}
           {opt.discountAmount
             ? `${opt.discountAmount} ${opt.discountType === "percentage" ? "%" : "₹"} off`
             : "No Discount"}
@@ -131,7 +147,24 @@ function plans() {
         </IndexTable.Cell>
 
         <IndexTable.Cell>
-          <Icon source={DuplicateIcon} tone="base" />
+          <Button
+            icon={DuplicateIcon}
+            tone="base"
+            onClick={(e) => {
+              e.stopPropagation();
+            }}
+          />
+        </IndexTable.Cell>
+        <IndexTable.Cell>
+          <Button
+            icon={DeleteIcon}
+            tone="critical"
+            variant="plain"
+            onClick={(e) => {
+              e.stopPropagation();
+              deletePlan(id);
+            }}
+          />
         </IndexTable.Cell>
       </IndexTable.Row>
     );
@@ -155,6 +188,7 @@ function plans() {
             heading="Get more repeat business"
             action={{
               content: 'Create Plan',
+              loading: loading,
               onAction: handleClick,
             }}
             image="https://subscriptions.kachingappz.app/images/empty-subscriptions-list-state.png"
@@ -170,6 +204,59 @@ function plans() {
 
 
           <Card padding="0">
+            <div
+              style={{
+                padding: "6px 16px",
+                borderBottom: "1px solid #e1e3e5",
+                background: "#f6f6f7",
+              }}
+            >
+              {!showSearch ? (
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
+                  <Text>All</Text>
+
+                  <Button
+                    icon={SearchIcon}
+                    variant="tertiary"
+                    accessibilityLabel="Search"
+                    onClick={() => setShowSearch(true)}
+                  />
+                </div>
+              ) : (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "12px",
+                  }}
+                >
+                  <div style={{ flex: 1 }}>
+                    <TextField
+                      label=""
+                      autoComplete="off"
+                      placeholder="Search by plan title"
+                      value={searchValue}
+                      onChange={setSearchValue}
+                    />
+                  </div>
+
+                  <Button
+                    onClick={() => {
+                      setShowSearch(false);
+                      setSearchValue("");
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              )}
+            </div>
             <IndexTable
 
               itemCount={plans.length}
@@ -177,13 +264,20 @@ function plans() {
                 allResourcesSelected ? 'All' : selectedResources.length
               }
               onSelectionChange={handleSelectionChange}
-              bulkActions={[]}
+              bulkActions={[
+                {
+                  content: "Delete selected",
+                  destructive: true,
+                  onAction: bulkDelete,
+                },
+              ]}
               headings={[
                 { title: 'Plan title' },
                 { title: 'Products' },
                 { title: 'Delivery frequency' },
                 { title: 'Pricing' },
                 { title: 'Actions' },
+                { title: 'DELETE' },
               ]}
             >
               {rowMarkup}
