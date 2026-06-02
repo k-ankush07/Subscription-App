@@ -78,7 +78,6 @@
 
 export const handlePublish = ({
   shop,
-  accessToken,
   planId,
   selectedProducts,
   options,
@@ -88,7 +87,6 @@ export const handlePublish = ({
 }) => {
   return {
     shop,
-    accessToken,
     planId,
     title,
     description,
