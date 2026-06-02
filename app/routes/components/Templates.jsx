@@ -113,8 +113,8 @@ function validate({ selectedProducts, options }) {
   return errors; // {} = valid
 }
 
-function Templates({ shop, singlePlanId, singlePlanData,dublicateplanPlanId,dublicateplanPlanData, isDuplicate=false }) {
-
+function Templates({ shop, singlePlanId, singlePlanData, dublicateplanPlanId, dublicateplanPlanData, isDuplicate = false }) {
+  // console.log("=== DEBUG ===", { singlePlanId, isDuplicate, dublicateplanPlanId, dublicateplanPlanData });
   const API_URL = import.meta.env.VITE_API_URL;
   const navigate = useNavigate();
   const [openProductModal, setOpenProductModal] = useState(false);
@@ -126,18 +126,6 @@ function Templates({ shop, singlePlanId, singlePlanData,dublicateplanPlanId,dubl
   // Show validation errors 
   const [submitted, setSubmitted] = useState(false);
 
-  const [savedState, setSavedState] = useState({
-    title: singlePlanData?.title ?? "Subscribe and save",
-    description: singlePlanData?.description ?? "Plan1",
-    selectedProducts: singlePlanData?.selectedProducts ?? [],
-    options: singlePlanData?.options ?? [{ ...defaultOption }],
-    productChanges: singlePlanData?.productChanges ?? {
-      swap: true,
-      variant: true,
-      quantity: true,
-      keepDiscount: true,
-    },
-  });
   const [pagination, setPagination] = useState({
     hasPrevious: false,
     hasNext: false,
@@ -145,31 +133,48 @@ function Templates({ shop, singlePlanId, singlePlanData,dublicateplanPlanId,dubl
     handleNext: () => { },
   });
 
-  const isEditing = !!singlePlanId;
+  // const isEditing = !!singlePlanId;
+  // const planId = isEditing ? singlePlanId : Date.now();
+  const isEditing = !!singlePlanId && !isDuplicate;
   const planId = isEditing ? singlePlanId : Date.now();
+  const planData = isDuplicate ? dublicateplanPlanData : singlePlanData;
 
   // Initialize state from singlePlanData if editing
   const [options, setOptions] = useState(
-    singlePlanData?.options ?? [{ ...defaultOption }]
+    planData?.options ?? [{ ...defaultOption }]
   );
   const [selectedProducts, setSelectedProducts] = useState(
-    singlePlanData?.selectedProducts ?? []
+    planData?.selectedProducts ?? []
   );
 
   const [title, setTitle] = useState(
-    singlePlanData?.title ?? "Subscribe and save"
+    planData?.title ?? "Subscribe and save"
   );
   const [description, setDescription] = useState(
-    singlePlanData?.description ?? "Plan1"
+    planData?.description ?? "Plan1"
   );
   const [productChanges, setProductChanges] = useState(
-    singlePlanData?.productChanges ?? {
+    planData?.productChanges ?? {
       swap: true,
       variant: true,
       quantity: true,
       keepDiscount: true,
     }
   );
+
+
+  const [savedState, setSavedState] = useState({
+    title: planData?.title ?? "Subscribe and save",
+    description: planData?.description ?? "Plan1",
+    selectedProducts: planData?.selectedProducts ?? [],
+    options: planData?.options ?? [{ ...defaultOption }],
+    productChanges: planData?.productChanges ?? {
+      swap: true,
+      variant: true,
+      quantity: true,
+      keepDiscount: true,
+    },
+  });
   //  validation
   const errors = validate({ selectedProducts, options });
   const isValid = Object.keys(errors).length === 0;
@@ -220,7 +225,7 @@ function Templates({ shop, singlePlanId, singlePlanData,dublicateplanPlanId,dubl
     try {
       // Use PUT for update, POST for create
       const url = isEditing
-        ? `${API_URL}/plans/update/${planId}`  
+        ? `${API_URL}/plans/update/${planId}`
         : `${API_URL}/plans/create`;
 
       const response = await fetch(url, {
@@ -233,8 +238,8 @@ function Templates({ shop, singlePlanId, singlePlanData,dublicateplanPlanId,dubl
       if (data.success) {
         setSavedState({ title, description, selectedProducts, options, productChanges });
         await new Promise((resolve) => setTimeout(resolve, 2000));
-          navigate(`/app/plan/${planId}`);
-      return;
+        navigate(`/app/plan/${planId}`);
+        return;
       } else {
         console.error("API returned success: false", data);
       }
@@ -317,24 +322,32 @@ function Templates({ shop, singlePlanId, singlePlanData,dublicateplanPlanId,dubl
   return (
 
     <Page
-      backAction={{ 
-  content: 'Plans', 
-  loading :loading,
-  onAction: handleClick 
-}}
-      title={isEditing ? `Edit: ${description}` : (description || 'Create subscription plan')}
-      primaryAction={{ content: isEditing ? 'Update' : 'Publish', onAction: handlePublishClick, loading }}
+      backAction={{
+        content: 'Plans',
+        loading: loading,
+        onAction: handleClick
+      }}
+      // title={isEditing ? `Edit: ${description}` : (description || 'Create subscription plan')}
+      //   secondaryActions={
+      //   singlePlanId
+      //     ? [
+      //       {
+      //         content: "Delete Plan",
+      //         destructive: true,
+      //         onAction: () => setShowDeleteModal(true),
+      //       },
+      //     ]
+      //     : []
+      // }
+      title={isEditing ? `Edit: ${description}` : isDuplicate ? `Duplicate: ${description}` : (description || 'Create subscription plan')}
+
       secondaryActions={
-        singlePlanId
-          ? [
-            {
-              content: "Delete Plan",
-              destructive: true,
-              onAction: () => setShowDeleteModal(true),
-            },
-          ]
+        singlePlanId && !isDuplicate
+          ? [{ content: "Delete Plan", destructive: true, onAction: () => setShowDeleteModal(true) }]
           : []
       }
+      primaryAction={{ content: isEditing ? 'Update' : 'Publish', onAction: handlePublishClick, loading }}
+
     >
 
       <ui-save-bar id="templates-save-bar">
@@ -357,7 +370,7 @@ function Templates({ shop, singlePlanId, singlePlanData,dublicateplanPlanId,dubl
         secondaryActions={[{
           content: "Discard",
           destructive: true,
-           loading: loading,
+          loading: loading,
           onAction: () => { handleDiscard(); setShowLeaveModal(false); },
         }]}
       >
@@ -451,7 +464,25 @@ function Templates({ shop, singlePlanId, singlePlanData,dublicateplanPlanId,dubl
                             />
 
                             <div>
-                              <Text fontWeight="medium">{product.productTitle}</Text>
+                              {/* <Text fontWeight="medium">{product.productTitle}</Text> */}
+                              {
+                                isEditing ?(
+                                <a
+                                href={`https://admin.shopify.com/store/dev-lalit/products/${product.productId.split("/").pop()}`}
+                                 target="_top"
+                                style={{
+                                  textDecoration: "none",
+                                  color: "inherit",
+                                  fontWeight: 600,
+                                }}
+                              >
+                                {product.productTitle}
+                              </a>
+                                ) :(
+                                     <Text fontWeight="medium">{product.productTitle}</Text> 
+                                )
+                              }
+                              
                               <p>
                                 ({product.variantIds?.length || 0}  variants selected)
                               </p>

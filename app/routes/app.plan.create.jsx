@@ -7,6 +7,7 @@ import { useLoaderData } from 'react-router';
 
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
+  console.log("jsdfjb", session)
   return json({
     shop: session.shop,
   });

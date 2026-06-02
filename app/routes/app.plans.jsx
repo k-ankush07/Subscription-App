@@ -78,7 +78,9 @@ function plans() {
   const handelDublicate= (planId)=>
   {
     console.log("planId", planId)
-    navigate(`/app/plan/${planId}/dublicate`)
+
+    const id = planId;
+    navigate(`/app/plan/${id}/dublicate`)
   }
 
   const bulkDelete = async () => {

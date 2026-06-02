@@ -5,11 +5,12 @@ import Templates from "./components/Templates"
 
 // This runs on the SERVER — no CORS, no mixed content issues
 const API_URL = import.meta.env.VITE_API_URL;
+console.log("API_URL", API_URL);
 export async function loader({ params }) {
-    const { planId } = params;
+    const { id } = params;
 
 
-    const res = await fetch(`${API_URL}/plans/${planId}`);
+    const res = await fetch(`${API_URL}/plans/${id}`);
     const data = await res.json();
 
     if (!data.success) {
@@ -19,13 +20,21 @@ export async function loader({ params }) {
     return json(data.data);
 }
 
+
 function Plandublicate() {
     const dublicateplan = useLoaderData();
+    console.log("Plandublicate data:", dublicateplan); 
     const shop = dublicateplan.shop;
-    const planId = dublicateplan.planId;
+    const planId = dublicateplan.id;
+
     return (
         <div>
-            <Templates shop={shop} dublicateplanPlanId={planId} dublicateplanPlanData={dublicateplan} isDuplicate={true} />
+            <Templates shop={shop} 
+            dublicateplanPlanId={planId} 
+            dublicateplanPlanData={dublicateplan}
+             isDuplicate={true} 
+            singlePlanId={undefined}  
+             />
         </div>
     )
 }
