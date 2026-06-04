@@ -532,6 +532,7 @@ function Templates({ shop, singlePlanId, singlePlanData, dublicateplanPlanId, du
                   // products={products}
                   // hasNextPage={hasNextPage}
                   // nextCursor={nextCursor}
+                   preFilteredProducts={selectedProducts}
                   selectedItems={tempSelected}
                   onSelect={setTempSelected}
                   onPaginationChange={setPagination}

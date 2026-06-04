@@ -202,66 +202,7 @@ useEffect(() => {
         false  // hideVariants — show variants
       );
     } else if (actionType === "add-product") {
-      // hideVariants=true: only products shown
-      // openPicker(
-      //   "Select product to add",
-      //   false,
-      //   (selected) => {
-      //     if (!selected?.length) return;
-      //     selected.forEach((item) => {
-      //       const variantIds = item.variantIds || [];
-      //       const variantTitles = Array.isArray(item.variantTitles)
-      //         ? item.variantTitles
-      //         : item.variantTitles
-      //         ? [item.variantTitles]
-      //         : [];
-      //       const variantImages = item.variantImages || [];
-
-      //       if (variantIds.length === 0) {
-      //         addToCycle(cycleId, {
-      //           type: "add",
-      //           productId: item.productId,
-      //           productName:
-      //             item.title || item.productTitle || item.productId,
-      //           imageUrl: item.imageUrl || item.productImage || "",
-      //           // variantId: null,
-      //           // variantName: null,
-      //           quantity: 1,
-      //           discountEnabled: false,
-      //           discountValue: "",
-      //           discountType: "amount",
-      //         },
-      //       false, // singleSelect
-      //   true,  // singleProductVariant
-      //   false  // hideVariants — show variants
-      //     );
-      //       } else {
-      //         variantIds.forEach((variantId, vi) => {
-      //           addToCycle(cycleId, {
-      //             type: "add",
-      //             productId: item.productId,
-      //             productName:
-      //               item.title || item.productTitle || item.productId,
-      //             imageUrl:
-      //               variantImages[vi] ||
-      //               item.imageUrl ||
-      //               item.productImage ||
-      //               "",
-      //             variantId: variantId,
-      //             variantName: variantTitles[vi] || "",
-      //             quantity: 1,
-      //             discountEnabled: false,
-      //             discountValue: "",
-      //             discountType: "amount",
-      //           });
-      //         });
-      //       }
-      //     });
-      //   },
-      //   true,  // singleSelect
-      //   false, // singleProductVariant
-      //   true   // hideVariants
-      // );
+    
       openPicker(
   "Select product to add",
   true,
