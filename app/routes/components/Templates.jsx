@@ -1,8 +1,8 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import React, { useEffect, useState, useCallback } from "react";
+import { useNavigate, useParams } from "react-router";
 import Products from "../components/Products";
 import DeliveryOption from "../components/DeliveryOptions";
-import { defaultOption } from "../constants/deliveryOption"
+import { defaultOption } from "../constants/deliveryOption";
 import { handlePublish as buildPayload } from "../utils/handlePublish";
 import {
   FormLayout,
@@ -24,8 +24,7 @@ import {
 } from "@shopify/polaris";
 import { DeleteIcon } from "@shopify/polaris-icons";
 
-
-//  Validation helper 
+//  Validation helper
 function validate({ selectedProducts, options }) {
   const errors = {};
 
@@ -36,7 +35,7 @@ function validate({ selectedProducts, options }) {
 
   //  Duplicate delivery (frequency must be unique across options)
   const deliveryKeys = options.map(
-    (o) => `${o.deliveryFrequency ?? ''}|${o.deliveryInterval ?? ''}`
+    (o) => `${o.deliveryFrequency ?? ""}|${o.deliveryInterval ?? ""}`,
   );
   const duplicateDeliveryIndexes = new Set();
   deliveryKeys.forEach((key, i) => {
@@ -58,28 +57,27 @@ function validate({ selectedProducts, options }) {
   const billingErrors = {};
 
   options.forEach((o, i) => {
-    if (o.billingType === 'prepaid') {
+    if (o.billingType === "prepaid") {
       const df = Number(o.deliveryFrequency);
       const bf = Number(o.billingFrequency);
 
       // required validation
       if (!o.deliveryFrequency || !o.billingFrequency) {
-        billingErrors[i] =
-          ' Billing frequency are required.';
+        billingErrors[i] = " Billing frequency are required.";
         return;
       }
 
       // greater than validation
       if (bf <= df) {
         billingErrors[i] =
-          'Billing frequency must be greater than delivery frequency.';
+          "Billing frequency must be greater than delivery frequency.";
         return;
       }
 
       // multiple validation
       if (bf % df !== 0) {
         billingErrors[i] =
-          'Billing frequency must be a multiple of delivery frequency.';
+          "Billing frequency must be a multiple of delivery frequency.";
       }
     }
   });
@@ -88,11 +86,12 @@ function validate({ selectedProducts, options }) {
     errors.billingMultiple = billingErrors;
   }
 
-
   const changeQtyErrors = [];
   options.forEach((o, i) => {
     if (o.changeQtyAfterOrders && !(o.changeQtyProducts?.length > 0)) {
-      changeQtyErrors.push(`Option ${i + 1}: Please select products for "Change product quantity" setting.`);
+      changeQtyErrors.push(
+        `Option ${i + 1}: Please select products for "Change product quantity" setting.`,
+      );
     }
   });
   if (changeQtyErrors.length > 0) {
@@ -103,7 +102,9 @@ function validate({ selectedProducts, options }) {
   const removeFreeErrors = [];
   options.forEach((o, i) => {
     if (o.removeFreeProducts && !(o.removeFreeProductsList?.length > 0)) {
-      removeFreeErrors.push(`Option ${i + 1}: Please select products for "Remove free products" setting.`);
+      removeFreeErrors.push(
+        `Option ${i + 1}: Please select products for "Remove free products" setting.`,
+      );
     }
   });
   if (removeFreeErrors.length > 0) {
@@ -113,7 +114,14 @@ function validate({ selectedProducts, options }) {
   return errors; // {} = valid
 }
 
-function Templates({ shop, singlePlanId, singlePlanData, dublicateplanPlanId, dublicateplanPlanData, isDuplicate = false }) {
+function Templates({
+  shop,
+  singlePlanId,
+  singlePlanData,
+  dublicateplanPlanId,
+  dublicateplanPlanData,
+  isDuplicate = false,
+}) {
   // console.log("=== DEBUG ===", { singlePlanId, isDuplicate, dublicateplanPlanId, dublicateplanPlanData });
   const API_URL = import.meta.env.VITE_API_URL;
   const navigate = useNavigate();
@@ -123,14 +131,14 @@ function Templates({ shop, singlePlanId, singlePlanData, dublicateplanPlanId, du
 
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [loading, setLoading] = useState(false);
-  // Show validation errors 
+  // Show validation errors
   const [submitted, setSubmitted] = useState(false);
 
   const [pagination, setPagination] = useState({
     hasPrevious: false,
     hasNext: false,
-    handlePrev: () => { },
-    handleNext: () => { },
+    handlePrev: () => {},
+    handleNext: () => {},
   });
 
   // const isEditing = !!singlePlanId;
@@ -141,17 +149,15 @@ function Templates({ shop, singlePlanId, singlePlanData, dublicateplanPlanId, du
 
   // Initialize state from singlePlanData if editing
   const [options, setOptions] = useState(
-    planData?.options ?? [{ ...defaultOption }]
+    planData?.options ?? [{ ...defaultOption }],
   );
   const [selectedProducts, setSelectedProducts] = useState(
-    planData?.selectedProducts ?? []
+    planData?.selectedProducts ?? [],
   );
 
-  const [title, setTitle] = useState(
-    planData?.title ?? "Subscribe and save"
-  );
+  const [title, setTitle] = useState(planData?.title ?? "Subscribe and save");
   const [description, setDescription] = useState(
-    planData?.description ?? "Plan1"
+    planData?.description ?? "Plan1",
   );
   const [productChanges, setProductChanges] = useState(
     planData?.productChanges ?? {
@@ -159,9 +165,8 @@ function Templates({ shop, singlePlanId, singlePlanData, dublicateplanPlanId, du
       variant: true,
       quantity: true,
       keepDiscount: true,
-    }
+    },
   );
-
 
   const [savedState, setSavedState] = useState({
     title: planData?.title ?? "Subscribe and save",
@@ -179,33 +184,33 @@ function Templates({ shop, singlePlanId, singlePlanData, dublicateplanPlanId, du
   const errors = validate({ selectedProducts, options });
   const isValid = Object.keys(errors).length === 0;
 
-
   // isDirty
   const isDirty =
     title !== savedState.title ||
     description !== savedState.description ||
-    JSON.stringify(selectedProducts) !== JSON.stringify(savedState.selectedProducts) ||
+    JSON.stringify(selectedProducts) !==
+      JSON.stringify(savedState.selectedProducts) ||
     JSON.stringify(options) !== JSON.stringify(savedState.options) ||
-    JSON.stringify(productChanges) !== JSON.stringify(savedState.productChanges);
+    JSON.stringify(productChanges) !==
+      JSON.stringify(savedState.productChanges);
 
   useEffect(() => {
-    const saveBar = document.getElementById('templates-save-bar');
+    const saveBar = document.getElementById("templates-save-bar");
     if (!saveBar) return;
     isDirty ? saveBar.show() : saveBar.hide();
   }, [isDirty]);
 
   useEffect(() => {
-    const saveBtn = document.getElementById('templates-save-btn');
+    const saveBtn = document.getElementById("templates-save-btn");
     if (!saveBtn) return;
     if (loading) {
-      saveBtn.setAttribute('loading', '');
-      saveBtn.setAttribute('disabled', '');
+      saveBtn.setAttribute("loading", "");
+      saveBtn.setAttribute("disabled", "");
     } else {
-      saveBtn.removeAttribute('loading');
-      saveBtn.removeAttribute('disabled');
+      saveBtn.removeAttribute("loading");
+      saveBtn.removeAttribute("disabled");
     }
   }, [loading]);
-
 
   const handlePublishClick = async () => {
     setSubmitted(true);
@@ -236,7 +241,13 @@ function Templates({ shop, singlePlanId, singlePlanData, dublicateplanPlanId, du
 
       const data = await response.json();
       if (data.success) {
-        setSavedState({ title, description, selectedProducts, options, productChanges });
+        setSavedState({
+          title,
+          description,
+          selectedProducts,
+          options,
+          productChanges,
+        });
         await new Promise((resolve) => setTimeout(resolve, 2000));
         navigate(`/app/plan/${planId}`);
         return;
@@ -260,7 +271,7 @@ function Templates({ shop, singlePlanId, singlePlanData, dublicateplanPlanId, du
 
   const handleClick = () => {
     if (isDirty) setShowLeaveModal(true);
-    else navigate('/app/plans');
+    else navigate("/app/plans");
   };
 
   const text = {
@@ -300,46 +311,63 @@ function Templates({ shop, singlePlanId, singlePlanData, dublicateplanPlanId, du
   // Errors to display (only after submit)
   const showErrors = submitted ? errors : {};
 
-
   const handleDeletePlan = async () => {
     try {
       const res = await fetch(
         `https://habitant-startling-cassette.ngrok-free.dev/plans/${singlePlanId}`,
         {
           method: "DELETE",
-        }
+        },
       );
 
       const data = await res.json();
 
       if (data.success) {
-        setTimeout(() => navigate("/app/plans"), 1000)
+        setTimeout(() => navigate("/app/plans"), 1000);
       }
     } catch (error) {
       console.error(error);
     }
   };
   return (
-
     <Page
       backAction={{
-        content: 'Plans',
+        content: "Plans",
         loading: loading,
-        onAction: handleClick
+        onAction: handleClick,
       }}
-      title={isEditing ? `Edit: ${description}` : isDuplicate ? `Duplicate: ${description}` : (description || 'Create subscription plan')}
-
+      title={
+        isEditing
+          ? `Edit: ${description}`
+          : isDuplicate
+            ? `Duplicate: ${description}`
+            : description || "Create subscription plan"
+      }
       secondaryActions={
         singlePlanId && !isDuplicate
-          ? [{ content: "Delete Plan", destructive: true, onAction: () => setShowDeleteModal(true) }]
+          ? [
+              {
+                content: "Delete Plan",
+                destructive: true,
+                onAction: () => setShowDeleteModal(true),
+              },
+            ]
           : []
       }
-      primaryAction={{ content: isEditing ? 'Update' : 'Publish', onAction: handlePublishClick, loading }}
-
+      primaryAction={{
+        content: isEditing ? "Update" : "Publish",
+        onAction: handlePublishClick,
+        loading,
+      }}
     >
-
       <ui-save-bar id="templates-save-bar">
-        <button variant="primary" id="templates-save-btn" onClick={handlePublishClick}>Save</button>
+        <button
+          variant="primary"
+          id="templates-save-btn"
+          onClick={handlePublishClick}
+        >
+          Save
+        </button>
         <button onClick={handleDiscard}>Discard</button>
       </ui-save-bar>
 
@@ -355,15 +383,22 @@ function Templates({ shop, singlePlanId, singlePlanData, dublicateplanPlanId, du
             await handlePublishClick(true);
           },
         }}
-        secondaryActions={[{
-          content: "Discard",
-          destructive: true,
-          loading: loading,
-          onAction: () => { handleDiscard(); setShowLeaveModal(false); },
-        }]}
+        secondaryActions={[
+          {
+            content: "Discard",
+            destructive: true,
+            loading: loading,
+            onAction: () => {
+              handleDiscard();
+              setShowLeaveModal(false);
+            },
+          },
+        ]}
       >
         <Modal.Section>
-          <Text>You have unsaved changes. Do you want to save before leaving?</Text>
+          <Text>
+            You have unsaved changes. Do you want to save before leaving?
+          </Text>
         </Modal.Section>
       </Modal>
 
@@ -371,26 +406,36 @@ function Templates({ shop, singlePlanId, singlePlanData, dublicateplanPlanId, du
         {/* LEFT SIDE */}
         <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 4, lg: 8 }}>
           <BlockStack gap="500">
-
             {/*  Global error banner (show after submit)  */}
             {submitted && !isValid && (
-              <Banner tone="critical" title="Please fix the following errors before publishing">
+              <Banner
+                tone="critical"
+                title="Please fix the following errors before publishing"
+              >
                 <BlockStack gap="100">
                   {showErrors.noProducts && (
                     <Text variant="bodySm">• {showErrors.noProducts}</Text>
                   )}
                   {showErrors.duplicateDelivery && (
-                    <Text variant="bodySm">• {showErrors.duplicateDelivery.message}</Text>
+                    <Text variant="bodySm">
+                      • {showErrors.duplicateDelivery.message}
+                    </Text>
                   )}
                   {showErrors.billingMultiple &&
                     Object.values(showErrors.billingMultiple).map((msg, i) => (
-                      <Text key={i} variant="bodySm">• {msg}</Text>
+                      <Text key={i} variant="bodySm">
+                        • {msg}
+                      </Text>
                     ))}
                   {showErrors.changeQtyProducts?.map((msg, i) => (
-                    <Text key={i} variant="bodySm">• {msg}</Text>
+                    <Text key={i} variant="bodySm">
+                      • {msg}
+                    </Text>
                   ))}
                   {showErrors.removeFreeProducts?.map((msg, i) => (
-                    <Text key={i} variant="bodySm">• {msg}</Text>
+                    <Text key={i} variant="bodySm">
+                      • {msg}
+                    </Text>
                   ))}
                 </BlockStack>
               </Banner>
@@ -398,14 +443,17 @@ function Templates({ shop, singlePlanId, singlePlanData, dublicateplanPlanId, du
 
             <MediaCard
               title="New to Kaching Subscriptions?"
-              primaryAction={{ content: 'Optional tutorials', onAction: () => { } }}
+              primaryAction={{
+                content: "Optional tutorials",
+                onAction: () => {},
+              }}
               description="Discover how Shopify can power up your entrepreneurial journey."
             >
               <img
                 alt=""
                 width="100%"
                 height="100%"
-                style={{ objectFit: 'cover', objectPosition: 'center' }}
+                style={{ objectFit: "cover", objectPosition: "center" }}
                 src="https://subscriptions-assets.kachingappz.app/kaching-tutorial.jpg"
               />
             </MediaCard>
@@ -432,56 +480,73 @@ function Templates({ shop, singlePlanId, singlePlanData, dublicateplanPlanId, du
             {/*  Products card  */}
             <Card>
               <BlockStack gap="300">
-                <Text variant="headingMd" as="h2">Products</Text>
-
-
+                <Text variant="headingMd" as="h2">
+                  Products
+                </Text>
 
                 {selectedProducts.length > 0 && (
                   <BlockStack gap="200">
                     {selectedProducts.map((product) => (
                       <div
                         key={product.productId}
-                        style={{ border: "1px solid #dfe3e8", borderRadius: "12px", padding: "10px" }}
+                        style={{
+                          border: "1px solid #dfe3e8",
+                          borderRadius: "12px",
+                          padding: "10px",
+                        }}
                       >
-                        <InlineStack align="space-between" blockAlign="center">
-                          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                         <InlineStack align="space-between" blockAlign="center">
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "10px",
+                            }}
+                          >
                             <img
                               src={product.productImage}
                               alt={product.productTitle}
-                              style={{ width: "45px", height: "45px", borderRadius: "8px", objectFit: "cover" }}
+                              style={{
+                                width: "45px",
+                                height: "45px",
+                                borderRadius: "8px",
+                                objectFit: "cover",
+                              }}
                             />
 
                             <div>
                               {/* <Text fontWeight="medium">{product.productTitle}</Text> */}
-                              {
-                                isEditing ?(
+                              {isEditing ? (
                                 <a
-                                href={`https://admin.shopify.com/store/dev-lalit/products/${product.productId.split("/").pop()}`}
-                                 target="_top"
-                                style={{
-                                  textDecoration: "none",
-                                  color: "inherit",
-                                  fontWeight: 600,
-                                }}
-                              >
-                                {product.productTitle}
-                              </a>
-                                ) :(
-                                     <Text fontWeight="medium">{product.productTitle}</Text> 
-                                )
-                              }
-                              
+                                  href={`https://admin.shopify.com/store/dev-lalit/products/${product.productId.split("/").pop()}`}
+                                  target="_top"
+                                  style={{
+                                    textDecoration: "none",
+                                    color: "inherit",
+                                    fontWeight: 600,
+                                  }}
+                                >
+                                  {product.productTitle}
+                                </a>
+                              ) : (
+                                <Text fontWeight="medium">
+                                  {product.productTitle}
+                                </Text>
+                              )}
+
                               <p>
-                                ({product.variantIds?.length || 0}  variants selected)
+                                ({product.variantIds?.length || 0} variants
+                                selected)
                               </p>
                             </div>
-
                           </div>
 
                           <Button
                             onClick={() =>
                               setSelectedProducts((prev) =>
-                                prev.filter((p) => p.productId !== product.productId)
+                                prev.filter(
+                                  (p) => p.productId !== product.productId,
+                                ),
                               )
                             }
                           >
@@ -495,7 +560,10 @@ function Templates({ shop, singlePlanId, singlePlanData, dublicateplanPlanId, du
 
                 <InlineStack>
                   <Button
-                    onClick={() => { setTempSelected(selectedProducts); setOpenProductModal(true); }}
+                    onClick={() => {
+                      setTempSelected(selectedProducts);
+                      setOpenProductModal(true);
+                    }}
                   >
                     Select products
                   </Button>
@@ -512,10 +580,18 @@ function Templates({ shop, singlePlanId, singlePlanData, dublicateplanPlanId, du
               onClose={() => setOpenProductModal(false)}
               title="Select Product"
               primaryAction={{
-                content: 'Save',
-                onAction: () => { setSelectedProducts(tempSelected); setOpenProductModal(false); },
+                content: "Save",
+                onAction: () => {
+                  setSelectedProducts(tempSelected);
+                  setOpenProductModal(false);
+                },
               }}
-              secondaryActions={[{ content: 'Close', onAction: () => setOpenProductModal(false) }]}
+              secondaryActions={[
+                {
+                  content: "Close",
+                  onAction: () => setOpenProductModal(false),
+                },
+              ]}
               footer={
                 <InlineStack align="space-between">
                   <Pagination
@@ -543,13 +619,22 @@ function Templates({ shop, singlePlanId, singlePlanData, dublicateplanPlanId, du
             {/*  Customer product changes  */}
             <Card>
               <BlockStack gap="200">
-                <Text variant="headingMd" as="h2">Customer product changes</Text>
-                {['swap', 'variant', 'quantity', 'keepDiscount'].map((key) => (
-                  <div key={key} style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
+                <Text variant="headingMd" as="h2">
+                  Customer product changes
+                </Text>
+                {["swap", "variant", "quantity", "keepDiscount"].map((key) => (
+                  <div
+                    key={key}
+                    style={{
+                      display: "flex",
+                      gap: "10px",
+                      alignItems: "flex-start",
+                    }}
+                  >
                     <Checkbox
                       checked={productChanges[key]}
                       disabled={
-                        key === 'keepDiscount' &&
+                        key === "keepDiscount" &&
                         !productChanges.swap &&
                         !productChanges.variant &&
                         !productChanges.quantity
@@ -558,12 +643,15 @@ function Templates({ shop, singlePlanId, singlePlanData, dublicateplanPlanId, du
                     />
                     <div>
                       <Text variant="headingSm" as="h2">
-                        {key === 'swap' && 'Allow product swaps'}
-                        {key === 'variant' && 'Allow variant changes'}
-                        {key === 'quantity' && 'Allow quantity changes'}
-                        {key === 'keepDiscount' && 'Keep discounts on product changes'}
+                        {key === "swap" && "Allow product swaps"}
+                        {key === "variant" && "Allow variant changes"}
+                        {key === "quantity" && "Allow quantity changes"}
+                        {key === "keepDiscount" &&
+                          "Keep discounts on product changes"}
                       </Text>
-                      <p>{productChanges[key] ? text[key].on : text[key].off}</p>
+                      <p>
+                        {productChanges[key] ? text[key].on : text[key].off}
+                      </p>
                     </div>
                   </div>
                 ))}
@@ -608,7 +696,6 @@ function Templates({ shop, singlePlanId, singlePlanData, dublicateplanPlanId, du
               <Text>Are you sure you want to delete this plan?</Text>
             </Modal.Section>
           </Modal>
-
         </Grid.Cell>
 
         {/* RIGHT SIDE */}
@@ -617,63 +704,106 @@ function Templates({ shop, singlePlanId, singlePlanData, dublicateplanPlanId, du
             <Card>
               <BlockStack gap="300">
                 <div>
-                  <Text variant="headingMd" as="h2">Summary</Text>
-                  <ul style={{ paddingLeft: '18px', margin: 0 }}>
-                    <li>{options.length} delivery option{options.length !== 1 ? 's' : ''}</li>
+                  <Text variant="headingMd" as="h2">
+                    Summary
+                  </Text>
+                  <ul style={{ paddingLeft: "18px", margin: 0 }}>
+                    <li>
+                      {options.length} delivery option
+                      {options.length !== 1 ? "s" : ""}
+                    </li>
                   </ul>
                 </div>
                 <div>
-                  {Object.values(productChanges).every(v => !v) ? "" : (
+                  {Object.values(productChanges).every((v) => !v) ? (
+                    ""
+                  ) : (
                     <>
-                      <Text variant="headingMd" as="h2">Customer product changes</Text>
-                      <ul style={{ paddingLeft: '18px', margin: 0 }}>
+                      <Text variant="headingMd" as="h2">
+                        Customer product changes
+                      </Text>
+                      <ul style={{ paddingLeft: "18px", margin: 0 }}>
                         {productChanges.swap && <li>Allow product swaps</li>}
-                        {productChanges.variant && <li>Allow variant changes</li>}
-                        {productChanges.quantity && <li>Allow quantity changes</li>}
-                        {productChanges.keepDiscount && <li>Keep discounts on product changes</li>}
+                        {productChanges.variant && (
+                          <li>Allow variant changes</li>
+                        )}
+                        {productChanges.quantity && (
+                          <li>Allow quantity changes</li>
+                        )}
+                        {productChanges.keepDiscount && (
+                          <li>Keep discounts on product changes</li>
+                        )}
                       </ul>
                     </>
                   )}
                 </div>
                 {options.map((opt, i) => (
                   <div key={i}>
-                    <Text variant="headingMd" as="h2">{opt.name || `Option ${i + 1}`}</Text>
-                    <ul style={{ paddingLeft: '18px', margin: 0 }}>
+                    <Text variant="headingMd" as="h2">
+                      {opt.name || `Option ${i + 1}`}
+                    </Text>
+                    <ul style={{ paddingLeft: "18px", margin: 0 }}>
                       {opt.deliveryFrequency && (
-                        <li>Delivery: every {opt.deliveryFrequency} {opt.deliveryInterval}</li>
+                        <li>
+                          Delivery: every {opt.deliveryFrequency}{" "}
+                          {opt.deliveryInterval}
+                        </li>
                       )}
-                      <li>{opt.billingType === 'prepaid' ? 'Pre-paid' : 'Pay as you go'}</li>
-                      {opt.minOrders !== 'disabled' && <li>Min {opt.minOrders} orders</li>}
-                      {opt.maxOrders !== 'unlimited' && <li>Max {opt.maxOrders} orders</li>}
+                      <li>
+                        {opt.billingType === "prepaid"
+                          ? "Pre-paid"
+                          : "Pay as you go"}
+                      </li>
+                      {opt.minOrders !== "disabled" && (
+                        <li>Min {opt.minOrders} orders</li>
+                      )}
+                      {opt.maxOrders !== "unlimited" && (
+                        <li>Max {opt.maxOrders} orders</li>
+                      )}
                       {opt.giveDiscount && opt.discountAmount && (
                         <li>
-                          {opt.discountType === 'percentage'
+                          {opt.discountType === "percentage"
                             ? `${opt.discountAmount}% off`
-                            : opt.discountType === 'fixed'
+                            : opt.discountType === "fixed"
                               ? `Fixed price ₹${opt.discountAmount}`
                               : `₹${opt.discountAmount} off`}
-                          {opt.changeDiscountAfter && opt.discountAmount2 && opt.afterOrders
-                            ? `, then ${opt.discountType2 === 'percentage'
-                              ? `${opt.discountAmount2}%`
-                              : `₹${opt.discountAmount2}`} after ${opt.afterOrders} orders`
-                            : ''}
+                          {opt.changeDiscountAfter &&
+                          opt.discountAmount2 &&
+                          opt.afterOrders
+                            ? `, then ${
+                                opt.discountType2 === "percentage"
+                                  ? `${opt.discountAmount2}%`
+                                  : `₹${opt.discountAmount2}`
+                              } after ${opt.afterOrders} orders`
+                            : ""}
                         </li>
                       )}
                       {opt.giveShippingDiscount && opt.shippingDiscount && (
                         <li>
-                          Shipping: {opt.shippingDiscountType === 'percentage'
+                          Shipping:{" "}
+                          {opt.shippingDiscountType === "percentage"
                             ? `${opt.shippingDiscount}% off`
                             : `₹${opt.shippingDiscount} off`}
-                          {opt.shippingAfterOrders ? ` after ${opt.shippingAfterOrders} orders` : ''}
+                          {opt.shippingAfterOrders
+                            ? ` after ${opt.shippingAfterOrders} orders`
+                            : ""}
                         </li>
                       )}
                       {opt.changeQtyAfterOrders && opt.changeQtyQuantity && (
-                        <li>Change qty to {opt.changeQtyQuantity} after {opt.changeQtyAfterOrdersNum} orders</li>
+                        <li>
+                          Change qty to {opt.changeQtyQuantity} after{" "}
+                          {opt.changeQtyAfterOrdersNum} orders
+                        </li>
                       )}
                       {opt.removeFreeProducts && (
-                        <li>Remove free products after {opt.removeFreeAfterOrders} orders</li>
+                        <li>
+                          Remove free products after {opt.removeFreeAfterOrders}{" "}
+                          orders
+                        </li>
                       )}
-                      {opt.setMinQty && opt.minQuantity && <li>Min qty: {opt.minQuantity}</li>}
+                      {opt.setMinQty && opt.minQuantity && (
+                        <li>Min qty: {opt.minQuantity}</li>
+                      )}
                     </ul>
                   </div>
                 ))}
@@ -687,7 +817,3 @@ function Templates({ shop, singlePlanId, singlePlanData, dublicateplanPlanId, du
 }
 
 export default Templates;
-
-
-
-
