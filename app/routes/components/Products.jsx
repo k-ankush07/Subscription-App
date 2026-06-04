@@ -28,9 +28,10 @@ const Products = forwardRef(function Products(
     selectedItems = [],
     onSelect,
     pickVariant,
-    singleSelect = false, // select single product
-    singleProductVariant = false, // only one product's variants selectable at a time
-    hideVariants = false,          // NEW: hide variant rows entirely (for swap-product, add-product, remove-product)
+    singleSelect = false,
+    singleProductVariant = false,
+    hideVariants = false,
+    preFilteredProducts = null, // NEW: if passed, skip API and show only these
     ...rest
   },
   ref
@@ -51,9 +52,43 @@ const Products = forwardRef(function Products(
   const cursorRef = useRef(null);
   const cursorStackRef = useRef([]);
 
+  // If preFilteredProducts is provided, convert and use directly — no API call
+  const isFiltered = Array.isArray(preFilteredProducts) && preFilteredProducts.length > 0;
+
   useEffect(() => {
-    loadMore(null, "");
+    if (isFiltered) {
+      // Convert selectedProducts shape → products shape
+      const mapped = preFilteredProducts.map((p) => ({
+        id: p.productId,
+        title: p.productTitle,
+        image: p.productImage,
+        price: "",
+        variants: (p.variantIds || []).map((vId, i) => ({
+          id: vId,
+          title: p.variantTitles?.[i] || `Variant ${i + 1}`,
+          price: "",
+          image: p.variantImages?.[i] || p.productImage || null,
+        })),
+      }));
+      setProducts(mapped);
+      // No pagination needed
+      onPaginationChange?.({
+        hasPrevious: false,
+        hasNext: false,
+        handlePrev: () => {},
+        handleNext: () => {},
+      });
+    } else {
+      loadMore(null, "");
+    }
   }, []);
+
+  // Search filtering for preFilteredProducts mode
+  const displayProducts = isFiltered
+    ? products.filter((p) =>
+        p.title.toLowerCase().includes(search.toLowerCase())
+      )
+    : products;
 
   useImperativeHandle(ref, () => ({
     hasPrevious: cursorStack.length > 0,
@@ -63,6 +98,7 @@ const Products = forwardRef(function Products(
   }));
 
   useEffect(() => {
+    if (isFiltered) return; // skip API pagination updates
     onPaginationChange?.({
       hasPrevious: cursorStack.length > 0,
       hasNext: hasNextPage,
@@ -72,6 +108,7 @@ const Products = forwardRef(function Products(
   }, [cursorStack, hasNextPage]);
 
   useEffect(() => {
+    if (isFiltered) return; // search handled locally via displayProducts
     clearTimeout(searchDebounceRef.current);
     searchDebounceRef.current = setTimeout(() => {
       currentSearchRef.current = search;
@@ -138,15 +175,12 @@ const Products = forwardRef(function Products(
   };
 
   const toggleVariants = (productId) => {
-    // If hideVariants is on, don't allow expanding
     if (hideVariants) return;
     setOpenProducts((prev) => ({
       ...prev,
       [productId]: !prev[productId],
     }));
   };
-
-  //  Selection helpers — UNCHANGED 
 
   const isProductSelected = (product) => {
     const selectedProduct = selectedItems.find(
@@ -169,9 +203,6 @@ const Products = forwardRef(function Products(
     );
   };
 
-  //  Toggle handlers 
-
-  // UNCHANGED
   const toggleProduct = (product) => {
     const item = {
       productId: product.id,
@@ -180,9 +211,8 @@ const Products = forwardRef(function Products(
       variantIds: product.variants.map((v) => v.id),
       variantTitles: product.variants.map((v) => v.title),
       variantImages: product.variants.map((v) => v.image || product.image),
-       totalVariants: product.variants.length,
+      totalVariants: product.variants.length,
     };
-    console.log(item.productImage,"hdchsfjhsdjh")
     const exists = selectedItems.find((p) => p.productId === product.id);
 
     if (singleSelect) {
@@ -201,7 +231,6 @@ const Products = forwardRef(function Products(
     }
   };
 
-  // singleProductVariant: selecting variant from different product clears previous — UNCHANGED
   const toggleVariant = (product, variantId) => {
     const variant = product.variants.find((v) => v.id === variantId);
 
@@ -222,8 +251,6 @@ const Products = forwardRef(function Products(
         return;
       }
     }
-
-    // UNCHANGED from original 
 
     const existingProduct = selectedItems.find(
       (p) => p.productId === product.id
@@ -291,11 +318,9 @@ const Products = forwardRef(function Products(
     }
   };
 
- 
   return (
     <Card title="Products">
       <BlockStack gap="300">
-        {/* Search — UNCHANGED */}
         <InlineStack gap="200">
           <div style={{ flex: 1 }}>
             <TextField
@@ -307,7 +332,6 @@ const Products = forwardRef(function Products(
           </div>
         </InlineStack>
 
-        {/* Selected count — UNCHANGED */}
         {selectedItems.length > 0 && (
           <Text tone="subdued" variant="bodySm">
             {selectedItems.length} product
@@ -315,7 +339,6 @@ const Products = forwardRef(function Products(
           </Text>
         )}
 
-        {/* Product List */}
         <div
           style={{
             borderTop: "1px solid #e1e3e5",
@@ -328,10 +351,7 @@ const Products = forwardRef(function Products(
               <div
                 style={{
                   position: "absolute",
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
+                  top: 0, left: 0, right: 0, bottom: 0,
                   background: "rgba(255,255,255,0.7)",
                   zIndex: 10,
                 }}
@@ -339,8 +359,7 @@ const Products = forwardRef(function Products(
               <div
                 style={{
                   position: "fixed",
-                  top: "50%",
-                  left: "50%",
+                  top: "50%", left: "50%",
                   transform: "translate(-50%, -50%)",
                   zIndex: 11,
                 }}
@@ -350,13 +369,12 @@ const Products = forwardRef(function Products(
             </>
           )}
 
-          {products.length === 0 ? (
+          {displayProducts.length === 0 ? (
             <div style={{ padding: "20px", textAlign: "center" }}>
               <Text tone="subdued">No items to display</Text>
             </div>
           ) : (
-            products.map((product, index) => {
-              // singleProductVariant: products from a different selection are locked (disabled, not uncheck-able)
+            displayProducts.map((product, index) => {
               const isLocked =
                 singleProductVariant &&
                 selectedItems.length > 0 &&
@@ -367,30 +385,21 @@ const Products = forwardRef(function Products(
                   key={product.id}
                   style={{
                     opacity: isLocked ? 0.4 : 1,
-                    // pointer-events none on locked rows so clicks do nothing at all
                     pointerEvents: isLocked ? "none" : "auto",
                   }}
                 >
-                  {/* Product Row — UNCHANGED */}
                   <div
                     style={{
                       padding: "10px 0",
                       borderBottom:
-                        index !== products.length - 1
+                        index !== displayProducts.length - 1
                           ? "1px solid #e1e3e5"
                           : "none",
                     }}
                   >
                     <InlineStack align="space-between" wrap={false} gap="500">
-                      {/* LEFT */}
                       <div style={{ flex: 1 }}>
-                        <InlineStack
-                          gap="200"
-                          align="start"
-                          blockAlign="start"
-                          wrap={false}
-                        >
-                          {/* Product checkbox — UNCHANGED */}
+                        <InlineStack gap="200" align="start" blockAlign="start" wrap={false}>
                           <div style={{ paddingTop: "2px" }}>
                             <Checkbox
                               label=""
@@ -404,29 +413,15 @@ const Products = forwardRef(function Products(
                             <Thumbnail source={product.image} size="small" />
                           </div>
 
-                          {/*
-                            hideVariants=true  no chevron icon, clicking product name does nothing variant-related.
-                            hideVariants=false original behaviour (chevron + expand on click).
-                          */}
                           <div
-                            style={{
-                              cursor: hideVariants ? "default" : "pointer",
-                            }}
-                            onClick={() =>
-                              !hideVariants && toggleVariants(product.id)
-                            }
+                            style={{ cursor: hideVariants ? "default" : "pointer" }}
+                            onClick={() => !hideVariants && toggleVariants(product.id)}
                           >
                             <BlockStack>
                               <Text fontWeight="medium">{product.title}</Text>
-                              {/* Show variant count + chevron only if hideVariants is false */}
                               {!hideVariants && product.variants.length > 0 && (
                                 <InlineStack gap="50" align="left">
-                                  <div
-                                    style={{
-                                      display: "inline-flex",
-                                      alignItems: "center",
-                                    }}
-                                  >
+                                  <div style={{ display: "inline-flex", alignItems: "center" }}>
                                     <Text tone="subdued" variant="bodySm">
                                       {product.variants.length} variants
                                     </Text>
@@ -447,7 +442,6 @@ const Products = forwardRef(function Products(
                         </InlineStack>
                       </div>
 
-                      {/* RIGHT — UNCHANGED */}
                       <div style={{ minWidth: "100px", textAlign: "right" }}>
                         <Text alignment="end">
                           {product.price} {currency}
@@ -456,11 +450,6 @@ const Products = forwardRef(function Products(
                     </InlineStack>
                   </div>
 
-                  {/*
-                    Variant rows:
-                     hideVariants=true  never shown
-                     hideVariants=false  shown when expanded (original behaviour)
-                  */}
                   {!hideVariants &&
                     product.variants.length > 1 &&
                     openProducts[product.id] &&
@@ -473,27 +462,17 @@ const Products = forwardRef(function Products(
                         }}
                       >
                         <InlineStack align="space-between" wrap={false}>
-                          {/* LEFT — UNCHANGED */}
                           <InlineStack gap="200" align="center">
                             <Checkbox
                               label=""
                               checked={isVariantSelected(product.id, v.id)}
                               onChange={() => toggleVariant(product, v.id)}
                             />
-                            <Thumbnail
-                              source={v.image || product.image}
-                              size="extraSmall"
-                            />
+                            <Thumbnail source={v.image || product.image} size="extraSmall" />
                             <Text>{v.title}</Text>
                           </InlineStack>
 
-                          {/* RIGHT — UNCHANGED */}
-                          <div
-                            style={{
-                              minWidth: "100px",
-                              textAlign: "right",
-                            }}
-                          >
+                          <div style={{ minWidth: "100px", textAlign: "right" }}>
                             <Text>
                               {v.price} {currency}
                             </Text>

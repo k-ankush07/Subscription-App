@@ -1,16 +1,33 @@
+
 import React, { useEffect, useState } from "react";
 import {
-  BlockStack, Button, Card, Checkbox, Divider,
-  Icon, InlineGrid, InlineStack, Select, Text, TextField, Banner, Modal, Pagination,
-  InlineError
+  BlockStack,
+  Button,
+  Card,
+  Checkbox,
+  Divider,
+  Icon,
+  InlineGrid,
+  InlineStack,
+  Select,
+  Text,
+  TextField,
+  Banner,
+  Modal,
+  Pagination,
+  InlineError,
 } from "@shopify/polaris";
 import { DuplicateIcon, DeleteIcon } from "@shopify/polaris-icons";
 import Products from "./Products";
 import AutomaticActions from "./AutomaticActions";
 
 function DeliveryOptionCard({
-  option, index, onChange, onDelete, onDuplicate,
-  products, nextCursor, hasNextPage, selectedProducts,
+  option,
+  index,
+  onChange,
+  onDelete,
+  onDuplicate,
+  selectedProducts,
   isDuplicateDelivery,
   billingError,
   submitted,
@@ -18,15 +35,18 @@ function DeliveryOptionCard({
   const update = (field) => (value) => onChange(index, field, value);
   const [modalType, setModalType] = useState(null);
   const [tempSelected, setTempSelected] = useState([]);
-  const [changeQtyProductsAttempted, setChangeQtyProductsAttempted] = useState(false);
-  const [removeFreeProductsAttempted, setRemoveFreeProductsAttempted] = useState(false);
+  const [changeQtyProductsAttempted, setChangeQtyProductsAttempted] =
+    useState(false);
+  const [removeFreeProductsAttempted, setRemoveFreeProductsAttempted] =
+    useState(false);
   const [showActions, setShowActions] = useState(false);
   const [pagination, setPagination] = useState({
-    hasPrevious: false, hasNext: false,
-    handlePrev: () => {}, handleNext: () => {},
+    hasPrevious: false,
+    hasNext: false,
+    handlePrev: () => {},
+    handleNext: () => {},
   });
 
-  // Derived errors — trigger on submit 
   const changeQtyProductsError =
     (submitted || changeQtyProductsAttempted) &&
     option.changeQtyAfterOrders &&
@@ -77,19 +97,33 @@ function DeliveryOptionCard({
             {option.name ? option.name : `Option #${index + 1}`}
           </Text>
           <InlineStack gap="300">
-            <Button icon={DuplicateIcon} variant="tertiary" onClick={() => onDuplicate(index)} />
+            <Button
+              icon={DuplicateIcon}
+              variant="tertiary"
+              onClick={() => onDuplicate(index)}
+            />
             {index !== 0 && (
-              <Button icon={DeleteIcon} variant="tertiary" onClick={() => onDelete(index)} />
+              <Button
+                icon={DeleteIcon}
+                variant="tertiary"
+                onClick={() => onDelete(index)}
+              />
             )}
           </InlineStack>
         </InlineStack>
 
-
         {/* NAME */}
         <BlockStack gap="200">
           <Text>Name</Text>
-          <TextField label="" autoComplete="off" value={option.name} onChange={update("name")} />
-          <Text tone="subdued" variant="bodySm">Leave empty to generate automatically</Text>
+          <TextField
+            label=""
+            autoComplete="off"
+            value={option.name}
+            onChange={update("name")}
+          />
+          <Text tone="subdued" variant="bodySm">
+            Leave empty to generate automatically
+          </Text>
         </BlockStack>
 
         <Divider />
@@ -119,10 +153,15 @@ function DeliveryOptionCard({
               autoComplete="off"
               value={option.deliveryFrequency || 1}
               onChange={(value) => {
-                if (value === "" || Number(value) < 1) { update("deliveryFrequency")("1"); return; }
+                if (value === "" || Number(value) < 1) {
+                  update("deliveryFrequency")("1");
+                  return;
+                }
                 update("deliveryFrequency")(value);
               }}
-              error={isDuplicateDelivery ? "Duplicate delivery frequency" : undefined}
+              error={
+                isDuplicateDelivery ? "Duplicate delivery frequency" : undefined
+              }
             />
           </BlockStack>
           <BlockStack gap="200">
@@ -145,7 +184,6 @@ function DeliveryOptionCard({
         {option.billingType === "prepaid" && (
           <>
             <div />
-
             <InlineGrid columns={2} gap="400">
               <BlockStack gap="200">
                 <Text>Billing frequency</Text>
@@ -156,8 +194,11 @@ function DeliveryOptionCard({
                   prefix="Every"
                   autoComplete="off"
                   value={option.billingFrequency || ""}
-                  onChange={(value) => { if (Number(value) < 1) return; update("billingFrequency")(value); }}
-                  error={billingError ? billingError  : undefined}
+                  onChange={(value) => {
+                    if (Number(value) < 1) return;
+                    update("billingFrequency")(value);
+                  }}
+                  error={billingError ? billingError : undefined}
                 />
               </BlockStack>
               <BlockStack gap="200">
@@ -182,7 +223,9 @@ function DeliveryOptionCard({
 
         {/* SUBSCRIPTION ORDERS */}
         <BlockStack gap="300">
-          <Text as="h3" variant="headingSm">Subscription orders</Text>
+          <Text as="h3" variant="headingSm">
+            Subscription orders
+          </Text>
           <InlineGrid columns={2} gap="400">
             <BlockStack gap="200">
               <Text>Minimum number of orders</Text>
@@ -192,7 +235,10 @@ function DeliveryOptionCard({
                 onChange={update("minOrders")}
                 options={[
                   { label: "Disabled", value: "disabled" },
-                  ...Array.from({ length: 250 }, (_, i) => ({ label: `${i + 1}`, value: `${i + 1}` })),
+                  ...Array.from({ length: 250 }, (_, i) => ({
+                    label: `${i + 1}`,
+                    value: `${i + 1}`,
+                  })),
                 ]}
               />
             </BlockStack>
@@ -204,7 +250,10 @@ function DeliveryOptionCard({
                 onChange={update("maxOrders")}
                 options={[
                   { label: "Unlimited", value: "unlimited" },
-                  ...Array.from({ length: 250 }, (_, i) => ({ label: `${i + 1}`, value: `${i + 1}` })),
+                  ...Array.from({ length: 250 }, (_, i) => ({
+                    label: `${i + 1}`,
+                    value: `${i + 1}`,
+                  })),
                 ]}
               />
             </BlockStack>
@@ -215,24 +264,36 @@ function DeliveryOptionCard({
 
         {/* SUBSCRIPTION DISCOUNT */}
         <BlockStack gap="300">
-          <Text as="h3" variant="headingSm">Subscription discount</Text>
-          <Checkbox label="Give discount" checked={option.giveDiscount} onChange={updateChecked("giveDiscount")} />
+          <Text as="h3" variant="headingSm">
+            Subscription discount
+          </Text>
+          <Checkbox
+            label="Give discount"
+            checked={option.giveDiscount}
+            onChange={updateChecked("giveDiscount")}
+          />
           {option.giveDiscount && (
             <>
               <InlineGrid columns={2} gap="400">
                 <BlockStack gap="200">
                   <Text>Discount amount</Text>
                   <TextField
-                    label="" type="number" min={0}
+                    label=""
+                    type="number"
+                    min={0}
                     prefix={option.discountType === "percentage" ? "" : "₹"}
                     suffix={option.discountType === "percentage" ? "%" : ""}
-                    autoComplete="off" value={option.discountAmount} onChange={update("discountAmount")}
+                    autoComplete="off"
+                    value={option.discountAmount}
+                    onChange={update("discountAmount")}
                   />
                 </BlockStack>
                 <BlockStack gap="200">
                   <Text>Discount type</Text>
                   <Select
-                    label="" value={option.discountType} onChange={update("discountType")}
+                    label=""
+                    value={option.discountType}
+                    onChange={update("discountType")}
                     options={[
                       { label: "Amount off", value: "amount" },
                       { label: "Percentage off", value: "percentage" },
@@ -251,20 +312,33 @@ function DeliveryOptionCard({
                   <BlockStack gap="200">
                     <Text>Discount amount</Text>
                     <TextField
-                      label="" min={0} type="number"
+                      label=""
+                      min={0}
+                      type="number"
                       prefix={option.discountType2 === "percentage" ? "" : "₹"}
                       suffix={option.discountType2 === "percentage" ? "%" : ""}
-                      autoComplete="off" value={option.discountAmount2} onChange={update("discountAmount2")}
+                      autoComplete="off"
+                      value={option.discountAmount2}
+                      onChange={update("discountAmount2")}
                     />
                   </BlockStack>
                   <BlockStack gap="200">
                     <Text>After # of orders</Text>
-                    <TextField label="" type="number" min={1} autoComplete="off" value={option.afterOrders} onChange={update("afterOrders")} />
+                    <TextField
+                      label=""
+                      type="number"
+                      min={1}
+                      autoComplete="off"
+                      value={option.afterOrders}
+                      onChange={update("afterOrders")}
+                    />
                   </BlockStack>
                   <BlockStack gap="200">
                     <Text>Discount type</Text>
                     <Select
-                      label="" value={option.discountType2} onChange={update("discountType2")}
+                      label=""
+                      value={option.discountType2}
+                      onChange={update("discountType2")}
                       options={[
                         { label: "Amount off", value: "amount" },
                         { label: "Percentage off", value: "percentage" },
@@ -282,28 +356,51 @@ function DeliveryOptionCard({
 
         {/* SHIPPING DISCOUNT */}
         <BlockStack gap="300">
-          <Text as="h3" variant="headingSm">Shipping discount</Text>
-          <Checkbox label="Give discount" checked={option.giveShippingDiscount} onChange={updateChecked("giveShippingDiscount")} />
+          <Text as="h3" variant="headingSm">
+            Shipping discount
+          </Text>
+          <Checkbox
+            label="Give discount"
+            checked={option.giveShippingDiscount}
+            onChange={updateChecked("giveShippingDiscount")}
+          />
           {option.giveShippingDiscount && (
             <>
               <InlineGrid columns={3} gap="400">
                 <BlockStack gap="200">
                   <Text>Discount</Text>
                   <TextField
-                    label="" type="number" min={0}
-                    prefix={option.shippingDiscountType === "percentage" ? "" : "₹"}
-                    suffix={option.shippingDiscountType === "percentage" ? "%" : ""}
-                    autoComplete="off" value={option.shippingDiscount} onChange={update("shippingDiscount")}
+                    label=""
+                    type="number"
+                    min={0}
+                    prefix={
+                      option.shippingDiscountType === "percentage" ? "" : "₹"
+                    }
+                    suffix={
+                      option.shippingDiscountType === "percentage" ? "%" : ""
+                    }
+                    autoComplete="off"
+                    value={option.shippingDiscount}
+                    onChange={update("shippingDiscount")}
                   />
                 </BlockStack>
                 <BlockStack gap="200">
                   <Text>After # of orders</Text>
-                  <TextField label="" type="number" min={1} autoComplete="off" value={option.shippingAfterOrders} onChange={update("shippingAfterOrders")} />
+                  <TextField
+                    label=""
+                    type="number"
+                    min={1}
+                    autoComplete="off"
+                    value={option.shippingAfterOrders}
+                    onChange={update("shippingAfterOrders")}
+                  />
                 </BlockStack>
                 <BlockStack gap="200">
                   <Text>Discount type</Text>
                   <Select
-                    label="" value={option.shippingDiscountType} onChange={update("shippingDiscountType")}
+                    label=""
+                    value={option.shippingDiscountType}
+                    onChange={update("shippingDiscountType")}
                     options={[
                       { label: "Fixed price", value: "fixed" },
                       { label: "Amount off", value: "amount" },
@@ -312,29 +409,31 @@ function DeliveryOptionCard({
                   />
                 </BlockStack>
               </InlineGrid>
-              <Text tone="subdued" variant="bodySm">This will be the new delivery price</Text>
+              <Text tone="subdued" variant="bodySm">
+                This will be the new delivery price
+              </Text>
             </>
           )}
         </BlockStack>
-           
+
         {/* SETTINGS */}
         {selectedProducts?.length > 0 && (
           <>
-       <Divider />
-             <AutomaticActions
+            <Divider />
+            <AutomaticActions
               option={option}
               index={index}
               onChange={onChange}
               updateChecked={updateChecked}
               showActions={showActions}
               setShowActions={setShowActions}
-
             />
 
-          
             <Divider />
             <BlockStack gap="300">
-              <Text as="h3" variant="headingSm">Settings</Text>
+              <Text as="h3" variant="headingSm">
+                Settings
+              </Text>
 
               {/* Change quantity */}
               <Checkbox
@@ -346,45 +445,55 @@ function DeliveryOptionCard({
                 <BlockStack gap="300">
                   <Banner tone="warning">
                     <BlockStack gap="100">
-                      <Text variant="bodySm">• This setting applies to the selected products for both new and recurring subscription orders.</Text>
-                      <Text variant="bodySm">• Product &amp; bundle discounts will be readjusted for the new quantity</Text>
+                      <Text variant="bodySm">
+                        • This setting applies to the selected products for both
+                        new and recurring subscription orders.
+                      </Text>
+                      <Text variant="bodySm">
+                        • Product &amp; bundle discounts will be readjusted for
+                        the new quantity
+                      </Text>
                     </BlockStack>
                   </Banner>
                   <InlineGrid columns={2} gap="400">
                     <BlockStack gap="200">
                       <Text>Quantity</Text>
                       <TextField
-                        label="" type="number"  autoComplete="off"
-                        value={option.changeQtyQuantity} onChange={update("changeQtyQuantity")}
+                        label=""
+                        type="number"
+                        autoComplete="off"
+                        value={option.changeQtyQuantity}
+                        onChange={update("changeQtyQuantity")}
                         helpText="Quantity will not be greater than the initial order quantity"
                       />
                     </BlockStack>
                     <BlockStack gap="200">
                       <Text>After # of orders</Text>
                       <TextField
-                        label="" type="number"  autoComplete="off"
-                        value={option.changeQtyAfterOrdersNum} onChange={update("changeQtyAfterOrdersNum")}
+                        label=""
+                        type="number"
+                        autoComplete="off"
+                        value={option.changeQtyAfterOrdersNum}
+                        onChange={update("changeQtyAfterOrdersNum")}
                         helpText="After how many orders to change quantity"
                       />
                     </BlockStack>
                   </InlineGrid>
 
-                  
-
                   <Button
                     onClick={() => {
                       setTempSelected(option.changeQtyProducts || []);
-                      setModalType('changeQty');
+                      setModalType("changeQty");
                     }}
                   >
-                    Select products{option.changeQtyProducts?.length > 0 ? ` (${option.changeQtyProducts.length} selected)` : ''}
+                    Select products
+                    {option.changeQtyProducts?.length > 0
+                      ? ` (${option.changeQtyProducts.length} selected)`
+                      : ""}
                   </Button>
                   {changeQtyProductsError && (
-                    <InlineError message=
-                     ' Please select at least one product for quantity change.'
-                    />
+                    <InlineError message="Please select at least one product for quantity change." />
                   )}
-
                 </BlockStack>
               )}
 
@@ -397,31 +506,36 @@ function DeliveryOptionCard({
               {option.removeFreeProducts && (
                 <BlockStack gap="300">
                   <Banner tone="warning">
-                    <Text variant="bodySm">• This setting applies to the selected products for both new and recurring subscription orders.</Text>
+                    <Text variant="bodySm">
+                      • This setting applies to the selected products for both
+                      new and recurring subscription orders.
+                    </Text>
                   </Banner>
                   <BlockStack gap="200">
                     <Text>After # of orders</Text>
                     <TextField
-                      label="" type="number"  autoComplete="off"
-                      value={option.removeFreeAfterOrders} onChange={update("removeFreeAfterOrders")}
+                      label=""
+                      type="number"
+                      autoComplete="off"
+                      value={option.removeFreeAfterOrders}
+                      onChange={update("removeFreeAfterOrders")}
                       helpText="After how many orders to remove free products from subscription"
                     />
                   </BlockStack>
 
-
                   <Button
                     onClick={() => {
                       setTempSelected(option.removeFreeProductsList || []);
-                      setModalType('removeFree');
+                      setModalType("removeFree");
                     }}
                   >
-                    Select products{option.removeFreeProductsList?.length > 0 ? ` (${option.removeFreeProductsList.length} selected)` : ''}
+                    Select products
+                    {option.removeFreeProductsList?.length > 0
+                      ? ` (${option.removeFreeProductsList.length} selected)`
+                      : ""}
                   </Button>
-
                   {removeFreeProductsError && (
-                   <InlineError message=
-                     ' Please select at least one product for quantity change.'
-                    />
+                    <InlineError message="Please select at least one product for remove free products." />
                   )}
                 </BlockStack>
               )}
@@ -434,11 +548,17 @@ function DeliveryOptionCard({
               />
               {option.setMinQty && (
                 <BlockStack gap="200">
-                  <Text tone="subdued" variant="bodySm">Has no effect when using Kaching Bundles</Text>
+                  <Text tone="subdued" variant="bodySm">
+                    Has no effect when using Kaching Bundles
+                  </Text>
                   <Text>Minimum quantity</Text>
                   <TextField
-                    label="" type="number" min={0} autoComplete="off"
-                    value={option.minQuantity} onChange={update("minQuantity")}
+                    label=""
+                    type="number"
+                    min={0}
+                    autoComplete="off"
+                    value={option.minQuantity}
+                    onChange={update("minQuantity")}
                     helpText="When this plan is selected, the product quantity will automatically be set to this value and customers will not be able to select a lower quantity."
                   />
                 </BlockStack>
@@ -448,36 +568,54 @@ function DeliveryOptionCard({
         )}
       </BlockStack>
 
-      {/* Product select modal */}
+      {/* Product select modal — shows only template-selected products */}
       <Modal
         open={modalType !== null}
         onClose={() => setModalType(null)}
         title="Select Products"
         primaryAction={{
-          content: 'Save',
+          content: "Save",
           onAction: () => {
-            if (modalType === 'changeQty') {
+            if (modalType === "changeQty") {
               setChangeQtyProductsAttempted(true);
               if (tempSelected.length > 0) {
-                onChange(index, 'changeQtyProducts', tempSelected.map(p => ({
-                  productId: p.productId,
-                  variantIds: p.variantIds || [],
-                })));
+                onChange(
+                  index,
+                  "changeQtyProducts",
+                  tempSelected.map((p) => ({
+                    productId: p.productId,
+                    productTitle: p.productTitle,
+                    productImage: p.productImage,
+                    variantIds: p.variantIds || [],
+                    variantTitles: p.variantTitles || [],
+                    variantImages: p.variantImages || [],
+                  })),
+                );
               }
               setModalType(null);
             } else {
               setRemoveFreeProductsAttempted(true);
               if (tempSelected.length > 0) {
-                onChange(index, 'removeFreeProductsList', tempSelected.map(p => ({
-                  productId: p.productId,
-                  variantIds: p.variantIds || [],
-                })));
+                onChange(
+                  index,
+                  "removeFreeProductsList",
+                  tempSelected.map((p) => ({
+                    productId: p.productId,
+                    productTitle: p.productTitle,
+                    productImage: p.productImage,
+                    variantIds: p.variantIds || [],
+                    variantTitles: p.variantTitles || [],
+                    variantImages: p.variantImages || [],
+                  })),
+                );
               }
               setModalType(null);
             }
           },
         }}
-        secondaryActions={[{ content: 'Close', onAction: () => setModalType(null) }]}
+        secondaryActions={[
+          { content: "Close", onAction: () => setModalType(null) },
+        ]}
         footer={
           <InlineStack align="space-between">
             <Pagination
@@ -491,9 +629,7 @@ function DeliveryOptionCard({
       >
         <Modal.Section>
           <Products
-            products={products}
-            hasNextPage={hasNextPage}
-            nextCursor={nextCursor}
+            preFilteredProducts={selectedProducts}
             selectedItems={tempSelected}
             onSelect={setTempSelected}
             onPaginationChange={setPagination}
@@ -505,33 +641,33 @@ function DeliveryOptionCard({
 }
 
 function DeliveryOptions({
-  options, setOptions, addOption,
-  products, nextCursor, hasNextPage, selectedProducts,
+  options,
+  setOptions,
+  addOption,
+  selectedProducts,
   validationErrors = {},
   submitted = false,
 }) {
   const handleChange = (index, field, value) => {
-  setOptions((prev) =>
-    prev.map((opt, i) => {
-      if (i !== index) return opt;
+    setOptions((prev) =>
+      prev.map((opt, i) => {
+        if (i !== index) return opt;
 
-      const updated = { ...opt, [field]: value };
+        const updated = { ...opt, [field]: value };
 
-      // IMPORTANT: when switching billing type, reset only dependent fields
-      if (field === "billingType") {
-        if (value === "pay") {
-          updated.billingFrequency = "";
+        if (field === "billingType") {
+          if (value === "pay") {
+            updated.billingFrequency = "";
+          }
+          if (value === "prepaid") {
+            updated.billingFrequency = opt.billingFrequency || "";
+          }
         }
 
-        if (value === "prepaid") {
-          updated.billingFrequency = opt.billingFrequency || "";
-        }
-      }
-
-      return updated;
-    })
-  );
-};
+        return updated;
+      }),
+    );
+  };
 
   const deleteOption = (index) => {
     setOptions((prev) => prev.filter((_, i) => i !== index));
@@ -550,7 +686,9 @@ function DeliveryOptions({
     <div style={{ paddingBottom: "30px" }}>
       <Card>
         <BlockStack gap="400">
-          <Text as="h2" variant="headingMd">Delivery options</Text>
+          <Text as="h2" variant="headingMd">
+            Delivery options
+          </Text>
           {options.map((opt, i) => (
             <DeliveryOptionCard
               key={i}
@@ -559,9 +697,6 @@ function DeliveryOptions({
               onChange={handleChange}
               onDelete={deleteOption}
               onDuplicate={duplicateOption}
-              products={products}
-              nextCursor={nextCursor}
-              hasNextPage={hasNextPage}
               selectedProducts={selectedProducts}
               isDuplicateDelivery={duplicateIndexes.includes(i)}
               billingError={validationErrors.billingMultiple?.[i] ?? null}
