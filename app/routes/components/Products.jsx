@@ -31,7 +31,7 @@ const Products = forwardRef(function Products(
     singleSelect = false,
     singleProductVariant = false,
     hideVariants = false,
-    preFilteredProducts = null, // NEW: if passed, skip API and show only these
+    preFilteredProducts = null, //  if passed, skip API and show only these
     ...rest
   },
   ref
