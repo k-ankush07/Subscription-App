@@ -220,8 +220,6 @@ function Templates({
     const payload = buildPayload({
       shop,
       planId,
-       accessToken,      // ← add
-  shopifyGroupId,
       selectedProducts,
       options,
       productChanges,
