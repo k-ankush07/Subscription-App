@@ -461,6 +461,7 @@ function DeliveryOptionCard({
                       <TextField
                         label=""
                         type="number"
+                        min={0}
                         autoComplete="off"
                         value={option.changeQtyQuantity}
                         onChange={update("changeQtyQuantity")}
@@ -472,6 +473,7 @@ function DeliveryOptionCard({
                       <TextField
                         label=""
                         type="number"
+                        min={1}
                         autoComplete="off"
                         value={option.changeQtyAfterOrdersNum}
                         onChange={update("changeQtyAfterOrdersNum")}
@@ -516,6 +518,7 @@ function DeliveryOptionCard({
                     <TextField
                       label=""
                       type="number"
+                      min={0}
                       autoComplete="off"
                       value={option.removeFreeAfterOrders}
                       onChange={update("removeFreeAfterOrders")}

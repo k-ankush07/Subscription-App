@@ -111,7 +111,7 @@ function validate({ selectedProducts, options }) {
     errors.removeFreeProducts = removeFreeErrors;
   }
 
-  return errors; // {}  valid
+  return errors; // {} = valid
 }
 
 function Templates({

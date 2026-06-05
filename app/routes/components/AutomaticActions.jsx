@@ -397,6 +397,39 @@ useEffect(() => {
           : c
       )
     );
+    const deleteDestinationVariant = (cycleId, ai, di, vi) =>
+  setCycles((prev) =>
+    prev.map((c) =>
+      c.id === cycleId
+        ? {
+            ...c,
+            actions: c.actions.map((a, actionIndex) =>
+              actionIndex === ai
+                ? {
+                    ...a,
+                    dests: a.dests.map((dest, destIndex) =>
+                      destIndex === di
+                        ? {
+                            ...dest,
+                            variantNames: (dest.variantNames || []).filter(
+                              (_, index) => index !== vi
+                            ),
+                            variantIds: (dest.variantIds || []).filter(
+                              (_, index) => index !== vi
+                            ),
+                            variantImages: (dest.variantImages || []).filter(
+                              (_, index) => index !== vi
+                            ),
+                          }
+                        : dest
+                    ),
+                  }
+                : a
+            ),
+          }
+        : c
+    )
+  );
 
   return (
     <BlockStack gap="300">
@@ -446,6 +479,9 @@ useEffect(() => {
                 onUpdateActionField={(ai, field, value) =>
                   updateActionField(cycle.id, ai, field, value)
                 }
+                onDeleteDestVariant={(ai, di, vi) =>
+    deleteDestinationVariant(cycle.id, ai, di, vi)
+  }
               />
             ))}
 

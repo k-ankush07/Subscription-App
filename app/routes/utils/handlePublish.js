@@ -2,7 +2,8 @@ export const handlePublish = ({
   shop,
   planId,
   selectedProducts,
-  options,
+  options,accessToken,        // ← add
+  shopifyGroupId, 
   productChanges,
   title,
   description,
@@ -10,6 +11,8 @@ export const handlePublish = ({
   return {
     shop,
     planId,
+    accessToken,        // ← add
+  shopifyGroupId, 
     title,
     description,
     productChanges,

@@ -1,6 +1,3 @@
-
-
-
 import React, { useState, useRef, useEffect } from "react";
 import {
   Text,
@@ -72,8 +69,8 @@ export function ActionDropdown({ onSelect, onClose }) {
               key={item.key}
               style={styles.dropdownItem}
               onMouseEnter={(e) =>
-              (e.currentTarget.style.background =
-                "var(--p-color-bg-surface-secondary)")
+                (e.currentTarget.style.background =
+                  "var(--p-color-bg-surface-secondary)")
               }
               onMouseLeave={(e) =>
                 (e.currentTarget.style.background = "transparent")
@@ -100,6 +97,7 @@ export function ActionCard({
   onDeleteDest,
   onChangeType,
   onUpdateField,
+  onDeleteDestVariant,
 }) {
   const [collapsed, setCollapsed] = useState(false);
 
@@ -119,7 +117,7 @@ export function ActionCard({
   const displayImage = action.imageUrl || null;
 
   const variantNames = Array.isArray(
-    action.sourceVariantName || action.variantName
+    action.sourceVariantName || action.variantName,
   )
     ? action.sourceVariantName || action.variantName
     : [];
@@ -177,7 +175,12 @@ export function ActionCard({
 
             {singleVariantName && typeof singleVariantName === "string" ? (
               <div
-                style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 4 }}
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 4,
+                  marginTop: 4,
+                }}
               >
                 <span style={styles.variantTag}>{singleVariantName}</span>
               </div>
@@ -341,7 +344,7 @@ export function ActionCard({
                 action.dests.map((dest, di) => (
                   <div key={di} style={styles.destCard}>
                     {dest.imageUrl ? (
-                     ""
+                      ""
                     ) : (
                       <div
                         style={{
@@ -355,48 +358,83 @@ export function ActionCard({
                       />
                     )}
                     <div style={{ flex: 1 }}>
+                      
                       <Text variant="bodySm">{dest.name}</Text>
-                      {(dest.variants?.length > 0 || dest.variantNames?.length > 0) && (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 6 }}>
-                          {(dest.variants || dest.variantNames || []).map((variant, idx) => (
-                            <div
-                              key={idx}
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 8,
-                                flexWrap: "wrap",
-                              }}
-                            >
-                              {/* image (if exists like screenshot) */}
-                              {dest.variantImages?.[idx] && (
-                                <img
-                                  src={dest.variantImages[idx]}
-                                  width={24}
-                                  height={24}
-                                  style={{ borderRadius: 4 }}
-                                  alt=""
-                                />
-                              )}
-
-                              {/* variant title */}
-                              <span style={styles.variantTag}>
-                                {typeof variant === "string" ? variant : variant.title}
-                              </span>
-                              {/* <Icon source={DeleteIcon} tone="base" /> */}
-                            </div>
-                            
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <button
+                      <div style={{  display: "flex", alignItems: "center", gap: 8 }}>
+                        <img src={dest.imageUrl} alt="" style={styles.destThumb} />
+                      <button
                       style={{ ...styles.iconBtn, marginLeft: "auto" }}
                       onClick={() => onDeleteDest(di)}
                       title="Remove destination"
                     >
                       <Icon source={DeleteIcon} tone="base" />
                     </button>
+                        </div>
+                      {(dest.variants?.length > 0 ||
+                        dest.variantNames?.length > 0) && (
+                        <div
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 6,
+                            marginTop: 6,
+                          }}
+                        >
+                          
+                          {(dest.variants || dest.variantNames || []).map(
+                            (variant, idx) => (
+                              <div
+                                key={idx}
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 8,
+                                  flexWrap: "wrap",
+                                }}
+                              >
+                                <div style={{ width:"100%", padding:"0px 5px", display: "flex", justifyContent:"space-between", alignItems: "center", gap: 8 }}>
+                                {/* image (if exists like screenshot) */}
+                                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                  {dest.variantImages?.[idx] && (
+                                  <img
+                                    src={dest.variantImages[idx]}
+                                    width={24}
+                                    height={24}
+                                    style={{ borderRadius: 4 }}
+                                    alt=""
+                                  />
+                                )}
+
+                                
+                                  {/* variant title */}
+                                <span style={styles.variantTag}>
+                                  {typeof variant === "string"
+                                    ? variant
+                                    : variant.title}
+                                </span>
+                                  </div>
+                                <button
+                                  type="button"
+                                  onClick={() => onDeleteDestVariant(di, idx)}
+                                  style={{
+                                    border: "none",
+                                    background: "transparent",
+                                    cursor: "pointer",
+                                    padding: 0,
+                                    display: "flex",
+                                    alignItems: "center",
+                                  }}
+                                >
+                                  <Icon source={DeleteIcon} tone="critical" />
+                                </button>
+                                  </div>
+                              </div>
+                            ),
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    
                   </div>
                 ))
               ) : (
@@ -426,6 +464,7 @@ export function CycleCard({
   onDeleteDest,
   onChangeActionType,
   onUpdateActionField,
+  onDeleteDestVariant,
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -453,11 +492,7 @@ export function CycleCard({
             />
           </div>
         </InlineStack>
-        <button
-          style={styles.iconBtn}
-          onClick={onDelete}
-          title="Delete cycle"
-        >
+        <button style={styles.iconBtn} onClick={onDelete} title="Delete cycle">
           <Icon source={DeleteIcon} tone="base" />
         </button>
       </div>
@@ -476,6 +511,7 @@ export function CycleCard({
               onUpdateField={(field, value) =>
                 onUpdateActionField(ai, field, value)
               }
+              onDeleteDestVariant={(di, vi) => onDeleteDestVariant(ai, di, vi)}
             />
           ))}
 
