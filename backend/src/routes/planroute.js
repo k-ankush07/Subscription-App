@@ -3,7 +3,7 @@ import { createPlan,getALLPlans,getPlanByPlanId,updatePlan ,deletePlan,getPlanBy
 
 const router = express.Router();
 
-// router.get("/", plans);
+
 router.post("/create", createPlan);
 router.get("/getAllPlans", getALLPlans);
 // planRoutes.js

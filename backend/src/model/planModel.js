@@ -1,40 +1,37 @@
 import mongoose, { Mongoose } from "mongoose";
 
+const planSchema = new mongoose.Schema(
+  {
+    shop: {
+      type: String,
+      required: true,
+    },
+    planId: {
+      type: String,
+      required: true,
+    },
+    shopifyGroupId: { type: String, default: null },
 
-
-
-const planSchema= new mongoose.Schema({
-  shop:{
-    type:String,
-    required:true,
+    title: {
+      type: String,
+      required: true,
+    },
+    description: {
+      type: String,
+    },
+    selectedProducts: {
+      type: mongoose.Schema.Types.Mixed,
+    },
+    productChanges: {
+      type: mongoose.Schema.Types.Mixed,
+    },
+    options: {
+      type: mongoose.Schema.Types.Mixed,
+    },
   },
-  planId:{
-    type:String,
-    required:true
+  {
+    timestamps: true,
   },
-  shopifyGroupId: { type: String, default: null },
-//   shopifyGroupId: {
-//   type: String,
-//   default: null,
-// },
-  title:{
-    type:String,
-    required: true
-  },
-  description:{
-    type:String,
-  },
-  selectedProducts:{ 
-    type:mongoose.Schema.Types.Mixed,
-  },
-  productChanges:{
-      type:mongoose.Schema.Types.Mixed,
-  },
-  options:{
-    type:mongoose.Schema.Types.Mixed,
-  }
-},{
-   timestamps: true,
-})
+);
 
 export default mongoose.model("Plan", planSchema);
