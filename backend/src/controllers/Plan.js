@@ -164,7 +164,7 @@ const getPlanByShopifyGroupId = async (req, res) => {
   try {
     const { shopifyGroupId } = req.params;
     
-    // URL se sirf number aata hai jaise 1608712378
+    // URL eg 1608712378
     // DB mein full GID hai: gid://shopify/SellingPlanGroup/1608712378
     const fullId = `gid://shopify/SellingPlanGroup/${shopifyGroupId}`;
     
