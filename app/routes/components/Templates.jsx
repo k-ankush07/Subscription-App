@@ -220,6 +220,8 @@ function Templates({
     const payload = buildPayload({
       shop,
       planId,
+       accessToken,      // ← add
+  shopifyGroupId,
       selectedProducts,
       options,
       productChanges,
@@ -608,7 +610,7 @@ function Templates({
                   // products={products}
                   // hasNextPage={hasNextPage}
                   // nextCursor={nextCursor}
-                  preFilteredProducts={selectedProducts}
+                  // preFilteredProducts={selectedProducts}
                   selectedItems={tempSelected}
                   onSelect={setTempSelected}
                   onPaginationChange={setPagination}
