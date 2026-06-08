@@ -52,11 +52,11 @@ const Products = forwardRef(function Products(
 
   // If preFilteredProducts is provided, convert and use directly — no API call
   const isFiltered = Array.isArray(preFilteredProducts) && preFilteredProducts.length > 0;
-  console.log("=== Products component initialized with preFilteredProducts:", preFilteredProducts);
+
   useEffect(() => {
     if (isFiltered) {
         const firstCurrency = preFilteredProducts[0]?.currency || "";
-         setCurrency(firstCurrency);
+        setCurrency(firstCurrency);
       // Convert selectedProducts shape  products shape
       const mapped = preFilteredProducts.map((p) => ({
         id: p.productId,
@@ -66,7 +66,7 @@ const Products = forwardRef(function Products(
         variants: (p.variantIds || []).map((vId, i) => ({
           id: vId,
           title: p.variantTitles?.[i] || `Variant ${i + 1}`,
-           price: p.variantPrices?.[i] || p.price || "",
+          price: p.variantPrices?.[i] || p.price || "",
           image: p.variantImages?.[i] || p.productImage || null,
         })),
       }));
@@ -174,6 +174,7 @@ const Products = forwardRef(function Products(
     await loadMore(prevCursor, currentSearchRef.current);
   };
 
+  // product expand 
   const toggleVariants = (productId) => {
     if (hideVariants) return;
     setOpenProducts((prev) => ({
@@ -182,6 +183,7 @@ const Products = forwardRef(function Products(
     }));
   };
 
+  // check if whole product is selected
   const isProductSelected = (product) => {
     const selectedProduct = selectedItems.find(
       (p) => p.productId === product.id
@@ -190,19 +192,16 @@ const Products = forwardRef(function Products(
     return selectedProduct.variantIds.length === product.variants.length;
   };
 
-  const isVariantSelected = (productId, variantId) => {
+
+
+  // check if specific variant is selected give true and false
+   const isVariantSelected = (productId, variantId) => {
     const p = selectedItems.find((p) => p.productId === productId);
     return p ? p.variantIds.includes(variantId) : false;
   };
 
-  const isProductIndeterminate = (product) => {
-    const p = selectedItems.find((p) => p.productId === product.id);
-    if (!p) return false;
-    return (
-      p.variantIds.length > 0 && p.variantIds.length < product.variants.length
-    );
-  };
 
+  //whole product select and deselect 
   const toggleProduct = (product) => {
     const item = {
       productId: product.id,
@@ -234,6 +233,8 @@ const Products = forwardRef(function Products(
     }
   };
 
+
+  // select specific single varient of a product
   const toggleVariant = (product, variantId) => {
     const variant = product.variants.find((v) => v.id === variantId);
 
@@ -407,7 +408,7 @@ const Products = forwardRef(function Products(
                             <Checkbox
                               label=""
                               checked={isProductSelected(product)}
-                              indeterminate={isProductIndeterminate(product)}
+                             
                               onChange={() => toggleProduct(product)}
                             />
                           </div>

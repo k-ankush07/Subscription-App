@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import {
   BlockStack,
@@ -35,10 +34,8 @@ function DeliveryOptionCard({
   const update = (field) => (value) => onChange(index, field, value);
   const [modalType, setModalType] = useState(null);
   const [tempSelected, setTempSelected] = useState([]);
-  const [changeQtyProductsAttempted, setChangeQtyProductsAttempted] =
-    useState(false);
-  const [removeFreeProductsAttempted, setRemoveFreeProductsAttempted] =
-    useState(false);
+  const [changeQtyProductsAttempted, setChangeQtyProductsAttempted] = useState(false);
+  const [removeFreeProductsAttempted, setRemoveFreeProductsAttempted] = useState(false);
   const [showActions, setShowActions] = useState(false);
   const [pagination, setPagination] = useState({
     hasPrevious: false,

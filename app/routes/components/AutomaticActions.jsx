@@ -51,9 +51,9 @@ function AutomaticActions({
 
   // for swap-variant and remove-variant — only one product's variants selectable
   const [singleProductVariant, setSingleProductVariant] = useState(false);
+
   // NEW: hide variant rows in picker (for swap-product, add-product, remove-product)
   const [hideVariants, setHideVariants] = useState(false);
-
 
   const isFirstRender = useRef(true);
 
@@ -91,6 +91,9 @@ function AutomaticActions({
     setSingleProductVariant(false);
     setHideVariants(false);
   };
+  useEffect(() => {
+    console.log(cycles);
+  }, [cycles]);
 
   const closeModal = () => {
     setModalOpen(false);
@@ -117,6 +120,8 @@ function AutomaticActions({
     );
   };
 
+
+  // add destination of an specific action
   const addDestToCycle = (cycleId, ai, dest) => {
     setCycles((prev) =>
       prev.map((c) =>
@@ -132,6 +137,8 @@ function AutomaticActions({
     );
   };
 
+
+  //decide who picker opend when user click on deodown options
   const resolveActionType = (actionType, cycleId, actionIdx = null) => {
     if (actionType === "swap-product") {
       // hideVariants=true: only products shown, no variant rows
@@ -145,7 +152,7 @@ function AutomaticActions({
             type: "swap",
             sourceProductId: item.productId,
             sourceProductName:
-            item.title || item.productTitle || item.productId,
+              item.title || item.productTitle || item.productId,
             imageUrl: item.imageUrl || item.productImage || "",
             dests: [],
           });
@@ -312,9 +319,46 @@ function AutomaticActions({
     setShowMainDropdown(false);
   };
 
-  const deleteCycle = (cycleId) =>
-    setCycles((prev) => prev.filter((c) => c.id !== cycleId));
 
+  //update any feild of an action in a cycle by cycleId and action index (ai)
+  const updateActionField = (cycleId, ai, field, value) =>
+    setCycles((prev) =>
+      prev.map((c) =>
+        c.id === cycleId
+          ? {
+              ...c,
+              actions: c.actions.map((a, idx) =>
+                idx === ai ? { ...a, [field]: value } : a,
+              ),
+            }
+          : c,
+      ),
+    );
+
+    //update cycle  order value only in 
+  const updateOrders = (cycleId, value) =>
+    setCycles((prev) =>
+      prev.map((c) => (c.id === cycleId ? { ...c, orders: value } : c)),
+    )
+
+    //chnage action type of an specific action in a cycle .
+  const changeActionType = (cycleId, ai, newType) =>
+    setCycles((prev) =>
+      prev.map((c) =>
+        c.id === cycleId
+          ? {
+              ...c,
+              actions: c.actions.map((a, idx) =>
+                idx === ai ? { ...a, type: newType } : a,
+              ),
+            }
+          : c,
+      ),
+    );
+
+
+
+    // delete action from cycle, if no actions left delete entire cycle
   const deleteAction = (cycleId, ai) =>
     setCycles((prev) =>
       prev
@@ -326,6 +370,12 @@ function AutomaticActions({
         .filter((c) => c.actions.length > 0),
     );
 
+    // delete entire cycle if no actions left after deletion
+  const deleteCycle = (cycleId) =>
+    setCycles((prev) => prev.filter((c) => c.id !== cycleId));
+
+
+  //delete destination from an action
   const deleteDestination = (cycleId, ai, di) =>
     setCycles((prev) =>
       prev.map((c) =>
@@ -342,38 +392,7 @@ function AutomaticActions({
       ),
     );
 
-  const updateOrders = (cycleId, value) =>
-    setCycles((prev) =>
-      prev.map((c) => (c.id === cycleId ? { ...c, orders: value } : c)),
-    );
-
-  const changeActionType = (cycleId, ai, newType) =>
-    setCycles((prev) =>
-      prev.map((c) =>
-        c.id === cycleId
-          ? {
-              ...c,
-              actions: c.actions.map((a, idx) =>
-                idx === ai ? { ...a, type: newType } : a,
-              ),
-            }
-          : c,
-      ),
-    );
-
-  const updateActionField = (cycleId, ai, field, value) =>
-    setCycles((prev) =>
-      prev.map((c) =>
-        c.id === cycleId
-          ? {
-              ...c,
-              actions: c.actions.map((a, idx) =>
-                idx === ai ? { ...a, [field]: value } : a,
-              ),
-            }
-          : c,
-      ),
-    );
+    //delete destination variant
   const deleteDestinationVariant = (cycleId, ai, di, vi) =>
     setCycles((prev) =>
       prev.map((c) =>

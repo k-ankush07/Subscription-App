@@ -27,6 +27,7 @@ export const handlePublish = ({
         orders: cycle.orders,
         actions: cycle.actions.map((action) => {
           const base = {
+            _id: action._id,
             type: action.type,
             imageUrl: action.imageUrl || "",
           };
