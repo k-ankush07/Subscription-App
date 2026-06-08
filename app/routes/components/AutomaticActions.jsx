@@ -54,10 +54,6 @@ function AutomaticActions({
   // NEW: hide variant rows in picker (for swap-product, add-product, remove-product)
   const [hideVariants, setHideVariants] = useState(false);
 
-  useEffect(() => {
-    // console.log("===== CYCLES DATA =====");
-    // console.log("data", cycles);
-  }, [cycles]);
 
   const isFirstRender = useRef(true);
 
@@ -149,7 +145,7 @@ function AutomaticActions({
             type: "swap",
             sourceProductId: item.productId,
             sourceProductName:
-              item.title || item.productTitle || item.productId,
+            item.title || item.productTitle || item.productId,
             imageUrl: item.imageUrl || item.productImage || "",
             dests: [],
           });

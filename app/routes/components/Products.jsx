@@ -27,12 +27,10 @@ const Products = forwardRef(function Products(
     onPaginationChange,
     selectedItems = [],
     onSelect,
-    pickVariant,
     singleSelect = false,
     singleProductVariant = false,
     hideVariants = false,
     preFilteredProducts = null, //  if passed, skip API and show only these
-    ...rest
   },
   ref
 ) {

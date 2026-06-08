@@ -606,10 +606,6 @@ function Templates({
             >
               <Modal.Section>
                 <Products
-                  // products={products}
-                  // hasNextPage={hasNextPage}
-                  // nextCursor={nextCursor}
-                  // preFilteredProducts={selectedProducts}
                   selectedItems={tempSelected}
                   onSelect={setTempSelected}
                   onPaginationChange={setPagination}
@@ -664,9 +660,6 @@ function Templates({
               options={options}
               setOptions={setOptions}
               addOption={addOption}
-              // products={products}
-              // nextCursor={nextCursor}
-              // hasNextPage={hasNextPage}
               selectedProducts={selectedProducts}
               // validation props
               validationErrors={showErrors}
