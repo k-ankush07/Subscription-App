@@ -226,6 +226,7 @@ function Templates({
       title,
       description,
     });
+    console.log("=== DEBUG payload ===", payload);
 
     try {
       // Use PUT for update, POST for create

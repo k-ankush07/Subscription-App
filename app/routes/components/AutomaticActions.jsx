@@ -1,4 +1,4 @@
-import React,{ useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   BlockStack,
   Button,
@@ -22,17 +22,17 @@ function AutomaticActions({
   hasNextPage,
   index,
 }) {
- const [cycles, setCycles] = useState(() => {
-  if (!option.automationCycles?.length) return [];
-  return option.automationCycles.map((cycle) => ({
-    ...cycle,
-    id: cycle.id ?? Date.now() + Math.random(),
-    actions: (cycle.actions || []).map((action) => ({
-      ...action,
-      _id: action._id ?? Date.now() + Math.random(),
-    })),
-  }));
-});
+  const [cycles, setCycles] = useState(() => {
+    if (!option.automationCycles?.length) return [];
+    return option.automationCycles.map((cycle) => ({
+      ...cycle,
+      id: cycle.id ?? Date.now() + Math.random(),
+      actions: (cycle.actions || []).map((action) => ({
+        ...action,
+        _id: action._id ?? Date.now() + Math.random(),
+      })),
+    }));
+  });
   const [showMainDropdown, setShowMainDropdown] = useState(false);
   const [modalSingleSelect, setModalSingleSelect] = useState(false);
 
@@ -59,16 +59,15 @@ function AutomaticActions({
     // console.log("data", cycles);
   }, [cycles]);
 
-
   const isFirstRender = useRef(true);
 
-useEffect(() => {
-  if (isFirstRender.current) {
-    isFirstRender.current = false;
-    return;
-  }
-  onChange(index, "automationCycles", cycles);
-}, [cycles]);
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    onChange(index, "automationCycles", cycles);
+  }, [cycles]);
 
   const openPicker = (
     title,
@@ -76,7 +75,7 @@ useEffect(() => {
     callback,
     singleSelect = false,
     singleProdVariant = false,
-    hideVars = false   // NEW
+    hideVars = false, // NEW
   ) => {
     setModalTitle(title);
     setModalPickVariant(pickVariant);
@@ -117,8 +116,8 @@ useEffect(() => {
                 { ...action, _id: Date.now() + Math.random() },
               ],
             }
-          : c
-      )
+          : c,
+      ),
     );
   };
 
@@ -129,13 +128,11 @@ useEffect(() => {
           ? {
               ...c,
               actions: c.actions.map((a, idx) =>
-                idx === ai
-                  ? { ...a, dests: [...(a.dests || []), dest] }
-                  : a
+                idx === ai ? { ...a, dests: [...(a.dests || []), dest] } : a,
               ),
             }
-          : c
-      )
+          : c,
+      ),
     );
   };
 
@@ -157,9 +154,9 @@ useEffect(() => {
             dests: [],
           });
         },
-        true,  // singleSelect
+        true, // singleSelect
         false, // singleProductVariant
-        true   // hideVariants
+        true, // hideVariants
       );
     } else if (actionType === "swap-variant") {
       // singleProductVariant=true, variants shown
@@ -173,8 +170,8 @@ useEffect(() => {
             const variantTitles = Array.isArray(item.variantTitles)
               ? item.variantTitles
               : item.variantTitles
-              ? [item.variantTitles]
-              : [];
+                ? [item.variantTitles]
+                : [];
             const variantImages = item.variantImages || [];
 
             variantIds.forEach((variantId, vi) => {
@@ -186,57 +183,49 @@ useEffect(() => {
                 sourceVariantId: variantId,
                 sourceVariantName: variantTitles[vi] || "",
                 imageUrl:
-                  variantImages[vi] ||
-                  item.productImage ||
-                  item.imageUrl ||
-                  "",
+                  variantImages[vi] || item.productImage || item.imageUrl || "",
                 dests: [],
               });
             });
           });
         },
         false, // singleSelect
-        true,  // singleProductVariant
-        false  // hideVariants — show variants
+        true, // singleProductVariant
+        false, // hideVariants — show variants
       );
     } else if (actionType === "add-product") {
-    
       openPicker(
-  "Select product to add",
-  true,
-  (selected) => {
-    if (!selected?.length) return;
+        "Select product to add",
+        true,
+        (selected) => {
+          if (!selected?.length) return;
 
-    selected.forEach((item) => {
-      const variantIds = item.variantIds || [];
-      const variantTitles = item.variantTitles || [];
-      const variantImages = item.variantImages || [];
+          selected.forEach((item) => {
+            const variantIds = item.variantIds || [];
+            const variantTitles = item.variantTitles || [];
+            const variantImages = item.variantImages || [];
 
-      variantIds.forEach((variantId, vi) => {
-        addToCycle(cycleId, {
-          type: "add",
-          productId: item.productId,
-          productName:
-            item.productTitle || item.title || item.productId,
-          variantId,
-          variantName: variantTitles[vi] || "",
-          imageUrl:
-            variantImages[vi] ||
-            item.productImage ||
-            item.imageUrl ||
-            "",
-          quantity: 1,
-          discountEnabled: false,
-          discountValue: "",
-          discountType: "amount",
-        });
-      });
-    });
-  },
-  false, // singleSelect
-  true,  // singleProductVariant
-  false  // hideVariants
-);
+            variantIds.forEach((variantId, vi) => {
+              addToCycle(cycleId, {
+                type: "add",
+                productId: item.productId,
+                productName: item.productTitle || item.title || item.productId,
+                variantId,
+                variantName: variantTitles[vi] || "",
+                imageUrl:
+                  variantImages[vi] || item.productImage || item.imageUrl || "",
+                quantity: 1,
+                discountEnabled: false,
+                discountValue: "",
+                discountType: "amount",
+              });
+            });
+          });
+        },
+        false, // singleSelect
+        true, // singleProductVariant
+        false, // hideVariants
+      );
     } else if (actionType === "remove-product") {
       // hideVariants=true: only products shown
       openPicker(
@@ -248,14 +237,13 @@ useEffect(() => {
           addToCycle(cycleId, {
             type: "remove",
             productId: item.productId,
-            productName:
-              item.title || item.productTitle || item.productId,
+            productName: item.title || item.productTitle || item.productId,
             imageUrl: item.imageUrl || item.productImage || "",
           });
         },
-        true,  // singleSelect
+        true, // singleSelect
         false, // singleProductVariant
-        true   // hideVariants
+        true, // hideVariants
       );
     } else if (actionType === "remove-variant") {
       // singleProductVariant=true, variants shown
@@ -269,31 +257,27 @@ useEffect(() => {
             const variantTitles = Array.isArray(item.variantTitles)
               ? item.variantTitles
               : item.variantTitles
-              ? [item.variantTitles]
-              : [];
+                ? [item.variantTitles]
+                : [];
             const variantImages = item.variantImages || [];
 
             variantIds.forEach((variantId, vi) => {
               addToCycle(cycleId, {
                 type: "remove",
                 productId: item.productId,
-                productName:
-                  item.title || item.productTitle || item.productId,
+                productName: item.title || item.productTitle || item.productId,
                 variantId: variantId,
                 variantName: variantTitles[vi] || "",
                 variantImages: variantImages,
                 imageUrl:
-                  variantImages[vi] ||
-                  item.imageUrl ||
-                  item.productImage ||
-                  "",
+                  variantImages[vi] || item.imageUrl || item.productImage || "",
               });
             });
           });
         },
         false, // singleSelect
-        true,  // singleProductVariant
-        false  // hideVariants — show variants
+        true, // singleProductVariant
+        false, // hideVariants — show variants
       );
     } else if (actionType === "add-dest" && actionIdx !== null) {
       const cycle = cycles.find((c) => c.id === cycleId);
@@ -319,7 +303,7 @@ useEffect(() => {
         },
         false, // singleSelect
         false, // singleProductVariant
-        false  // hideVariants
+        false, // hideVariants
       );
     }
   };
@@ -327,10 +311,7 @@ useEffect(() => {
   // "Add action" button: create new cycle then add action
   const handleMainAddAction = (actionType) => {
     const newCycleId = Date.now();
-    setCycles((prev) => [
-      ...prev,
-      { id: newCycleId, orders: 1, actions: [] },
-    ]);
+    setCycles((prev) => [...prev, { id: newCycleId, orders: 1, actions: [] }]);
     setTimeout(() => resolveActionType(actionType, newCycleId), 0);
     setShowMainDropdown(false);
   };
@@ -344,9 +325,9 @@ useEffect(() => {
         .map((c) =>
           c.id === cycleId
             ? { ...c, actions: c.actions.filter((_, i) => i !== ai) }
-            : c
+            : c,
         )
-        .filter((c) => c.actions.length > 0)
+        .filter((c) => c.actions.length > 0),
     );
 
   const deleteDestination = (cycleId, ai, di) =>
@@ -358,16 +339,16 @@ useEffect(() => {
               actions: c.actions.map((a, idx) =>
                 idx === ai
                   ? { ...a, dests: a.dests.filter((_, i) => i !== di) }
-                  : a
+                  : a,
               ),
             }
-          : c
-      )
+          : c,
+      ),
     );
 
   const updateOrders = (cycleId, value) =>
     setCycles((prev) =>
-      prev.map((c) => (c.id === cycleId ? { ...c, orders: value } : c))
+      prev.map((c) => (c.id === cycleId ? { ...c, orders: value } : c)),
     );
 
   const changeActionType = (cycleId, ai, newType) =>
@@ -377,11 +358,11 @@ useEffect(() => {
           ? {
               ...c,
               actions: c.actions.map((a, idx) =>
-                idx === ai ? { ...a, type: newType } : a
+                idx === ai ? { ...a, type: newType } : a,
               ),
             }
-          : c
-      )
+          : c,
+      ),
     );
 
   const updateActionField = (cycleId, ai, field, value) =>
@@ -391,45 +372,45 @@ useEffect(() => {
           ? {
               ...c,
               actions: c.actions.map((a, idx) =>
-                idx === ai ? { ...a, [field]: value } : a
+                idx === ai ? { ...a, [field]: value } : a,
               ),
             }
-          : c
-      )
+          : c,
+      ),
     );
-    const deleteDestinationVariant = (cycleId, ai, di, vi) =>
-  setCycles((prev) =>
-    prev.map((c) =>
-      c.id === cycleId
-        ? {
-            ...c,
-            actions: c.actions.map((a, actionIndex) =>
-              actionIndex === ai
-                ? {
-                    ...a,
-                    dests: a.dests.map((dest, destIndex) =>
-                      destIndex === di
-                        ? {
-                            ...dest,
-                            variantNames: (dest.variantNames || []).filter(
-                              (_, index) => index !== vi
-                            ),
-                            variantIds: (dest.variantIds || []).filter(
-                              (_, index) => index !== vi
-                            ),
-                            variantImages: (dest.variantImages || []).filter(
-                              (_, index) => index !== vi
-                            ),
-                          }
-                        : dest
-                    ),
-                  }
-                : a
-            ),
-          }
-        : c
-    )
-  );
+  const deleteDestinationVariant = (cycleId, ai, di, vi) =>
+    setCycles((prev) =>
+      prev.map((c) =>
+        c.id === cycleId
+          ? {
+              ...c,
+              actions: c.actions.map((a, actionIndex) =>
+                actionIndex === ai
+                  ? {
+                      ...a,
+                      dests: a.dests.map((dest, destIndex) =>
+                        destIndex === di
+                          ? {
+                              ...dest,
+                              variantNames: (dest.variantNames || []).filter(
+                                (_, index) => index !== vi,
+                              ),
+                              variantIds: (dest.variantIds || []).filter(
+                                (_, index) => index !== vi,
+                              ),
+                              variantImages: (dest.variantImages || []).filter(
+                                (_, index) => index !== vi,
+                              ),
+                            }
+                          : dest,
+                      ),
+                    }
+                  : a,
+              ),
+            }
+          : c,
+      ),
+    );
 
   return (
     <BlockStack gap="300">
@@ -467,12 +448,8 @@ useEffect(() => {
                 onUpdateOrders={(v) => updateOrders(cycle.id, v)}
                 onAddAction={(key) => resolveActionType(key, cycle.id)}
                 onDeleteAction={(ai) => deleteAction(cycle.id, ai)}
-                onAddDest={(ai) =>
-                  resolveActionType("add-dest", cycle.id, ai)
-                }
-                onDeleteDest={(ai, di) =>
-                  deleteDestination(cycle.id, ai, di)
-                }
+                onAddDest={(ai) => resolveActionType("add-dest", cycle.id, ai)}
+                onDeleteDest={(ai, di) => deleteDestination(cycle.id, ai, di)}
                 onChangeActionType={(ai, newType) =>
                   changeActionType(cycle.id, ai, newType)
                 }
@@ -480,8 +457,8 @@ useEffect(() => {
                   updateActionField(cycle.id, ai, field, value)
                 }
                 onDeleteDestVariant={(ai, di, vi) =>
-    deleteDestinationVariant(cycle.id, ai, di, vi)
-  }
+                  deleteDestinationVariant(cycle.id, ai, di, vi)
+                }
               />
             ))}
 

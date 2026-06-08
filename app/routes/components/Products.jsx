@@ -54,19 +54,21 @@ const Products = forwardRef(function Products(
 
   // If preFilteredProducts is provided, convert and use directly — no API call
   const isFiltered = Array.isArray(preFilteredProducts) && preFilteredProducts.length > 0;
-
+  console.log("=== Products component initialized with preFilteredProducts:", preFilteredProducts);
   useEffect(() => {
     if (isFiltered) {
-      // Convert selectedProducts shape → products shape
+        const firstCurrency = preFilteredProducts[0]?.currency || "";
+         setCurrency(firstCurrency);
+      // Convert selectedProducts shape  products shape
       const mapped = preFilteredProducts.map((p) => ({
         id: p.productId,
         title: p.productTitle,
         image: p.productImage,
-        price: "",
+        price: p.price,
         variants: (p.variantIds || []).map((vId, i) => ({
           id: vId,
           title: p.variantTitles?.[i] || `Variant ${i + 1}`,
-          price: "",
+           price: p.variantPrices?.[i] || p.price || "",
           image: p.variantImages?.[i] || p.productImage || null,
         })),
       }));
@@ -208,9 +210,12 @@ const Products = forwardRef(function Products(
       productId: product.id,
       productTitle: product.title,
       productImage: product.image,
+      price : product.price,
+      currency: currency,
       variantIds: product.variants.map((v) => v.id),
       variantTitles: product.variants.map((v) => v.title),
       variantImages: product.variants.map((v) => v.image || product.image),
+      variantPrices: product.variants.map((v) => v.price),
       totalVariants: product.variants.length,
     };
     const exists = selectedItems.find((p) => p.productId === product.id);
@@ -474,7 +479,7 @@ const Products = forwardRef(function Products(
 
                           <div style={{ minWidth: "100px", textAlign: "right" }}>
                             <Text>
-                              {v.price} {currency}
+                              {v.price} {currency }
                             </Text>
                           </div>
                         </InlineStack>
