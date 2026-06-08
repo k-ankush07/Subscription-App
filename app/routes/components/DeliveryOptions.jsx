@@ -121,9 +121,9 @@ function DeliveryOptionCard({
             value={option.name}
             onChange={update("name")}
           />
-          <Text tone="subdued" variant="bodySm">
+          {/* <Text tone="subdued" variant="bodySm">
             Leave empty to generate automatically
-          </Text>
+          </Text> */}
         </BlockStack>
 
         <Divider />

@@ -6,7 +6,7 @@ const router = express.Router();
 
 router.post("/create", createPlan);
 router.get("/getAllPlans", getALLPlans);
-// planRoutes.js
+// planRoutes.js    
 router.get('/by-shopify-group/:shopifyGroupId', getPlanByShopifyGroupId);
 router.get("/:planId", getPlanByPlanId);
 router.put("/update/:planId", updatePlan);
