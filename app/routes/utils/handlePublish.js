@@ -13,7 +13,8 @@ export const handlePublish = ({
     title,
     description,
     productChanges,
-    selectedProducts: selectedProducts.map((p) => ({
+    selectedProducts: selectedProducts.map((p,index) => ({
+      // id: Date.now() + index, // har product ke object ki id  
       productId: p.productId,
       productTitle: p.productTitle,
       productImage: p.productImage ?? "",

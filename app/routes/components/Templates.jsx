@@ -315,7 +315,7 @@ function Templates({
   const handleDeletePlan = async () => {
     try {
       const res = await fetch(
-        `https://habitant-startling-cassette.ngrok-free.dev/plans/${singlePlanId}`,
+        `${API_URL}/plans/${singlePlanId}`,
         {
           method: "DELETE",
         },
