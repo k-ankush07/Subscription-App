@@ -30,12 +30,7 @@ export const loader = async ({ request }) => {
             description
             merchantCode
             products(first: 5) {
-              edges {
-                node {
-                  id
-                  title
-                }
-              }
+              edges { node { id title } }
               pageInfo { hasNextPage }
             }
             sellingPlans(first: 10) {
@@ -53,13 +48,8 @@ export const loader = async ({ request }) => {
                     ... on SellingPlanFixedPricingPolicy {
                       adjustmentType
                       adjustmentValue {
-                        ... on SellingPlanPricingPolicyPercentageValue {
-                          percentage
-                        }
-                        ... on MoneyV2 {
-                          amount
-                          currencyCode
-                        }
+                        ... on SellingPlanPricingPolicyPercentageValue { percentage }
+                        ... on MoneyV2 { amount currencyCode }
                       }
                     }
                   }
@@ -74,7 +64,37 @@ export const loader = async ({ request }) => {
 
   const data = await res.json();
   const groups = data.data.sellingPlanGroups.edges.map((e) => e.node);
-  return json({ groups });
+
+  // Har group ke liye directly metafield fetch karo by key
+  const enrichedGroups = await Promise.all(
+    groups.map(async (group) => {
+      const numericId = group.id.split("/").pop();
+
+      const metaRes = await admin.graphql(`
+        query getMetafield($namespace: String!, $key: String!) {
+          shop {
+            metafield(namespace: $namespace, key: $key) {
+              key
+              value
+            }
+          }
+        }
+      `, {
+        variables: {
+          namespace: "selling_plan",
+          key: `plan_${numericId}`,
+        }
+      });
+
+      const metaData = await metaRes.json();
+      const metafield = metaData.data.shop.metafield;
+      const planData = metafield ? JSON.parse(metafield.value) : null;
+
+      return { ...group, planData };
+    })
+  );
+
+  return json({ groups: enrichedGroups });
 };
 
 export const action = async ({ request }) => {
@@ -98,12 +118,12 @@ export const action = async ({ request }) => {
       }),
     );
 
-    return res.json({
+    return json({
       success: true,
       deletedIds: items.map((i) => i.shopifyGroupId),
     });
   } catch (error) {
-    return res.json({ success: false, error: error.message });
+    return json({ success: false, error: error.message });
   }
 };
 
@@ -133,13 +153,19 @@ function Plans() {
 
   const handleClick = () => {
     setLoading(true);
-    setTimeout(() => navigate("/app/plan/create"), 500);
+    setTimeout(() => navigate("/app/plan/create"), 200);
   };
 
-  const handleRowClick = (id) => {
-    const numericId = id.split("/").pop();
-    navigate(`/app/plan/${numericId}`);
-  };
+ const handleRowClick = (id) => {
+  const numericId = id.split("/").pop();
+  const group = groups.find((g) => g.id === id);
+
+  if (group?.planData) {
+    sessionStorage.setItem("editPlanData", JSON.stringify(group.planData));
+  }
+
+  navigate(`/app/plan/${numericId}`);
+};
 
   const deletePlan = (group, e) => {
     e.stopPropagation();
@@ -172,7 +198,7 @@ function Plans() {
     const title = g.description || "";
     return title.toLowerCase().includes(searchValue.toLowerCase());
   });
-
+console.log("Filtered Groups:", filteredGroups);
   const rowMarkup = [...filteredGroups].reverse().map((group, index) => {
     const plan = group.sellingPlans.edges[0]?.node;
     const billing = plan?.billingPolicy;

@@ -92,7 +92,6 @@ export const loader = async ({ request, params }) => {
 
 
       console.log("Fetching GID:", fullGid);
-console.log("GraphQL response:", JSON.stringify(data, null, 2));
 
       return {
         sellingPlanId: plan.id,                                        //  update ke liye

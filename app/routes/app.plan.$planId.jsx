@@ -29,6 +29,14 @@ export const loader = async ({ request, params }) => {
               id
               title
               featuredImage { url }
+              variants(first: 100) {
+                edges {
+                  node {
+                    id
+                    title
+                  }
+                }
+              }
             }
           }
         }
@@ -68,18 +76,21 @@ export const loader = async ({ request, params }) => {
   const group = data.data.sellingPlanGroup;
 
   if (!group) throw new Response("Plan not found", { status: 404 });
+  
 
-  return res.json({
+  return json({
     shop: session.shop,
-    planId,                        // numeric — URL ke liye
+    planId,
     shopifyGroupId: fullGid,
-    id: group.id,       // full GID — GraphQL ke liye
+    id: group.id,
     title: group.name,
     description: group.description || "",
     selectedProducts: group.products.edges.map((e) => ({
       productId: e.node.id,
       productTitle: e.node.title,
       productImage: e.node.featuredImage?.url || "",
+      variantIds: e.node.variants?.edges.map((v) => v.node.id) || [],
+      variantTitles: e.node.variants?.edges.map((v) => v.node.title) || [],
     })),
     options: group.sellingPlans.edges.map((e) => {
       const plan = e.node;
@@ -87,7 +98,7 @@ export const loader = async ({ request, params }) => {
       const pricing = plan.pricingPolicies?.[0];
       const adjustmentValue = pricing?.adjustmentValue;
       return {
-        sellingPlanId: plan.id,                                        //  update ke liye
+        sellingPlanId: plan.id,
         name: plan.name,
         deliveryInterval: billing?.interval?.toLowerCase() || "month",
         deliveryFrequency: billing?.intervalCount || 1,
@@ -122,7 +133,7 @@ export const action = async ({ request, params }) => {
   const shopData = await shopRes.json();
   const shopId = shopData.data.shop.id;
 
-  //  DELETE 
+  // DELETE
   if (type === "delete") {
     const res = await admin.graphql(`
       mutation sellingPlanGroupDelete($id: ID!) {
@@ -136,14 +147,13 @@ export const action = async ({ request, params }) => {
     const data = await res.json();
     const errors = data.data.sellingPlanGroupDelete.userErrors;
     if (errors?.length > 0) {
-      return res.json({ success: false, error: errors.map(e => e.message).join(", ") });
+      return json({ success: false, error: errors.map(e => e.message).join(", ") });
     }
-    return res.json({ success: true, deleted: true });
+    return json({ success: true, deleted: true });
   }
 
-  //  UPDATE (upsert) 
+  // UPDATE (upsert)
   try {
-    // 1. Group name/description update
     const updateRes = await admin.graphql(`
       mutation sellingPlanGroupUpdate($id: ID!, $input: SellingPlanGroupInput!) {
         sellingPlanGroupUpdate(id: $id, input: $input) {
@@ -157,7 +167,6 @@ export const action = async ({ request, params }) => {
         input: {
           name: planPayload.title,
           description: planPayload.description,
-          //  Selling plans update — existing wale update karo, naye add karo
           sellingPlansToUpdate: planPayload.options
             .filter(o => o.sellingPlanId)
             .map(opt => {
@@ -178,7 +187,6 @@ export const action = async ({ request, params }) => {
                   : [],
               };
             }),
-          //  Naye options (jo sellingPlanId nahi rakhte)
           sellingPlansToCreate: planPayload.options
             .filter(o => !o.sellingPlanId)
             .map(opt => {
@@ -210,8 +218,7 @@ export const action = async ({ request, params }) => {
       return json({ success: false, error: updateErrors.map(e => e.message).join(", ") });
     }
 
-    // 2. Products update — pehle remove karo, phir add karo
-    // Remove all existing products first
+    // Remove products
     if (planPayload.removedProductIds?.length > 0) {
       await admin.graphql(`
         mutation sellingPlanGroupRemoveProducts($id: ID!, $productIds: [ID!]!) {
@@ -228,7 +235,7 @@ export const action = async ({ request, params }) => {
       });
     }
 
-    // Add selected products
+    // Add products
     if (planPayload.selectedProducts?.length > 0) {
       await admin.graphql(`
         mutation sellingPlanGroupAddProducts($id: ID!, $productIds: [ID!]!) {
@@ -245,7 +252,37 @@ export const action = async ({ request, params }) => {
       });
     }
 
-    return json({ success: true, planId: params.planId }); //  numeric planId return
+    // Update metafield
+    const numericId = shopifyGroupId.split("/").pop();
+    await admin.graphql(`
+      mutation metafieldsSet($metafields: [MetafieldsSetInput!]!) {
+        metafieldsSet(metafields: $metafields) {
+          metafields { id key }
+          userErrors { field message }
+        }
+      }
+    `, {
+      variables: {
+        metafields: [{
+          ownerId: shopId,
+          namespace: "selling_plan",
+          key: `plan_${numericId}`,
+          type: "json",
+          value: JSON.stringify({
+            planId: numericId,
+            shopifyGroupId,
+            shop: planPayload.shop,
+            description: planPayload.description,
+            selectedProducts: planPayload.selectedProducts,
+            productChanges: planPayload.productChanges,
+            options: planPayload.options,
+            title: planPayload.title,
+          }),
+        }],
+      },
+    });
+
+    return json({ success: true, planId: params.planId });
 
   } catch (error) {
     return json({ success: false, error: error.message });
@@ -254,7 +291,6 @@ export const action = async ({ request, params }) => {
 
 export default function PlanId() {
   const plan = useLoaderData();
-  console.log("Loaded Plan Data:", plan);
   return (
     <div style={{ padding: "1.5rem" }}>
       <Templates

@@ -23,6 +23,8 @@ export const action = async ({ request }) => {
   const { admin } = await authenticate.admin(request);
   const body = await request.json();
   const { planPayload } = body;
+  // console.log("body log", planPayload)
+
 
   try {
     // Shop ID lo
@@ -31,8 +33,7 @@ export const action = async ({ request }) => {
     const shopId = shopData.data.shop.id;
 
     const sellingPlans = planPayload.options.map((opt) => {
-      const interval =
-        intervalMap[opt.deliveryInterval?.toLowerCase()] ?? "MONTH";
+      const interval = intervalMap[opt.deliveryInterval?.toLowerCase()] ?? "MONTH";
       const intervalCount = parseInt(opt.deliveryFrequency) || 1;
       return {
         name: opt.name || "Option",
@@ -46,9 +47,7 @@ export const action = async ({ request }) => {
                 {
                   fixed: {
                     adjustmentType:
-                      opt.discountType === "percentage"
-                        ? "PERCENTAGE"
-                        : "PRICE",
+                      opt.discountType === "percentage" ? "PERCENTAGE" : "PRICE",
                     adjustmentValue:
                       opt.discountType === "percentage"
                         ? { percentage: parseFloat(opt.discountAmount) }
@@ -59,6 +58,7 @@ export const action = async ({ request }) => {
             : [],
       };
     });
+
 
     // 1. Selling Plan Group create
     const createRes = await admin.graphql(
@@ -84,19 +84,23 @@ export const action = async ({ request }) => {
     );
 
     const createData = await createRes.json();
+
+
     const userErrors = createData.data.sellingPlanGroupCreate.userErrors;
     if (userErrors?.length > 0) {
+      console.log("Create userErrors:", userErrors);
       return json({
         success: false,
         error: userErrors.map((e) => e.message).join(", "),
       });
     }
 
-    const shopifyGroupId =
-      createData.data.sellingPlanGroupCreate.sellingPlanGroup.id;
+    const shopifyGroupId = createData.data.sellingPlanGroupCreate.sellingPlanGroup.id;
     const numericId = shopifyGroupId.split("/").pop();
+    console.log("shopifyGroupId:", shopifyGroupId, "| numericId:", numericId);
+
     // 2. Products associate
-    await admin.graphql(
+    const addProductsRes = await admin.graphql(
       `
       mutation sellingPlanGroupAddProducts($id: ID!, $productIds: [ID!]!) {
         sellingPlanGroupAddProducts(id: $id, productIds: $productIds) {
@@ -113,48 +117,71 @@ export const action = async ({ request }) => {
       },
     );
 
-    // 3. Shop metafield mein full data save karo
-    await admin.graphql(
-      `
-      mutation metafieldsSet($metafields: [MetafieldsSetInput!]!) {
-        metafieldsSet(metafields: $metafields) {
-          metafields { id key }
-          userErrors { field message }
-        }
-      }
-    `,
-      {
-        variables: {
-          metafields: [
-            {
-              ownerId: shopId,
-              namespace: "selling_plan",
-              key: `plan_${numericId}`,  
-              type: "json",
-              value: JSON.stringify({
-               planId: numericId,  
-                shopifyGroupId,
-                shop: planPayload.shop,
-                description: planPayload.description,
-                selectedProducts: planPayload.selectedProducts,
-                productChanges: planPayload.productChanges,
-                options: planPayload.options,
-                title: planPayload.title,
-              }),
-            },
-          ],
-        },
-      },
-    );
+    const addProductsData = await addProductsRes.json();
 
-    return res.json({ success: true, shopifyGroupId, planId: numericId });
+    const addProductsErrors = addProductsData.data.sellingPlanGroupAddProducts.userErrors;
+    if (addProductsErrors?.length > 0) {
+      console.log("Add Products userErrors:", addProductsErrors);
+    }
+
+    
+ const metafieldSetRes = await admin.graphql(
+  `
+  mutation metafieldsSet($metafields: [MetafieldsSetInput!]!) {
+    metafieldsSet(metafields: $metafields) {
+      metafields {
+        id
+        namespace
+        key
+        type
+        value
+        createdAt
+        updatedAt
+      }
+      userErrors {
+        field
+        message
+      }
+    }
+  }
+  `,
+  {
+    variables: {
+      metafields: [
+        {
+          ownerId: shopId,
+          namespace: "selling_plan",
+          key: `plan_${numericId}`,
+          type: "json",
+          value: JSON.stringify({
+            ...planPayload,
+            planId: numericId,
+            shopifyGroupId,
+          }),
+        },
+      ],
+    },
+  }
+);
+
+const metafieldSetData = await metafieldSetRes.json();
+
+console.log("dsfsdgdgergrdgrgrdggg",metafieldSetData.data.metafieldsSet.metafields,);
+
+    const metafieldErrors = metafieldSetData.data.metafieldsSet.userErrors;
+    if (metafieldErrors?.length > 0) {
+      console.log("Metafield userErrors:", metafieldErrors);
+    }
+    return json({ success: true, shopifyGroupId, planId: numericId });
+
   } catch (error) {
-    return res.json({ success: false, error: error.message });
+    console.error("Action error:", error.message);
+    return json({ success: false, error: error.message });
   }
 };
 
 function Create() {
-  const { shop } = useLoaderData();
+  const {shop } = useLoaderData();
   return <Templates shop={shop} />;
 }
 

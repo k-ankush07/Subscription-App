@@ -251,9 +251,7 @@ const handlePublishClick = () => {
   const payload = buildPayload({
     shop, selectedProducts, options, productChanges, title, description,
   });
-console.log("=== DEBUG: Publish clicked ===", payload);
-  // isDuplicate or new plan → submit to create route
-  // isEditing → submit to current route (update)
+
   const action = (!isEditing) ? "/app/plan/create" : undefined;
 
   fetcher.submit(
@@ -277,8 +275,7 @@ useEffect(() => {
     setLoading(false);
     if (fetcher.data.success) {
       setSavedState({ title, description, selectedProducts, options, productChanges });
-      console.log("Plan saved successfully with ID:", fetcher.data.planId);
-      navigate(`/app/plan/${fetcher.data.planId}`);  // directly planId aata hai ab
+      navigate(`/app/plan/${fetcher.data.planId}`,{ replace: true });  // directly planId aata hai ab
     } else {
       console.error("Error:", fetcher.data.error);
     }
