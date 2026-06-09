@@ -98,12 +98,12 @@ export const action = async ({ request }) => {
       }),
     );
 
-    return json({
+    return res.json({
       success: true,
       deletedIds: items.map((i) => i.shopifyGroupId),
     });
   } catch (error) {
-    return json({ success: false, error: error.message });
+    return res.json({ success: false, error: error.message });
   }
 };
 
@@ -173,7 +173,7 @@ function Plans() {
     return title.toLowerCase().includes(searchValue.toLowerCase());
   });
 
-  const rowMarkup = filteredGroups.reverse().map((group, index) => {
+  const rowMarkup = [...filteredGroups].reverse().map((group, index) => {
     const plan = group.sellingPlans.edges[0]?.node;
     const billing = plan?.billingPolicy;
     const pricing = plan?.pricingPolicies?.[0];

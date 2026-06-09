@@ -65,12 +65,11 @@ export const loader = async ({ request, params }) => {
   `, { variables: { id: fullGid } });
 
   const data = await res.json();
-  console.log("GraphQL response for plan loader:",data);
   const group = data.data.sellingPlanGroup;
 
   if (!group) throw new Response("Plan not found", { status: 404 });
 
-  return json({
+  return res.json({
     shop: session.shop,
     planId,                        // numeric — URL ke liye
     shopifyGroupId: fullGid,
@@ -82,8 +81,6 @@ export const loader = async ({ request, params }) => {
       productTitle: e.node.title,
       productImage: e.node.featuredImage?.url || "",
     })),
-    //  Existing selling plan IDs bhi return karo — update ke liye zaruri hain
-    // existingSellingPlanIds: group.sellingPlans.edges.map((e) => e.node.id),
     options: group.sellingPlans.edges.map((e) => {
       const plan = e.node;
       const billing = plan.billingPolicy;
@@ -139,9 +136,9 @@ export const action = async ({ request, params }) => {
     const data = await res.json();
     const errors = data.data.sellingPlanGroupDelete.userErrors;
     if (errors?.length > 0) {
-      return json({ success: false, error: errors.map(e => e.message).join(", ") });
+      return res.json({ success: false, error: errors.map(e => e.message).join(", ") });
     }
-    return json({ success: true, deleted: true });
+    return res.json({ success: true, deleted: true });
   }
 
   //  UPDATE (upsert) 

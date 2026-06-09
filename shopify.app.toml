@@ -2,12 +2,12 @@
 
 client_id = "e3fdd452b80eb189ddded55eda8ececa"
 name = "Subscription-App"
-application_url = "https://example.com"
+application_url = "https://effects-forbes-steam-fundamentals.trycloudflare.com"
 embedded = true
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "write_products,write_metaobjects,write_metaobject_definitions,read_own_subscription_contracts,write_own_subscription_contracts,read_products,write_products,read_own_subscription_contracts,read_purchase_options,read_products,read_customers,read_orders"
+scopes = "write_purchase_options,write_products,write_metaobjects,write_metaobject_definitions,read_own_subscription_contracts,write_own_subscription_contracts,read_products,write_products,read_own_subscription_contracts,read_purchase_options,read_products,read_customers,read_orders"
 
 [product.metafields.app.demo_info]
 type = "single_line_text_field"
@@ -48,7 +48,7 @@ api_version = "2026-07"
   topics = [ "app/scopes_update" ]
 
 [auth]
-redirect_urls = [ "https://example.com/api/auth" ]
+redirect_urls = [ "https://effects-forbes-steam-fundamentals.trycloudflare.com/api/auth" ]
 
 [build]
 automatically_update_urls_on_dev = true

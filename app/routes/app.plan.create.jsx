@@ -1,28 +1,3 @@
-// import React from 'react'
-// import Templates from "./components/Templates"
-
-// import { json } from "@remix-run/node";
-// import { authenticate } from "../shopify.server";
-// import { useLoaderData } from 'react-router';
-
-// export const loader = async ({ request }) => {
-//   const { session } = await authenticate.admin(request);
-//   return json({
-//     shop: session.shop,
-//   });
-// };
-// function Create() {
-//   const {shop}= useLoaderData()
-//   return (
-//    <>
-//     <Templates  shop={shop} />
-//    </>
-
-//   )
-// }
-
-// export default Create
-
 import { json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 import { useLoaderData } from "react-router";
@@ -58,7 +33,7 @@ export const action = async ({ request }) => {
     const sellingPlans = planPayload.options.map((opt) => {
       const interval =
         intervalMap[opt.deliveryInterval?.toLowerCase()] ?? "MONTH";
-      const intervalCount = parseInt(opt.deliveryFrequency || 1);
+      const intervalCount = parseInt(opt.deliveryFrequency) || 1;
       return {
         name: opt.name || "Option",
         options: [`Every ${intervalCount} ${opt.deliveryInterval || "month"}`],
@@ -172,9 +147,9 @@ export const action = async ({ request }) => {
       },
     );
 
-    return json({ success: true, shopifyGroupId, planId: numericId });
+    return res.json({ success: true, shopifyGroupId, planId: numericId });
   } catch (error) {
-    return json({ success: false, error: error.message });
+    return res.json({ success: false, error: error.message });
   }
 };
 

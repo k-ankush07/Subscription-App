@@ -1,0 +1,98 @@
+import "@shopify/ui-extensions/preact";
+import {useState} from 'preact/hooks';
+
+export default function PurchaseOptionsActionExtension() {
+  // The useApi hook provides access to several useful APIs like i18n, close, and data.
+  const {i18n, extension: {target}, close, data} = shopify;
+  console.log({data});
+  const [merchantCode, setMerchantCode] = useState('');
+  const [planName, setPlanName] = useState('');
+  const [discountType, setDiscountType] = useState('percentageOff');
+  const [deliveryOptions, setDeliveryOptions] = useState({
+    frequency: '0',
+    timeType: 'day',
+    discount: '0',
+  });
+
+  const updateDeliveryOption = (field, value) => {
+    setDeliveryOptions((prevOptions) => ({
+      ...prevOptions,
+      [field]: value,
+    }));
+  };
+
+  function handleSave() {
+    // This is where you can use the sellingPlanGroupsCreate and sellingPlanGroupsUpdate mutations
+    console.log('saving');
+    close();
+  }
+
+  function getDiscountLabel(discountType) {
+    switch (discountType) {
+      case 'percentageOff':
+        return 'Percentage off';
+      case 'amountOff':
+        return 'Amount off';
+      case 'flatRate':
+        return 'Flat rate';
+    }
+  }
+
+  return (
+    <s-admin-action>
+      <s-button slot="primary-action" onClick={handleSave}>Save</s-button>
+      <s-button slot="secondary-actions" onClick={() => {
+        console.log('closing');
+        close();
+        }}>Cancel</s-button>
+      <s-stack direction="block" gap="large">
+        {i18n.translate('welcome', {target})}
+        <s-text-field
+          label="Title"
+          placeholder="Subscribe and save"
+          value={planName}
+          onChange={(event) => setPlanName(event.currentTarget.value)}
+        />
+        <s-text-field
+          label="Internal description"
+          value={merchantCode}
+          onChange={(event) => setMerchantCode(event.currentTarget.value)}
+        />
+        <s-box>
+          <s-choice-list
+            name="discountType"
+            values={[discountType]}
+            onChange={(e) => setDiscountType(e.currentTarget.values[0])}
+          >
+            <s-choice value="percentageOff">Percentage off</s-choice>
+            <s-choice value="amountOff">Amount off</s-choice>
+            <s-choice value="flatRate">Flat rate</s-choice>
+          </s-choice-list>
+        </s-box>
+        <s-box>
+          <s-stack gap="base" alignItems="end" alignContent="end">
+            <s-number-field
+              label="Delivery frequency"
+              value={deliveryOptions.frequency}
+              onChange={(event) => updateDeliveryOption('frequency', event.currentTarget.value)}
+            />
+            <s-select
+              label="Delivery interval"
+              value={deliveryOptions.timeType}
+              onChange={(event) => updateDeliveryOption('timeType', event.currentTarget.value)}
+            >
+              <s-option value='weeks'>Weeks</s-option>
+              <s-option value='months'>Months</s-option>
+              <s-option value='years'>Years</s-option>
+            </s-select>
+            <s-number-field
+              label={getDiscountLabel(discountType)}
+              value={deliveryOptions.discount}
+              onChange={(event) => updateDeliveryOption('discount', event.currentTarget.value)}
+            />
+          </s-stack>
+        </s-box>
+      </s-stack>
+    </s-admin-action>
+  );
+}

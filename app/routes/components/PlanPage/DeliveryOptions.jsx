@@ -84,11 +84,7 @@ function DeliveryOptionCard({
       onChange(index, "minQuantity", "0");
     }
   };
-useEffect(() => {
-  if (!option.deliveryFrequency) {
-    onChange(index, "deliveryFrequency", "1");
-  }
-}, []);
+
   return (
     <Card>
       <BlockStack gap="400">

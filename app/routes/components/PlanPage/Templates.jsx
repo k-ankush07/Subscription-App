@@ -181,6 +181,33 @@ const fetcher = useFetcher();
       keepDiscount: true,
     },
   });
+
+  useEffect(() => {
+  if (!planData) return;
+
+  const newState = {
+    title: planData.title ?? "Subscribe and save",
+    description: planData.description ?? "Plan1",
+    selectedProducts: planData.selectedProducts ?? [],
+    options: planData.options ?? [{ ...defaultOption }],
+    productChanges:
+      planData.productChanges ?? {
+        swap: true,
+        variant: true,
+        quantity: true,
+        keepDiscount: true,
+      },
+  };
+
+  setTitle(newState.title);
+  setDescription(newState.description);
+  setSelectedProducts(newState.selectedProducts);
+  setOptions(newState.options);
+  setProductChanges(newState.productChanges);
+
+  setSavedState(newState);
+  setSubmitted(false);
+}, [planData]);
   //  validation
   const errors = validate({ selectedProducts, options });
   const isValid = Object.keys(errors).length === 0;
@@ -216,6 +243,7 @@ const fetcher = useFetcher();
 
   // handlePublishClick replace karo
 const handlePublishClick = () => {
+  
   setSubmitted(true);
   if (!isValid) return;
   setLoading(true);
@@ -223,7 +251,7 @@ const handlePublishClick = () => {
   const payload = buildPayload({
     shop, selectedProducts, options, productChanges, title, description,
   });
-
+console.log("=== DEBUG: Publish clicked ===", payload);
   // isDuplicate or new plan → submit to create route
   // isEditing → submit to current route (update)
   const action = (!isEditing) ? "/app/plan/create" : undefined;
@@ -279,13 +307,15 @@ useEffect(() => {
 //   };
   
 
-  const handleDeletePlan = (group, e) => {
-    e.stopPropagation();
-    fetcher.submit(
-      { items: [{ shopifyGroupId: group.id }] },
-      { method: "POST", encType: "application/json" },
-    );
-  };
+  // const handleDeletePlan = (group, e) => {
+  //   e.stopPropagation();
+  //   fetcher.submit(
+  //     { items: [{ shopifyGroupId: group.id }] },
+  //     { method: "POST", encType: "application/json" },
+  //   );
+  // };
+  
+  
   const handleDiscard = () => {
     setTitle(savedState.title);
     setDescription(savedState.description);
