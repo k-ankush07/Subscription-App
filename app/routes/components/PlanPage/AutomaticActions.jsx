@@ -9,8 +9,8 @@ import {
   Modal,
   Pagination,
 } from "@shopify/polaris";
-import Products from "./Products";
-import { ActionDropdown, CycleCard } from "./AutomaticActionsComponents";
+import Products from "../Products";
+import { ActionDropdown, CycleCard } from "../PlanPage/AutomaticActionsComponents";
 
 //  Main AutomaticActions Component
 function AutomaticActions({

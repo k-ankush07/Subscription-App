@@ -1,47 +1,7 @@
-// // app/routes/app.plan.$planId.jsx
-
-// import { json } from "@remix-run/node";
-// import { useLoaderData } from "react-router";
-// import Templates from "./components/Templates"
-
-// // This runs on the SERVER — no CORS, no mixed content issues
-// const API_URL = import.meta.env.VITE_API_URL;
-// export async function loader({ params }) {
-//   const { planId } = params;
-   
-
-//   const res = await fetch(`${API_URL}/plans/${planId}`);
-//   const data = await res.json();
-
-//   if (!data.success) {
-//     throw new Response(data.message || "Plan not found", { status: 404 });
-//   }
-
-//   return json(data.data);
-// }
-
-// export default function PlanId() {
-//   const plan = useLoaderData();
-//   const shop = plan.shop;
-//   const planId= plan.planId;
-//   if (!plan) return <div>No plan found</div>;
-
-//   return (
-//     <div style={{ padding: "1.5rem" }}>
-//     <Templates  shop={plan.shop}  singlePlanId={planId} singlePlanData={plan} />
-//     </div>
-//   );
-// }
-
-
-
-
-
-
 import { json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 import { useLoaderData } from "react-router";
-import Templates from "./components/Templates";
+import Templates from "./components/PlanPage/Templates";
 
 const intervalMap = {
   day: "DAY", days: "DAY",
@@ -54,33 +14,103 @@ export const loader = async ({ request, params }) => {
   const { admin, session } = await authenticate.admin(request);
   const { planId } = params;
 
-  // Shop metafield se data lo
+  const fullGid = `gid://shopify/SellingPlanGroup/${planId}`;
+
   const res = await admin.graphql(`
-    query getPlanData($namespace: String!, $key: String!) {
-      shop {
+    query getSellingPlanGroup($id: ID!) {
+      sellingPlanGroup(id: $id) {
         id
-        metafield(namespace: $namespace, key: $key) {
-          value
+        name
+        description
+        merchantCode
+        products(first: 20) {
+          edges {
+            node {
+              id
+              title
+              featuredImage { url }
+            }
+          }
+        }
+        sellingPlans(first: 10) {
+          edges {
+            node {
+              id
+              name
+              billingPolicy {
+                ... on SellingPlanRecurringBillingPolicy {
+                  interval
+                  intervalCount
+                }
+              }
+              pricingPolicies {
+                ... on SellingPlanFixedPricingPolicy {
+                  adjustmentType
+                  adjustmentValue {
+                    ... on SellingPlanPricingPolicyPercentageValue {
+                      percentage
+                    }
+                    ... on MoneyV2 {
+                      amount
+                      currencyCode
+                    }
+                  }
+                }
+              }
+            }
+          }
         }
       }
     }
-  `, {
-    variables: {
-      namespace: "kaching_plans",
-      key: `plan_${planId}`,
-    },
-  });
+  `, { variables: { id: fullGid } });
 
   const data = await res.json();
-  const metaValue = data.data.shop.metafield?.value;
+  const group = data.data.sellingPlanGroup;
 
-  if (!metaValue) throw new Response("Plan not found", { status: 404 });
-
-  const planData = JSON.parse(metaValue);
+  if (!group) throw new Response("Plan not found", { status: 404 });
 
   return json({
     shop: session.shop,
-    ...planData,
+    planId,                        // numeric — URL ke liye
+    shopifyGroupId: fullGid,       // full GID — GraphQL ke liye
+    title: group.name,
+    description: group.description || "",
+    selectedProducts: group.products.edges.map((e) => ({
+      productId: e.node.id,
+      productTitle: e.node.title,
+      productImage: e.node.featuredImage?.url || "",
+    })),
+    //  Existing selling plan IDs bhi return karo — update ke liye zaruri hain
+    existingSellingPlanIds: group.sellingPlans.edges.map((e) => e.node.id),
+    options: group.sellingPlans.edges.map((e) => {
+      const plan = e.node;
+      const billing = plan.billingPolicy;
+      const pricing = plan.pricingPolicies?.[0];
+      const adjustmentValue = pricing?.adjustmentValue;
+      return {
+        sellingPlanId: plan.id,                                        //  update ke liye
+        name: plan.name,
+        deliveryInterval: billing?.interval?.toLowerCase() || "month",
+        deliveryFrequency: billing?.intervalCount || 1,
+        billingType: "pay_as_you_go",
+        minOrders: "disabled",
+        maxOrders: "unlimited",
+        giveDiscount: !!pricing,
+        discountType: adjustmentValue?.percentage != null ? "percentage" : "fixed",
+        discountAmount: adjustmentValue?.percentage || adjustmentValue?.amount || 0,
+        giveShippingDiscount: false,
+        changeDiscountAfter: false,
+        changeQtyAfterOrders: false,
+        removeFreeProducts: false,
+        setMinQty: false,
+      };
+    }),
+    productChanges: {
+      swap: true,
+      variant: true,
+      quantity: true,
+      keepDiscount: true,
+    },
   });
 };
 
@@ -89,14 +119,12 @@ export const action = async ({ request, params }) => {
   const body = await request.json();
   const { type, planPayload, shopifyGroupId } = body;
 
-  // Shop ID lo
   const shopRes = await admin.graphql(`query { shop { id } }`);
   const shopData = await shopRes.json();
   const shopId = shopData.data.shop.id;
 
   //  DELETE 
   if (type === "delete") {
-    // Shopify group delete
     const res = await admin.graphql(`
       mutation sellingPlanGroupDelete($id: ID!) {
         sellingPlanGroupDelete(id: $id) {
@@ -111,37 +139,13 @@ export const action = async ({ request, params }) => {
     if (errors?.length > 0) {
       return json({ success: false, error: errors.map(e => e.message).join(", ") });
     }
-
-    // Shop metafield bhi delete karo
-    const metaRes = await admin.graphql(`
-      query getMetafieldId($namespace: String!, $key: String!) {
-        shop {
-          metafield(namespace: $namespace, key: $key) { id }
-        }
-      }
-    `, { variables: { namespace: "kaching_plans", key: `plan_${params.planId}` } });
-
-    const metaData = await metaRes.json();
-    const metafieldId = metaData.data.shop.metafield?.id;
-
-    if (metafieldId) {
-      await admin.graphql(`
-        mutation metafieldDelete($id: ID!) {
-          metafieldDelete(id: $id) {
-            deletedId
-            userErrors { field message }
-          }
-        }
-      `, { variables: { input: { id: metafieldId } } });
-    }
-
     return json({ success: true, deleted: true });
   }
 
-  //  UPDATE 
+  //  UPDATE (upsert) 
   try {
     // 1. Group name/description update
-    await admin.graphql(`
+    const updateRes = await admin.graphql(`
       mutation sellingPlanGroupUpdate($id: ID!, $input: SellingPlanGroupInput!) {
         sellingPlanGroupUpdate(id: $id, input: $input) {
           sellingPlanGroup { id }
@@ -154,55 +158,95 @@ export const action = async ({ request, params }) => {
         input: {
           name: planPayload.title,
           description: planPayload.description,
+          //  Selling plans update — existing wale update karo, naye add karo
+          sellingPlansToUpdate: planPayload.options
+            .filter(o => o.sellingPlanId)
+            .map(opt => {
+              const interval = intervalMap[opt.deliveryInterval?.toLowerCase()] ?? "MONTH";
+              const intervalCount = parseInt(opt.deliveryFrequency || 1);
+              return {
+                id: opt.sellingPlanId,
+                name: opt.name || "Option",
+                billingPolicy: { recurring: { interval, intervalCount } },
+                deliveryPolicy: { recurring: { interval, intervalCount } },
+                pricingPolicies: opt.giveDiscount && opt.discountAmount
+                  ? [{ fixed: {
+                      adjustmentType: opt.discountType === "percentage" ? "PERCENTAGE" : "PRICE",
+                      adjustmentValue: opt.discountType === "percentage"
+                        ? { percentage: parseFloat(opt.discountAmount) }
+                        : { fixedValue: parseFloat(opt.discountAmount) },
+                    }}]
+                  : [],
+              };
+            }),
+          //  Naye options (jo sellingPlanId nahi rakhte)
+          sellingPlansToCreate: planPayload.options
+            .filter(o => !o.sellingPlanId)
+            .map(opt => {
+              const interval = intervalMap[opt.deliveryInterval?.toLowerCase()] ?? "MONTH";
+              const intervalCount = parseInt(opt.deliveryFrequency || 1);
+              return {
+                name: opt.name || "Option",
+                options: [`Every ${intervalCount} ${opt.deliveryInterval || "month"}`],
+                category: "SUBSCRIPTION",
+                billingPolicy: { recurring: { interval, intervalCount } },
+                deliveryPolicy: { recurring: { interval, intervalCount } },
+                pricingPolicies: opt.giveDiscount && opt.discountAmount
+                  ? [{ fixed: {
+                      adjustmentType: opt.discountType === "percentage" ? "PERCENTAGE" : "PRICE",
+                      adjustmentValue: opt.discountType === "percentage"
+                        ? { percentage: parseFloat(opt.discountAmount) }
+                        : { fixedValue: parseFloat(opt.discountAmount) },
+                    }}]
+                  : [],
+              };
+            }),
         },
       },
     });
 
-    // 2. Products update
-    await admin.graphql(`
-      mutation sellingPlanGroupAddProducts($id: ID!, $productIds: [ID!]!) {
-        sellingPlanGroupAddProducts(id: $id, productIds: $productIds) {
-          sellingPlanGroup { id }
-          userErrors { field message }
-        }
-      }
-    `, {
-      variables: {
-        id: shopifyGroupId,
-        productIds: planPayload.selectedProducts.map(p => p.productId),
-      },
-    });
+    const updateData = await updateRes.json();
+    const updateErrors = updateData.data.sellingPlanGroupUpdate.userErrors;
+    if (updateErrors?.length > 0) {
+      return json({ success: false, error: updateErrors.map(e => e.message).join(", ") });
+    }
 
-    // 3. Shop metafield update
-    await admin.graphql(`
-      mutation metafieldsSet($metafields: [MetafieldsSetInput!]!) {
-        metafieldsSet(metafields: $metafields) {
-          metafields { id }
-          userErrors { field message }
+    // 2. Products update — pehle remove karo, phir add karo
+    // Remove all existing products first
+    if (planPayload.removedProductIds?.length > 0) {
+      await admin.graphql(`
+        mutation sellingPlanGroupRemoveProducts($id: ID!, $productIds: [ID!]!) {
+          sellingPlanGroupRemoveProducts(id: $id, productIds: $productIds) {
+            sellingPlanGroup { id }
+            userErrors { field message }
+          }
         }
-      }
-    `, {
-      variables: {
-        metafields: [{
-          ownerId: shopId,
-          namespace: "kaching_plans",
-          key: `plan_${planPayload.planId}`,
-          type: "json",
-          value: JSON.stringify({
-            planId: planPayload.planId,
-            shopifyGroupId,
-            shop: planPayload.shop,
-            description: planPayload.description,
-            selectedProducts: planPayload.selectedProducts,
-            productChanges: planPayload.productChanges,
-            options: planPayload.options,
-            title: planPayload.title,
-          }),
-        }],
-      },
-    });
+      `, {
+        variables: {
+          id: shopifyGroupId,
+          productIds: planPayload.removedProductIds,
+        },
+      });
+    }
 
-    return json({ success: true, planId: planPayload.planId });
+    // Add selected products
+    if (planPayload.selectedProducts?.length > 0) {
+      await admin.graphql(`
+        mutation sellingPlanGroupAddProducts($id: ID!, $productIds: [ID!]!) {
+          sellingPlanGroupAddProducts(id: $id, productIds: $productIds) {
+            sellingPlanGroup { id }
+            userErrors { field message }
+          }
+        }
+      `, {
+        variables: {
+          id: shopifyGroupId,
+          productIds: planPayload.selectedProducts.map(p => p.productId),
+        },
+      });
+    }
+
+    return json({ success: true, planId: params.planId }); //  numeric planId return
 
   } catch (error) {
     return json({ success: false, error: error.message });
@@ -211,6 +255,7 @@ export const action = async ({ request, params }) => {
 
 export default function PlanId() {
   const plan = useLoaderData();
+  console.log("Loaded Plan Data:", plan);
   return (
     <div style={{ padding: "1.5rem" }}>
       <Templates

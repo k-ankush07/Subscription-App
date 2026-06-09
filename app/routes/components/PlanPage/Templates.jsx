@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router";
-import Products from "../components/Products";
-import DeliveryOption from "../components/DeliveryOptions";
-import { defaultOption } from "../constants/deliveryOption";
-import { handlePublish as buildPayload } from "../utils/handlePublish";
+import Products from "../Products";
+import DeliveryOption from "../PlanPage/DeliveryOptions";
+import { defaultOption } from "../../constants/deliveryOption";
+import { handlePublish as buildPayload } from "../../utils/handlePublish";
 import {
   FormLayout,
   Card,
@@ -59,7 +59,7 @@ function validate({ selectedProducts, options }) {
 
   options.forEach((o, i) => {
     if (o.billingType === "prepaid") {
-      const df = Number(o.deliveryFrequency);
+      const df = Number(o.deliveryFrequency || 1);
       const bf = Number(o.billingFrequency);
 
       // required validation
@@ -216,6 +216,7 @@ const fetcher = useFetcher();
 
   // handlePublishClick replace karo
 const handlePublishClick = () => {
+  console.log("Publish clicked", JSON.stringify(options, null, 2));
   setSubmitted(true);
   if (!isValid) return;
   setLoading(true);
@@ -223,7 +224,7 @@ const handlePublishClick = () => {
   const payload = buildPayload({
     shop, planId, selectedProducts, options, productChanges, title, description,
   });
-
+console.log("Built Payload:", payload);
   fetcher.submit(
     {
       planPayload: payload,

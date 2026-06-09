@@ -9,7 +9,7 @@ import {
   Checkbox,
 } from "@shopify/polaris";
 import { DeleteIcon } from "@shopify/polaris-icons";
-import { styles } from "../ui/automationAction/styles.js";
+import { styles } from "../../ui/automationAction/styles.js";
 
 //  Action Dropdown Popover — UNCHANGED
 export function ActionDropdown({ onSelect, onClose }) {

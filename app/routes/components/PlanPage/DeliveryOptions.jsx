@@ -17,8 +17,8 @@ import {
   InlineError,
 } from "@shopify/polaris";
 import { DuplicateIcon, DeleteIcon } from "@shopify/polaris-icons";
-import Products from "./Products";
-import AutomaticActions from "./AutomaticActions";
+import Products from "../Products";
+import AutomaticActions from "../PlanPage/AutomaticActions";
 
 function DeliveryOptionCard({
   option,
@@ -84,7 +84,11 @@ function DeliveryOptionCard({
       onChange(index, "minQuantity", "0");
     }
   };
-
+useEffect(() => {
+  if (!option.deliveryFrequency) {
+    onChange(index, "deliveryFrequency", "1");
+  }
+}, []);
   return (
     <Card>
       <BlockStack gap="400">

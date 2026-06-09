@@ -1,7 +1,7 @@
 import React from 'react'
 import { json } from "@remix-run/node";
 import { useLoaderData } from "react-router";
-import Templates from "./components/Templates"
+import Templates from "./components/PlanPage/Templates"
 
 // This runs on the SERVER — no CORS, no mixed content issues
 const API_URL = import.meta.env.VITE_API_URL;

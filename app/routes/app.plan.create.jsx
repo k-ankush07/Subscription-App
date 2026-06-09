@@ -26,13 +26,17 @@
 import { json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 import { useLoaderData } from "react-router";
-import Templates from "./components/Templates";
+import Templates from "./components/PlanPage/Templates";
 
 const intervalMap = {
-  day: "DAY", days: "DAY",
-  week: "WEEK", weeks: "WEEK",
-  month: "MONTH", months: "MONTH",
-  year: "YEAR", years: "YEAR",
+  day: "DAY",
+  days: "DAY",
+  week: "WEEK",
+  weeks: "WEEK",
+  month: "MONTH",
+  months: "MONTH",
+  year: "YEAR",
+  years: "YEAR",
 };
 
 export const loader = async ({ request }) => {
@@ -52,7 +56,8 @@ export const action = async ({ request }) => {
     const shopId = shopData.data.shop.id;
 
     const sellingPlans = planPayload.options.map((opt) => {
-      const interval = intervalMap[opt.deliveryInterval?.toLowerCase()] ?? "MONTH";
+      const interval =
+        intervalMap[opt.deliveryInterval?.toLowerCase()] ?? "MONTH";
       const intervalCount = parseInt(opt.deliveryFrequency || 1);
       return {
         name: opt.name || "Option",
@@ -60,91 +65,114 @@ export const action = async ({ request }) => {
         category: "SUBSCRIPTION",
         billingPolicy: { recurring: { interval, intervalCount } },
         deliveryPolicy: { recurring: { interval, intervalCount } },
-        pricingPolicies: opt.giveDiscount && opt.discountAmount
-          ? [{ fixed: {
-              adjustmentType: opt.discountType === "percentage" ? "PERCENTAGE" : "PRICE",
-              adjustmentValue: opt.discountType === "percentage"
-                ? { percentage: parseFloat(opt.discountAmount) }
-                : { fixedValue: parseFloat(opt.discountAmount) },
-            }}]
-          : [],
+        pricingPolicies:
+          opt.giveDiscount && opt.discountAmount
+            ? [
+                {
+                  fixed: {
+                    adjustmentType:
+                      opt.discountType === "percentage"
+                        ? "PERCENTAGE"
+                        : "PRICE",
+                    adjustmentValue:
+                      opt.discountType === "percentage"
+                        ? { percentage: parseFloat(opt.discountAmount) }
+                        : { fixedValue: parseFloat(opt.discountAmount) },
+                  },
+                },
+              ]
+            : [],
       };
     });
 
     // 1. Selling Plan Group create
-    const createRes = await admin.graphql(`
+    const createRes = await admin.graphql(
+      `
       mutation sellingPlanGroupCreate($input: SellingPlanGroupInput!) {
         sellingPlanGroupCreate(input: $input) {
           sellingPlanGroup { id }
           userErrors { field message }
         }
       }
-    `, {
-      variables: {
-        input: {
-          name: planPayload.title,
-          merchantCode: `${planPayload.description}`, 
-          description: planPayload.description,
-          options: planPayload.options.map(o => o.name || "Option"),
-          sellingPlansToCreate: sellingPlans,
+    `,
+      {
+        variables: {
+          input: {
+            name: planPayload.title,
+            merchantCode: `${planPayload.description}`,
+            description: planPayload.description,
+            options: planPayload.options.map((o) => o.name || "Option"),
+            sellingPlansToCreate: sellingPlans,
+          },
         },
       },
-    });
+    );
 
     const createData = await createRes.json();
     const userErrors = createData.data.sellingPlanGroupCreate.userErrors;
     if (userErrors?.length > 0) {
-      return json({ success: false, error: userErrors.map(e => e.message).join(", ") });
+      return json({
+        success: false,
+        error: userErrors.map((e) => e.message).join(", "),
+      });
     }
 
-    const shopifyGroupId = createData.data.sellingPlanGroupCreate.sellingPlanGroup.id;
-
+    const shopifyGroupId =
+      createData.data.sellingPlanGroupCreate.sellingPlanGroup.id;
+    const numericId = shopifyGroupId.split("/").pop();
     // 2. Products associate
-    await admin.graphql(`
+    await admin.graphql(
+      `
       mutation sellingPlanGroupAddProducts($id: ID!, $productIds: [ID!]!) {
         sellingPlanGroupAddProducts(id: $id, productIds: $productIds) {
           sellingPlanGroup { id }
           userErrors { field message }
         }
       }
-    `, {
-      variables: {
-        id: shopifyGroupId,
-        productIds: planPayload.selectedProducts.map(p => p.productId),
+    `,
+      {
+        variables: {
+          id: shopifyGroupId,
+          productIds: planPayload.selectedProducts.map((p) => p.productId),
+        },
       },
-    });
+    );
 
     // 3. Shop metafield mein full data save karo
-    await admin.graphql(`
+    await admin.graphql(
+      `
       mutation metafieldsSet($metafields: [MetafieldsSetInput!]!) {
         metafieldsSet(metafields: $metafields) {
           metafields { id key }
           userErrors { field message }
         }
       }
-    `, {
-      variables: {
-        metafields: [{
-          ownerId: shopId,
-          namespace: "kaching_plans",
-          key: `plan_${planPayload.planId}`,
-          type: "json",
-          value: JSON.stringify({
-            planId: planPayload.planId,
-            shopifyGroupId,
-            shop: planPayload.shop,
-            description: planPayload.description,
-            selectedProducts: planPayload.selectedProducts,
-            productChanges: planPayload.productChanges,
-            options: planPayload.options,
-            title: planPayload.title,
-          }),
-        }],
+    `,
+      {
+        variables: {
+          metafields: [
+            {
+              ownerId: shopId,
+              namespace: "selling_plan",
+              key: `plan_${planPayload.planId}`,
+              type: "json",
+              value: JSON.stringify({
+                planId: planPayload.planId,
+                shopifyGroupId,
+                shop: planPayload.shop,
+                description: planPayload.description,
+                selectedProducts: planPayload.selectedProducts,
+                productChanges: planPayload.productChanges,
+                options: planPayload.options,
+                title: planPayload.title,
+              }),
+            },
+          ],
+        },
       },
-    });
+    );
 
-    return json({ success: true, shopifyGroupId, planId: planPayload.planId });
-
+    return json({ success: true, shopifyGroupId, planId: numericId });
   } catch (error) {
     return json({ success: false, error: error.message });
   }
