@@ -154,10 +154,10 @@ export const action = async ({ request }) => {
             {
               ownerId: shopId,
               namespace: "selling_plan",
-              key: `plan_${planPayload.planId}`,
+              key: `plan_${numericId}`,  
               type: "json",
               value: JSON.stringify({
-                planId: planPayload.planId,
+               planId: numericId,  
                 shopifyGroupId,
                 shop: planPayload.shop,
                 description: planPayload.description,

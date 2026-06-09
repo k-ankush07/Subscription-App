@@ -145,7 +145,7 @@ const fetcher = useFetcher();
   });
   
   const isEditing = !!singlePlanId && !isDuplicate;
-  const planId = isEditing ? singlePlanId : Date.now();
+  const planId = isEditing ? singlePlanId : null;
   const planData = isDuplicate ? dublicateplanPlanData : singlePlanData;
 
   // Initialize state from singlePlanData if editing
@@ -216,27 +216,32 @@ const fetcher = useFetcher();
 
   // handlePublishClick replace karo
 const handlePublishClick = () => {
-  console.log("Publish clicked", JSON.stringify(options, null, 2));
   setSubmitted(true);
   if (!isValid) return;
   setLoading(true);
 
   const payload = buildPayload({
-    shop, planId, selectedProducts, options, productChanges, title, description,
+    shop, selectedProducts, options, productChanges, title, description,
   });
-console.log("Built Payload:", payload);
+
+  // isDuplicate or new plan → submit to create route
+  // isEditing → submit to current route (update)
+  const action = (!isEditing) ? "/app/plan/create" : undefined;
+
   fetcher.submit(
     {
       planPayload: payload,
-      shopifyGroupId: planData?.shopifyGroupId ?? null,
+      shopifyGroupId: isEditing ? (planData?.shopifyGroupId ?? null) : null,
       type: "upsert",
     },
     {
       method: "POST",
       encType: "application/json",
+      action,  // ← create route for new/duplicate, current route for edit
     }
   );
 };
+
 
 // fetcher response watch karo
 useEffect(() => {
@@ -244,6 +249,7 @@ useEffect(() => {
     setLoading(false);
     if (fetcher.data.success) {
       setSavedState({ title, description, selectedProducts, options, productChanges });
+      console.log("Plan saved successfully with ID:", fetcher.data.planId);
       navigate(`/app/plan/${fetcher.data.planId}`);  // directly planId aata hai ab
     } else {
       console.error("Error:", fetcher.data.error);
@@ -272,6 +278,14 @@ useEffect(() => {
 //     }
 //   };
   
+
+  const handleDeletePlan = (group, e) => {
+    e.stopPropagation();
+    fetcher.submit(
+      { items: [{ shopifyGroupId: group.id }] },
+      { method: "POST", encType: "application/json" },
+    );
+  };
   const handleDiscard = () => {
     setTitle(savedState.title);
     setDescription(savedState.description);
@@ -338,17 +352,17 @@ useEffect(() => {
             ? `Duplicate: ${description}`
             : description || "Create subscription plan"
       }
-      secondaryActions={
-        singlePlanId && !isDuplicate
-          ? [
-              {
-                content: "Delete Plan",
-                destructive: true,
-                onAction: () => setShowDeleteModal(true),
-              },
-            ]
-          : []
-      }
+      // secondaryActions={
+      //   singlePlanId && !isDuplicate
+      //     ? [
+      //         {
+      //           content: "Delete Plan",
+      //           destructive: true,
+      //           onAction: () => setShowDeleteModal(true),
+      //         },
+      //       ]
+      //     : []
+      // }
       primaryAction={{
         content: isEditing ? "Update" : "Publish",
         onAction: handlePublishClick,
@@ -670,7 +684,7 @@ useEffect(() => {
               destructive: true,
               onAction: async () => {
                 setShowDeleteModal(false);
-                await handleDeletePlan();
+                await handleDeletePlan(group, e);
               },
             }}
             secondaryActions={[

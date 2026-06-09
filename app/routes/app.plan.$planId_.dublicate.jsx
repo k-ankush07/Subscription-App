@@ -1,8 +1,10 @@
+import React from 'react'
 import { json } from "@remix-run/node";
-import { authenticate } from "../shopify.server";
 import { useLoaderData } from "react-router";
-import Templates from "./components/PlanPage/Templates";
+import Templates from "./components/PlanPage/Templates"
+import { authenticate } from "../shopify.server";
 
+// This runs on the SERVER — no CORS, no mixed content issues
 const intervalMap = {
   day: "DAY", days: "DAY",
   week: "WEEK", weeks: "WEEK",
@@ -65,7 +67,6 @@ export const loader = async ({ request, params }) => {
   `, { variables: { id: fullGid } });
 
   const data = await res.json();
-  console.log("GraphQL response for plan loader:",data);
   const group = data.data.sellingPlanGroup;
 
   if (!group) throw new Response("Plan not found", { status: 404 });
@@ -73,8 +74,7 @@ export const loader = async ({ request, params }) => {
   return json({
     shop: session.shop,
     planId,                        // numeric — URL ke liye
-    shopifyGroupId: fullGid,
-    id: group.id,       // full GID — GraphQL ke liye
+    shopifyGroupId: fullGid,       // full GID — GraphQL ke liye
     title: group.name,
     description: group.description || "",
     selectedProducts: group.products.edges.map((e) => ({
@@ -83,12 +83,17 @@ export const loader = async ({ request, params }) => {
       productImage: e.node.featuredImage?.url || "",
     })),
     //  Existing selling plan IDs bhi return karo — update ke liye zaruri hain
-    // existingSellingPlanIds: group.sellingPlans.edges.map((e) => e.node.id),
+    existingSellingPlanIds: group.sellingPlans.edges.map((e) => e.node.id),
     options: group.sellingPlans.edges.map((e) => {
       const plan = e.node;
       const billing = plan.billingPolicy;
       const pricing = plan.pricingPolicies?.[0];
       const adjustmentValue = pricing?.adjustmentValue;
+
+
+      console.log("Fetching GID:", fullGid);
+console.log("GraphQL response:", JSON.stringify(data, null, 2));
+
       return {
         sellingPlanId: plan.id,                                        //  update ke liye
         name: plan.name,
@@ -107,6 +112,7 @@ export const loader = async ({ request, params }) => {
         setMinQty: false,
       };
     }),
+    
     productChanges: {
       swap: true,
       variant: true,
@@ -255,16 +261,23 @@ export const action = async ({ request, params }) => {
   }
 };
 
-export default function PlanId() {
-  const plan = useLoaderData();
-  console.log("Loaded Plan Data:", plan);
-  return (
-    <div style={{ padding: "1.5rem" }}>
-      <Templates
-        shop={plan.shop}
-        singlePlanId={plan.planId}
-        singlePlanData={plan}
-      />
-    </div>
-  );
+
+function Plandublicate() {
+    const dublicateplan = useLoaderData();
+    // console.log("Plandublicate data:", dublicateplan); 
+    const shop = dublicateplan.shop;
+    const planId = dublicateplan.planId; 
+
+    
+    return (
+        <div>
+            <Templates shop={shop} 
+            dublicateplanPlanId={planId} 
+            dublicateplanPlanData={dublicateplan}
+             isDuplicate={true} 
+            singlePlanId={undefined}  
+             />
+        </div>
+    )
 }
+export default Plandublicate;

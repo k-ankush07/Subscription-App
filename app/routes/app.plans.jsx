@@ -165,15 +165,15 @@ function Plans() {
     e.stopPropagation();
      const numericId = group.id.split("/").pop();
      console.log("Numeric ID:", numericId);
-    navigate(`/app/plan/${numericId}/dublicate`);
+    navigate(`/app/plan/${numericId}/dublicate`); 
   };
 
   const filteredGroups = groups.filter((g) => {
-    const title = g.name || g.description || "";
+    const title = g.description || "";
     return title.toLowerCase().includes(searchValue.toLowerCase());
   });
 
-  const rowMarkup = filteredGroups.map((group, index) => {
+  const rowMarkup = filteredGroups.reverse().map((group, index) => {
     const plan = group.sellingPlans.edges[0]?.node;
     const billing = plan?.billingPolicy;
     const pricing = plan?.pricingPolicies?.[0];
