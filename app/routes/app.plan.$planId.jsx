@@ -72,8 +72,38 @@ export const loader = async ({ request, params }) => {
     }
   `, { variables: { id: fullGid } });
 
+ const metafieldRes = await admin.graphql(
+  `
+  query GetPlanMetafield($namespace: String!, $key: String!) {
+    shop {
+      metafield(namespace: $namespace, key: $key) {
+        id
+        namespace
+        key
+        type
+        value
+        createdAt
+        updatedAt
+      }
+    }
+  }
+  `,
+  {
+    variables: {
+      namespace: "selling_plan",
+      key: `plan_${planId}`,
+    },
+  }
+);
+const metafieldData = await metafieldRes.json();
+const metadata = metafieldData.data.shop.metafield
+  ? JSON.parse(metafieldData.data.shop.metafield.value)
+  : null;
+console.log('metadta', metadata)
   const data = await res.json();
   const group = data.data.sellingPlanGroup;
+  // console.log('dfdfdfedfefe',group.products.edges)
+  // console.log(`SellingPlanGroup fetched:`,group.sellingPlans.edges)
 
   if (!group) throw new Response("Plan not found", { status: 404 });
   
@@ -82,6 +112,7 @@ export const loader = async ({ request, params }) => {
     shop: session.shop,
     planId,
     shopifyGroupId: fullGid,
+    metadata,
     id: group.id,
     title: group.name,
     description: group.description || "",
@@ -92,35 +123,75 @@ export const loader = async ({ request, params }) => {
       variantIds: e.node.variants?.edges.map((v) => v.node.id) || [],
       variantTitles: e.node.variants?.edges.map((v) => v.node.title) || [],
     })),
-    options: group.sellingPlans.edges.map((e) => {
-      const plan = e.node;
-      const billing = plan.billingPolicy;
-      const pricing = plan.pricingPolicies?.[0];
-      const adjustmentValue = pricing?.adjustmentValue;
-      return {
-        sellingPlanId: plan.id,
-        name: plan.name,
-        deliveryInterval: billing?.interval?.toLowerCase() || "month",
-        deliveryFrequency: billing?.intervalCount || 1,
-        billingType: "pay_as_you_go",
-        minOrders: "disabled",
-        maxOrders: "unlimited",
-        giveDiscount: !!pricing,
-        discountType: adjustmentValue?.percentage != null ? "percentage" : "fixed",
-        discountAmount: adjustmentValue?.percentage || adjustmentValue?.amount || 0,
-        giveShippingDiscount: false,
-        changeDiscountAfter: false,
-        changeQtyAfterOrders: false,
-        removeFreeProducts: false,
-        setMinQty: false,
-      };
-    }),
-    productChanges: {
-      swap: true,
-      variant: true,
-      quantity: true,
-      keepDiscount: true,
-    },
+options: group.sellingPlans.edges.map((e, index) => {
+  const plan = e.node;
+  const billing = plan.billingPolicy;
+  const pricing = plan.pricingPolicies?.[0];
+  const adjustmentValue = pricing?.adjustmentValue;
+  // Matching custom option
+  const metaOption = metadata?.options?.[index] || {};
+
+  return {
+    sellingPlanId: plan.id,
+    // Shopify fields
+    name: plan.name,
+    deliveryInterval: billing?.interval?.toLowerCase() || "month",
+    deliveryFrequency: billing?.intervalCount || 1,
+    billingType: metaOption.billingType || "pay_as_you_go",
+    billingFrequency:metaOption.billingFrequency || "",
+    // Custom metafield data
+    minOrders: metaOption.minOrders || "disabled",
+    maxOrders: metaOption.maxOrders || "unlimited",
+
+    giveDiscount: metaOption.giveDiscount ?? !!pricing,
+    discountType:
+      metaOption.discountType ??
+      (adjustmentValue?.percentage != null ? "percentage" : "fixed"),
+    discountAmount:
+      metaOption.discountAmount ??
+      adjustmentValue?.percentage ??
+      adjustmentValue?.amount ??
+      0,
+
+    giveShippingDiscount: metaOption.giveShippingDiscount ?? false,
+
+    changeDiscountAfter: metaOption.changeDiscountAfter ?? false,
+    discountAmount2: metaOption.discountAmount2 ?? "",
+    afterOrders: metaOption.afterOrders ?? "",
+    discountType2: metaOption.discountType2 ?? "amount",
+
+    shippingDiscount: metaOption.shippingDiscount ?? "",
+    shippingAfterOrders: metaOption.shippingAfterOrders ?? "",
+    shippingDiscountType: metaOption.shippingDiscountType ?? "fixed",
+
+    changeQtyAfterOrders: metaOption.changeQtyAfterOrders ?? false,
+    changeQtyAfterOrdersNum: metaOption.changeQtyAfterOrdersNum ?? "",
+    changeQtyQuantity: metaOption.changeQtyQuantity ?? "",
+
+    // Array
+    changeQtyProducts: metaOption.changeQtyProducts ?? [],
+
+    removeFreeProducts: metaOption.removeFreeProducts ?? false,
+    removeFreeAfterOrders: metaOption.removeFreeAfterOrders ?? "",
+    removeFreeProductsList: metaOption.removeFreeProductsList ?? [],
+
+    setMinQty: metaOption.setMinQty ?? false,
+    minQuantity: metaOption.minQuantity ?? "",
+
+    allowAutoActions: metaOption.allowAutoActions ?? false,
+    automationCycles: metaOption.automationCycles ?? [],
+
+    selectedProducts: metaOption.selectedProducts ?? [],
+  };
+}),  
+
+
+productChanges: metadata?.productChanges ?? {
+    swap: true,
+    variant: true,
+    quantity: true,
+    keepDiscount: true,
+  },
   });
 };
 
@@ -291,6 +362,7 @@ export const action = async ({ request, params }) => {
 
 export default function PlanId() {
   const plan = useLoaderData();
+  // console.log("Plan data loaded:", plan);
   return (
     <div style={{ padding: "1.5rem" }}>
       <Templates

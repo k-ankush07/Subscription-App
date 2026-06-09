@@ -32,12 +32,12 @@ export const action = async ({ request }) => {
     const shopData = await shopRes.json();
     const shopId = shopData.data.shop.id;
 
-    const sellingPlans = planPayload.options.map((opt) => {
+    const sellingPlans = planPayload.options.map((opt,i) => {
       const interval = intervalMap[opt.deliveryInterval?.toLowerCase()] ?? "MONTH";
       const intervalCount = parseInt(opt.deliveryFrequency) || 1;
       return {
-        name: opt.name || "Option",
-        options: [`Every ${intervalCount} ${opt.deliveryInterval || "month"}`],
+        name: opt.name || `Option ${i + 1}` ,
+        options: [`Every ${intervalCount} ${opt.deliveryInterval || "month"}  ${i + 1}`],
         category: "SUBSCRIPTION",
         billingPolicy: { recurring: { interval, intervalCount } },
         deliveryPolicy: { recurring: { interval, intervalCount } },
@@ -163,7 +163,6 @@ export const action = async ({ request }) => {
     },
   }
 );
-
 const metafieldSetData = await metafieldSetRes.json();
 
 console.log("dsfsdgdgergrdgrgrdggg",metafieldSetData.data.metafieldsSet.metafields,);
