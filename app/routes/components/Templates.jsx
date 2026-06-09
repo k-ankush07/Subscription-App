@@ -23,7 +23,8 @@ import {
   InlineError,
 } from "@shopify/polaris";
 import { DeleteIcon } from "@shopify/polaris-icons";
-
+// imports mein add karo
+import { useFetcher } from "react-router";
 //  Validation helper
 function validate({ selectedProducts, options }) {
   const errors = {};
@@ -125,6 +126,8 @@ function Templates({
   // console.log("=== DEBUG ===", { singlePlanId, isDuplicate, dublicateplanPlanId, dublicateplanPlanData });
   const API_URL = import.meta.env.VITE_API_URL;
   const navigate = useNavigate();
+  // Component ke andar
+const fetcher = useFetcher();
   const [openProductModal, setOpenProductModal] = useState(false);
   const [tempSelected, setTempSelected] = useState([]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -140,9 +143,7 @@ function Templates({
     handlePrev: () => {},
     handleNext: () => {},
   });
-
-  // const isEditing = !!singlePlanId;
-  // const planId = isEditing ? singlePlanId : Date.now();
+  
   const isEditing = !!singlePlanId && !isDuplicate;
   const planId = isEditing ? singlePlanId : Date.now();
   const planData = isDuplicate ? dublicateplanPlanData : singlePlanData;
@@ -212,55 +213,64 @@ function Templates({
     }
   }, [loading]);
 
-  const handlePublishClick = async () => {
-    setSubmitted(true);
-    if (!isValid) return;
-    setLoading(true);
 
-    const payload = buildPayload({
-      shop,
-      planId,
-      selectedProducts,
-      options,
-      productChanges,
-      title,
-      description,
-    });
-    console.log("=== DEBUG payload ===", payload);
+  // handlePublishClick replace karo
+const handlePublishClick = () => {
+  setSubmitted(true);
+  if (!isValid) return;
+  setLoading(true);
 
-    try {
-      // Use PUT for update, POST for create
-      const url = isEditing
-        ? `${API_URL}/plans/update/${planId}`
-        : `${API_URL}/plans/create`;
+  const payload = buildPayload({
+    shop, planId, selectedProducts, options, productChanges, title, description,
+  });
 
-      const response = await fetch(url, {
-        method: isEditing ? "PUT" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        setSavedState({
-          title,
-          description,
-          selectedProducts,
-          options,
-          productChanges,
-        });
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-        navigate(`/app/plan/${planId}`);
-        return;
-      } else {
-        console.error("API returned success: false", data);
-      }
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
+  fetcher.submit(
+    {
+      planPayload: payload,
+      shopifyGroupId: planData?.shopifyGroupId ?? null,
+      type: "upsert",
+    },
+    {
+      method: "POST",
+      encType: "application/json",
     }
-  };
+  );
+};
+
+// fetcher response watch karo
+useEffect(() => {
+  if (fetcher.state === "idle" && fetcher.data) {
+    setLoading(false);
+    if (fetcher.data.success) {
+      setSavedState({ title, description, selectedProducts, options, productChanges });
+      navigate(`/app/plan/${fetcher.data.planId}`);  // directly planId aata hai ab
+    } else {
+      console.error("Error:", fetcher.data.error);
+    }
+  }
+  if (fetcher.state === "submitting") setLoading(true);
+}, [fetcher.state, fetcher.data]);
+  
+
+//  const handleDeletePlan = async () => {
+//     try {
+//       const res = await fetch(
+//         `${API_URL}/plans/${singlePlanId}`,
+//         {
+//           method: "DELETE",
+//         },
+//       );
+
+//       const data = await res.json();
+
+//       if (data.success) {
+//         setTimeout(() => navigate("/app/plans"), 1000);
+//       }
+//     } catch (error) {
+//       console.error(error);
+//     }
+//   };
+  
   const handleDiscard = () => {
     setTitle(savedState.title);
     setDescription(savedState.description);
@@ -312,24 +322,7 @@ function Templates({
   // Errors to display (only after submit)
   const showErrors = submitted ? errors : {};
 
-  const handleDeletePlan = async () => {
-    try {
-      const res = await fetch(
-        `${API_URL}/plans/${singlePlanId}`,
-        {
-          method: "DELETE",
-        },
-      );
-
-      const data = await res.json();
-
-      if (data.success) {
-        setTimeout(() => navigate("/app/plans"), 1000);
-      }
-    } catch (error) {
-      console.error(error);
-    }
-  };
+ 
   return (
     <Page
       backAction={{
