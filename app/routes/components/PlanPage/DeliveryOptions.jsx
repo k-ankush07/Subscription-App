@@ -30,12 +30,16 @@ function DeliveryOptionCard({
   isDuplicateDelivery,
   billingError,
   submitted,
+  duplicateNameIndexes,
+  duplicateNameMessage,
 }) {
   const update = (field) => (value) => onChange(index, field, value);
   const [modalType, setModalType] = useState(null);
   const [tempSelected, setTempSelected] = useState([]);
-  const [changeQtyProductsAttempted, setChangeQtyProductsAttempted] = useState(false);
-  const [removeFreeProductsAttempted, setRemoveFreeProductsAttempted] = useState(false);
+  const [changeQtyProductsAttempted, setChangeQtyProductsAttempted] =
+    useState(false);
+  const [removeFreeProductsAttempted, setRemoveFreeProductsAttempted] =
+    useState(false);
   const [showActions, setShowActions] = useState(false);
   const [pagination, setPagination] = useState({
     hasPrevious: false,
@@ -117,7 +121,11 @@ function DeliveryOptionCard({
             autoComplete="off"
             value={option.name}
             onChange={update("name")}
+            error={duplicateNameIndexes.includes(index)}
           />
+          {duplicateNameIndexes.includes(index) && (
+            <InlineError message={duplicateNameMessage} />
+          )}
           {/* <Text tone="subdued" variant="bodySm">
             Leave empty to generate automatically
           </Text> */}
@@ -681,7 +689,8 @@ function DeliveryOptions({
   };
 
   const duplicateIndexes = validationErrors.duplicateDelivery?.indexes ?? [];
-
+  const duplicateNameIndexes = validationErrors.duplicateName?.indexes ?? [];
+  const duplicateNameMessage = validationErrors.duplicateName?.message;
   return (
     <div style={{ paddingBottom: "30px" }}>
       <Card>
@@ -701,6 +710,8 @@ function DeliveryOptions({
               isDuplicateDelivery={duplicateIndexes.includes(i)}
               billingError={validationErrors.billingMultiple?.[i] ?? null}
               submitted={submitted}
+              duplicateNameIndexes={duplicateNameIndexes}
+              duplicateNameMessage={duplicateNameMessage}
             />
           ))}
           <div style={{ paddingTop: "20px" }}>

@@ -45,7 +45,6 @@ export const loader = async ({ request, params }) => {
             node {
               id
               name
-              description
               billingPolicy {
                 ... on SellingPlanRecurringBillingPolicy {
                   interval
@@ -100,7 +99,7 @@ const metafieldData = await metafieldRes.json();
 const metadata = metafieldData.data.shop.metafield
   ? JSON.parse(metafieldData.data.shop.metafield.value)
   : null;
-// console.log('metadta', metadata)
+console.log('metadta', metadata)
   const data = await res.json();
   const group = data.data.sellingPlanGroup;
   // console.log('dfdfdfedfefe',group.products.edges)

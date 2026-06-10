@@ -32,76 +32,38 @@ export const action = async ({ request }) => {
     const shopData = await shopRes.json();
     const shopId = shopData.data.shop.id;
 
-    // const sellingPlans = planPayload.options.map((opt,i) => {
-    //   const interval = intervalMap[opt.deliveryInterval?.toLowerCase()] ?? "MONTH";
-    //   const intervalCount = parseInt(opt.deliveryFrequency) || 1;
-    //   return {
-    //     name: opt.name || `Option ${i + 1}` ,
-    //     options: [`Every ${intervalCount} ${opt.deliveryInterval || "month"}  ${i + 1}`],
-    //     category: "SUBSCRIPTION",
-    //     billingPolicy: { recurring: { interval, intervalCount } },
-    //     deliveryPolicy: { recurring: { interval, intervalCount } },
-    //     pricingPolicies:
-    //       opt.giveDiscount && opt.discountAmount
-    //         ? [
-    //             {
-    //               fixed: {
-    //                 adjustmentType:
-    //                   opt.discountType === "percentage" ? "PERCENTAGE" : "PRICE",
-    //                 adjustmentValue:
-    //                   opt.discountType === "percentage"
-    //                     ? { percentage: parseFloat(opt.discountAmount) }
-    //                     : { fixedValue: parseFloat(opt.discountAmount) },
-    //               },
-    //             },
-    //           ]
-    //         : [],
-    //   };
-    // });
+    
+    const sellingPlans = planPayload.options.map((opt,i) => {
+      const interval = intervalMap[opt.deliveryInterval?.toLowerCase()] ?? "MONTH";
+      const intervalCount = parseInt(opt.deliveryFrequency) || 1;
+      console.log("delivery ", intervalCount ,"fnkffjk",opt.deliveryInterval)
+      return {
+        name: opt.name || `Option ${i + 1}` ,
+        options: [`Every ${intervalCount}` , `${opt.deliveryInterval || "month"}  ${i + 1}`],
+        category: "SUBSCRIPTION",
+        billingPolicy: { recurring: { interval, intervalCount } },
+        deliveryPolicy: { recurring: { interval, intervalCount } },
+        pricingPolicies:
+          opt.giveDiscount && opt.discountAmount
+            ? [
+                {
+                  fixed: {
+                    adjustmentType:
+                      opt.discountType === "percentage" ? "PERCENTAGE" : "PRICE",
+                    adjustmentValue:
+                      opt.discountType === "percentage"
+                        ? { percentage: parseFloat(opt.discountAmount) }
+                        : { fixedValue: parseFloat(opt.discountAmount) },
+                  },
+                },
+              ]
+            : [],
+      };
+    });
 
-
+  //  console.log("fnjkbfjkedbffndb",sellingPlans)
+   console.log("fnjkbfjkedbffndbsddwqdwdwdqw",planPayload.options.map((o) => o.name || "Option"),)
     // 1. Selling Plan Group create
-   
-   const groupOptionLabels = planPayload.options.map((o, i) => o.name || `Option ${i + 1}`);
-
-const sellingPlans = planPayload.options.map((opt, i) => {
-  const interval = intervalMap[opt.deliveryInterval?.toLowerCase()] ?? "MONTH";
-  const intervalCount = parseInt(opt.deliveryFrequency) || 1;
-
-  //  KEY FIX: each plan's options array must match the group-level labels count
-  // Every plan needs one value per group option label
-  const planOptions = groupOptionLabels.map((label, j) => {
-    if (j === i) {
-      return `Every ${intervalCount} ${opt.deliveryInterval || "month"}`;
-    }
-    return label; // fill other slots with the label name as a fallback
-  });
-
-  return {
-    name: opt.name || `Option ${i + 1}`,
-    options: planOptions,  //  now matches group options length
-    category: "SUBSCRIPTION",
-    billingPolicy: { recurring: { interval, intervalCount } },
-    deliveryPolicy: { recurring: { interval, intervalCount } },
-    pricingPolicies:
-      opt.giveDiscount && opt.discountAmount
-        ? [
-            {
-              fixed: {
-                adjustmentType:
-                  opt.discountType === "percentage" ? "PERCENTAGE" : "PRICE",
-                adjustmentValue:
-                  opt.discountType === "percentage"
-                    ? { percentage: parseFloat(opt.discountAmount) }
-                    : { fixedValue: parseFloat(opt.discountAmount) },
-              },
-            },
-          ]
-        : [],
-  };
-});
-   
-   
     const createRes = await admin.graphql(
       `
       mutation sellingPlanGroupCreate($input: SellingPlanGroupInput!) {
@@ -117,7 +79,7 @@ const sellingPlans = planPayload.options.map((opt, i) => {
             name: planPayload.title,
             merchantCode: `${planPayload.description}`,
             description: planPayload.description,
-            options: groupOptionLabels,
+            options: planPayload.options.map((o) => o.name || "Option"),
             sellingPlansToCreate: sellingPlans,
           },
         },
@@ -125,7 +87,7 @@ const sellingPlans = planPayload.options.map((opt, i) => {
     );
 
     const createData = await createRes.json();
-    console.log("ndsk", createData)
+
 
     const userErrors = createData.data.sellingPlanGroupCreate.userErrors;
     if (userErrors?.length > 0) {
@@ -138,6 +100,7 @@ const sellingPlans = planPayload.options.map((opt, i) => {
 
     const shopifyGroupId = createData.data.sellingPlanGroupCreate.sellingPlanGroup.id;
     const numericId = shopifyGroupId.split("/").pop();
+    console.log("shopifyGroupId:", shopifyGroupId, "| numericId:", numericId);
 
     // 2. Products associate
     const addProductsRes = await admin.graphql(
@@ -205,7 +168,7 @@ const sellingPlans = planPayload.options.map((opt, i) => {
 );
 const metafieldSetData = await metafieldSetRes.json();
 
-console.log("dsfsdgdgergrdgrgrdggg",metafieldSetData.data.metafieldsSet.metafields,);
+// console.log("dsfsdgdgergrdgrgrdggg",metafieldSetData.data.metafieldsSet.metafields,);
 
     const metafieldErrors = metafieldSetData.data.metafieldsSet.userErrors;
     if (metafieldErrors?.length > 0) {

@@ -33,6 +33,15 @@ function validate({ selectedProducts, options }) {
   if (selectedProducts.length === 0) {
     errors.noProducts = "Please select at least one product to continue.";
   }
+ const seen = new Map(), dup = new Set();
+
+ //dublicate delivery option error
+options.forEach((o, i) => {
+  const n = (o.name || "").toLowerCase().trim();
+  if (seen.has(n)) dup.add(i).add(seen.get(n)); else seen.set(n, i);
+});
+
+if (dup.size) errors.duplicateName = { message: "Unique name required", indexes: [...dup] };
 
   //  Duplicate delivery (frequency must be unique across options)
   const deliveryKeys = options.map(
