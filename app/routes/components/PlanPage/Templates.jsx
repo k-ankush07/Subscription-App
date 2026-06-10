@@ -164,6 +164,9 @@ const fetcher = useFetcher();
   const [selectedProducts, setSelectedProducts] = useState(
     planData?.selectedProducts ?? [],
   );
+  const [originalProductIds] = useState(
+  () => planData?.selectedProducts?.map(p => p.productId) ?? []
+);
 
   const [title, setTitle] = useState(planData?.title ?? "Subscribe and save");
   const [description, setDescription] = useState(
@@ -250,6 +253,7 @@ const fetcher = useFetcher();
   }, [loading]);
 
 
+  
   // handlePublishClick replace karo
 const handlePublishClick = () => {
   
@@ -261,11 +265,15 @@ const handlePublishClick = () => {
     shop, selectedProducts, options, productChanges, title, description,
   });
 
+  const currentProductIds = selectedProducts.map(p => p.productId);
+  const removedProductIds = originalProductIds.filter(
+    id => !currentProductIds.includes(id)
+  )
   const action = (!isEditing) ? "/app/plan/create" : undefined;
 
   fetcher.submit(
     {
-      planPayload: payload,
+      planPayload: { ...payload, removedProductIds ,originalProductIds},
       shopifyGroupId: isEditing ? (planData?.shopifyGroupId ?? null) : null,
       type: "upsert",
     },

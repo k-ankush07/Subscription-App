@@ -36,10 +36,9 @@ export const action = async ({ request }) => {
     const sellingPlans = planPayload.options.map((opt,i) => {
       const interval = intervalMap[opt.deliveryInterval?.toLowerCase()] ?? "MONTH";
       const intervalCount = parseInt(opt.deliveryFrequency) || 1;
-      console.log("delivery ", intervalCount ,"fnkffjk",opt.deliveryInterval)
       return {
         name: opt.name || `Option ${i + 1}` ,
-        options: [`Every ${intervalCount}` , `${opt.deliveryInterval || "month"}  ${i + 1}`],
+        options: [`Every ${intervalCount} ${opt.deliveryInterval || "month"}`],
         category: "SUBSCRIPTION",
         billingPolicy: { recurring: { interval, intervalCount } },
         deliveryPolicy: { recurring: { interval, intervalCount } },
@@ -62,7 +61,7 @@ export const action = async ({ request }) => {
     });
 
   //  console.log("fnjkbfjkedbffndb",sellingPlans)
-   console.log("fnjkbfjkedbffndbsddwqdwdwdqw",planPayload.options.map((o) => o.name || "Option"),)
+  //  console.log("fnjkbfjkedbffndbsddwqdwdwdqw",planPayload.options.map((o) => o.name || "Option"),)
     // 1. Selling Plan Group create
     const createRes = await admin.graphql(
       `
@@ -79,7 +78,7 @@ export const action = async ({ request }) => {
             name: planPayload.title,
             merchantCode: `${planPayload.description}`,
             description: planPayload.description,
-            options: planPayload.options.map((o) => o.name || "Option"),
+            options: ["Delivery Frequency"],
             sellingPlansToCreate: sellingPlans,
           },
         },
@@ -100,7 +99,7 @@ export const action = async ({ request }) => {
 
     const shopifyGroupId = createData.data.sellingPlanGroupCreate.sellingPlanGroup.id;
     const numericId = shopifyGroupId.split("/").pop();
-    console.log("shopifyGroupId:", shopifyGroupId, "| numericId:", numericId);
+    // console.log("shopifyGroupId:", shopifyGroupId, "| numericId:", numericId);
 
     // 2. Products associate
     const addProductsRes = await admin.graphql(
