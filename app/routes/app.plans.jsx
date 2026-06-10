@@ -198,7 +198,7 @@ function Plans() {
     const title = g.description || "";
     return title.toLowerCase().includes(searchValue.toLowerCase());
   });
-console.log("Filtered Groups:", filteredGroups);
+// console.log("Filtered Groups:", filteredGroups);
   const rowMarkup = [...filteredGroups].reverse().map((group, index) => {
     const plan = group.sellingPlans.edges[0]?.node;
     const billing = plan?.billingPolicy;
