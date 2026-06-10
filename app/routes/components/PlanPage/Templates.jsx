@@ -182,32 +182,32 @@ const fetcher = useFetcher();
     },
   });
 
-  useEffect(() => {
-  if (!planData) return;
+//   useEffect(() => {
+//   if (!planData) return;
 
-  const newState = {
-    title: planData.title ?? "Subscribe and save",
-    description: planData.description ?? "Plan1",
-    selectedProducts: planData.selectedProducts ?? [],
-    options: planData.options ?? [{ ...defaultOption }],
-    productChanges:
-      planData.productChanges ?? {
-        swap: true,
-        variant: true,
-        quantity: true,
-        keepDiscount: true,
-      },
-  };
+//   const newState = {
+//     title: planData.title ?? "Subscribe and save",
+//     description: planData.description ?? "Plan1",
+//     selectedProducts: planData.selectedProducts ?? [],
+//     options: planData.options ?? [{ ...defaultOption }],
+//     productChanges:
+//       planData.productChanges ?? {
+//         swap: true,
+//         variant: true,
+//         quantity: true,
+//         keepDiscount: true,
+//       },
+//   };
 
-  setTitle(newState.title);
-  setDescription(newState.description);
-  setSelectedProducts(newState.selectedProducts);
-  setOptions(newState.options);
-  setProductChanges(newState.productChanges);
+//   setTitle(newState.title);
+//   setDescription(newState.description);
+//   setSelectedProducts(newState.selectedProducts);
+//   setOptions(newState.options);
+//   setProductChanges(newState.productChanges);
 
-  setSavedState(newState);
-  setSubmitted(false);
-}, [planData]);
+//   setSavedState(newState);
+//   setSubmitted(false);
+// }, [planData]);
   //  validation
   const errors = validate({ selectedProducts, options });
   const isValid = Object.keys(errors).length === 0;
