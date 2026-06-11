@@ -21,7 +21,7 @@ import Products from "../Products";
 import AutomaticActions from "../PlanPage/AutomaticActions";
 
 function DeliveryOptionCard({
-  option,
+  option, 
   index,
   onChange,
   onDelete,
