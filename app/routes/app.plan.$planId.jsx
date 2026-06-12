@@ -110,7 +110,16 @@ export const loader = async ({ request, params }) => {
   const data = await res.json();
   const group = data.data.sellingPlanGroup;
   // console.log('dfdfdfedfefe',group.products.edges)
-  console.log(`SellingPlanGroup fetched:`,group.sellingPlans.edges)
+console.log(
+  JSON.stringify(
+    group.sellingPlans.edges.map(edge => ({
+      name: edge.node.name,
+      pricingPolicies: edge.node.pricingPolicies,
+    })),
+    null,
+    2
+  )
+);
 
   if (!group) throw new Response("Plan not found", { status: 404 });
 

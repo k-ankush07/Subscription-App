@@ -106,16 +106,7 @@
         }),
       })
       .then(function (res) { return res.json(); })
-      .then(function(data) {
-  if (data.selling_plan_allocation) {
-    var price = data.selling_plan_allocation.price / 100;
-    var compareAt = data.selling_plan_allocation.compare_at_price / 100;
-    var saved = compareAt - price;
-    console.log("Final price:", price, "Saved:", saved);
-  }
-  document.dispatchEvent(new CustomEvent('cart:refresh'));
-  return data;
-})
+       .then(data => console.log("yes",data))
       .then(function (data) {
         console.log("Cart response:", data);
         // Cart refresh karo
