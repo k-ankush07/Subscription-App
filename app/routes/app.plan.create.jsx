@@ -60,7 +60,7 @@ export const action = async ({ request }) => {
       };
     });
 
-     console.log("fnjkbfjkedbffndb",sellingPlans.pricingPolicies)
+    //  console.log("fnjkbfjkedbffndb",sellingPlans.pricingPolicies)
     //  console.log("fnjkbfjkedbffndbsddwqdwdwdqw",planPayload.options.map((o) => o.name || "Option"),)
     // 1. Selling Plan Group create
     const createRes = await admin.graphql(
