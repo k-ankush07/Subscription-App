@@ -314,26 +314,18 @@ export const action = async ({ request, params }) => {
                   pricingPolicies:
                     opt.giveDiscount && opt.discountAmount
                       ? [
-                          {
-                            fixed: {
-                              adjustmentType:
-                                opt.discountType === "percentage"
-                                  ? "PERCENTAGE"
-                                  : "PRICE",
-                              adjustmentValue:
-                                opt.discountType === "percentage"
-                                  ? {
-                                      percentage: parseFloat(
-                                        opt.discountAmount,
-                                      ),
-                                    }
-                                  : {
-                                      fixedValue: parseFloat(
-                                        opt.discountAmount,
-                                      ),
-                                    },
-                            },
-                          },
+                           {
+                  fixed: {
+                    adjustmentType:
+                      opt.discountType === "percentage"
+                        ? "PERCENTAGE"
+                        : "PRICE",
+                    adjustmentValue:
+                      opt.discountType === "percentage"
+                        ? { percentage: parseFloat(opt.discountAmount) }
+                        : { fixedValue: parseFloat(opt.discountAmount) },
+                  },
+                },
                         ]
                       : [],
                 };

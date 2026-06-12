@@ -114,6 +114,7 @@
     console.log("Final price:", price, "Saved:", saved);
   }
   document.dispatchEvent(new CustomEvent('cart:refresh'));
+  return data;
 })
       .then(function (data) {
         console.log("Cart response:", data);
