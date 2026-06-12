@@ -683,7 +683,7 @@ function DeliveryOptions({
 
   const duplicateOption = (index) => {
     setOptions((prev) => {
-      const copied = { ...prev[index] };
+      const copied = { ...prev[index],  sellingPlanId: null, };
       return [...prev.slice(0, index + 1), copied, ...prev.slice(index + 1)];
     });
   };

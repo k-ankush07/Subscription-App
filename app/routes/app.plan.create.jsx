@@ -26,7 +26,6 @@ export const action = async ({ request }) => {
   // console.log("body log", planPayload)
 
   try {
-    // Shop ID lo
     const shopRes = await admin.graphql(`query { shop { id } }`);
     const shopData = await shopRes.json();
     const shopId = shopData.data.shop.id;

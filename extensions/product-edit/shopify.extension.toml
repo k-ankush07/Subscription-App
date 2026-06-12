@@ -1,26 +1,17 @@
 api_version = "2025-10"
 
-
 [[extensions]]
-# Change the merchant-facing name of the extension in locales/en.default.json
 name = "t:name"
 handle = "admin-update"
 type = "ui_extension"
 uid = "23a785b6-73c6-d8ee-a9ae-7d9a9bc5d051526a3cb5"
 
-# Both targets need to be specified for the extensions to work
 [[extensions.targeting]]
 module = "./src/ProductExtension.jsx"
 target = "admin.product-purchase-option.action.render"
+removable = false
 
 [[extensions.targeting]]
 module = "./src/ProductVariantExtension.jsx"
 target = "admin.product-variant-purchase-option.action.render"
-
-# Valid extension targets:
-
-# Product index and detail pages
-# - admin.product-purchase-option.action.render
-
-# Product variant detail pages
-# - admin.product-variant-purchase-option.action.render
+removable = false

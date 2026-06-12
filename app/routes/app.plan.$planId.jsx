@@ -110,7 +110,7 @@ export const loader = async ({ request, params }) => {
   const data = await res.json();
   const group = data.data.sellingPlanGroup;
   // console.log('dfdfdfedfefe',group.products.edges)
-  console.log(`SellingPlanGroup fetched:`,group.sellingPlans.edges)
+  // console.log(`SellingPlanGroup fetched:`,group.sellingPlans.edges)
 
   if (!group) throw new Response("Plan not found", { status: 404 });
 
@@ -373,7 +373,7 @@ export const action = async ({ request, params }) => {
       const removeData = await removeRes.json();
     }
 
-    console.log("removedProductIds:", planPayload.removedProductIds);
+    // console.log("removedProductIds:", planPayload.removedProductIds);
     // console.log("selectedProducts:", planPayload.selectedProducts);
 
     // Add products

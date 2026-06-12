@@ -213,6 +213,7 @@ export const action = async ({ request, params }) => {
     });
 
     const updateData = await updateRes.json();
+    console.log("jvdfvdjvvjkkjfe", updateData.data.sellingPlanGroupUpdate)
     const updateErrors = updateData.data.sellingPlanGroupUpdate.userErrors;
     if (updateErrors?.length > 0) {
       return json({ success: false, error: updateErrors.map(e => e.message).join(", ") });
@@ -279,4 +280,5 @@ function Plandublicate() {
         </div>
     )
 }
+
 export default Plandublicate;

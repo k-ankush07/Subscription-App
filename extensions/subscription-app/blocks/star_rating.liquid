@@ -1,7 +1,40 @@
+
+
+
 {% schema %}
 {
   "name": "subscription",
-  "target": "body",
+  "target": "section",
+  "javascript": "subscription.js",
   "settings": []
 }
 {% endschema %}
+
+
+{% if product.selling_plan_groups.size > 0 %}
+<div class="subscription-widget" id="subscription-widget">
+
+  <label class="purchase-option">
+    <input type="radio" name="purchase_type" value="one_time" checked>
+    <span>One-time Purchase</span>
+  </label>
+
+  <label class="purchase-option">
+    <input type="radio" name="purchase_type" value="subscription">
+    <span>Subscribe &amp; Save</span>
+  </label>
+
+  <div id="selling-plans-container" style="display:none; margin-top: 10px;">
+    <select id="selling-plan-select" name="selling_plan">
+      {% for group in product.selling_plan_groups %}
+        <optgroup label="{{ group.name }}">
+          {% for plan in group.selling_plans %}
+            <option value="{{ plan.id }}">{{ plan.name }}</option>
+          {% endfor %}
+        </optgroup>
+      {% endfor %}
+    </select>
+  </div>
+
+</div>
+{% endif %}
