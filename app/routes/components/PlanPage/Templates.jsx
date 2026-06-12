@@ -267,12 +267,7 @@ const handlePublishClick = () => {
   const payload = buildPayload({
     shop, selectedProducts, options, productChanges, title, description,
   });
-console.log("options before submit:", options.map(o => ({
-  sellingPlanId: o.sellingPlanId,
-  name: o.name,
-  freq: o.deliveryFrequency,
-  payload:payload,
-})));
+console.log("options before submit:", payload,);
 
   const currentProductIds = selectedProducts.map(p => p.productId);
   const removedProductIds = originalProductIds.filter(

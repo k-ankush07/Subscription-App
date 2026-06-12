@@ -121,47 +121,6 @@
 })();
 
 
-// Discount info element create karo
-function showDiscountInfo(sellingPlanId) {
-  // Pehle purana remove karo
-  var old = document.getElementById('subscription-discount-info');
-  if (old) old.remove();
 
-  if (!productData || !sellingPlanId) return;
-
-  var discountInfo = null;
-
-  productData.selling_plan_groups.forEach(function(group) {
-    group.selling_plans.forEach(function(plan) {
-      if (String(plan.id) === String(sellingPlanId)) {
-        discountInfo = plan.price_adjustments;
-      }
-    });
-  });
-
-  if (!discountInfo || discountInfo.length === 0) return;
-
-  var html = '<div id="subscription-discount-info" style="margin-top:10px; font-size:13px; color:#333;">';
-
-  discountInfo.forEach(function(adj, i) {
-    var typeLabel = adj.value_type === 'percentage' 
-      ? adj.value + '% off'
-      : adj.value_type === 'fixed_amount'
-      ? '₹' + (adj.value / 100) + ' off'
-      : '₹' + (adj.value / 100) + ' fixed price';
-
-    if (i === 0) {
-      html += '<p>✓ First discount: <strong>' + typeLabel + '</strong></p>';
-    } else {
-      html += '<p>✓ After <strong>' + adj.order_count + '</strong> orders: <strong>' + typeLabel + '</strong></p>';
-    }
-  });
-
-  html += '</div>';
-
-  // Widget ke neeche add karo
-  var widget = document.getElementById('subscription-widget');
-  if (widget) widget.insertAdjacentHTML('afterend', html);
-}
 
 
