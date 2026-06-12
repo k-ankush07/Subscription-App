@@ -94,7 +94,7 @@
       var variantId = form.querySelector('[name="id"]').value;
       var quantity = form.querySelector('[name="quantity"]')?.value || 1;
       
-      console.log("Adding to cart:", { form,variantId, quantity, sellingPlan: currentSellingPlanId });
+    //   console.log("Adding to cart:", { form,variantId, quantity, sellingPlan: currentSellingPlanId });
 
       fetch('/cart/add.js', {
         method: 'POST',
