@@ -4,6 +4,7 @@ export  const defaultOption = {
   billingFrequency: "",
   billingInterval: "weeks",
   deliveryInterval: "days",
+  deliveryFrequency:"1",
   minOrders: "disabled",
   maxOrders: "unlimited",
   giveDiscount: false,

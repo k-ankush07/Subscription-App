@@ -695,6 +695,7 @@ function DeliveryOptions({
       // return [...prev.slice(0, index + 1), copied, ...prev.slice(index + 1)];
       return [...prev, copied];
     });
+   
   //  last card pe scroll
     setTimeout(() => {
       const lastCard = cardRefs.current[options.length]; // naya card index

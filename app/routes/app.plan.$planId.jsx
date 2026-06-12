@@ -110,7 +110,7 @@ export const loader = async ({ request, params }) => {
   const data = await res.json();
   const group = data.data.sellingPlanGroup;
   // console.log('dfdfdfedfefe',group.products.edges)
-  // console.log(`SellingPlanGroup fetched:`,group.sellingPlans.edges)
+  console.log(`SellingPlanGroup fetched:`,group.sellingPlans.edges)
 
   if (!group) throw new Response("Plan not found", { status: 404 });
 
@@ -135,7 +135,10 @@ export const loader = async ({ request, params }) => {
       const pricing = plan.pricingPolicies?.[0];
       const adjustmentValue = pricing?.adjustmentValue;
       // Matching custom option
-      const metaOption = metadata?.options?.[index] || {};
+      // const metaOption = metadata?.options?.[index] || {};
+      const metaOption = metadata?.options?.find(
+    (o) => o.sellingPlanId === plan.id
+  ) || metadata?.options?.[index] || {};
 
       return {
         sellingPlanId: plan.id,
@@ -270,31 +273,26 @@ export const action = async ({ request, params }) => {
                   ], 
                   billingPolicy: { recurring: { interval, intervalCount } },
                   deliveryPolicy: { recurring: { interval, intervalCount } },
-                  pricingPolicies:
-                    opt.giveDiscount && opt.discountAmount
-                      ? [
-                          {
-                            fixed: {
-                              adjustmentType:
-                                opt.discountType === "percentage"
-                                  ? "PERCENTAGE"
-                                  : "PRICE",
-                              adjustmentValue:
-                                opt.discountType === "percentage"
-                                  ? {
-                                      percentage: parseFloat(
-                                        opt.discountAmount,
-                                      ),
-                                    }
-                                  : {
-                                      fixedValue: parseFloat(
-                                        opt.discountAmount,
-                                      ),
-                                    },
-                            },
-                          },
-                        ]
-                      : [],
+             pricingPolicies: opt.giveDiscount && opt.discountAmount
+  ? [
+      {
+        fixed: {
+          adjustmentType:
+            opt.discountType === "percentage"
+              ? "PERCENTAGE"
+              : opt.discountType === "fixed"
+              ? "PRICE"        //  fixed price
+              : "FIXED_AMOUNT", //  amount off ✓
+          adjustmentValue:
+            opt.discountType === "percentage"
+              ? { percentage: parseFloat(opt.discountAmount) }
+              : opt.discountType === "fixed"
+              ? { fixedValue: parseFloat(opt.discountAmount) }
+              : { fixedValue: parseFloat(opt.discountAmount) }, // amount off
+        },
+      },
+    ]
+  : [],
                 };
               }),
 
@@ -346,11 +344,20 @@ export const action = async ({ request, params }) => {
         },
       },
     );
-    
+ console.log("UPDATE sending:", planPayload.options
+  .filter((o) => o.sellingPlanId)
+  .map((opt) => ({
+    id: opt.sellingPlanId,
+    name: opt.name,
+    optionStr: `Every ${parseInt(opt.deliveryFrequency || 1)} ${opt.deliveryInterval || "month"}`,
+    interval: intervalMap[opt.deliveryInterval?.toLowerCase()]
+  }))
+);
 
     const updateData = await updateRes.json();
-    console.log("jcdscdbcjkdbcjd", updateData.data.sellingPlanGroupUpdate)
+    // console.log("jcdscdbcjkdbcjd", updateData.data.sellingPlanGroupUpdate)
     const updateErrors = updateData.data.sellingPlanGroupUpdate.userErrors;
+    console.log("Shopify userErrors:", JSON.stringify(updateData.data.sellingPlanGroupUpdate.userErrors, null, 2));
     if (updateErrors?.length > 0) {
       return json({
         success: false,
@@ -444,8 +451,21 @@ export const action = async ({ request, params }) => {
         },
       },
     );
-
-    return json({ success: true, planId: params.planId });
+const freshRes = await admin.graphql(
+  `query getSellingPlanGroup($id: ID!) {
+    sellingPlanGroup(id: $id) {
+      sellingPlans(first: 10) {
+        edges { node { id name } }
+      }
+    }
+  }`,
+  { variables: { id: shopifyGroupId } }
+);
+const freshData = await freshRes.json();
+const freshPlans = freshData.data.sellingPlanGroup.sellingPlans.edges.map(
+  (e) => ({ id: e.node.id, name: e.node.name })
+);
+    return json({ success: true, planId: params.planId,freshPlans  });
   } catch (error) {
     return json({ success: false, error: error.message });
   }

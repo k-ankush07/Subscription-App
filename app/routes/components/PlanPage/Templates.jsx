@@ -221,6 +221,9 @@ const [deletedPlanIds, setDeletedPlanIds] = useState([]);
 //   setSubmitted(false);
 // }, [planData]);
   //  validation
+  
+  
+  
   const errors = validate({ selectedProducts, options });
   const isValid = Object.keys(errors).length === 0;
 
@@ -264,6 +267,12 @@ const handlePublishClick = () => {
   const payload = buildPayload({
     shop, selectedProducts, options, productChanges, title, description,
   });
+console.log("options before submit:", options.map(o => ({
+  sellingPlanId: o.sellingPlanId,
+  name: o.name,
+  freq: o.deliveryFrequency,
+  payload:payload,
+})));
 
   const currentProductIds = selectedProducts.map(p => p.productId);
   const removedProductIds = originalProductIds.filter(
@@ -286,20 +295,54 @@ const handlePublishClick = () => {
 };
 
 
-// fetcher response watch karo
+// // fetcher response watch karo
+// useEffect(() => {
+//   if (fetcher.state === "idle" && fetcher.data) {
+//     setLoading(false);
+//     if (fetcher.data.success) {
+//       setSavedState({ title, description, selectedProducts, options, productChanges });
+//       navigate(`/app/plan/${fetcher.data.planId}`,{ replace: true });  // directly planId aata hai ab
+//     } else {
+//       console.error("Error:", fetcher.data.error);
+//     }
+//   }
+//   if (fetcher.state === "submitting") setLoading(true);
+// }, [fetcher.state, fetcher.data]);
 useEffect(() => {
   if (fetcher.state === "idle" && fetcher.data) {
     setLoading(false);
     if (fetcher.data.success) {
-      setSavedState({ title, description, selectedProducts, options, productChanges });
-      navigate(`/app/plan/${fetcher.data.planId}`,{ replace: true });  // directly planId aata hai ab
+      
+      if (fetcher.data.freshPlans) {
+        // Updated options banao
+        const updatedOptions = options.map((opt) => {
+          const matched = fetcher.data.freshPlans.find(
+            (p) => p.name === opt.name
+          );
+          return matched ? { ...opt, sellingPlanId: matched.id } : opt;
+        });
+        
+        setOptions(updatedOptions); //  options update karo
+        
+        // savedState  updated options
+        setSavedState({ 
+          title, 
+          description, 
+          selectedProducts, 
+          options: updatedOptions, 
+          productChanges 
+        });
+      } else {
+        setSavedState({ title, description, selectedProducts, options, productChanges });
+      }
+
+      navigate(`/app/plan/${fetcher.data.planId}`, { replace: true });
     } else {
       console.error("Error:", fetcher.data.error);
     }
   }
   if (fetcher.state === "submitting") setLoading(true);
 }, [fetcher.state, fetcher.data]);
-  
 
 //  const handleDeletePlan = async () => {
 //     try {
