@@ -204,7 +204,8 @@ export const action = async ({ request, params }) => {
   const { admin } = await authenticate.admin(request);
   const body = await request.json();
   const { type, planPayload, shopifyGroupId } = body;
-  console.log("Current Options", planPayload.options);
+  // console.log("Current Options", planPayload.options);
+  
   const removedProductIds = planPayload.removedProductIds;
   const originalProductIds = planPayload.originalProductIds ?? [];
   const shopRes = await admin.graphql(`query { shop { id } }`);
@@ -253,6 +254,7 @@ export const action = async ({ request, params }) => {
           input: {
             name: planPayload.title,
             description: planPayload.description,
+            sellingPlansToDelete: planPayload.deletedPlanIds ?? [],
             sellingPlansToUpdate: planPayload.options
               .filter((o) => o.sellingPlanId)
               .map((opt, i) => {
@@ -337,13 +339,17 @@ export const action = async ({ request, params }) => {
                         ]
                       : [],
                 };
+                
               }),
+              
           },
         },
       },
     );
+    
 
     const updateData = await updateRes.json();
+    console.log("jcdscdbcjkdbcjd", updateData.data.sellingPlanGroupUpdate)
     const updateErrors = updateData.data.sellingPlanGroupUpdate.userErrors;
     if (updateErrors?.length > 0) {
       return json({

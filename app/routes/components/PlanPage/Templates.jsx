@@ -140,7 +140,7 @@ const fetcher = useFetcher();
   const [openProductModal, setOpenProductModal] = useState(false);
   const [tempSelected, setTempSelected] = useState([]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-
+const [deletedPlanIds, setDeletedPlanIds] = useState([]);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [loading, setLoading] = useState(false);
   // Show validation errors
@@ -273,7 +273,7 @@ const handlePublishClick = () => {
 
   fetcher.submit(
     {
-      planPayload: { ...payload, removedProductIds ,originalProductIds},
+      planPayload: { ...payload, removedProductIds ,originalProductIds, deletedPlanIds,},
       shopifyGroupId: isEditing ? (planData?.shopifyGroupId ?? null) : null,
       type: "upsert",
     },
@@ -368,7 +368,7 @@ useEffect(() => {
   };
 
   const addOption = () => {
-    setOptions((prev) => [...prev, { ...defaultOption }]);
+    setOptions((prev) => [...prev, { ...defaultOption   ,sellingPlanId: null }]);
   };
 
   useEffect(() => {
@@ -716,6 +716,8 @@ useEffect(() => {
               // validation props
               validationErrors={showErrors}
               submitted={submitted}
+              deletedPlanIds={deletedPlanIds}        // ← add karo
+  setDeletedPlanIds={setDeletedPlanIds}
             />
           </BlockStack>
 

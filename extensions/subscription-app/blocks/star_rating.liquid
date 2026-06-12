@@ -26,14 +26,14 @@
 
   <div id="selling-plans-container" style="display:none; margin-top: 10px;">
     <select id="selling-plan-select" name="selling_plan">
-      {% for group in product.selling_plan_groups %}
-        <optgroup label="{{ group.name }}">
-          {% for plan in group.selling_plans %}
-            <option value="{{ plan.id }}">{{ plan.name }}</option>
-          {% endfor %}
-        </optgroup>
+  {% for group in product.selling_plan_groups %}
+    <optgroup label="{{ group.name }}">
+      {% for plan in group.selling_plans %}
+        <option value="{{ plan.id | split: '/' | last }}">{{ plan.name }}</option>
       {% endfor %}
-    </select>
+    </optgroup>
+  {% endfor %}
+</select>
   </div>
 
 </div>

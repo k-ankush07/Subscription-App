@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   BlockStack,
   Button,
@@ -21,7 +21,7 @@ import Products from "../Products";
 import AutomaticActions from "../PlanPage/AutomaticActions";
 
 function DeliveryOptionCard({
-  option, 
+  option,
   index,
   onChange,
   onDelete,
@@ -655,6 +655,8 @@ function DeliveryOptions({
   selectedProducts,
   validationErrors = {},
   submitted = false,
+  deletedPlanIds, // ← add karo
+  setDeletedPlanIds,
 }) {
   const handleChange = (index, field, value) => {
     setOptions((prev) =>
@@ -676,16 +678,30 @@ function DeliveryOptions({
       }),
     );
   };
-
+   const cardRefs = useRef([]); 
   const deleteOption = (index) => {
-    setOptions((prev) => prev.filter((_, i) => i !== index));
+    setOptions((prev) => {
+      const deletedId = prev[index]?.sellingPlanId;
+      if (deletedId) {
+        setDeletedPlanIds((ids) => [...ids, deletedId]); //
+      }
+      return prev.filter((_, i) => i !== index);
+    });
   };
 
   const duplicateOption = (index) => {
     setOptions((prev) => {
-      const copied = { ...prev[index],  sellingPlanId: null, };
-      return [...prev.slice(0, index + 1), copied, ...prev.slice(index + 1)];
+      const copied = { ...prev[index], sellingPlanId: null };
+      // return [...prev.slice(0, index + 1), copied, ...prev.slice(index + 1)];
+      return [...prev, copied];
     });
+  //  last card pe scroll
+    setTimeout(() => {
+      const lastCard = cardRefs.current[options.length]; // naya card index
+      if (lastCard) {
+        lastCard.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }, 100);
   };
 
   const duplicateIndexes = validationErrors.duplicateDelivery?.indexes ?? [];
@@ -699,20 +715,21 @@ function DeliveryOptions({
             Delivery options
           </Text>
           {options.map((opt, i) => (
-            <DeliveryOptionCard
-              key={i}
-              option={opt}
-              index={i}
-              onChange={handleChange}
-              onDelete={deleteOption}
-              onDuplicate={duplicateOption}
-              selectedProducts={selectedProducts}
-              isDuplicateDelivery={duplicateIndexes.includes(i)}
-              billingError={validationErrors.billingMultiple?.[i] ?? null}
-              submitted={submitted}
-              duplicateNameIndexes={duplicateNameIndexes}
-              duplicateNameMessage={duplicateNameMessage}
-            />
+            <div key={i} ref={(el) => (cardRefs.current[i] = el)}>
+              <DeliveryOptionCard
+                option={opt}
+                index={i}
+                onChange={handleChange}
+                onDelete={deleteOption}
+                onDuplicate={duplicateOption}
+                selectedProducts={selectedProducts}
+                isDuplicateDelivery={duplicateIndexes.includes(i)}
+                billingError={validationErrors.billingMultiple?.[i] ?? null}
+                submitted={submitted}
+                duplicateNameIndexes={duplicateNameIndexes}
+                duplicateNameMessage={duplicateNameMessage}
+              />
+            </div>
           ))}
           <div style={{ paddingTop: "20px" }}>
             <Button onClick={addOption}>Add option</Button>
