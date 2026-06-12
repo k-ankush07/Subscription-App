@@ -106,7 +106,6 @@
         }),
       })
       .then(function (res) { return res.json(); })
-       .then(data => console.log("yes",data))
       .then(function (data) {
         console.log("Cart response:", data);
         // Cart refresh karo
