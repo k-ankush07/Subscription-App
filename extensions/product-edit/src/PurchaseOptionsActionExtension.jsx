@@ -3,6 +3,7 @@ import { useState, useEffect } from "preact/hooks";
 
 export default function PurchaseOptionsActionExtension() {
   const { i18n, extension: { target }, close, data } = shopify;
+  console.log("nvjdnvjnd",data)
 
   const selected = data?.selected?.[0];
   const productId = selected?.id;
@@ -38,6 +39,7 @@ export default function PurchaseOptionsActionExtension() {
           sellingPlanGroup(id: $id) {
             id
             name
+            description
             merchantCode
             sellingPlans(first: 1) {
               edges {
@@ -80,8 +82,9 @@ export default function PurchaseOptionsActionExtension() {
       console.log('Fetched group:', JSON.stringify(result, null, 2));
 
       const group = result?.data?.sellingPlanGroup;
+      console.log('vdbvjbv', group)
       if (group) {
-        setPlanName(group.name || "");
+        setPlanName(group.title || "");
         setMerchantCode(group.merchantCode || "");
 
         const plan = group.sellingPlans?.edges?.[0]?.node;
