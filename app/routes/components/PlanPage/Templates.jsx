@@ -169,7 +169,7 @@ function Templates({
   //   planData?.options ?? [{ ...defaultOption }],
   // );
   const [options, setOptions] = useState(
-  planData?.options ?? [defaultOption(0)],  // ← function call karo
+  planData?.options ?? [defaultOption(0)],  //  function call karo
 );
   const [selectedProducts, setSelectedProducts] = useState(
     planData?.selectedProducts ?? [],
