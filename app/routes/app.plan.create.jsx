@@ -171,10 +171,6 @@ export const action = async ({ request }) => {
     );
     const metafieldSetData = await metafieldSetRes.json();
 
-    console.log(
-      "dsfsdgdgergrdgrgrdggg",
-      metafieldSetData.data.metafieldsSet.metafields,
-    );
 
     const metafieldErrors = metafieldSetData.data.metafieldsSet.userErrors;
     if (metafieldErrors?.length > 0) {
