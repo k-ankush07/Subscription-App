@@ -142,7 +142,7 @@ function Plans() {
       resourceIDResolver: (g) => g.id,
     });
 
-  // Delete ke baad UI se hatao
+  // Delete ke baad UI se hata do
   React.useEffect(() => {
     if (fetcher.state === "idle" && fetcher.data?.success) {
       setGroups((prev) =>
