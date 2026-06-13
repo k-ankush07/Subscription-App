@@ -110,16 +110,16 @@ export const loader = async ({ request, params }) => {
   const data = await res.json();
   const group = data.data.sellingPlanGroup;
   // console.log('dfdfdfedfefe',group.products.edges)
-  console.log(
-    JSON.stringify(
-      group.sellingPlans.edges.map((edge) => ({
-        name: edge.node.name,
-        pricingPolicies: edge.node.pricingPolicies,
-      })),
-      null,
-      2,
-    ),
-  );
+console.log(
+  JSON.stringify(
+    group.sellingPlans.edges.map(edge => ({
+      name: edge.node.name,
+      pricingPolicies: edge.node.pricingPolicies,
+    })),
+    null,
+    2
+  )
+);
 
   if (!group) throw new Response("Plan not found", { status: 404 });
 
@@ -145,10 +145,9 @@ export const loader = async ({ request, params }) => {
       const adjustmentValue = pricing?.adjustmentValue;
       // Matching custom option
       // const metaOption = metadata?.options?.[index] || {};
-      const metaOption =
-        metadata?.options?.find((o) => o.sellingPlanId === plan.id) ||
-        metadata?.options?.[index] ||
-        {};
+      const metaOption = metadata?.options?.find(
+    (o) => o.sellingPlanId === plan.id
+  ) || metadata?.options?.[index] || {};
 
       return {
         sellingPlanId: plan.id,
@@ -218,7 +217,7 @@ export const action = async ({ request, params }) => {
   const body = await request.json();
   const { type, planPayload, shopifyGroupId } = body;
   // console.log("Current Options", planPayload.options);
-
+  
   const removedProductIds = planPayload.removedProductIds;
   const originalProductIds = planPayload.originalProductIds ?? [];
   const shopRes = await admin.graphql(`query { shop { id } }`);
@@ -271,7 +270,7 @@ export const action = async ({ request, params }) => {
             sellingPlansToUpdate: planPayload.options
               .filter((o) => o.sellingPlanId)
               .map((opt, i) => {
-                //
+                // 
                 const interval =
                   intervalMap[opt.deliveryInterval?.toLowerCase()] ?? "MONTH";
                 const intervalCount = parseInt(opt.deliveryFrequency || 1);
@@ -280,28 +279,26 @@ export const action = async ({ request, params }) => {
                   name: opt.name || "Option",
                   options: [
                     `Every ${intervalCount} ${opt.deliveryInterval || "month"}`,
-                  ],
+                  ], 
                   billingPolicy: { recurring: { interval, intervalCount } },
                   deliveryPolicy: { recurring: { interval, intervalCount } },
-                 pricingPolicies:
-  opt.giveDiscount && opt.discountAmount
-    ? [
-        {
-          fixed: {
-            adjustmentType:
-              opt.discountType === "percentage"
-                ? "PERCENTAGE"
-                : opt.discountType === "fixed"
-                ? "PRICE"
-                : "FIXED_AMOUNT",
-            adjustmentValue:
-              opt.discountType === "percentage"
-                ? { percentage: parseFloat(opt.discountAmount) }
-                : { fixedValue: parseFloat(opt.discountAmount).toFixed(2) }, // ← plain string
-          },
-        },
-      ]
-    : [],
+        pricingPolicies:
+          opt.giveDiscount && opt.discountAmount
+            ? [
+                {
+                  fixed: {
+                    adjustmentType:
+                      opt.discountType === "percentage"
+                        ? "PERCENTAGE"
+                        : "PRICE",
+                    adjustmentValue:
+                      opt.discountType === "percentage"
+                        ? { percentage: parseFloat(opt.discountAmount) }
+                        : { fixedValue: parseFloat(opt.discountAmount) },
+                  },
+                },
+              ]
+            : [],
                 };
               }),
 
@@ -323,57 +320,42 @@ export const action = async ({ request, params }) => {
                   pricingPolicies:
                     opt.giveDiscount && opt.discountAmount
                       ? [
-                          {
-                            fixed: {
-                              adjustmentType:
-                                opt.discountType === "percentage"
-                                  ? "PERCENTAGE"
-                                  : "PRICE",
-                              adjustmentValue:
-                                opt.discountType === "percentage"
-                                  ? {
-                                      percentage: parseFloat(
-                                        opt.discountAmount,
-                                      ),
-                                    }
-                                  : {
-                                      fixedValue: parseFloat(
-                                        opt.discountAmount,
-                                      ),
-                                    },
-                            },
-                          },
+                           {
+                  fixed: {
+                    adjustmentType:
+                      opt.discountType === "percentage"
+                        ? "PERCENTAGE"
+                        : "PRICE",
+                    adjustmentValue:
+                      opt.discountType === "percentage"
+                        ? { percentage: parseFloat(opt.discountAmount) }
+                        : { fixedValue: parseFloat(opt.discountAmount) },
+                  },
+                },
                         ]
                       : [],
                 };
+                
               }),
+              
           },
         },
       },
     );
-    console.log(
-      "UPDATE sending:",
-      planPayload.options
-        .filter((o) => o.sellingPlanId)
-        .map((opt) => ({
-          id: opt.sellingPlanId,
-          name: opt.name,
-          optionStr: `Every ${parseInt(opt.deliveryFrequency || 1)} ${opt.deliveryInterval || "month"}`,
-          interval: intervalMap[opt.deliveryInterval?.toLowerCase()],
-        })),
-    );
+ console.log("UPDATE sending:", planPayload.options
+  .filter((o) => o.sellingPlanId)
+  .map((opt) => ({
+    id: opt.sellingPlanId,
+    name: opt.name,
+    optionStr: `Every ${parseInt(opt.deliveryFrequency || 1)} ${opt.deliveryInterval || "month"}`,
+    interval: intervalMap[opt.deliveryInterval?.toLowerCase()]
+  }))
+);
 
     const updateData = await updateRes.json();
     // console.log("jcdscdbcjkdbcjd", updateData.data.sellingPlanGroupUpdate)
     const updateErrors = updateData.data.sellingPlanGroupUpdate.userErrors;
-    console.log(
-      "Shopify userErrors:",
-      JSON.stringify(
-        updateData.data.sellingPlanGroupUpdate.userErrors,
-        null,
-        2,
-      ),
-    );
+    console.log("Shopify userErrors:", JSON.stringify(updateData.data.sellingPlanGroupUpdate.userErrors, null, 2));
     if (updateErrors?.length > 0) {
       return json({
         success: false,
@@ -467,21 +449,21 @@ export const action = async ({ request, params }) => {
         },
       },
     );
-    const freshRes = await admin.graphql(
-      `query getSellingPlanGroup($id: ID!) {
+const freshRes = await admin.graphql(
+  `query getSellingPlanGroup($id: ID!) {
     sellingPlanGroup(id: $id) {
       sellingPlans(first: 10) {
         edges { node { id name } }
       }
     }
   }`,
-      { variables: { id: shopifyGroupId } },
-    );
-    const freshData = await freshRes.json();
-    const freshPlans = freshData.data.sellingPlanGroup.sellingPlans.edges.map(
-      (e) => ({ id: e.node.id, name: e.node.name }),
-    );
-    return json({ success: true, planId: params.planId, freshPlans });
+  { variables: { id: shopifyGroupId } }
+);
+const freshData = await freshRes.json();
+const freshPlans = freshData.data.sellingPlanGroup.sellingPlans.edges.map(
+  (e) => ({ id: e.node.id, name: e.node.name })
+);
+    return json({ success: true, planId: params.planId,freshPlans  });
   } catch (error) {
     return json({ success: false, error: error.message });
   }
