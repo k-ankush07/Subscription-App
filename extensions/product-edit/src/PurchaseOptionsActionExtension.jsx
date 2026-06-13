@@ -3,7 +3,7 @@ import { useState, useEffect } from "preact/hooks";
 
 export default function PurchaseOptionsActionExtension() {
   const { i18n, extension: { target }, close, data } = shopify;
-  console.log("nvjdnvjnd",data)
+  // console.log("nvjdnvjnd",data)
 
   const selected = data?.selected?.[0];
   const productId = selected?.id;
@@ -79,7 +79,7 @@ export default function PurchaseOptionsActionExtension() {
       });
 
       const result = await response.json();
-      console.log('Fetched group:', JSON.stringify(result, null, 2));
+      // console.log('Fetched group:', JSON.stringify(result, null, 2));
 
       const group = result?.data?.sellingPlanGroup;
       console.log('vdbvjbv', group)
