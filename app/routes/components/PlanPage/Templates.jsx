@@ -33,15 +33,21 @@ function validate({ selectedProducts, options }) {
   if (selectedProducts.length === 0) {
     errors.noProducts = "Please select at least one product to continue.";
   }
- const seen = new Map(), dup = new Set();
+  const seen = new Map(),
+    dup = new Set();
 
- //dublicate delivery option error
-options.forEach((o, i) => {
-  const n = (o.name || "").toLowerCase().trim();
-  if (seen.has(n)) dup.add(i).add(seen.get(n)); else seen.set(n, i);
-});
+  //dublicate delivery option error
+  options.forEach((o, i) => {
+    const n = (o.name || "").toLowerCase().trim();
+    if (seen.has(n)) dup.add(i).add(seen.get(n));
+    else seen.set(n, i);
+  });
 
-if (dup.size) errors.duplicateName = { message: "Unique name required", indexes: [...dup] };
+  if (dup.size)
+    errors.duplicateName = {
+      message: "Unique name required",
+      indexes: [...dup],
+    };
 
   //  Duplicate delivery (frequency must be unique across options)
   const deliveryKeys = options.map(
@@ -136,11 +142,11 @@ function Templates({
   const API_URL = import.meta.env.VITE_API_URL;
   const navigate = useNavigate();
   // Component ke andar
-const fetcher = useFetcher();
+  const fetcher = useFetcher();
   const [openProductModal, setOpenProductModal] = useState(false);
   const [tempSelected, setTempSelected] = useState([]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-const [deletedPlanIds, setDeletedPlanIds] = useState([]);
+  const [deletedPlanIds, setDeletedPlanIds] = useState([]);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [loading, setLoading] = useState(false);
   // Show validation errors
@@ -152,7 +158,7 @@ const [deletedPlanIds, setDeletedPlanIds] = useState([]);
     handlePrev: () => {},
     handleNext: () => {},
   });
-  
+
   const isEditing = !!singlePlanId && !isDuplicate;
   const planId = isEditing ? singlePlanId : null;
   const planData = isDuplicate ? dublicateplanPlanData : singlePlanData;
@@ -165,8 +171,8 @@ const [deletedPlanIds, setDeletedPlanIds] = useState([]);
     planData?.selectedProducts ?? [],
   );
   const [originalProductIds] = useState(
-  () => planData?.selectedProducts?.map(p => p.productId) ?? []
-);
+    () => planData?.selectedProducts?.map((p) => p.productId) ?? [],
+  );
 
   const [title, setTitle] = useState(planData?.title ?? "Subscribe and save");
   const [description, setDescription] = useState(
@@ -194,36 +200,34 @@ const [deletedPlanIds, setDeletedPlanIds] = useState([]);
     },
   });
 
-//   useEffect(() => {
-//   if (!planData) return;
+  //   useEffect(() => {
+  //   if (!planData) return;
 
-//   const newState = {
-//     title: planData.title ?? "Subscribe and save",
-//     description: planData.description ?? "Plan1",
-//     selectedProducts: planData.selectedProducts ?? [],
-//     options: planData.options ?? [{ ...defaultOption }],
-//     productChanges:
-//       planData.productChanges ?? {
-//         swap: true,
-//         variant: true,
-//         quantity: true,
-//         keepDiscount: true,
-//       },
-//   };
+  //   const newState = {
+  //     title: planData.title ?? "Subscribe and save",
+  //     description: planData.description ?? "Plan1",
+  //     selectedProducts: planData.selectedProducts ?? [],
+  //     options: planData.options ?? [{ ...defaultOption }],
+  //     productChanges:
+  //       planData.productChanges ?? {
+  //         swap: true,
+  //         variant: true,
+  //         quantity: true,
+  //         keepDiscount: true,
+  //       },
+  //   };
 
-//   setTitle(newState.title);
-//   setDescription(newState.description);
-//   setSelectedProducts(newState.selectedProducts);
-//   setOptions(newState.options);
-//   setProductChanges(newState.productChanges);
+  //   setTitle(newState.title);
+  //   setDescription(newState.description);
+  //   setSelectedProducts(newState.selectedProducts);
+  //   setOptions(newState.options);
+  //   setProductChanges(newState.productChanges);
 
-//   setSavedState(newState);
-//   setSubmitted(false);
-// }, [planData]);
+  //   setSavedState(newState);
+  //   setSubmitted(false);
+  // }, [planData]);
   //  validation
-  
-  
-  
+
   const errors = validate({ selectedProducts, options });
   const isValid = Object.keys(errors).length === 0;
 
@@ -255,97 +259,106 @@ const [deletedPlanIds, setDeletedPlanIds] = useState([]);
     }
   }, [loading]);
 
-
-  
   // handlePublishClick replace karo
-const handlePublishClick = () => {
-  
-  setSubmitted(true);
-  if (!isValid) return;
-  setLoading(true);
+  const handlePublishClick = () => {
+    setSubmitted(true);
+    if (!isValid) return;
+    setLoading(true);
 
-  const payload = buildPayload({
-    shop, selectedProducts, options, productChanges, title, description,
-  });
+    const payload = buildPayload({
+      shop,
+      selectedProducts,
+      options,
+      productChanges,
+      title,
+      description,
+    });
 
-console.log("before", payload)
-  const currentProductIds = selectedProducts.map(p => p.productId);
-  const removedProductIds = originalProductIds.filter(
-    id => !currentProductIds.includes(id)
-  )
-  const action = (!isEditing) ? "/app/plan/create" : undefined;
+    console.log("before", payload);
+    const currentProductIds = selectedProducts.map((p) => p.productId);
+    const removedProductIds = originalProductIds.filter(
+      (id) => !currentProductIds.includes(id),
+    );
+    const action = !isEditing ? "/app/plan/create" : undefined;
 
-  fetcher.submit(
-    {
-      planPayload: { ...payload, removedProductIds ,originalProductIds, deletedPlanIds,},
-      shopifyGroupId: isEditing ? (planData?.shopifyGroupId ?? null) : null,
-      type: "upsert",
-    },
-    {
-      method: "POST",
-      encType: "application/json",
-      action,  // ← create route for new/duplicate, current route for edit
-    }
-  );
-};
+    fetcher.submit(
+      {
+        planPayload: {
+          ...payload,
+          removedProductIds,
+          originalProductIds,
+          deletedPlanIds,
+        },
+        shopifyGroupId: isEditing ? (planData?.shopifyGroupId ?? null) : null,
+        type: "upsert",
+      },
+      {
+        method: "POST",
+        encType: "application/json",
+        action, // ← create route for new/duplicate, current route for edit
+      },
+    );
+  };
 
+  useEffect(() => {
+    if (fetcher.state === "idle" && fetcher.data) {
+      setLoading(false);
+      if (fetcher.data.success) {
+        if (fetcher.data.freshPlans) {
+          // Updated options banao
+          const updatedOptions = options.map((opt) => {
+            const matched = fetcher.data.freshPlans.find(
+              (p) => p.name === opt.name,
+            );
+            return matched ? { ...opt, sellingPlanId: matched.id } : opt;
+          });
 
+          setOptions(updatedOptions); //  options update karo
 
-useEffect(() => {
-  if (fetcher.state === "idle" && fetcher.data) {
-    setLoading(false);
-    if (fetcher.data.success) {
-      
-      if (fetcher.data.freshPlans) {
-        // Updated options banao
-        const updatedOptions = options.map((opt) => {
-          const matched = fetcher.data.freshPlans.find(
-            (p) => p.name === opt.name
-          );
-          return matched ? { ...opt, sellingPlanId: matched.id } : opt;
-        });
-        
-        setOptions(updatedOptions); //  options update karo
-        
-        // savedState  updated options
-        setSavedState({ 
-          title, 
-          description, 
-          selectedProducts, 
-          options: updatedOptions, 
-          productChanges 
-        });
+          // savedState  updated options
+          setSavedState({
+            title,
+            description,
+            selectedProducts,
+            options: updatedOptions,
+            productChanges,
+          });
+        } else {
+          setSavedState({
+            title,
+            description,
+            selectedProducts,
+            options,
+            productChanges,
+          });
+        }
+
+        navigate(`/app/plan/${fetcher.data.planId}`, { replace: true });
       } else {
-        setSavedState({ title, description, selectedProducts, options, productChanges });
+        console.error("Error:", fetcher.data.error);
       }
-
-      navigate(`/app/plan/${fetcher.data.planId}`, { replace: true });
-    } else {
-      console.error("Error:", fetcher.data.error);
     }
-  }
-  if (fetcher.state === "submitting") setLoading(true);
-}, [fetcher.state, fetcher.data]);
+    if (fetcher.state === "submitting") setLoading(true);
+  }, [fetcher.state, fetcher.data]);
 
-//  const handleDeletePlan = async () => {
-//     try {
-//       const res = await fetch(
-//         `${API_URL}/plans/${singlePlanId}`,
-//         {
-//           method: "DELETE",
-//         },
-//       );
+  //  const handleDeletePlan = async () => {
+  //     try {
+  //       const res = await fetch(
+  //         `${API_URL}/plans/${singlePlanId}`,
+  //         {
+  //           method: "DELETE",
+  //         },
+  //       );
 
-//       const data = await res.json();
+  //       const data = await res.json();
 
-//       if (data.success) {
-//         setTimeout(() => navigate("/app/plans"), 1000);
-//       }
-//     } catch (error) {
-//       console.error(error);
-//     }
-//   };
-  
+  //       if (data.success) {
+  //         setTimeout(() => navigate("/app/plans"), 1000);
+  //       }
+  //     } catch (error) {
+  //       console.error(error);
+  //     }
+  //   };
 
   // const handleDeletePlan = (group, e) => {
   //   e.stopPropagation();
@@ -354,8 +367,7 @@ useEffect(() => {
   //     { method: "POST", encType: "application/json" },
   //   );
   // };
-  
-  
+
   const handleDiscard = () => {
     setTitle(savedState.title);
     setDescription(savedState.description);
@@ -394,7 +406,10 @@ useEffect(() => {
   };
 
   const addOption = () => {
-    setOptions((prev) => [...prev, { ...defaultOption(prev.length)   ,sellingPlanId: null }]);
+    setOptions((prev) => [
+      ...prev,
+      { ...defaultOption(prev.length), sellingPlanId: null },
+    ]);
   };
 
   useEffect(() => {
@@ -407,7 +422,6 @@ useEffect(() => {
   // Errors to display (only after submit)
   const showErrors = submitted ? errors : {};
 
- 
   return (
     <Page
       backAction={{
@@ -574,7 +588,7 @@ useEffect(() => {
                           padding: "10px",
                         }}
                       >
-                         <InlineStack align="space-between" blockAlign="center">
+                        <InlineStack align="space-between" blockAlign="center">
                           <div
                             style={{
                               display: "flex",
@@ -742,8 +756,8 @@ useEffect(() => {
               // validation props
               validationErrors={showErrors}
               submitted={submitted}
-              deletedPlanIds={deletedPlanIds}        // ← add karo
-  setDeletedPlanIds={setDeletedPlanIds}
+              deletedPlanIds={deletedPlanIds} // ← add karo
+              setDeletedPlanIds={setDeletedPlanIds}
             />
           </BlockStack>
 
