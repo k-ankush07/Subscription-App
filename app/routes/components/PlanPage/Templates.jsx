@@ -149,6 +149,7 @@ function Templates({
   const [deletedPlanIds, setDeletedPlanIds] = useState([]);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [optionSubmitted, setOptionSubmitted] = useState(false);
   // Show validation errors
   const [submitted, setSubmitted] = useState(false);
 
@@ -164,9 +165,12 @@ function Templates({
   const planData = isDuplicate ? dublicateplanPlanData : singlePlanData;
 
   // Initialize state from singlePlanData if editing
+  // const [options, setOptions] = useState(
+  //   planData?.options ?? [{ ...defaultOption }],
+  // );
   const [options, setOptions] = useState(
-    planData?.options ?? [{ ...defaultOption }],
-  );
+  planData?.options ?? [defaultOption(0)],  // ← function call karo
+);
   const [selectedProducts, setSelectedProducts] = useState(
     planData?.selectedProducts ?? [],
   );

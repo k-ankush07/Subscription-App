@@ -1,0 +1,22 @@
+.subscription-widget{
+    padding: 10px 10px;
+    border: 1px solid black;
+    border-radius: 10px;
+    display : flex;
+    flex-direction: column;
+    gap: 20;
+    font-size: 20px;
+}
+.purchase-option input[type="radio"] {
+  accent-color: #000000;
+}
+#selling-plan-select{
+    padding: 5px;
+    border-radius: 8px;
+    outline:0;
+    width:100%;
+    box-shadow: none;
+}
+.purchase-option >span {
+    font-weight: bold;
+}

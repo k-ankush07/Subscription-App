@@ -1,5 +1,5 @@
-export  const defaultOption = (index)=>({
-  name: `option ${index+1}`,
+export  const defaultOption = (index=0)=>({
+  name: index === 0 ? "Option 1" : `Option ${index + 1}`,
   billingType: "pay",
   billingFrequency: "",
   billingInterval: "weeks",
