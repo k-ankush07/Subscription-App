@@ -195,7 +195,7 @@ function Templates({
     title: planData?.title ?? "Subscribe and save",
     description: planData?.description ?? "Plan1",
     selectedProducts: planData?.selectedProducts ?? [],
-    options: planData?.options ?? [{ ...defaultOption() }],
+    options: planData?.options ?? [{ ...defaultOption(0) }],
     productChanges: planData?.productChanges ?? {
       swap: true,
       variant: true,
@@ -203,6 +203,8 @@ function Templates({
       keepDiscount: true,
     },
   });
+
+  
 
   //   useEffect(() => {
   //   if (!planData) return;
