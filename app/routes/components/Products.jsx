@@ -207,12 +207,12 @@ const isProductIndeterminate = (product) => {
     selectedProduct.variantIds.length > 0 &&
     selectedProduct.variantIds.length < product.variants.length;
 
-  console.log({
-    title: product.title,
-    selected: selectedProduct.variantIds.length,
-    total: product.variants.length,
-    indeterminate: result,
-  });
+  // console.log({
+  //   title: product.title,
+  //   selected: selectedProduct.variantIds.length,
+  //   total: product.variants.length,
+  //   indeterminate: result,
+  // });
 
   return result;
 };

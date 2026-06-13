@@ -41,26 +41,28 @@ export const action = async ({ request }) => {
         billingPolicy: { recurring: { interval, intervalCount } },
         deliveryPolicy: { recurring: { interval, intervalCount } },
         pricingPolicies:
-          opt.giveDiscount && opt.discountAmount
-            ? [
-                {
-                  fixed: {
-                    adjustmentType:
-                      opt.discountType === "percentage"
-                        ? "PERCENTAGE"
-                        : "PRICE",
-                    adjustmentValue:
-                      opt.discountType === "percentage"
-                        ? { percentage: parseFloat(opt.discountAmount) }
-                        : { fixedValue: parseFloat(opt.discountAmount) },
-                  },
-                },
-              ]
-            : [],
+  opt.giveDiscount && opt.discountAmount
+    ? [
+        {
+          fixed: {
+            adjustmentType:
+              opt.discountType === "percentage"
+                ? "PERCENTAGE"
+                : opt.discountType === "fixed"
+                ? "PRICE"
+                : "FIXED_AMOUNT",
+            adjustmentValue:
+              opt.discountType === "percentage"
+                ? { percentage: parseFloat(opt.discountAmount) }
+                : { fixedValue: parseFloat(opt.discountAmount).toFixed(2) }, // ← plain string
+          },
+        },
+      ]
+    : [],
       };
     });
 
-    //  console.log("fnjkbfjkedbffndb",sellingPlans.pricingPolicies)
+     console.log("fnjkbfjkedbffndb",sellingPlans.pricingPolicies)
     //  console.log("fnjkbfjkedbffndbsddwqdwdwdqw",planPayload.options.map((o) => o.name || "Option"),)
     // 1. Selling Plan Group create
     const createRes = await admin.graphql(
