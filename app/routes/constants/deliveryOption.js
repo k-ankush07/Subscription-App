@@ -1,5 +1,5 @@
-export  const defaultOption = {
-  name: "",
+export  const defaultOption = (index)=>({
+  name: `option ${index+1}`,
   billingType: "pay",
   billingFrequency: "",
   billingInterval: "weeks",
@@ -30,4 +30,4 @@ export  const defaultOption = {
   setMinQty: false,
   minQuantity: "1",
   selectedProducts: [],
-};
+});

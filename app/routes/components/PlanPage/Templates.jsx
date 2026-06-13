@@ -267,8 +267,8 @@ const handlePublishClick = () => {
   const payload = buildPayload({
     shop, selectedProducts, options, productChanges, title, description,
   });
-console.log("options before submit:", payload,);
 
+console.log("before", payload)
   const currentProductIds = selectedProducts.map(p => p.productId);
   const removedProductIds = originalProductIds.filter(
     id => !currentProductIds.includes(id)
@@ -290,19 +290,7 @@ console.log("options before submit:", payload,);
 };
 
 
-// // fetcher response watch karo
-// useEffect(() => {
-//   if (fetcher.state === "idle" && fetcher.data) {
-//     setLoading(false);
-//     if (fetcher.data.success) {
-//       setSavedState({ title, description, selectedProducts, options, productChanges });
-//       navigate(`/app/plan/${fetcher.data.planId}`,{ replace: true });  // directly planId aata hai ab
-//     } else {
-//       console.error("Error:", fetcher.data.error);
-//     }
-//   }
-//   if (fetcher.state === "submitting") setLoading(true);
-// }, [fetcher.state, fetcher.data]);
+
 useEffect(() => {
   if (fetcher.state === "idle" && fetcher.data) {
     setLoading(false);
@@ -406,7 +394,7 @@ useEffect(() => {
   };
 
   const addOption = () => {
-    setOptions((prev) => [...prev, { ...defaultOption   ,sellingPlanId: null }]);
+    setOptions((prev) => [...prev, { ...defaultOption(prev.length)   ,sellingPlanId: null }]);
   };
 
   useEffect(() => {

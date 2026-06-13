@@ -79,6 +79,8 @@ export const loader = async ({ request, params }) => {
     { variables: { id: fullGid } },
   );
 
+
+
   const metafieldRes = await admin.graphql(
     `
   query GetPlanMetafield($namespace: String!, $key: String!) {
@@ -108,18 +110,9 @@ export const loader = async ({ request, params }) => {
     : null;
   // console.log('metadta', metadata)
   const data = await res.json();
+  // console.log("log data", JSON.stringify(data.data.sellingPlanGroup.sellingPlans.edges, null, 2));
   const group = data.data.sellingPlanGroup;
   // console.log('dfdfdfedfefe',group.products.edges)
-  console.log(
-    JSON.stringify(
-      group.sellingPlans.edges.map((edge) => ({
-        name: edge.node.name,
-        pricingPolicies: edge.node.pricingPolicies,
-      })),
-      null,
-      2,
-    ),
-  );
 
   if (!group) throw new Response("Plan not found", { status: 404 });
 
@@ -365,17 +358,15 @@ export const action = async ({ request, params }) => {
         },
       },
     );
-    console.log(
-      "UPDATE sending:",
-      planPayload.options
-        .filter((o) => o.sellingPlanId)
-        .map((opt) => ({
-          id: opt.sellingPlanId,
-          name: opt.name,
-          optionStr: `Every ${parseInt(opt.deliveryFrequency || 1)} ${opt.deliveryInterval || "month"}`,
-          interval: intervalMap[opt.deliveryInterval?.toLowerCase()],
-        })),
-    );
+  console.log("CREATE sending:", planPayload.options
+  .filter((o) => !o.sellingPlanId)
+  .map((opt) => ({
+    name: opt.name,
+    interval: intervalMap[opt.deliveryInterval?.toLowerCase()],
+    frequency: opt.deliveryFrequency,
+    optionStr: `Every ${parseInt(opt.deliveryFrequency || 1)} ${opt.deliveryInterval || "month"}`,
+  }))
+);
 
     const updateData = await updateRes.json();
     // console.log("jcdscdbcjkdbcjd", updateData.data.sellingPlanGroupUpdate)

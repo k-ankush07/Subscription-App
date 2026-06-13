@@ -655,7 +655,7 @@ function DeliveryOptions({
   selectedProducts,
   validationErrors = {},
   submitted = false,
-  deletedPlanIds, // ← add karo
+  deletedPlanIds, //  add karo
   setDeletedPlanIds,
 }) {
   const handleChange = (index, field, value) => {
