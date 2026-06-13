@@ -23,7 +23,7 @@ export const action = async ({ request }) => {
   const { admin } = await authenticate.admin(request);
   const body = await request.json();
   const { planPayload } = body;
-  // console.log("body log", planPayload)
+console.log("body log", planPayload.options.map(opt => opt.name));
 
   try {
     const shopRes = await admin.graphql(`query { shop { id } }`);
@@ -31,7 +31,8 @@ export const action = async ({ request }) => {
     const shopId = shopData.data.shop.id;
 
     const sellingPlans = planPayload.options.map((opt, i) => {
-      const interval = intervalMap[opt.deliveryInterval?.toLowerCase()] ?? "MONTH";
+      const interval =
+        intervalMap[opt.deliveryInterval?.toLowerCase()] ?? "MONTH";
       const intervalCount = parseInt(opt.deliveryFrequency) || 1;
       return {
         name: opt.name || `Option ${i + 1}`,
@@ -80,7 +81,7 @@ export const action = async ({ request }) => {
           input: {
             name: planPayload.title,
             merchantCode: `${planPayload.description}`,
-            description: planPayload.description,
+            description: `${planPayload.description}`,
             options: ["Delivery Frequency"],
             sellingPlansToCreate: sellingPlans,
           },
@@ -99,7 +100,8 @@ export const action = async ({ request }) => {
       });
     }
 
-    const shopifyGroupId = createData.data.sellingPlanGroupCreate.sellingPlanGroup.id;
+    const shopifyGroupId =
+      createData.data.sellingPlanGroupCreate.sellingPlanGroup.id;
     const numericId = shopifyGroupId.split("/").pop();
     // console.log("shopifyGroupId:", shopifyGroupId, "| numericId:", numericId);
 

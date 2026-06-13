@@ -494,7 +494,7 @@ export const action = async ({ request, params }) => {
 
 export default function PlanId() {
   const plan = useLoaderData();
-  console.log("Plan data loaded:", plan);
+  // console.log("Plan data loaded:", plan);
   return (
     <div style={{ padding: "1.5rem" }}>
       <Templates

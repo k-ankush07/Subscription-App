@@ -195,7 +195,7 @@ function Templates({
     title: planData?.title ?? "Subscribe and save",
     description: planData?.description ?? "Plan1",
     selectedProducts: planData?.selectedProducts ?? [],
-    options: planData?.options ?? [{ ...defaultOption }],
+    options: planData?.options ?? [{ ...defaultOption() }],
     productChanges: planData?.productChanges ?? {
       swap: true,
       variant: true,
