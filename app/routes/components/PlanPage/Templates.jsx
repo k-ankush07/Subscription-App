@@ -143,7 +143,6 @@ const fetcher = useFetcher();
 const [deletedPlanIds, setDeletedPlanIds] = useState([]);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [deleting, setDeleting] = useState(false);
   // Show validation errors
   const [submitted, setSubmitted] = useState(false);
 
@@ -328,20 +327,34 @@ useEffect(() => {
   if (fetcher.state === "submitting") setLoading(true);
 }, [fetcher.state, fetcher.data]);
 
-const handleDeletePlan = async () => {
-  setDeleting(true);
-  try {
-    const res = await fetch(`${API_URL}/plans/${singlePlanId}`, {
-      method: "DELETE",
-    });
+//  const handleDeletePlan = async () => {
+//     try {
+//       const res = await fetch(
+//         `${API_URL}/plans/${singlePlanId}`,
+//         {
+//           method: "DELETE",
+//         },
+//       );
 
-    const data = await res.json();
+//       const data = await res.json();
 
-    if (data.success) navigate("/app/plans");
-  } finally {
-    setDeleting(false);
-  }
-};
+//       if (data.success) {
+//         setTimeout(() => navigate("/app/plans"), 1000);
+//       }
+//     } catch (error) {
+//       console.error(error);
+//     }
+//   };
+  
+
+  // const handleDeletePlan = (group, e) => {
+  //   e.stopPropagation();
+  //   fetcher.submit(
+  //     { items: [{ shopifyGroupId: group.id }] },
+  //     { method: "POST", encType: "application/json" },
+  //   );
+  // };
+  
   
   const handleDiscard = () => {
     setTitle(savedState.title);
@@ -409,17 +422,17 @@ const handleDeletePlan = async () => {
             ? `Duplicate: ${description}`
             : description || "Create subscription plan"
       }
-    secondaryActions={
-  singlePlanId && !isDuplicate
-    ? [
-        {
-          content: "Delete Plan",
-          destructive: true,
-          onAction: () => setShowDeleteModal(true),
-        },
-      ]
-    : []
-}
+      // secondaryActions={
+      //   singlePlanId && !isDuplicate
+      //     ? [
+      //         {
+      //           content: "Delete Plan",
+      //           destructive: true,
+      //           onAction: () => setShowDeleteModal(true),
+      //         },
+      //       ]
+      //     : []
+      // }
       primaryAction={{
         content: isEditing ? "Update" : "Publish",
         onAction: handlePublishClick,
@@ -738,14 +751,14 @@ const handleDeletePlan = async () => {
             open={showDeleteModal}
             onClose={() => setShowDeleteModal(false)}
             title="Delete plan"
-           primaryAction={{
-   content: deleting ? "Deleting..." : "Delete",
-  destructive: true,
-  onAction: async () => {
-    setShowDeleteModal(false);
-    await handleDeletePlan();
-  },
-}}
+            primaryAction={{
+              content: "Delete",
+              destructive: true,
+              onAction: async () => {
+                setShowDeleteModal(false);
+                await handleDeletePlan(group, e);
+              },
+            }}
             secondaryActions={[
               {
                 content: "Cancel",
