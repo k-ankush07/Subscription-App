@@ -48,11 +48,15 @@ export const action = async ({ request }) => {
                     adjustmentType:
                       opt.discountType === "percentage"
                         ? "PERCENTAGE"
-                        : "FIXED_AMOUNT",
+                        : opt.discountType === "fixed"
+                          ? "PRICE" //  fixed price
+                          : "FIXED_AMOUNT", //  amount off ✓
                     adjustmentValue:
                       opt.discountType === "percentage"
                         ? { percentage: parseFloat(opt.discountAmount) }
-                        : { fixedValue: parseFloat(opt.discountAmount) },
+                        : opt.discountType === "fixed"
+                          ? { fixedValue: parseFloat(opt.discountAmount) }
+                          : { fixedValue: parseFloat(opt.discountAmount) }, // amount off
                   },
                 },
               ]
@@ -167,7 +171,10 @@ export const action = async ({ request }) => {
     );
     const metafieldSetData = await metafieldSetRes.json();
 
-    console.log("dsfsdgdgergrdgrgrdggg",metafieldSetData.data.metafieldsSet.metafields,);
+    console.log(
+      "dsfsdgdgergrdgrgrdggg",
+      metafieldSetData.data.metafieldsSet.metafields,
+    );
 
     const metafieldErrors = metafieldSetData.data.metafieldsSet.userErrors;
     if (metafieldErrors?.length > 0) {
@@ -186,4 +193,3 @@ function Create() {
 }
 
 export default Create;
-
