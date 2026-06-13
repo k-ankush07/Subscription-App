@@ -193,29 +193,6 @@ const Products = forwardRef(function Products(
     return selectedProduct.variantIds.length === product.variants.length;
   };
 
-const isProductIndeterminate = (product) => {
-  const selectedProduct = selectedItems.find(
-    (p) => p.productId === product.id
-  );
-
-  if (!selectedProduct) {
-    console.log(product.title, false);
-    return false;
-  }
-
-  const result =
-    selectedProduct.variantIds.length > 0 &&
-    selectedProduct.variantIds.length < product.variants.length;
-
-  // console.log({
-  //   title: product.title,
-  //   selected: selectedProduct.variantIds.length,
-  //   total: product.variants.length,
-  //   indeterminate: result,
-  // });
-
-  return result;
-};
 
 
   // check if specific variant is selected give true and false
@@ -432,7 +409,6 @@ const isProductIndeterminate = (product) => {
                             <Checkbox
                               label=""
                               checked={isProductSelected(product)}
-                              indeterminate={isProductIndeterminate(product)}
                               onChange={() => toggleProduct(product)}
                             />
                           </div>
