@@ -16,8 +16,38 @@
 //           firstName
 //           lastName
 //           email
+//           phone
+//         }
+//           deliveryMethod {
+//           ... on SubscriptionDeliveryMethodShipping {
+//             address {
+//               firstName
+//               lastName
+//               address1
+//               address2
+//               city
+//               province
+//               zip
+//               country
+//             }
+//           }
+//         }
+//            customerPaymentMethod {
+//           id
+//           instrument {
+//             ... on CustomerCreditCard {
+//               brand
+//               lastDigits
+//               expiryMonth
+//               expiryYear
+//             }
+//           }
 //         }
 //         billingPolicy {
+//           interval
+//           intervalCount
+//         }
+//           deliveryPolicy {
 //           interval
 //           intervalCount
 //         }
@@ -39,6 +69,22 @@
 //               currentPrice { amount currencyCode }
 //               lineDiscountedPrice { amount currencyCode }
 //               sellingPlanName
+//                pricingPolicy {
+//                 cycleDiscounts {
+//                   afterCycle
+//                   adjustmentType
+//                   adjustmentValue {
+//                     ... on SellingPlanPricingPolicyPercentageValue {
+//                       percentage
+//                     }
+//                     ... on MoneyV2 {
+//                       amount
+//                       currencyCode
+//                     }
+//                   }
+//                   computedPrice { amount currencyCode }
+//                 }
+//               }
 //             }
 //           }
 //         }
@@ -139,7 +185,6 @@
 //   );
 // }
 
-
 import { useLoaderData } from "react-router";
 import { authenticate } from "../shopify.server";
 
@@ -176,7 +221,6 @@ export async function loader({ request, params }) {
           }
         }
         customerPaymentMethod {
-          id
           instrument {
             ... on CustomerCreditCard {
               brand
@@ -215,16 +259,6 @@ export async function loader({ request, params }) {
               pricingPolicy {
                 cycleDiscounts {
                   afterCycle
-                  adjustmentType
-                  adjustmentValue {
-                    ... on SellingPlanPricingPolicyPercentageValue {
-                      percentage
-                    }
-                    ... on MoneyV2 {
-                      amount
-                      currencyCode
-                    }
-                  }
                   computedPrice { amount currencyCode }
                 }
               }
@@ -245,23 +279,6 @@ function formatDate(dateStr) {
   return `${d.getUTCDate()} ${d.toLocaleString("en-GB", { month: "long" })}, ${d.getUTCFullYear()}`;
 }
 
-function getUpcomingDates(nextBillingDate, interval, intervalCount, count = 6) {
-  if (!nextBillingDate || !interval) return [];
-  const dates = [];
-  const d = new Date(nextBillingDate);
-  const step = parseInt(intervalCount) || 1;
-  for (let i = 0; i < count; i++) {
-    dates.push(new Date(d));
-    switch (interval.toUpperCase()) {
-      case "DAY":   d.setUTCDate(d.getUTCDate() + step); break;
-      case "WEEK":  d.setUTCDate(d.getUTCDate() + step * 7); break;
-      case "MONTH": d.setUTCMonth(d.getUTCMonth() + step); break;
-      case "YEAR":  d.setUTCFullYear(d.getUTCFullYear() + step); break;
-    }
-  }
-  return dates;
-}
-
 function curr(code) {
   return code === "INR" ? "₹" : "$";
 }
@@ -274,7 +291,6 @@ export default function SubscriptionDetails() {
   const subId = contract.id.split("/").pop();
   const addr = contract.deliveryMethod?.address;
   const card = contract.customerPaymentMethod?.instrument;
-  const upcomingDates = getUpcomingDates(contract.nextBillingDate, bp?.interval, bp?.intervalCount, 6);
 
   return (
     <div style={{ padding: 20, maxWidth: 860, fontFamily: "Arial, sans-serif" }}>
@@ -287,9 +303,9 @@ export default function SubscriptionDetails() {
           ["Status", contract.status],
           ["Created", formatDate(contract.createdAt)],
           ["Next Billing", formatDate(contract.nextBillingDate)],
-          ["Billing cycle", `Every ${bp?.intervalCount} ${bp?.interval?.toLowerCase()}${bp?.intervalCount > 1 ? "s" : ""}`],
-          ["Current cycle", contract.currentBillingCycleIndex ?? "—"],
-          ["Total orders", orders?.edges?.length ?? 0],
+          ["Billing", `Every ${bp?.intervalCount} ${bp?.interval?.toLowerCase()}${bp?.intervalCount > 1 ? "s" : ""}`],
+          ["Current Cycle", contract.currentBillingCycleIndex ?? "—"],
+          ["Total Orders", orders?.edges?.length ?? 0],
         ].map(([label, value]) => (
           <div key={label} style={{ background: "#f6f6f7", borderRadius: 8, padding: "10px 16px", minWidth: 120 }}>
             <div style={{ fontSize: 12, color: "#888" }}>{label}</div>
@@ -302,28 +318,28 @@ export default function SubscriptionDetails() {
 
         {/* Customer */}
         <div style={{ border: "1px solid #e4e4e4", borderRadius: 8, padding: 16 }}>
-          <h3 style={{ margin: "0 0 12px" }}>Customer</h3>
+          <h3 style={{ margin: "0 0 10px" }}>Customer</h3>
           <p style={{ margin: "0 0 4px" }}><b>{customer?.firstName} {customer?.lastName}</b></p>
           <p style={{ margin: "0 0 4px", color: "#555" }}>{customer?.email}</p>
-          {customer?.phone && <p style={{ margin: 0, color: "#555" }}>{customer?.phone}</p>}
+          {customer?.phone && <p style={{ margin: 0, color: "#555" }}>{customer.phone}</p>}
         </div>
 
         {/* Shipping address */}
         <div style={{ border: "1px solid #e4e4e4", borderRadius: 8, padding: 16 }}>
-          <h3 style={{ margin: "0 0 12px" }}>Shipping address</h3>
+          <h3 style={{ margin: "0 0 10px" }}>Shipping address</h3>
           {addr ? (
-            <p style={{ margin: 0, lineHeight: 1.7, color: "#555" }}>
+            <p style={{ margin: 0, lineHeight: 1.8, color: "#555" }}>
               {addr.firstName} {addr.lastName}<br />
               {addr.address1}{addr.address2 ? `, ${addr.address2}` : ""}<br />
-              {addr.city}{addr.zip ? ` ${addr.zip}` : ""} {addr.province}<br />
+              {addr.city}{addr.zip ? ` ${addr.zip}` : ""}{addr.province ? `, ${addr.province}` : ""}<br />
               {addr.country}
             </p>
           ) : <p style={{ color: "#888" }}>No address on file</p>}
         </div>
 
-        {/* Payment method */}
+        {/* Payment */}
         <div style={{ border: "1px solid #e4e4e4", borderRadius: 8, padding: 16 }}>
-          <h3 style={{ margin: "0 0 12px" }}>Payment method</h3>
+          <h3 style={{ margin: "0 0 10px" }}>Payment method</h3>
           {card ? (
             <p style={{ margin: 0, color: "#555" }}>
               {card.brand?.toUpperCase()} •••• •••• •••• {card.lastDigits}<br />
@@ -332,12 +348,17 @@ export default function SubscriptionDetails() {
           ) : <p style={{ color: "#888" }}>No payment method</p>}
         </div>
 
-        {/* Delivery info */}
+        {/* Delivery & Billing */}
         <div style={{ border: "1px solid #e4e4e4", borderRadius: 8, padding: 16 }}>
-          <h3 style={{ margin: "0 0 12px" }}>Delivery & Billing</h3>
-          <p style={{ margin: "0 0 4px" }}>Delivery: Every {dp?.intervalCount} {dp?.interval?.toLowerCase()}{dp?.intervalCount > 1 ? "s" : ""}</p>
-          <p style={{ margin: 0 }}>Billing: Every {bp?.intervalCount} {bp?.interval?.toLowerCase()}{bp?.intervalCount > 1 ? "s" : ""}</p>
+          <h3 style={{ margin: "0 0 10px" }}>Delivery & Billing</h3>
+          <p style={{ margin: "0 0 6px" }}>
+            <b>Delivery:</b> Every {dp?.intervalCount} {dp?.interval?.toLowerCase()}{dp?.intervalCount > 1 ? "s" : ""}
+          </p>
+          <p style={{ margin: 0 }}>
+            <b>Billing:</b> Every {bp?.intervalCount} {bp?.interval?.toLowerCase()}{bp?.intervalCount > 1 ? "s" : ""}
+          </p>
         </div>
+
       </div>
 
       {/* Lines */}
@@ -350,15 +371,17 @@ export default function SubscriptionDetails() {
             <th>Qty</th>
             <th>Price</th>
             <th>Discounted</th>
-            <th>Pricing</th>
+            <th style={{ textAlign: "left" }}>Pricing cycles</th>
           </tr>
         </thead>
         <tbody>
           {lines?.edges?.map(({ node }) => {
             const cycles = node.pricingPolicy?.cycleDiscounts ?? [];
-            const pricingText = cycles.map((c) =>
-              `${curr(c.computedPrice?.currencyCode)}${c.computedPrice?.amount} for ${c.afterCycle === 0 ? "first" : `after ${c.afterCycle}`} order(s)`
-            ).join(", then ");
+            const pricingText = cycles
+              .map((c, i) =>
+                `${curr(c.computedPrice?.currencyCode)}${c.computedPrice?.amount}${i === 0 ? " (first)" : " (then)"}`
+              )
+              .join(" → ");
 
             return (
               <tr key={node.id}>
@@ -374,21 +397,8 @@ export default function SubscriptionDetails() {
         </tbody>
       </table>
 
-      {/* Upcoming orders */}
-      <h3>Upcoming orders</h3>
-      <table border="1" cellPadding="8" cellSpacing="0" style={{ width: "100%", borderCollapse: "collapse", marginBottom: 24 }}>
-        <thead style={{ background: "#f6f6f7" }}>
-          <tr><th style={{ textAlign: "left" }}>Date</th></tr>
-        </thead>
-        <tbody>
-          {upcomingDates.map((date, i) => (
-            <tr key={i}><td>{formatDate(date.toISOString())}</td></tr>
-          ))}
-        </tbody>
-      </table>
-
       {/* Order history */}
-      <h3>Order history ({orders?.edges?.length})</h3>
+      <h3>Order history ({orders?.edges?.length ?? 0})</h3>
       {orders?.edges?.length === 0 ? (
         <p style={{ color: "#888" }}>No orders yet.</p>
       ) : (
