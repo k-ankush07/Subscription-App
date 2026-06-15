@@ -91,7 +91,7 @@ function subscription() {
     
     const subId = id.split("/").pop();
     console.log("id ", subId);
-    // navigate(`/app/subscription/${subId}`);
+      navigate(`/app/subscription/${subId}`);
   };
   return (
     <>
