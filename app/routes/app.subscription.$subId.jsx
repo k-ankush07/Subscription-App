@@ -65,6 +65,7 @@ export async function loader({ request, params }) {
             node {
               id
               title
+              
               quantity
               currentPrice { amount currencyCode }
               lineDiscountedPrice { amount currencyCode }
