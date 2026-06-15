@@ -301,7 +301,7 @@ function Templates({
       {
         method: "POST",
         encType: "application/json",
-        action, // ← create route for new/duplicate, current route for edit
+        action, //  create route for new/duplicate, current route for edit
       },
     );
   };
@@ -639,7 +639,7 @@ function Templates({
                               </p>
                             </div>
                           </div>
-                          
+
                           <Button
                             onClick={() =>
                               setSelectedProducts((prev) =>

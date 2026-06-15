@@ -23,7 +23,7 @@ export const action = async ({ request }) => {
   const { admin } = await authenticate.admin(request);
   const body = await request.json();
   const { planPayload } = body;
-console.log("body log", planPayload.options.map(opt => opt.name));
+console.log("body log", planPayload);
 
   try {
     const shopRes = await admin.graphql(`query { shop { id } }`);
