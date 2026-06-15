@@ -49,19 +49,25 @@ function validate({ selectedProducts, options }) {
       indexes: [...dup],
     };
 
+
+    const normalizeInterval = (interval) => {
+  if (!interval) return "";
+  return interval.toLowerCase().replace(/s$/, ""); // "days" → "day", "months" → "month"
+};
   //  Duplicate delivery (frequency must be unique across options)
   const deliveryKeys = options.map(
-    (o) => `${o.deliveryFrequency ?? ""}|${o.deliveryInterval ?? ""}`,
-  );
-  const duplicateDeliveryIndexes = new Set();
-  deliveryKeys.forEach((key, i) => {
-    deliveryKeys.forEach((k2, j) => {
-      if (i !== j && key === k2) {
-        duplicateDeliveryIndexes.add(i);
-        duplicateDeliveryIndexes.add(j);
-      }
-    });
+  (o) => `${o.deliveryFrequency ?? ""}|${normalizeInterval(o.deliveryInterval)}`
+);
+const duplicateDeliveryIndexes = new Set();
+deliveryKeys.forEach((key, i) => {
+  if (!options[i].deliveryFrequency) return; // ← skip blank options
+  deliveryKeys.forEach((k2, j) => {
+    if (i !== j && key === k2 && options[j].deliveryFrequency) {
+      duplicateDeliveryIndexes.add(i);
+      duplicateDeliveryIndexes.add(j);
+    }
   });
+});
   if (duplicateDeliveryIndexes.size > 0) {
     errors.duplicateDelivery = {
       message: "Each delivery option must have a unique delivery frequency",
@@ -416,6 +422,7 @@ function Templates({
       ...prev,
       { ...defaultOption(prev.length), sellingPlanId: null },
     ]);
+    setSubmitted(false);
   };
 
   useEffect(() => {
