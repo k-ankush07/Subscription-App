@@ -254,13 +254,11 @@ export default function SubscriptionDetails() {
               <td>
                 {node.title}
                 <p>
-                  Off{" "}
-                  {
-                    node?.pricingPolicy?.cycleDiscounts?.[0]?.adjustmentValue
-                      ?.percentage
-                  }
-                  %
-                </p>
+  Off{" "}
+  {node?.pricingPolicy?.cycleDiscounts?.[0]?.adjustmentValue?.amount
+    ? `₹${node?.pricingPolicy?.cycleDiscounts?.[0]?.adjustmentValue?.amount}`
+    : `${node?.pricingPolicy?.cycleDiscounts?.[0]?.adjustmentValue?.percentage}%`}
+</p>
                 <br />
                 <b>Delivery</b>{" "}
                 {`Every ${bp?.intervalCount} ${bp?.interval?.toLowerCase()}${bp?.intervalCount > 1 ? "s" : ""}`}{" "}
