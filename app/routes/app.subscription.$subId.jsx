@@ -152,6 +152,15 @@ export default function SubscriptionDetails() {
       </div>
 
       {/* card */}
+      <div>
+        <b>Card Info</b>
+
+        <div style={{display:"flex", gap:2}}> <img src="https://subscriptions-assets.kachingappz.app/payment-method-icons/bogus.svg" alt="atm card" />  <p>● ● ● ● ● ● ● ● ● ● ●  {card.lastDigits}</p> </div>
+        <div style={{display:"flex", gap:5}}>
+            <p>Expires {card.expiryMonth} / {card.expiryYear}</p>
+        <p></p>
+        </div>
+      </div>
 
     </div>
 
