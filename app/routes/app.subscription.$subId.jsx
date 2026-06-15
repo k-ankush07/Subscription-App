@@ -104,14 +104,14 @@ function formatDate(dateStr) {
 
 export default function SubscriptionDetails() {
   const { contract } = useLoaderData();
-  console.log("vdbjdbjdbvjdfvbdfjvbfd",contract)
+//   console.log("vdbjdbjdbvjdfvbdfjvbfd",contract)
   if (!contract) return <p>Contract not found.</p>;
 
   const { customer, billingPolicy: bp, orders, lines } = contract;
   const subId = contract.id.split("/").pop();
   const addr = contract.deliveryMethod?.address;
   const card = contract.customerPaymentMethod?.instrument;
-
+   console.log("customer ",customer,"bp", bp, "orders",orders, "lines",lines)
   return (
     <div style={{ padding: 20, maxWidth: 800, fontFamily: "Arial, sans-serif" }}>
 
