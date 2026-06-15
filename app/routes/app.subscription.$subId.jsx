@@ -116,7 +116,17 @@ export default function SubscriptionDetails() {
   const subId = contract.id.split("/").pop();
   const addr = contract.deliveryMethod?.address;
   const card = contract.customerPaymentMethod?.instrument;
+// calculate subtotal
+const subtotal = lines?.edges?.reduce((acc, { node }) => {
+  const price = parseFloat(node.lineDiscountedPrice?.amount || 0);
+  return acc + price * node.quantity;
+}, 0);
 
+// shipping fixed (abhi hardcoded hai, baad me API se la sakta hai)
+const shipping = 150;
+
+// total
+const total = subtotal + shipping;
   console.log(
     "customer ",
     customer,
@@ -255,11 +265,32 @@ export default function SubscriptionDetails() {
                 {node.currentPrice?.currencyCode === "INR" ? "₹" : "$"}
                 {node.lineDiscountedPrice?.amount}
               </td>
-              <td> {node.lineDiscountedPrice?.amount} X  {node.quantity} {" "} = {node.currentPrice?.currencyCode === "INR" ? "₹" : "$"} {node.lineDiscountedPrice?.amount * node.quantity} </td>
+              <td> {node.lineDiscountedPrice?.amount} X  {node.quantity} {" "} = {node.lineDiscountedPrice?.currencyCode === "INR" ? "₹" : "$"} {node.lineDiscountedPrice?.amount * node.quantity} </td>
             </tr>
           ))}
         </tbody>
       </table>
+
+      <h3>Payment Summary</h3>
+
+<div style={{ background: "#f6f6f7", padding: 16, borderRadius: 8, maxWidth: 300 }}>
+  <div style={{ display: "flex", justifyContent: "space-between" }}>
+    <span>Subtotal</span>
+    <span>₹{subtotal?.toFixed(2)}</span>
+  </div>
+
+  <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8 }}>
+    <span>Shipping (Standard)</span>
+    <span>₹{shipping}</span>
+  </div>
+
+  <hr />
+
+  <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "bold" }}>
+    <span>Total</span>
+    <span>₹{total?.toFixed(2)}</span>
+  </div>
+</div>
 
       {/* Orders */}
       <b>Upcoming orders</b>
