@@ -116,17 +116,17 @@ export default function SubscriptionDetails() {
   const subId = contract.id.split("/").pop();
   const addr = contract.deliveryMethod?.address;
   const card = contract.customerPaymentMethod?.instrument;
-// calculate subtotal
-const subtotal = lines?.edges?.reduce((acc, { node }) => {
-  const price = parseFloat(node.lineDiscountedPrice?.amount || 0);
-  return acc + price * node.quantity;
-}, 0);
+  // calculate subtotal
+  const subtotal = lines?.edges?.reduce((acc, { node }) => {
+    const price = parseFloat(node.lineDiscountedPrice?.amount || 0);
+    return acc + price * node.quantity;
+  }, 0);
 
-// shipping fixed (abhi hardcoded hai, baad me API se la sakta hai)
-const shipping = 150;
+  // shipping fixed (abhi hardcoded hai, baad me API se la sakta hai)
+  const shipping = 150;
 
-// total
-const total = subtotal + shipping;
+  // total
+  const total = subtotal + shipping;
   console.log(
     "customer ",
     customer,
@@ -253,9 +253,17 @@ const total = subtotal + shipping;
             <tr key={node.id}>
               <td>
                 {node.title}
+                <p>
+                  Off{" "}
+                  {
+                    node?.pricingPolicy?.cycleDiscounts?.[0]?.adjustmentValue
+                      ?.percentage
+                  }
+                  %
+                </p>
                 <br />
-                <b>Delivery</b> {" "}
-                {`Every ${bp?.intervalCount} ${bp?.interval?.toLowerCase()}${bp?.intervalCount > 1 ? "s" : ""}`} {" "} 
+                <b>Delivery</b>{" "}
+                {`Every ${bp?.intervalCount} ${bp?.interval?.toLowerCase()}${bp?.intervalCount > 1 ? "s" : ""}`}{" "}
                 <b>Billing</b>{" "}
                 {`Every ${bp?.intervalCount} ${bp?.interval?.toLowerCase()}${bp?.intervalCount > 1 ? "s" : ""}`}
               </td>
@@ -265,7 +273,12 @@ const total = subtotal + shipping;
                 {node.currentPrice?.currencyCode === "INR" ? "₹" : "$"}
                 {node.lineDiscountedPrice?.amount}
               </td>
-              <td> {node.lineDiscountedPrice?.amount} X  {node.quantity} {" "} = {node.lineDiscountedPrice?.currencyCode === "INR" ? "₹" : "$"} {node.lineDiscountedPrice?.amount * node.quantity} </td>
+              <td>
+                {" "}
+                {node.lineDiscountedPrice?.amount} X {node.quantity} ={" "}
+                {node.lineDiscountedPrice?.currencyCode === "INR" ? "₹" : "$"}{" "}
+                {node.lineDiscountedPrice?.amount * node.quantity}{" "}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -273,24 +286,43 @@ const total = subtotal + shipping;
 
       <h3>Payment Summary</h3>
 
-<div style={{ background: "#f6f6f7", padding: 16, borderRadius: 8, maxWidth: 300 }}>
-  <div style={{ display: "flex", justifyContent: "space-between" }}>
-    <span>Subtotal</span>
-    <span>₹{subtotal?.toFixed(2)}</span>
-  </div>
+      <div
+        style={{
+          background: "#f6f6f7",
+          padding: 16,
+          borderRadius: 8,
+          maxWidth: 300,
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between" }}>
+          <span>Subtotal</span>
+          <span>₹{subtotal?.toFixed(2)}</span>
+        </div>
 
-  <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8 }}>
-    <span>Shipping (Standard)</span>
-    <span>₹{shipping}</span>
-  </div>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            marginTop: 8,
+          }}
+        >
+          <span>Shipping (Standard)</span>
+          <span>₹{shipping}</span>
+        </div>
 
-  <hr />
+        <hr />
 
-  <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "bold" }}>
-    <span>Total</span>
-    <span>₹{total?.toFixed(2)}</span>
-  </div>
-</div>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            fontWeight: "bold",
+          }}
+        >
+          <span>Total</span>
+          <span>₹{total?.toFixed(2)}</span>
+        </div>
+      </div>
 
       {/* Orders */}
       <b>Upcoming orders</b>
