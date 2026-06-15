@@ -109,95 +109,153 @@ function formatDate(dateStr) {
 
 export default function SubscriptionDetails() {
   const { contract } = useLoaderData();
-  console.log("vdbjdbjdbvjdfvbdfjvbfd",contract)
+  console.log("vdbjdbjdbvjdfvbdfjvbfd", contract);
   if (!contract) return <p>Contract not found.</p>;
 
   const { customer, billingPolicy: bp, orders, lines } = contract;
   const subId = contract.id.split("/").pop();
   const addr = contract.deliveryMethod?.address;
   const card = contract.customerPaymentMethod?.instrument;
-  
-   console.log("customer ",customer,"bp", bp, "orders",orders, "lines",lines ,"addr",addr, "card", card)
+
+  console.log(
+    "customer ",
+    customer,
+    "bp",
+    bp,
+    "orders",
+    orders,
+    "lines",
+    lines,
+    "addr",
+    addr,
+    "card",
+    card,
+  );
   return (
-    <div style={{ padding: 20, maxWidth: 800, fontFamily: "Arial, sans-serif" }}>
-        <Link to="/app/subscriptions">Back to Subscription age</Link>
-      <h2>Subscription #{subId}</h2>
+    <div
+      style={{ padding: 20, maxWidth: 800, fontFamily: "Arial, sans-serif" }}
+    >
+      <Link to="/app/subscriptions">Back to Subscription age</Link>
+      <div style={{ display: "flex", justifyContent: "space-between" }}>
+        <h2>Subscription #{subId}</h2>
+        <button>Pause</button>
+      </div>
+      <p>
+        {formatDate(orders?.edges?.[0]?.node?.createdAt)} ● Order{" "}
+        {orders?.edges?.[0]?.node?.name}
+      </p>
+      <p></p>
 
       {/* Summary */}
-      <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 24 }}>
+      <div
+        style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 24 }}
+      >
         {[
           ["Status", contract.status],
           ["Created", formatDate(contract.createdAt)],
           ["Next Billing", formatDate(contract.nextBillingDate)],
-          ["Frequency", `Every ${bp?.intervalCount} ${bp?.interval?.toLowerCase()}${bp?.intervalCount > 1 ? "s" : ""}`],
+          [
+            "Frequency",
+            `Every ${bp?.intervalCount} ${bp?.interval?.toLowerCase()}${bp?.intervalCount > 1 ? "s" : ""}`,
+          ],
           ["Total Orders", orders?.edges?.length ?? 0],
         ].map(([label, value]) => (
-          <div key={label} style={{ background: "#f6f6f7", borderRadius: 8, padding: "10px 16px", minWidth: 120 }}>
+          <div
+            key={label}
+            style={{
+              background: "#f6f6f7",
+              borderRadius: 8,
+              padding: "10px 16px",
+              minWidth: 120,
+            }}
+          >
             <div style={{ fontSize: 12, color: "#888" }}>{label}</div>
             <div style={{ fontWeight: 600, marginTop: 4 }}>{value}</div>
           </div>
         ))}
       </div>
 
-    <div  style={{display:"flex", gap:50 , }}>
-
-<div>
+      <div style={{ display: "flex", gap: 50 }}>
+        <div>
           {/* Customer */}
-      <b>Customer</b>
-      <p>Name:- <b>{customer?.firstName} {customer?.lastName}</b></p>
-      <p>Email:- {customer.email}</p>
-    </div>
-    {/* shipping address */}
-      <div>
-        <b>Shipping Address</b>
-        <p>{addr.firstName} {" "}{addr.lastName}</p>
-        <p>{addr.city}</p>
-        <p>{addr.zip}{" "} {addr.address1}{" "} {addr.address2}{" "}{addr.province}{" "} </p>
-        <p>{addr.country}</p>
-      </div>
+          <b>Customer</b>
+          <p>
+            Name:-{" "}
+            <b>
+              {customer?.firstName} {customer?.lastName}
+            </b>
+          </p>
+          <p>Email:- {customer.email}</p>
+        </div>
+        {/* shipping address */}
+        <div>
+          <b>Shipping Address</b>
+          <p>
+            {addr.firstName} {addr.lastName}
+          </p>
+          <p>{addr.city}</p>
+          <p>
+            {addr.zip} {addr.address1} {addr.address2} {addr.province}{" "}
+          </p>
+          <p>{addr.country}</p>
+        </div>
 
-      {/* card */}
-      <div>
-        <b>Card Info</b>
+        {/* card */}
+        <div>
+          <b>Card Info</b>
 
-        <div style={{display:"flex", gap:2}}> <img src="https://subscriptions-assets.kachingappz.app/payment-method-icons/bogus.svg" alt="atm card" />  <p>● ● ● ● ● ● ● ● ● ● ●  {card.lastDigits}</p> </div>
-        <div style={{display:"flex", gap:5}}>
-            <p>Expires {card.expiryMonth} / {card.expiryYear}</p>
-        <p></p>
+          <div style={{ display: "flex", gap: 2 }}>
+            {" "}
+            <img
+              src="https://subscriptions-assets.kachingappz.app/payment-method-icons/bogus.svg"
+              alt="atm card"
+            />{" "}
+            <p>● ● ● ● ● ● ● ● ● ● ● {card.lastDigits}</p>{" "}
+          </div>
+          <div style={{ display: "flex", gap: 5 }}>
+            <p>
+              Expires {card.expiryMonth} / {card.expiryYear}
+            </p>
+            <p></p>
+          </div>
         </div>
       </div>
 
-    </div>
-
       {/* Products */}
       <h3>Products</h3>
-      <table border="1" cellPadding="8" cellSpacing="0" style={{ width: "100%", borderCollapse: "collapse" }}>
+      <table
+        border="1"
+        cellPadding="8"
+        cellSpacing="0"
+        style={{ width: "100%", borderCollapse: "collapse" }}
+      >
         <thead style={{ background: "#f6f6f7" }}>
           <tr>
             <th>Title</th>
             <th>Plan</th>
             <th>Qty</th>
             <th>Price</th>
+            <th> Total Price</th>
           </tr>
         </thead>
         <tbody>
           {lines?.edges?.map(({ node }) => (
             <tr key={node.id}>
-              <td>{node.title}</td>
+              <td>
+                {node.title}
+                <br />
+                <b>Delivery</b> {" "}
+                {`Every ${bp?.intervalCount} ${bp?.interval?.toLowerCase()}${bp?.intervalCount > 1 ? "s" : ""}`} {" "} 
+                <b>Billing</b>{" "}
+                {`Every ${bp?.intervalCount} ${bp?.interval?.toLowerCase()}${bp?.intervalCount > 1 ? "s" : ""}`}
+              </td>
               <td>{node.sellingPlanName || "—"}</td>
-               <td>
-          ₹{node.currentPrice.amount}
-
-          {discount && (
-            <div style={{ fontSize: "13px", color: "#666" }}>
-              First {discount.afterCycle + 1} order:
-              {" "}
-              ₹{discount.computedPrice.amount}
-            </div>
-          )}
-        </td>
               <td>{node.quantity}</td>
-              <td>{node.currentPrice?.currencyCode === "INR" ? "₹" : "$"}{node.lineDiscountedPrice?.amount}</td>
+              <td>
+                {node.currentPrice?.currencyCode === "INR" ? "₹" : "$"}
+                {node.lineDiscountedPrice?.amount}
+              </td>
+              <td> {node.lineDiscountedPrice?.amount} X  {node.quantity} {" "} = {node.currentPrice?.currencyCode === "INR" ? "₹" : "$"} {node.lineDiscountedPrice?.amount * node.quantity} </td>
             </tr>
           ))}
         </tbody>
@@ -208,8 +266,7 @@ export default function SubscriptionDetails() {
       {orders?.edges?.length === 0 ? (
         <p style={{ color: "#888" }}>No orders yet.</p>
       ) : (
-        <table  cellPadding="8" cellSpacing="0" >
-            
+        <table cellPadding="8" cellSpacing="0">
           <thead style={{ background: "#f6f6f7" }}>
             <tr>
               {/* <th>Order</th> */}
@@ -218,15 +275,18 @@ export default function SubscriptionDetails() {
           </thead>
           <tbody>
             {orders?.edges?.map(({ node }) => (
-              <tr key={node.id} >
+              <tr key={node.id}>
                 {/* <td>{node.name || `#${node.id.split("/").pop()}`}</td> */}
-                <td>{formatDate(node.createdAt)}    {contract.status==="ACTIVE" ? <Link>Skip</Link>: ""}    <Link>Edit </Link></td>
+                <td>
+                  {formatDate(contract.nextBillingDate)}{" "}
+                  {contract.status === "ACTIVE" ? <Link>Skip</Link> : ""}{" "}
+                  <Link>Edit </Link>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       )}
-
     </div>
   );
 }
