@@ -1,4 +1,4 @@
-import { useLoaderData } from "react-router";
+import { Link, useLoaderData } from "react-router";
 import { authenticate } from "../shopify.server";
 
 export async function loader({ request, params }) {
@@ -104,17 +104,18 @@ function formatDate(dateStr) {
 
 export default function SubscriptionDetails() {
   const { contract } = useLoaderData();
-//   console.log("vdbjdbjdbvjdfvbdfjvbfd",contract)
+  console.log("vdbjdbjdbvjdfvbdfjvbfd",contract)
   if (!contract) return <p>Contract not found.</p>;
 
   const { customer, billingPolicy: bp, orders, lines } = contract;
   const subId = contract.id.split("/").pop();
   const addr = contract.deliveryMethod?.address;
   const card = contract.customerPaymentMethod?.instrument;
-   console.log("customer ",customer,"bp", bp, "orders",orders, "lines",lines)
+  
+   console.log("customer ",customer,"bp", bp, "orders",orders, "lines",lines ,"addr",addr, "card", card)
   return (
     <div style={{ padding: 20, maxWidth: 800, fontFamily: "Arial, sans-serif" }}>
-
+        <Link to="/app/subscriptions">Back to Subscription age</Link>
       <h2>Subscription #{subId}</h2>
 
       {/* Summary */}
@@ -133,9 +134,26 @@ export default function SubscriptionDetails() {
         ))}
       </div>
 
-      {/* Customer */}
-      <h3>Customer</h3>
-      <p><b>{customer?.firstName} {customer?.lastName}</b> — {customer?.email}</p>
+    <div  style={{display:"flex", gap:50 , }}>
+
+<div>
+          {/* Customer */}
+      <b>Customer</b>
+      <p>Name:- <b>{customer?.firstName} {customer?.lastName}</b></p>
+      <p>Email:- {customer.email}</p>
+    </div>
+    {/* shipping address */}
+      <div>
+        <b>Shipping Address</b>
+        <p>{addr.firstName} {" "}{addr.lastName}</p>
+        <p>{addr.city}</p>
+        <p>{addr.zip}{" "} {addr.address1}{" "} {addr.address2}{" "}{addr.province}{" "} </p>
+        <p>{addr.country}</p>
+      </div>
+
+      {/* card */}
+
+    </div>
 
       {/* Products */}
       <h3>Products</h3>
