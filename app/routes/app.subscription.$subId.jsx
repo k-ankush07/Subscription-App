@@ -65,7 +65,6 @@ export async function loader({ request, params }) {
             node {
               id
               title
-              
               quantity
               currentPrice { amount currencyCode }
               lineDiscountedPrice { amount currencyCode }
@@ -99,8 +98,13 @@ export async function loader({ request, params }) {
 
 function formatDate(dateStr) {
   if (!dateStr) return "—";
-  const d = new Date(dateStr);
-  return `${d.getUTCDate()} ${d.toLocaleString("en-GB", { month: "long" })}, ${d.getUTCFullYear()}`;
+
+  return new Date(dateStr).toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
 }
 
 export default function SubscriptionDetails() {
@@ -181,30 +185,42 @@ export default function SubscriptionDetails() {
             <tr key={node.id}>
               <td>{node.title}</td>
               <td>{node.sellingPlanName || "—"}</td>
+               <td>
+          ₹{node.currentPrice.amount}
+
+          {discount && (
+            <div style={{ fontSize: "13px", color: "#666" }}>
+              First {discount.afterCycle + 1} order:
+              {" "}
+              ₹{discount.computedPrice.amount}
+            </div>
+          )}
+        </td>
               <td>{node.quantity}</td>
-              <td>{node.currentPrice?.currencyCode === "INR" ? "₹" : "$"}{node.currentPrice?.amount}</td>
+              <td>{node.currentPrice?.currencyCode === "INR" ? "₹" : "$"}{node.lineDiscountedPrice?.amount}</td>
             </tr>
           ))}
         </tbody>
       </table>
 
       {/* Orders */}
-      <h3>Order History</h3>
+      <b>Upcoming orders</b>
       {orders?.edges?.length === 0 ? (
         <p style={{ color: "#888" }}>No orders yet.</p>
       ) : (
-        <table border="1" cellPadding="8" cellSpacing="0" style={{ width: "100%", borderCollapse: "collapse" }}>
+        <table  cellPadding="8" cellSpacing="0" >
+            
           <thead style={{ background: "#f6f6f7" }}>
             <tr>
-              <th>Order</th>
+              {/* <th>Order</th> */}
               <th>Date</th>
             </tr>
           </thead>
           <tbody>
             {orders?.edges?.map(({ node }) => (
-              <tr key={node.id}>
-                <td>{node.name || `#${node.id.split("/").pop()}`}</td>
-                <td>{formatDate(node.createdAt)}</td>
+              <tr key={node.id} >
+                {/* <td>{node.name || `#${node.id.split("/").pop()}`}</td> */}
+                <td>{formatDate(node.createdAt)}    {contract.status==="ACTIVE" ? <Link>Skip</Link>: ""}    <Link>Edit </Link></td>
               </tr>
             ))}
           </tbody>
