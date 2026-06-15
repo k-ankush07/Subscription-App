@@ -156,7 +156,7 @@ function subscription() {
           </thead>
 
           <tbody>
-            {contracts.map((contract) => {
+            {[...contracts].reverse().map((contract) => {
               const line = contract.lines?.edges?.[0]?.node;
               const totalOrders = contract.orders?.edges?.length || 0;
               return (
@@ -190,8 +190,8 @@ function subscription() {
                   <td>{line?.title}</td>
 
                   <td>
-                    {line?.currentPrice?.currencyCode === "INR" ? "₹" : "$"}
-                    {line?.currentPrice?.amount}
+                    {line?.computedPrice?.currencyCode === "INR" ? "₹" : "$"}
+                    {line?.computedPrice?.amount}
                   </td>
 
                   <td>

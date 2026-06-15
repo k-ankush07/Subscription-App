@@ -23,7 +23,7 @@ export const action = async ({ request }) => {
   const { admin } = await authenticate.admin(request);
   const body = await request.json();
   const { planPayload } = body;
-console.log("body log", planPayload);
+  console.log("body log", planPayload);
 
   try {
     const shopRes = await admin.graphql(`query { shop { id } }`);
@@ -34,38 +34,59 @@ console.log("body log", planPayload);
       const interval =
         intervalMap[opt.deliveryInterval?.toLowerCase()] ?? "MONTH";
       const intervalCount = parseInt(opt.deliveryFrequency) || 1;
+
+      const pricingPolicies = (() => {
+        const policies = [];
+
+        if (opt.giveDiscount && opt.discountAmount) {
+          policies.push({
+            fixed: {
+              afterCycle: 0,
+              adjustmentType:
+                opt.discountType === "percentage"
+                  ? "PERCENTAGE"
+                  : opt.discountType === "fixed"
+                  ? "PRICE"
+                  : "FIXED_AMOUNT",
+              adjustmentValue:
+                opt.discountType === "percentage"
+                  ? { percentage: parseFloat(opt.discountAmount) }
+                  : { fixedValue: parseFloat(opt.discountAmount) },
+            },
+          });
+        }
+
+        if (opt.changeDiscountAfter && opt.afterOrders && opt.discountAmount2) {
+          policies.push({
+            fixed: {
+              afterCycle: parseInt(opt.afterOrders),
+              adjustmentType:
+                opt.discountType2 === "percentage"
+                  ? "PERCENTAGE"
+                  : opt.discountType2 === "fixed"
+                  ? "PRICE"
+                  : "FIXED_AMOUNT",
+              adjustmentValue:
+                opt.discountType2 === "percentage"
+                  ? { percentage: parseFloat(opt.discountAmount2) }
+                  : { fixedValue: parseFloat(opt.discountAmount2) },
+            },
+          });
+        }
+
+        return policies;
+      })();
+
       return {
         name: opt.name || `Option ${i + 1}`,
         options: [`Every ${intervalCount} ${opt.deliveryInterval || "month"}`],
         category: "SUBSCRIPTION",
         billingPolicy: { recurring: { interval, intervalCount } },
         deliveryPolicy: { recurring: { interval, intervalCount } },
-        pricingPolicies:
-          opt.giveDiscount && opt.discountAmount
-            ? [
-                {
-                  fixed: {
-                    adjustmentType:
-                      opt.discountType === "percentage"
-                        ? "PERCENTAGE"
-                        : opt.discountType === "fixed"
-                          ? "PRICE" //  fixed price
-                          : "FIXED_AMOUNT", //  amount off ✓
-                    adjustmentValue:
-                      opt.discountType === "percentage"
-                        ? { percentage: parseFloat(opt.discountAmount) }
-                        : opt.discountType === "fixed"
-                          ? { fixedValue: parseFloat(opt.discountAmount) }
-                          : { fixedValue: parseFloat(opt.discountAmount) }, // amount off
-                  },
-                },
-              ]
-            : [],
+        pricingPolicies,
       };
     });
 
-    //  console.log("fnjkbfjkedbffndb",sellingPlans.pricingPolicies)
-    //  console.log("fnjkbfjkedbffndbsddwqdwdwdqw",planPayload.options.map((o) => o.name || "Option"),)
     // 1. Selling Plan Group create
     const createRes = await admin.graphql(
       `
@@ -103,7 +124,6 @@ console.log("body log", planPayload);
     const shopifyGroupId =
       createData.data.sellingPlanGroupCreate.sellingPlanGroup.id;
     const numericId = shopifyGroupId.split("/").pop();
-    // console.log("shopifyGroupId:", shopifyGroupId, "| numericId:", numericId);
 
     // 2. Products associate
     const addProductsRes = await admin.graphql(
@@ -124,33 +144,33 @@ console.log("body log", planPayload);
     );
 
     const addProductsData = await addProductsRes.json();
-
     const addProductsErrors =
       addProductsData.data.sellingPlanGroupAddProducts.userErrors;
     if (addProductsErrors?.length > 0) {
       console.log("Add Products userErrors:", addProductsErrors);
     }
 
+    // 3. Metafield set
     const metafieldSetRes = await admin.graphql(
       `
-  mutation metafieldsSet($metafields: [MetafieldsSetInput!]!) {
-    metafieldsSet(metafields: $metafields) {
-      metafields {
-        id
-        namespace
-        key
-        type
-        value
-        createdAt
-        updatedAt
+      mutation metafieldsSet($metafields: [MetafieldsSetInput!]!) {
+        metafieldsSet(metafields: $metafields) {
+          metafields {
+            id
+            namespace
+            key
+            type
+            value
+            createdAt
+            updatedAt
+          }
+          userErrors {
+            field
+            message
+          }
+        }
       }
-      userErrors {
-        field
-        message
-      }
-    }
-  }
-  `,
+    `,
       {
         variables: {
           metafields: [
@@ -169,11 +189,13 @@ console.log("body log", planPayload);
         },
       },
     );
+
     const metafieldSetData = await metafieldSetRes.json();
     const metafieldErrors = metafieldSetData.data.metafieldsSet.userErrors;
     if (metafieldErrors?.length > 0) {
       console.log("Metafield userErrors:", metafieldErrors);
     }
+
     return json({ success: true, shopifyGroupId, planId: numericId });
   } catch (error) {
     console.error("Action error:", error.message);

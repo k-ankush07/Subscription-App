@@ -79,23 +79,21 @@ export const loader = async ({ request, params }) => {
     { variables: { id: fullGid } },
   );
 
-
-
   const metafieldRes = await admin.graphql(
     `
-  query GetPlanMetafield($namespace: String!, $key: String!) {
-    shop {
-      metafield(namespace: $namespace, key: $key) {
-        id
-        namespace
-        key
-        type
-        value
-        createdAt
-        updatedAt
+    query GetPlanMetafield($namespace: String!, $key: String!) {
+      shop {
+        metafield(namespace: $namespace, key: $key) {
+          id
+          namespace
+          key
+          type
+          value
+          createdAt
+          updatedAt
+        }
       }
     }
-  }
   `,
     {
       variables: {
@@ -104,15 +102,14 @@ export const loader = async ({ request, params }) => {
       },
     },
   );
+
   const metafieldData = await metafieldRes.json();
   const metadata = metafieldData.data.shop.metafield
     ? JSON.parse(metafieldData.data.shop.metafield.value)
     : null;
-  // console.log('metadta', metadata)
+
   const data = await res.json();
-  // console.log("log data", JSON.stringify(data.data.sellingPlanGroup.sellingPlans.edges, null, 2));
   const group = data.data.sellingPlanGroup;
-  // console.log('dfdfdfedfefe',group.products.edges)
 
   if (!group) throw new Response("Plan not found", { status: 404 });
 
@@ -136,8 +133,7 @@ export const loader = async ({ request, params }) => {
       const billing = plan.billingPolicy;
       const pricing = plan.pricingPolicies?.[0];
       const adjustmentValue = pricing?.adjustmentValue;
-      // Matching custom option
-      // const metaOption = metadata?.options?.[index] || {};
+
       const metaOption =
         metadata?.options?.find((o) => o.sellingPlanId === plan.id) ||
         metadata?.options?.[index] ||
@@ -145,13 +141,11 @@ export const loader = async ({ request, params }) => {
 
       return {
         sellingPlanId: plan.id,
-        // Shopify fields
         name: plan.name,
         deliveryInterval: billing?.interval?.toLowerCase() || "month",
         deliveryFrequency: billing?.intervalCount || 1,
         billingType: metaOption.billingType || "pay_as_you_go",
         billingFrequency: metaOption.billingFrequency || "",
-        // Custom metafield data
         minOrders: metaOption.minOrders || "disabled",
         maxOrders: metaOption.maxOrders || "unlimited",
 
@@ -179,8 +173,6 @@ export const loader = async ({ request, params }) => {
         changeQtyAfterOrders: metaOption.changeQtyAfterOrders ?? false,
         changeQtyAfterOrdersNum: metaOption.changeQtyAfterOrdersNum ?? "",
         changeQtyQuantity: metaOption.changeQtyQuantity ?? "",
-
-        // Array
         changeQtyProducts: metaOption.changeQtyProducts ?? [],
 
         removeFreeProducts: metaOption.removeFreeProducts ?? false,
@@ -206,14 +198,57 @@ export const loader = async ({ request, params }) => {
   });
 };
 
+// Helper to build pricingPolicies — used in both update and create
+const buildPricingPolicies = (opt) => {
+  const policies = [];
+
+  if (opt.giveDiscount && opt.discountAmount) {
+    policies.push({
+      fixed: {
+        afterCycle: 0,
+        adjustmentType:
+          opt.discountType === "percentage"
+            ? "PERCENTAGE"
+            : opt.discountType === "fixed"
+            ? "PRICE"
+            : "FIXED_AMOUNT",
+        adjustmentValue:
+          opt.discountType === "percentage"
+            ? { percentage: parseFloat(opt.discountAmount) }
+            : { fixedValue: parseFloat(opt.discountAmount) },
+      },
+    });
+  }
+
+  if (opt.changeDiscountAfter && opt.afterOrders && opt.discountAmount2) {
+    policies.push({
+      fixed: {
+        afterCycle: parseInt(opt.afterOrders),
+        adjustmentType:
+          opt.discountType2 === "percentage"
+            ? "PERCENTAGE"
+            : opt.discountType2 === "fixed"
+            ? "PRICE"
+            : "FIXED_AMOUNT",
+        adjustmentValue:
+          opt.discountType2 === "percentage"
+            ? { percentage: parseFloat(opt.discountAmount2) }
+            : { fixedValue: parseFloat(opt.discountAmount2) },
+      },
+    });
+  }
+
+  return policies;
+};
+
 export const action = async ({ request, params }) => {
   const { admin } = await authenticate.admin(request);
   const body = await request.json();
   const { type, planPayload, shopifyGroupId } = body;
-  // console.log("Current Options", planPayload.options);
 
   const removedProductIds = planPayload.removedProductIds;
   const originalProductIds = planPayload.originalProductIds ?? [];
+
   const shopRes = await admin.graphql(`query { shop { id } }`);
   const shopData = await shopRes.json();
   const shopId = shopData.data.shop.id;
@@ -261,10 +296,10 @@ export const action = async ({ request, params }) => {
             name: planPayload.title,
             description: planPayload.description,
             sellingPlansToDelete: planPayload.deletedPlanIds ?? [],
+
             sellingPlansToUpdate: planPayload.options
               .filter((o) => o.sellingPlanId)
-              .map((opt, i) => {
-                //
+              .map((opt) => {
                 const interval =
                   intervalMap[opt.deliveryInterval?.toLowerCase()] ?? "MONTH";
                 const intervalCount = parseInt(opt.deliveryFrequency || 1);
@@ -276,46 +311,13 @@ export const action = async ({ request, params }) => {
                   ],
                   billingPolicy: { recurring: { interval, intervalCount } },
                   deliveryPolicy: { recurring: { interval, intervalCount } },
-                  pricingPolicies:
-                    opt.giveDiscount && opt.discountAmount
-                      ? [
-                          {
-                            fixed: {
-                              adjustmentType:
-                                opt.discountType === "percentage"
-                                  ? "PERCENTAGE"
-                                  : opt.discountType === "fixed"
-                                    ? "PRICE" //  fixed price
-                                    : "FIXED_AMOUNT", //  amount off ✓
-                              adjustmentValue:
-                                opt.discountType === "percentage"
-                                  ? {
-                                      percentage: parseFloat(
-                                        opt.discountAmount,
-                                      ),
-                                    }
-                                  : opt.discountType === "fixed"
-                                    ? {
-                                        fixedValue: parseFloat(
-                                          opt.discountAmount,
-                                        ),
-                                      }
-                                    : {
-                                        fixedValue: parseFloat(
-                                          opt.discountAmount,
-                                        ),
-                                      }, // amount off
-                            },
-                          },
-                        ]
-                      : [],
+                  pricingPolicies: buildPricingPolicies(opt),
                 };
               }),
 
             sellingPlansToCreate: planPayload.options
               .filter((o) => !o.sellingPlanId)
-              .map((opt, i) => {
-                //
+              .map((opt) => {
                 const interval =
                   intervalMap[opt.deliveryInterval?.toLowerCase()] ?? "MONTH";
                 const intervalCount = parseInt(opt.deliveryFrequency || 1);
@@ -323,62 +325,25 @@ export const action = async ({ request, params }) => {
                   name: opt.name || "Option",
                   options: [
                     `Every ${intervalCount} ${opt.deliveryInterval || "month"}`,
-                  ], //
+                  ],
                   category: "SUBSCRIPTION",
                   billingPolicy: { recurring: { interval, intervalCount } },
                   deliveryPolicy: { recurring: { interval, intervalCount } },
-                  pricingPolicies:
-                    opt.giveDiscount && opt.discountAmount
-                      ? [
-                          {
-                            fixed: {
-                              adjustmentType:
-                                opt.discountType === "percentage"
-                                  ? "PERCENTAGE"
-                                  : "PRICE",
-                              adjustmentValue:
-                                opt.discountType === "percentage"
-                                  ? {
-                                      percentage: parseFloat(
-                                        opt.discountAmount,
-                                      ),
-                                    }
-                                  : {
-                                      fixedValue: parseFloat(
-                                        opt.discountAmount,
-                                      ),
-                                    },
-                            },
-                          },
-                        ]
-                      : [],
+                  pricingPolicies: buildPricingPolicies(opt),
                 };
               }),
           },
         },
       },
     );
-  console.log("CREATE sending:", planPayload.options
-  .filter((o) => !o.sellingPlanId)
-  .map((opt) => ({
-    name: opt.name,
-    interval: intervalMap[opt.deliveryInterval?.toLowerCase()],
-    frequency: opt.deliveryFrequency,
-    optionStr: `Every ${parseInt(opt.deliveryFrequency || 1)} ${opt.deliveryInterval || "month"}`,
-  }))
-);
 
     const updateData = await updateRes.json();
-    // console.log("jcdscdbcjkdbcjd", updateData.data.sellingPlanGroupUpdate)
     const updateErrors = updateData.data.sellingPlanGroupUpdate.userErrors;
     console.log(
       "Shopify userErrors:",
-      JSON.stringify(
-        updateData.data.sellingPlanGroupUpdate.userErrors,
-        null,
-        2,
-      ),
+      JSON.stringify(updateErrors, null, 2),
     );
+
     if (updateErrors?.length > 0) {
       return json({
         success: false,
@@ -388,15 +353,15 @@ export const action = async ({ request, params }) => {
 
     // Remove products
     if (removedProductIds?.length > 0) {
-      const removeRes = await admin.graphql(
+      await admin.graphql(
         `
-    mutation sellingPlanGroupRemoveProducts($id: ID!, $productIds: [ID!]!) {
-      sellingPlanGroupRemoveProducts(id: $id, productIds: $productIds) {
-        removedProductIds
-        userErrors { field message }
-      }
-    }
-  `,
+        mutation sellingPlanGroupRemoveProducts($id: ID!, $productIds: [ID!]!) {
+          sellingPlanGroupRemoveProducts(id: $id, productIds: $productIds) {
+            removedProductIds
+            userErrors { field message }
+          }
+        }
+      `,
         {
           variables: {
             id: shopifyGroupId,
@@ -404,29 +369,24 @@ export const action = async ({ request, params }) => {
           },
         },
       );
-      const removeData = await removeRes.json();
     }
 
-    // console.log("removedProductIds:", planPayload.removedProductIds);
-    // console.log("selectedProducts:", planPayload.selectedProducts);
-
-    // Add products
+    // Add new products
     if (planPayload.selectedProducts?.length > 0) {
       const productsToAdd = planPayload.selectedProducts.filter(
         (p) => !originalProductIds.includes(p.productId),
       );
 
       if (productsToAdd.length > 0) {
-        //
-        const addRes = await admin.graphql(
+        await admin.graphql(
           `
-      mutation sellingPlanGroupAddProducts($id: ID!, $productIds: [ID!]!) {
-        sellingPlanGroupAddProducts(id: $id, productIds: $productIds) {
-          sellingPlanGroup { id }
-          userErrors { field message }
-        }
-      }
-    `,
+          mutation sellingPlanGroupAddProducts($id: ID!, $productIds: [ID!]!) {
+            sellingPlanGroupAddProducts(id: $id, productIds: $productIds) {
+              sellingPlanGroup { id }
+              userErrors { field message }
+            }
+          }
+        `,
           {
             variables: {
               id: shopifyGroupId,
@@ -434,7 +394,6 @@ export const action = async ({ request, params }) => {
             },
           },
         );
-        const addData = await addRes.json();
       }
     }
 
@@ -472,20 +431,26 @@ export const action = async ({ request, params }) => {
         },
       },
     );
+
+    // Fetch fresh plan IDs
     const freshRes = await admin.graphql(
-      `query getSellingPlanGroup($id: ID!) {
-    sellingPlanGroup(id: $id) {
-      sellingPlans(first: 10) {
-        edges { node { id name } }
+      `
+      query getSellingPlanGroup($id: ID!) {
+        sellingPlanGroup(id: $id) {
+          sellingPlans(first: 10) {
+            edges { node { id name } }
+          }
+        }
       }
-    }
-  }`,
+    `,
       { variables: { id: shopifyGroupId } },
     );
+
     const freshData = await freshRes.json();
     const freshPlans = freshData.data.sellingPlanGroup.sellingPlans.edges.map(
       (e) => ({ id: e.node.id, name: e.node.name }),
     );
+
     return json({ success: true, planId: params.planId, freshPlans });
   } catch (error) {
     return json({ success: false, error: error.message });
