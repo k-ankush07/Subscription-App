@@ -38,8 +38,7 @@ export default function App() {
       <ShopifyAppProvider embedded apiKey={apiKey}>
         <s-app-nav>
           <s-link href="/app/plans">Plan Page</s-link>
-          <s-link href="/app/subscription">Subscription</s-link>
-       
+          <s-link href="/app/subscriptions">Subscriptions</s-link>
         </s-app-nav>
 
         <Outlet />

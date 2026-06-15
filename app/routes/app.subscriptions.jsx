@@ -77,9 +77,9 @@ deliveryPolicy {
   };
 }
 function subscription() {
-    const navigate= useNavigate();
+  const navigate = useNavigate();
   const { contracts } = useLoaderData();
-//   console.log("data will this ", contracts);
+  //   console.log("data will this ", contracts);
   const formatDate = (date) => {
     const d = new Date(date);
     return `${d.getDate()} ${d.toLocaleString("en-GB", {
@@ -87,10 +87,12 @@ function subscription() {
     })}, ${d.getFullYear()}`;
   };
 
-  const handelClick = (id)=>
-  {
-    navigate(`/app/subscription/${id}`, {replace: true})
-  }
+  const handelClick = (id) => {
+    
+    const subId = id.split("/").pop();
+    console.log("id ", subId);
+    // navigate(`/app/subscription/${subId}`);
+  };
   return (
     <>
       <style>{`
@@ -159,16 +161,15 @@ function subscription() {
               const totalOrders = contract.orders?.edges?.length || 0;
               return (
                 <tr key={contract.id}>
-                  <td>
-                    <Link onClick={handelClick(contract.id)}>
-                    #
-                    {contract.id.replace(
-                      "gid://shopify/SubscriptionContract/",
-                      "",
-                    )}
-                    </Link>
-                  </td>
-
+                  
+                    <td onClick={() => handelClick(contract.id)} style={{ cursor: "pointer" }}>
+                      #
+                      {contract.id.replace(
+                        "gid://shopify/SubscriptionContract/",
+                        "",
+                      )}
+                    </td>
+                 
                   <td>
                     <span className="status">{contract.status}</span>
                   </td>
@@ -207,7 +208,6 @@ function subscription() {
                         </div>
                     ))}
                     </td> */}
-           
                 </tr>
               );
             })}
