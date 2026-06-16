@@ -201,8 +201,6 @@ function Plans() {
 // console.log("Filtered Groups:", filteredGroups);
   const rowMarkup = [...filteredGroups].reverse().map((group, index) => {
     const plan = group.sellingPlans.edges[0]?.node;
-    const firstBilling = plan[0]?.billingPolicy;
-const lastBilling = plan[plan.length - 1]?.billingPolicy;
     const billing = plan?.billingPolicy;
     const pricing = plan?.pricingPolicies?.[0];
     const productTitles =
