@@ -79,7 +79,7 @@ deliveryPolicy {
 function subscription() {
   const navigate = useNavigate();
   const { contracts } = useLoaderData();
-  //   console.log("data will this ", contracts);
+  console.log("data will this ", contracts);
   const formatDate = (date) => {
     const d = new Date(date);
     return `${d.getDate()} ${d.toLocaleString("en-GB", {
@@ -88,10 +88,9 @@ function subscription() {
   };
 
   const handelClick = (id) => {
-    
     const subId = id.split("/").pop();
     console.log("id ", subId);
-      navigate(`/app/subscription/${subId}`);
+    navigate(`/app/subscription/${subId}`);
   };
   return (
     <>
@@ -161,15 +160,17 @@ function subscription() {
               const totalOrders = contract.orders?.edges?.length || 0;
               return (
                 <tr key={contract.id}>
-                  
-                    <td onClick={() => handelClick(contract.id)} style={{ cursor: "pointer" }}>
-                      #
-                      {contract.id.replace(
-                        "gid://shopify/SubscriptionContract/",
-                        "",
-                      )}
-                    </td>
-                 
+                  <td
+                    onClick={() => handelClick(contract.id)}
+                    style={{ cursor: "pointer" }}
+                  >
+                    #
+                    {contract.id.replace(
+                      "gid://shopify/SubscriptionContract/",
+                      "",
+                    )}
+                  </td>
+
                   <td>
                     <span className="status">{contract.status}</span>
                   </td>
@@ -187,11 +188,17 @@ function subscription() {
 
                   <td>{formatDate(contract.nextBillingDate)}</td>
 
-                  <td>{line?.title}</td>
+                  <td>
+  {contract.lines?.edges?.length === 1
+    ? contract.lines.edges[0].node.title
+    : `${contract.lines?.edges?.length} Products`}
+</td>
 
                   <td>
-                    {line?.computedPrice?.currencyCode === "INR" ? "₹" : "$"}
-                    {line?.computedPrice?.amount}
+                    {line?.lineDiscountedPrice?.currencyCode === "INR"
+                      ? "₹"
+                      : "$"}
+                    {line?.lineDiscountedPrice?.amount}
                   </td>
 
                   <td>
@@ -199,7 +206,7 @@ function subscription() {
                     {contract.billingPolicy?.interval?.toLowerCase()}
                     {contract.billingPolicy?.intervalCount > 1 ? "s" : ""}
                   </td>
-                  <td>{totalOrders}</td>
+                  {/* <td>{totalOrders}</td> */}
                   {/* <td>
                     {contract.orders?.edges?.map(({ node }) => (
                         <div key={node.id}>

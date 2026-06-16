@@ -66,6 +66,8 @@ export async function loader({ request, params }) {
               id
               title
               quantity
+               productId       
+               variantId 
               currentPrice { amount currencyCode }
                variantImage {        
             url
@@ -120,7 +122,6 @@ export default function SubscriptionDetails() {
   const subId = contract.id.split("/").pop();
   const addr = contract.deliveryMethod?.address;
   const card = contract.customerPaymentMethod?.instrument;
-   const imageUrl = lines?.edges?.[0]?.node?.variantImage?.url;
   // calculate subtotal
   const subtotal = lines?.edges?.reduce((acc, { node }) => {
     const price = parseFloat(node.lineDiscountedPrice?.amount || 0);
@@ -145,9 +146,12 @@ export default function SubscriptionDetails() {
     addr,
     "card",
     card,
-    "image",
-    imageUrl
+    
   );
+  const handelPause= (id)=>
+  {
+    console.log("id", id)
+  }
   return (
     <div
       style={{ padding: 20, maxWidth: 800, fontFamily: "Arial, sans-serif" }}
@@ -155,7 +159,7 @@ export default function SubscriptionDetails() {
       <Link to="/app/subscriptions">Back to Subscription age</Link>
       <div style={{ display: "flex", justifyContent: "space-between" }}>
         <h2>Subscription #{subId}</h2>
-        <button>Pause</button>
+        <button onClick={handelPause()}>Pause</button>
       </div>
       <p>
         {formatDate(orders?.edges?.[0]?.node?.createdAt)} ● Order{" "}
@@ -259,8 +263,15 @@ export default function SubscriptionDetails() {
           {lines?.edges?.map(({ node }) => (
             <tr key={node.id}>
               <td>
-                <img src={imageUrl} alt="Image title" width={50} />
+                 <div>
+                  <img
+        src={node.variantImage?.url}
+        alt={node.variantImage?.altText || node.title}
+        width={50}
+      />
                 {node.title}
+                 </div>
+                 <p> <span>Product: {node.productId?.split("/").pop()}</span>{" "} <span> Variant: {node.variantId?.split("/").pop()}</span></p>
                 <p>
                   Off{" "}
                   {node?.pricingPolicy?.cycleDiscounts?.[0]?.adjustmentValue
