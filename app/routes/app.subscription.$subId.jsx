@@ -146,12 +146,10 @@ export default function SubscriptionDetails() {
     addr,
     "card",
     card,
-    
   );
-  const handelPause= (id)=>
-  {
-    console.log("id", id)
-  }
+  const handelPause = (id) => {
+    console.log("id", id);
+  };
   return (
     <div
       style={{ padding: 20, maxWidth: 800, fontFamily: "Arial, sans-serif" }}
@@ -159,11 +157,17 @@ export default function SubscriptionDetails() {
       <Link to="/app/subscriptions">Back to Subscription age</Link>
       <div style={{ display: "flex", justifyContent: "space-between" }}>
         <h2>Subscription #{subId}</h2>
-       <div style={{ display: "flex", gap:5 }}>
-         <button style={{ borderRadius:"6px", cursor:"pointer" }} >Place Order Now</button>
-         <button style={{ borderRadius:"6px"  ,cursor:"pointer" }} >Pause</button>
-         <button  style={{ borderRadius:"6px" ,cursor:"pointer" }}>cancel Subscription</button>
-       </div>
+        <div style={{ display: "flex", gap: 5 }}>
+          <button style={{ borderRadius: "6px", cursor: "pointer" }}>
+            Place Order Now
+          </button>
+          <button style={{ borderRadius: "6px", cursor: "pointer" }}>
+            Pause
+          </button>
+          <button style={{ borderRadius: "6px", cursor: "pointer" }}>
+            cancel Subscription
+          </button>
+        </div>
       </div>
       <p>
         {formatDate(orders?.edges?.[0]?.node?.createdAt)} ● Order{" "}
@@ -267,15 +271,19 @@ export default function SubscriptionDetails() {
           {lines?.edges?.map(({ node }) => (
             <tr key={node.id}>
               <td>
-                 <div>
+                <div>
                   <img
-        src={node.variantImage?.url}
-        alt={node.variantImage?.altText || node.title}
-        width={50}
-      />
-                {node.title}
-                 </div>
-                 <p> <span>Product: {node.productId?.split("/").pop()}</span>{" "} <span> Variant: {node.variantId?.split("/").pop()}</span></p>
+                    src={node.variantImage?.url}
+                    alt={node.variantImage?.altText || node.title}
+                    width={50}
+                  />
+                  {node.title}
+                </div>
+                <p>
+                  {" "}
+                  <span>Product: {node.productId?.split("/").pop()}</span>{" "}
+                  <span> Variant: {node.variantId?.split("/").pop()}</span>
+                </p>
                 <p>
                   Off{" "}
                   {node?.pricingPolicy?.cycleDiscounts?.[0]?.adjustmentValue
@@ -292,14 +300,34 @@ export default function SubscriptionDetails() {
               <td>{node.sellingPlanName || "—"}</td>
               <td>{node.quantity}</td>
               <td>
-                {node.currentPrice?.currencyCode === "INR" ? "₹" : "$"}
-                {node.lineDiscountedPrice?.amount}
+                {node.pricingPolicy?.cycleDiscounts?.[0]?.computedPrice
+                  ?.currencyCode === "INR"
+                  ? "₹"
+                  : "$"}
+                {/* {node.lineDiscountedPrice?.amount} */}
+
+                {parseFloat(
+                  node.pricingPolicy?.cycleDiscounts?.[0]?.computedPrice
+                    ?.amount,
+                ).toFixed(2)}
               </td>
               <td>
                 {" "}
-                {node.lineDiscountedPrice?.amount} X {node.quantity} ={" "}
-                {node.lineDiscountedPrice?.currencyCode === "INR" ? "₹" : "$"}{" "}
-                {node.lineDiscountedPrice?.amount * node.quantity}{" "}
+                {node.pricingPolicy?.cycleDiscounts?.[0]?.computedPrice
+                  ?.currencyCode === "INR"
+                  ? "₹"
+                  : "$"}{" "}
+                {parseFloat(
+                  node.pricingPolicy?.cycleDiscounts?.[0]?.computedPrice
+                    ?.amount,
+                ).toFixed(2)}{" "}
+                X {node.quantity} ={" "}
+                {(
+                  parseFloat(
+                    node.pricingPolicy?.cycleDiscounts?.[0]?.computedPrice
+                      ?.amount,
+                  ) * node.quantity
+                ).toFixed(2)}
               </td>
             </tr>
           ))}
