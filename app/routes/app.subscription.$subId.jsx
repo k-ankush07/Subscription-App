@@ -67,6 +67,10 @@ export async function loader({ request, params }) {
               title
               quantity
               currentPrice { amount currencyCode }
+               variantImage {        
+            url
+            altText
+          }
               lineDiscountedPrice { amount currencyCode }
               sellingPlanName
                pricingPolicy {
@@ -116,6 +120,7 @@ export default function SubscriptionDetails() {
   const subId = contract.id.split("/").pop();
   const addr = contract.deliveryMethod?.address;
   const card = contract.customerPaymentMethod?.instrument;
+   const imageUrl = lines?.edges?.[0]?.node?.variantImage?.url;
   // calculate subtotal
   const subtotal = lines?.edges?.reduce((acc, { node }) => {
     const price = parseFloat(node.lineDiscountedPrice?.amount || 0);
@@ -140,6 +145,8 @@ export default function SubscriptionDetails() {
     addr,
     "card",
     card,
+    "image",
+    imageUrl
   );
   return (
     <div
@@ -252,13 +259,15 @@ export default function SubscriptionDetails() {
           {lines?.edges?.map(({ node }) => (
             <tr key={node.id}>
               <td>
+                <img src={imageUrl} alt="Image title" width={50} />
                 {node.title}
                 <p>
-  Off{" "}
-  {node?.pricingPolicy?.cycleDiscounts?.[0]?.adjustmentValue?.amount
-    ? `₹${node?.pricingPolicy?.cycleDiscounts?.[0]?.adjustmentValue?.amount}`
-    : `${node?.pricingPolicy?.cycleDiscounts?.[0]?.adjustmentValue?.percentage}%`}
-</p>
+                  Off{" "}
+                  {node?.pricingPolicy?.cycleDiscounts?.[0]?.adjustmentValue
+                    ?.amount
+                    ? `₹${node?.pricingPolicy?.cycleDiscounts?.[0]?.adjustmentValue?.amount}`
+                    : `${node?.pricingPolicy?.cycleDiscounts?.[0]?.adjustmentValue?.percentage}%`}
+                </p>
                 <br />
                 <b>Delivery</b>{" "}
                 {`Every ${bp?.intervalCount} ${bp?.interval?.toLowerCase()}${bp?.intervalCount > 1 ? "s" : ""}`}{" "}
