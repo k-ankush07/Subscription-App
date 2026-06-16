@@ -102,6 +102,8 @@ export async function loader({ request, params }) {
   return { contract: data.data.subscriptionContract };
 }
 
+
+
 function formatDate(dateStr) {
   if (!dateStr) return "—";
 
@@ -112,6 +114,8 @@ function formatDate(dateStr) {
     timeZone: "UTC",
   });
 }
+
+
 
 export default function SubscriptionDetails() {
   const { contract } = useLoaderData();
