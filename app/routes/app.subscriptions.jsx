@@ -150,7 +150,7 @@ function subscription() {
               <th>Product</th>
               <th>Price</th>
               <th>Frequency</th>
-              <th>Total Orders</th>
+              {/* <th>Total Orders</th> */}
             </tr>
           </thead>
 
@@ -158,6 +158,14 @@ function subscription() {
             {[...contracts].reverse().map((contract) => {
               const line = contract.lines?.edges?.[0]?.node;
               const totalOrders = contract.orders?.edges?.length || 0;
+              const totalPrice =
+                contract.lines?.edges?.reduce((sum, { node }) => {
+                  return (
+                    sum +
+                    Number(node.lineDiscountedPrice?.amount || 0) *
+                      (node.quantity || 1)
+                  );
+                }, 0) || 0;
               return (
                 <tr key={contract.id}>
                   <td
@@ -189,16 +197,28 @@ function subscription() {
                   <td>{formatDate(contract.nextBillingDate)}</td>
 
                   <td>
-  {contract.lines?.edges?.length === 1
-    ? contract.lines.edges[0].node.title
-    : `${contract.lines?.edges?.length} Products`}
-</td>
-
+                    {contract.lines?.edges?.length === 1
+                      ? contract.lines.edges[0].node.title
+                      : `${contract.lines?.edges?.length} Products`}
+                  </td>
+                  {/* 
                   <td>
                     {line?.lineDiscountedPrice?.currencyCode === "INR"
                       ? "₹"
                       : "$"}
                     {line?.lineDiscountedPrice?.amount}
+                  </td> */}
+                  <td>
+                    {contract.lines?.edges?.length === 1 ? (
+                      <>
+                        {line?.lineDiscountedPrice?.currencyCode === "INR"
+                          ? "₹"
+                          : "$"}
+                        {line?.lineDiscountedPrice?.amount}
+                      </>
+                    ) : (
+                      <>₹{totalPrice.toFixed(2)}</>
+                    )}
                   </td>
 
                   <td>
