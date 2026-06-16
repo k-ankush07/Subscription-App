@@ -159,7 +159,11 @@ export default function SubscriptionDetails() {
       <Link to="/app/subscriptions">Back to Subscription age</Link>
       <div style={{ display: "flex", justifyContent: "space-between" }}>
         <h2>Subscription #{subId}</h2>
-        <button onClick={handelPause()}>Pause</button>
+       <div style={{ display: "flex", gap:5 }}>
+         <button style={{ borderRadius:"6px", cursor:"pointer" }} >Place Order Now</button>
+         <button style={{ borderRadius:"6px"  ,cursor:"pointer" }} >Pause</button>
+         <button  style={{ borderRadius:"6px" ,cursor:"pointer" }}>cancel Subscription</button>
+       </div>
       </div>
       <p>
         {formatDate(orders?.edges?.[0]?.node?.createdAt)} ● Order{" "}
