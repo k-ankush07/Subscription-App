@@ -123,33 +123,18 @@ export default function SubscriptionDetails() {
   const addr = contract.deliveryMethod?.address;
   const card = contract.customerPaymentMethod?.instrument;
   // calculate subtotal
-  const subtotal = lines?.edges?.reduce((acc, { node }) => {
-    const price = parseFloat(node.lineDiscountedPrice?.amount || 0);
-    return acc + price * node.quantity;
-  }, 0);
+ const subtotal = lines?.edges?.reduce((acc, { node }) => {
+  const price = parseFloat(node.lineDiscountedPrice?.amount || 0);
+  return acc + price;
+}, 0);
+
 
   // shipping fixed (abhi hardcoded hai, baad me API se la sakta hai)
   const shipping = 150;
 
   // total
   const total = subtotal + shipping;
-  console.log(
-    "customer ",
-    customer,
-    "bp",
-    bp,
-    "orders",
-    orders,
-    "lines",
-    lines,
-    "addr",
-    addr,
-    "card",
-    card,
-  );
-  const handelPause = (id) => {
-    console.log("id", id);
-  };
+
   return (
     <div
       style={{ padding: 20, maxWidth: 800, fontFamily: "Arial, sans-serif" }}
@@ -346,7 +331,7 @@ export default function SubscriptionDetails() {
       >
         <div style={{ display: "flex", justifyContent: "space-between" }}>
           <span>Subtotal</span>
-          <span>₹{subtotal?.toFixed(2)}</span>
+          <span>{lines?.edges?.[0]?.node?.lineDiscountedPrice?.currencyCode==="INR" ? "₹": "$"}{subtotal?.toFixed(2)}</span>
         </div>
 
         <div
@@ -370,7 +355,7 @@ export default function SubscriptionDetails() {
           }}
         >
           <span>Total</span>
-          <span>₹{total?.toFixed(2)}</span>
+          <span>{total?.toFixed(2)}</span>
         </div>
       </div>
 
