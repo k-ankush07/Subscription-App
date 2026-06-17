@@ -58,6 +58,16 @@ export async function loader({ request, params }) {
               id
               createdAt
               name
+          totalShippingPriceSet {
+        shopMoney {
+          amount
+          currencyCode
+        }
+        presentmentMoney {
+          amount
+          currencyCode
+        }
+      }
             }
           }
         }
@@ -130,14 +140,24 @@ export default function SubscriptionDetails() {
   const price = parseFloat(node.lineDiscountedPrice?.amount || 0);
   return acc + price;
 }, 0);
-
+console.log("orderss",orders?.edges?.[0].node?.totalShippingPriceSet?.presentmentMoney)
 
   // shipping fixed (abhi hardcoded hai, baad me API se la sakta hai)
-  const shipping = 150;
+  
+  const shipping = parseInt(orders?.edges?.[0].node?.totalShippingPriceSet?.presentmentMoney?.amount);
+
 
   // total
   const total = subtotal + shipping;
-
+function getCardImage(brand) {
+  const brandMap = {
+    visa: "https://subscriptions-assets.kachingappz.app/payment-method-icons/visa.svg",
+    mastercard: "https://subscriptions-assets.kachingappz.app/payment-method-icons/mastercard.svg",
+    amex: "https://subscriptions-assets.kachingappz.app/payment-method-icons/amex.svg",
+    bogus: "https://subscriptions-assets.kachingappz.app/payment-method-icons/bogus.svg",
+  };
+  return brandMap[brand?.toLowerCase()] || brandMap["bogus"];
+}
   return (
     <div
       style={{ padding: 20, maxWidth: 800, fontFamily: "Arial, sans-serif" }}
@@ -224,7 +244,7 @@ export default function SubscriptionDetails() {
           <div style={{ display: "flex", gap: 2 }}>
             {" "}
             <img
-              src="https://subscriptions-assets.kachingappz.app/payment-method-icons/bogus.svg"
+              src={getCardImage(card.brand)}
               alt="atm card"
             />{" "}
             <p>● ● ● ● ● ● ● ● ● ● ● {card.lastDigits}</p>{" "}
@@ -358,12 +378,15 @@ export default function SubscriptionDetails() {
           }}
         >
           <span>Total</span>
-          <span>{total?.toFixed(2)}</span>
+          <span>{total}</span>
         </div>
       </div>
-
-      {/* Orders */}
-      <b>Upcoming orders</b>
+      {contract.status=="CANCEL" ?
+      <>
+      </>
+      :
+      <>
+       <b>Upcoming orders</b>
       {orders?.edges?.length === 0 ? (
         <p style={{ color: "#888" }}>No orders yet.</p>
       ) : (
@@ -388,6 +411,11 @@ export default function SubscriptionDetails() {
           </tbody>
         </table>
       )}
+      </>
+      
+      }
+      {/* Orders */}
+     
     </div>
   );
 }
