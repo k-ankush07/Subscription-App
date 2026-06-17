@@ -50,12 +50,12 @@ console.log("body log", planPayload);
                         ? "PERCENTAGE"
                         : opt.discountType === "fixed"
                           ? "PRICE" //  fixed price
-                          : "FIXED_AMOUNT", //  amount off ✓
+                          : "FIXED_AMOUNT", //  amount off 
                     adjustmentValue:
                       opt.discountType === "percentage"
                         ? { percentage: parseFloat(opt.discountAmount) }
                         : opt.discountType === "fixed"
-                          ? { fixedValue: parseFloat(opt.discountAmount) }
+                          ? { fixedValue: parseFloat(opt.discountAmount) } // fixed price 
                           : { fixedValue: parseFloat(opt.discountAmount) }, // amount off
                   },
                 },

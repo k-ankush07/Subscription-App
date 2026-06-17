@@ -197,8 +197,8 @@ function getCardImage(brand) {
         {[
           ["Status", contract.status],
           ["Created", formatDate(contract.createdAt)],
-          ["Current billing cycle",1],
           ["Next Billing", formatDate(contract.nextBillingDate)],
+          ["Current billing cycle",1],
           [
             "Frequency",
             `Every ${bp?.intervalCount} ${bp?.interval?.toLowerCase()}${bp?.intervalCount > 1 ? "s" : ""}`,
