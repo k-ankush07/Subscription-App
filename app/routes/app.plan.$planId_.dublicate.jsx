@@ -260,7 +260,7 @@ export const action = async ({ request, params }) => {
 
 function Plandublicate() {
     const dublicateplan = useLoaderData();
-    // console.log("Plandublicate data:", dublicateplan); 
+    console.log("Plandublicate data:", dublicateplan); 
     const shop = dublicateplan.shop;
     const planId = dublicateplan.planId; 
 
