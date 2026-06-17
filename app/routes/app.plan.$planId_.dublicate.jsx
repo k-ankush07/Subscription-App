@@ -90,7 +90,7 @@ export const loader = async ({ request, params }) => {
       console.log("Fetching GID:", fullGid);
 
       return {
-        sellingPlanId: plan.id,                                        //  update ke liye
+        sellingPlanId: null,                                        //  update ke liye
         name: plan.name,
         deliveryInterval: billing?.interval?.toLowerCase() || "month",
         deliveryFrequency: billing?.intervalCount || 1,
