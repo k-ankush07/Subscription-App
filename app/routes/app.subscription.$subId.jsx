@@ -203,7 +203,7 @@ function getCardImage(brand) {
             "Frequency",
             `Every ${bp?.intervalCount} ${bp?.interval?.toLowerCase()}${bp?.intervalCount > 1 ? "s" : ""}`,
           ],
-          ["Total Orders", orders?.edges?.length ?? 0],
+          // ["Total Orders", orders?.edges?.length ?? 0],
         ].map(([label, value]) => (
           <div
             key={label}
