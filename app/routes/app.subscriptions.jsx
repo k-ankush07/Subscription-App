@@ -72,14 +72,45 @@ deliveryPolicy {
   `);
 
   const data = await res.json();
+   const contracts = data.data.subscriptionContracts.edges.map((e) => e.node);
+  const billingCycles = await Promise.all(
+  contracts.map(async (contract) => {
+    const subId = contract.id; // e.g. gid://shopify/SubscriptionContract/123
+    const cyclesRes = await admin.graphql(`
+      query getBillingCycles($contractId: ID!) {
+        subscriptionBillingCycles(contractId: $contractId, first: 6) {
+          edges {
+            node {
+              cycleIndex
+              cycleStartAt
+              cycleEndAt
+              billingAttemptExpectedDate
+              status
+              skipped
+            }
+          }
+        }
+      }
+    `, { variables: { contractId: subId } });
+
+    const cyclesData = await cyclesRes.json();
+    return {
+      contractId: subId,
+      cycles: cyclesData.data.subscriptionBillingCycles.edges.map(e => e.node),
+      billingCycles,
+    };
+  })
+);
   return {
-    contracts: data.data.subscriptionContracts.edges.map((e) => e.node),
+    // contracts: data.data.subscriptionContracts.edges.map((e) => e.node),
+    contracts,       //  return contracts
+    billingCycles,
   };
 }
 function subscription() {
   const navigate = useNavigate();
-  const { contracts } = useLoaderData();
-  console.log("data will this ", contracts);
+  const { contracts,billingCycles  } = useLoaderData();
+  // console.log("data will this ", contracts);
   const formatDate = (date) => {
     const d = new Date(date);
     return `${d.getDate()} ${d.toLocaleString("en-GB", {
@@ -87,6 +118,11 @@ function subscription() {
     })}, ${d.getFullYear()}`;
   };
 
+// Find cycles for a contract
+const getCycles = (contractId) =>
+  billingCycles.find(b => b.contractId === contractId)?.cycles || [];
+
+console.log("biiling cycle ",getCycles)
   const handelClick = (id) => {
     const subId = id.split("/").pop();
     console.log("id ", subId);

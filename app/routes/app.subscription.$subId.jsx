@@ -115,8 +115,6 @@ function formatDate(dateStr) {
   });
 }
 
-
-
 export default function SubscriptionDetails() {
   const { contract } = useLoaderData();
   console.log("vdbjdbjdbvjdfvbdfjvbfd", contract);
@@ -143,7 +141,7 @@ export default function SubscriptionDetails() {
     <div
       style={{ padding: 20, maxWidth: 800, fontFamily: "Arial, sans-serif" }}
     >
-      <Link to="/app/subscriptions">Back to Subscription age</Link>
+      <Link to="/app/subscriptions">Back to Subscription Page</Link>
       <div style={{ display: "flex", justifyContent: "space-between" }}>
         <h2>Subscription #{subId}</h2>
         <div style={{ display: "flex", gap: 5 }}>

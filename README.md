@@ -252,10 +252,5 @@ gid://shopify/Shop/69853577402 SHOP ID this
 
 
 
-Display the Subtotal and Total in the Payment Summary section.
-Add Place Order Now, Pause, and Cancel Subscription buttons on the Subscription page (Functionality Pending).
-Display the product image, Product ID, and Variant ID on the Subscription page.
-If the subscription contains only one product, display the product name. If it contains multiple products, display the total number of products instead (e.g., "3 Products").( 4hr)
-https://admin.shopify.com/store/dev-tarun/apps/subscription-app-238
 
 
