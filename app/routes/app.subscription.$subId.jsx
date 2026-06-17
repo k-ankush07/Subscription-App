@@ -4,10 +4,11 @@ import { authenticate } from "../shopify.server";
 export async function loader({ request, params }) {
   const { admin } = await authenticate.admin(request);
   const subId = params.subId;
-
+  const contractId= `gid://shopify/SubscriptionContract/${subId}`
+  
   const res = await admin.graphql(`
     query {
-      subscriptionContract(id: "gid://shopify/SubscriptionContract/${subId}") {
+      subscriptionContract(id: "${contractId}") {
         id
         status
         createdAt
