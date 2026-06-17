@@ -77,11 +77,7 @@ export const loader = async ({ request, params }) => {
     shopifyGroupId: fullGid,       // full GID — GraphQL ke liye
     title: group.name,
     description: group.description || "",
-    selectedProducts: group.products.edges.map((e) => ({
-      productId: e.node.id,
-      productTitle: e.node.title,
-      productImage: e.node.featuredImage?.url || "",
-    })),
+    selectedProducts:[],
     //  Existing selling plan IDs bhi return karo — update ke liye zaruri hain
     existingSellingPlanIds: group.sellingPlans.edges.map((e) => e.node.id),
     options: group.sellingPlans.edges.map((e) => {

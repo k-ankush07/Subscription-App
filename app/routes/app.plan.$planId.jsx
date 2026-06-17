@@ -1,68 +1,19 @@
-import React from "react";
 import { json } from "@remix-run/node";
+import { authenticate } from "../shopify.server";
 import { useLoaderData } from "react-router";
 import Templates from "./components/PlanPage/Templates";
-import { authenticate } from "../shopify.server";
 
 const intervalMap = {
-  day: "DAY",   days: "DAY",
-  week: "WEEK", weeks: "WEEK",
-  month: "MONTH", months: "MONTH",
-  year: "YEAR", years: "YEAR",
+  day: "DAY",
+  days: "DAY",
+  week: "WEEK",
+  weeks: "WEEK",
+  month: "MONTH",
+  months: "MONTH",
+  year: "YEAR",
+  years: "YEAR",
 };
 
-// ─── Shared helper — builds billingPolicy, deliveryPolicy, pricingPolicies ───
-const buildSellingPlanPolicies = (opt) => {
-  const deliveryInterval =
-    intervalMap[opt.deliveryInterval?.toLowerCase()] ?? "MONTH";
-  const deliveryIntervalCount = parseInt(opt.deliveryFrequency) || 1;
-
-  const isPrepaid = opt.billingType === "prepaid";
-  const billingInterval = isPrepaid
-    ? intervalMap[opt.billingInterval?.toLowerCase()] ?? deliveryInterval
-    : deliveryInterval;
-  const billingIntervalCount = isPrepaid
-    ? parseInt(opt.billingFrequency) || 1
-    : deliveryIntervalCount;
-
-  const pricingPolicies =
-    opt.giveDiscount && opt.discountAmount
-      ? [
-          {
-            fixed: {
-              adjustmentType:
-                opt.discountType === "percentage"
-                  ? "PERCENTAGE"
-                  : opt.discountType === "fixed"
-                    ? "PRICE"
-                    : "FIXED_AMOUNT",
-              adjustmentValue:
-                opt.discountType === "percentage"
-                  ? { percentage: parseFloat(opt.discountAmount) }
-                  : { fixedValue: parseFloat(opt.discountAmount) },
-            },
-          },
-        ]
-      : [];
-
-  return {
-    billingPolicy: {
-      recurring: {
-        interval: billingInterval,
-        intervalCount: billingIntervalCount,
-      },
-    },
-    deliveryPolicy: {
-      recurring: {
-        interval: deliveryInterval,
-        intervalCount: deliveryIntervalCount,
-      },
-    },
-    pricingPolicies,
-  };
-};
-
-// s Loader 
 export const loader = async ({ request, params }) => {
   const { admin, session } = await authenticate.admin(request);
   const { planId } = params;
@@ -83,6 +34,14 @@ export const loader = async ({ request, params }) => {
               id
               title
               featuredImage { url }
+              variants(first: 100) {
+                edges {
+                  node {
+                    id
+                    title
+                  }
+                }
+              }
             }
           }
         }
@@ -93,12 +52,6 @@ export const loader = async ({ request, params }) => {
               name
               billingPolicy {
                 ... on SellingPlanRecurringBillingPolicy {
-                  interval
-                  intervalCount
-                }
-              }
-              deliveryPolicy {
-                ... on SellingPlanRecurringDeliveryPolicy {
                   interval
                   intervalCount
                 }
@@ -126,8 +79,40 @@ export const loader = async ({ request, params }) => {
     { variables: { id: fullGid } },
   );
 
+
+
+  const metafieldRes = await admin.graphql(
+    `
+  query GetPlanMetafield($namespace: String!, $key: String!) {
+    shop {
+      metafield(namespace: $namespace, key: $key) {
+        id
+        namespace
+        key
+        type
+        value
+        createdAt
+        updatedAt
+      }
+    }
+  }
+  `,
+    {
+      variables: {
+        namespace: "selling_plan",
+        key: `plan_${planId}`,
+      },
+    },
+  );
+  const metafieldData = await metafieldRes.json();
+  const metadata = metafieldData.data.shop.metafield
+    ? JSON.parse(metafieldData.data.shop.metafield.value)
+    : null;
+  // console.log('metadta', metadata)
   const data = await res.json();
+  // console.log("log data", JSON.stringify(data.data.sellingPlanGroup.sellingPlans.edges, null, 2));
   const group = data.data.sellingPlanGroup;
+  // console.log('dfdfdfedfefe',group.products.edges)
 
   if (!group) throw new Response("Plan not found", { status: 404 });
 
@@ -135,68 +120,85 @@ export const loader = async ({ request, params }) => {
     shop: session.shop,
     planId,
     shopifyGroupId: fullGid,
+    metadata,
+    id: group.id,
     title: group.name,
     description: group.description || "",
     selectedProducts: group.products.edges.map((e) => ({
       productId: e.node.id,
       productTitle: e.node.title,
       productImage: e.node.featuredImage?.url || "",
+      variantIds: e.node.variants?.edges.map((v) => v.node.id) || [],
+      variantTitles: e.node.variants?.edges.map((v) => v.node.title) || [],
     })),
-    existingSellingPlanIds: group.sellingPlans.edges.map((e) => e.node.id),
-    options: group.sellingPlans.edges.map((e) => {
+    options: group.sellingPlans.edges.map((e, index) => {
       const plan = e.node;
       const billing = plan.billingPolicy;
-      const delivery = plan.deliveryPolicy;
+      console.log("njkdbfjdbfvb",billing?.interval?.toLowerCase())
       const pricing = plan.pricingPolicies?.[0];
       const adjustmentValue = pricing?.adjustmentValue;
-
-      // Prepaid: billing and delivery policies differ
-      const isPrepaid =
-        billing?.intervalCount !== delivery?.intervalCount ||
-        billing?.interval !== delivery?.interval;
+      // Matching custom option
+      // const metaOption = metadata?.options?.[index] || {};
+      const metaOption =
+        metadata?.options?.find((o) => o.sellingPlanId === plan.id) ||
+        metadata?.options?.[index] ||
+        {};
 
       return {
         sellingPlanId: plan.id,
+        // Shopify fields
         name: plan.name,
-        billingType: isPrepaid ? "prepaid" : "pay",
-        billingFrequency: isPrepaid ? String(billing?.intervalCount ?? 1) : "",
-        billingInterval: billing?.interval?.toLowerCase() || "month",
-        deliveryInterval: delivery?.interval?.toLowerCase() || "month",
-        deliveryFrequency: delivery?.intervalCount || 1,
-        minOrders: "disabled",
-        maxOrders: "unlimited",
-        giveDiscount: !!pricing,
+        deliveryInterval: billing?.interval?.toLowerCase() || "month",
+        deliveryFrequency: billing?.intervalCount || 1,
+        billingType: metaOption.billingType || "pay_as_you_go",
+        billingFrequency: metaOption.billingFrequency || "",
+        // Custom metafield data
+        minOrders: metaOption.minOrders || "disabled",
+        maxOrders: metaOption.maxOrders || "unlimited",
+
+        giveDiscount: metaOption.giveDiscount ?? !!pricing,
         discountType:
-          adjustmentValue?.percentage != null
-            ? "percentage"
-            : pricing?.adjustmentType === "PRICE"
-              ? "fixed"
-              : "amount",
+          metaOption.discountType ??
+          (adjustmentValue?.percentage != null ? "percentage" : "fixed"),
         discountAmount:
-          adjustmentValue?.percentage ?? adjustmentValue?.amount ?? 0,
-        // second discount tier — not stored in Shopify, reset on load
-        changeDiscountAfter: false,
-        discountAmount2: "",
-        afterOrders: "",
-        discountType2: "amount",
-        giveShippingDiscount: false,
-        shippingDiscount: "",
-        shippingAfterOrders: "",
-        shippingDiscountType: "fixed",
-        allowAutoActions: false,
-        automationCycles: [],
-        changeQtyAfterOrders: false,
-        changeQtyQuantity: "",
-        changeQtyAfterOrdersNum: "",
-        changeQtyProducts: [],
-        removeFreeProducts: false,
-        removeFreeAfterOrders: "",
-        removeFreeProductsList: [],
-        setMinQty: false,
-        minQuantity: "1",
+          metaOption.discountAmount ??
+          adjustmentValue?.percentage ??
+          adjustmentValue?.amount ??
+          0,
+
+        giveShippingDiscount: metaOption.giveShippingDiscount ?? false,
+
+        changeDiscountAfter: metaOption.changeDiscountAfter ?? false,
+        discountAmount2: metaOption.discountAmount2 ?? "",
+        afterOrders: metaOption.afterOrders ?? "",
+        discountType2: metaOption.discountType2 ?? "amount",
+
+        shippingDiscount: metaOption.shippingDiscount ?? "",
+        shippingAfterOrders: metaOption.shippingAfterOrders ?? "",
+        shippingDiscountType: metaOption.shippingDiscountType ?? "fixed",
+
+        changeQtyAfterOrders: metaOption.changeQtyAfterOrders ?? false,
+        changeQtyAfterOrdersNum: metaOption.changeQtyAfterOrdersNum ?? "",
+        changeQtyQuantity: metaOption.changeQtyQuantity ?? "",
+
+        // Array
+        changeQtyProducts: metaOption.changeQtyProducts ?? [],
+
+        removeFreeProducts: metaOption.removeFreeProducts ?? false,
+        removeFreeAfterOrders: metaOption.removeFreeAfterOrders ?? "",
+        removeFreeProductsList: metaOption.removeFreeProductsList ?? [],
+
+        setMinQty: metaOption.setMinQty ?? false,
+        minQuantity: metaOption.minQuantity ?? "",
+
+        allowAutoActions: metaOption.allowAutoActions ?? false,
+        automationCycles: metaOption.automationCycles ?? [],
+
+        selectedProducts: metaOption.selectedProducts ?? [],
       };
     }),
-    productChanges: {
+
+    productChanges: metadata?.productChanges ?? {
       swap: true,
       variant: true,
       quantity: true,
@@ -205,17 +207,19 @@ export const loader = async ({ request, params }) => {
   });
 };
 
-//  Action 
 export const action = async ({ request, params }) => {
   const { admin } = await authenticate.admin(request);
   const body = await request.json();
   const { type, planPayload, shopifyGroupId } = body;
+  // console.log("Current Options", planPayload.options);
 
+  const removedProductIds = planPayload.removedProductIds;
+  const originalProductIds = planPayload.originalProductIds ?? [];
   const shopRes = await admin.graphql(`query { shop { id } }`);
   const shopData = await shopRes.json();
   const shopId = shopData.data.shop.id;
 
-  //  DELETE 
+  // DELETE
   if (type === "delete") {
     const res = await admin.graphql(
       `
@@ -240,29 +244,8 @@ export const action = async ({ request, params }) => {
     return json({ success: true, deleted: true });
   }
 
-  //  UPDATE 
+  // UPDATE (upsert)
   try {
-    // 1. Delete removed selling plans first
-    if (planPayload.deletedPlanIds?.length > 0) {
-      await admin.graphql(
-        `
-        mutation sellingPlanGroupRemovePlans($id: ID!, $sellingPlanIds: [ID!]!) {
-          sellingPlanGroupRemoveSellingPlans(id: $id, sellingPlanIds: $sellingPlanIds) {
-            sellingPlanGroup { id }
-            userErrors { field message }
-          }
-        }
-      `,
-        {
-          variables: {
-            id: shopifyGroupId,
-            sellingPlanIds: planPayload.deletedPlanIds,
-          },
-        },
-      );
-    }
-
-    // 2. Group + selling plans update
     const updateRes = await admin.graphql(
       `
       mutation sellingPlanGroupUpdate($id: ID!, $input: SellingPlanGroupInput!) {
@@ -278,42 +261,125 @@ export const action = async ({ request, params }) => {
           input: {
             name: planPayload.title,
             description: planPayload.description,
-
-            // Update existing plans
+            sellingPlansToDelete: planPayload.deletedPlanIds ?? [],
             sellingPlansToUpdate: planPayload.options
               .filter((o) => o.sellingPlanId)
-              .map((opt) => ({
-                id: opt.sellingPlanId,
-                name: opt.name || "Option",
-                options: [
-                  `Every ${parseInt(opt.deliveryFrequency) || 1} ${opt.deliveryInterval || "month"}`,
-                ],
-                ...buildSellingPlanPolicies(opt),
-              })),
+              .map((opt, i) => {
+                //
+                const interval =
+                  intervalMap[opt.deliveryInterval?.toLowerCase()] ?? "MONTH";
+                const intervalCount = parseInt(opt.deliveryFrequency || 1);
+                return {
+                  id: opt.sellingPlanId,
+                  name: opt.name || "Option",
+                  options: [
+                    `Every ${intervalCount} ${opt.deliveryInterval || "month"}`,
+                  ],
+                  billingPolicy: { recurring: { interval, intervalCount } },
+                  deliveryPolicy: { recurring: { interval, intervalCount } },
+                  pricingPolicies:
+                    opt.giveDiscount && opt.discountAmount
+                      ? [
+                          {
+                            fixed: {
+                              adjustmentType:
+                                opt.discountType === "percentage"
+                                  ? "PERCENTAGE"
+                                  : opt.discountType === "fixed"
+                                    ? "PRICE" //  fixed price
+                                    : "FIXED_AMOUNT", //  amount off ✓
+                              adjustmentValue:
+                                opt.discountType === "percentage"
+                                  ? {
+                                      percentage: parseFloat(
+                                        opt.discountAmount,
+                                      ),
+                                    }
+                                  : opt.discountType === "fixed"
+                                    ? {
+                                        fixedValue: parseFloat(
+                                          opt.discountAmount,
+                                        ),
+                                      }
+                                    : {
+                                        fixedValue: parseFloat(
+                                          opt.discountAmount,
+                                        ),
+                                      }, // amount off
+                            },
+                          },
+                        ]
+                      : [],
+                };
+              }),
 
-            // Create new plans (no sellingPlanId)
             sellingPlansToCreate: planPayload.options
               .filter((o) => !o.sellingPlanId)
-              .map((opt) => ({
-                name: opt.name || "Option",
-                options: [
-                  `Every ${parseInt(opt.deliveryFrequency) || 1} ${opt.deliveryInterval || "month"}`,
-                ],
-                category: "SUBSCRIPTION",
-                ...buildSellingPlanPolicies(opt),
-              })),
+              .map((opt, i) => {
+                //
+                const interval =
+                  intervalMap[opt.deliveryInterval?.toLowerCase()] ?? "MONTH";
+                const intervalCount = parseInt(opt.deliveryFrequency || 1);
+                return {
+                  name: opt.name || "Option",
+                  options: [
+                    `Every ${intervalCount} ${opt.deliveryInterval || "month"}`,
+                  ], //
+                  category: "SUBSCRIPTION",
+                  billingPolicy: { recurring: { interval, intervalCount } },
+                  deliveryPolicy: { recurring: { interval, intervalCount } },
+                  pricingPolicies:
+                    opt.giveDiscount && opt.discountAmount
+                      ? [
+                          {
+                            fixed: {
+                              adjustmentType:
+                                opt.discountType === "percentage"
+                                  ? "PERCENTAGE"
+                                  : "PRICE",
+                              adjustmentValue:
+                                opt.discountType === "percentage"
+                                  ? {
+                                      percentage: parseFloat(
+                                        opt.discountAmount,
+                                      ),
+                                    }
+                                  : {
+                                      fixedValue: parseFloat(
+                                        opt.discountAmount,
+                                      ),
+                                    },
+                            },
+                          },
+                        ]
+                      : [],
+                };
+              }),
           },
         },
       },
     );
+  console.log("CREATE sending:", planPayload.options
+  .filter((o) => !o.sellingPlanId)
+  .map((opt) => ({
+    name: opt.name,
+    interval: intervalMap[opt.deliveryInterval?.toLowerCase()],
+    frequency: opt.deliveryFrequency,
+    optionStr: `Every ${parseInt(opt.deliveryFrequency || 1)} ${opt.deliveryInterval || "month"}`,
+  }))
+);
 
     const updateData = await updateRes.json();
-    console.log(
-      "sellingPlanGroupUpdate result:",
-      updateData.data.sellingPlanGroupUpdate,
-    );
-
+    // console.log("jcdscdbcjkdbcjd", updateData.data.sellingPlanGroupUpdate)
     const updateErrors = updateData.data.sellingPlanGroupUpdate.userErrors;
+    console.log(
+      "Shopify userErrors:",
+      JSON.stringify(
+        updateData.data.sellingPlanGroupUpdate.userErrors,
+        null,
+        2,
+      ),
+    );
     if (updateErrors?.length > 0) {
       return json({
         success: false,
@@ -321,53 +387,65 @@ export const action = async ({ request, params }) => {
       });
     }
 
-    // 3. Remove products that were deselected
-    if (planPayload.removedProductIds?.length > 0) {
-      await admin.graphql(
+    // Remove products
+    if (removedProductIds?.length > 0) {
+      const removeRes = await admin.graphql(
         `
-        mutation sellingPlanGroupRemoveProducts($id: ID!, $productIds: [ID!]!) {
-          sellingPlanGroupRemoveProducts(id: $id, productIds: $productIds) {
-            sellingPlanGroup { id }
-            userErrors { field message }
-          }
-        }
-      `,
+    mutation sellingPlanGroupRemoveProducts($id: ID!, $productIds: [ID!]!) {
+      sellingPlanGroupRemoveProducts(id: $id, productIds: $productIds) {
+        removedProductIds
+        userErrors { field message }
+      }
+    }
+  `,
         {
           variables: {
             id: shopifyGroupId,
-            productIds: planPayload.removedProductIds,
+            productIds: removedProductIds,
           },
         },
       );
+      const removeData = await removeRes.json();
     }
 
-    // 4. Add newly selected products
+    // console.log("removedProductIds:", planPayload.removedProductIds);
+    // console.log("selectedProducts:", planPayload.selectedProducts);
+
+    // Add products
     if (planPayload.selectedProducts?.length > 0) {
-      await admin.graphql(
-        `
-        mutation sellingPlanGroupAddProducts($id: ID!, $productIds: [ID!]!) {
-          sellingPlanGroupAddProducts(id: $id, productIds: $productIds) {
-            sellingPlanGroup { id }
-            userErrors { field message }
-          }
-        }
-      `,
-        {
-          variables: {
-            id: shopifyGroupId,
-            productIds: planPayload.selectedProducts.map((p) => p.productId),
-          },
-        },
+      const productsToAdd = planPayload.selectedProducts.filter(
+        (p) => !originalProductIds.includes(p.productId),
       );
+
+      if (productsToAdd.length > 0) {
+        //
+        const addRes = await admin.graphql(
+          `
+      mutation sellingPlanGroupAddProducts($id: ID!, $productIds: [ID!]!) {
+        sellingPlanGroupAddProducts(id: $id, productIds: $productIds) {
+          sellingPlanGroup { id }
+          userErrors { field message }
+        }
+      }
+    `,
+          {
+            variables: {
+              id: shopifyGroupId,
+              productIds: productsToAdd.map((p) => p.productId),
+            },
+          },
+        );
+        const addData = await addRes.json();
+      }
     }
 
-    // 5. Update metafield with latest planPayload
+    // Update metafield
     const numericId = shopifyGroupId.split("/").pop();
     await admin.graphql(
       `
       mutation metafieldsSet($metafields: [MetafieldsSetInput!]!) {
         metafieldsSet(metafields: $metafields) {
-          metafields { id }
+          metafields { id key }
           userErrors { field message }
         }
       }
@@ -381,40 +459,50 @@ export const action = async ({ request, params }) => {
               key: `plan_${numericId}`,
               type: "json",
               value: JSON.stringify({
-                ...planPayload,
                 planId: numericId,
                 shopifyGroupId,
+                shop: planPayload.shop,
+                description: planPayload.description,
+                selectedProducts: planPayload.selectedProducts,
+                productChanges: planPayload.productChanges,
+                options: planPayload.options,
+                title: planPayload.title,
               }),
             },
           ],
         },
       },
     );
-
-    return json({ success: true, planId: params.planId });
+    const freshRes = await admin.graphql(
+      `query getSellingPlanGroup($id: ID!) {
+    sellingPlanGroup(id: $id) {
+      sellingPlans(first: 10) {
+        edges { node { id name } }
+      }
+    }
+  }`,
+      { variables: { id: shopifyGroupId } },
+    );
+    const freshData = await freshRes.json();
+    const freshPlans = freshData.data.sellingPlanGroup.sellingPlans.edges.map(
+      (e) => ({ id: e.node.id, name: e.node.name }),
+    );
+    return json({ success: true, planId: params.planId, freshPlans });
   } catch (error) {
-    console.error("Action error:", error.message);
     return json({ success: false, error: error.message });
   }
 };
 
-//  Component 
-function PlanEdit() {
-  const planData = useLoaderData();
-  const shop = planData.shop;
-  const planId = planData.planId;
-
+export default function PlanId() {
+  const plan = useLoaderData();
+  console.log("Plan data loaded:", plan);
   return (
-    <div>
+    <div style={{ padding: "1.5rem" }}>
       <Templates
-        shop={shop}
-        dublicateplanPlanId={planId}
-        dublicateplanPlanData={planData}
-        isDuplicate={true}
-        singlePlanId={undefined}
+        shop={plan.shop}
+        singlePlanId={plan.planId}
+        singlePlanData={plan}
       />
     </div>
   );
 }
-
-export default PlanEdit;
