@@ -170,6 +170,8 @@ function Templates({
   const planId = isEditing ? singlePlanId : null;
   const planData = isDuplicate ? dublicateplanPlanData : singlePlanData;
 
+  console.log("fjkdfjdbjbvj",planData)
+
   // Initialize state from singlePlanData if editing
   // const [options, setOptions] = useState(
   //   planData?.options ?? [{ ...defaultOption }],

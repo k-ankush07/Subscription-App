@@ -4,7 +4,7 @@ import { useLoaderData } from "react-router";
 import Templates from "./components/PlanPage/Templates"
 import { authenticate } from "../shopify.server";
 
-// This runs on the SERVER — no CORS, no mixed content issues
+
 const intervalMap = {
   day: "DAY", days: "DAY",
   week: "WEEK", weeks: "WEEK",
