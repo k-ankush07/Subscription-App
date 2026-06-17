@@ -140,11 +140,18 @@ export default function SubscriptionDetails() {
   const price = parseFloat(node.lineDiscountedPrice?.amount || 0);
   return acc + price;
 }, 0);
-console.log("orderss",orders?.edges?.[0].node?.totalShippingPriceSet?.presentmentMoney)
+// console.log("orderss",orders?.edges?.[0].node?.totalShippingPriceSet?.presentmentMoney)
 
   // shipping fixed (abhi hardcoded hai, baad me API se la sakta hai)
   
   const shipping = parseInt(orders?.edges?.[0].node?.totalShippingPriceSet?.presentmentMoney?.amount);
+  const money = orders?.edges?.[0]?.node?.totalShippingPriceSet?.presentmentMoney;
+
+const formattedShipping = new Intl.NumberFormat("en", {
+  style: "currency",
+  currency: money.currencyCode,
+}).format(Number(money.amount));
+
 
 
   // total
@@ -190,6 +197,7 @@ function getCardImage(brand) {
         {[
           ["Status", contract.status],
           ["Created", formatDate(contract.createdAt)],
+          ["Current billing cycle",1],
           ["Next Billing", formatDate(contract.nextBillingDate)],
           [
             "Frequency",
@@ -354,7 +362,12 @@ function getCardImage(brand) {
       >
         <div style={{ display: "flex", justifyContent: "space-between" }}>
           <span>Subtotal</span>
-          <span>{lines?.edges?.[0]?.node?.lineDiscountedPrice?.currencyCode==="INR" ? "₹": "$"}{subtotal?.toFixed(2)}</span>
+          <span>
+  {new Intl.NumberFormat("en", {
+    style: "currency",
+    currency: lines?.edges?.[0]?.node?.lineDiscountedPrice?.currencyCode,
+  }).format(subtotal ?? 0)}
+</span>
         </div>
 
         <div
@@ -365,7 +378,7 @@ function getCardImage(brand) {
           }}
         >
           <span>Shipping (Standard)</span>
-          <span>₹{shipping}</span>
+          <span>{formattedShipping}</span>
         </div>
 
         <hr />
