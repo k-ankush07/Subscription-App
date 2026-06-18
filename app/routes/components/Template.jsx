@@ -1,13 +1,21 @@
 import React, { useEffect, useState } from "react";
-import { Page, Card, FormLayout, TextField, Select } from "@shopify/polaris";
+import {
+  Page,
+  Card,
+  FormLayout,
+  TextField,
+  Select,
+  Banner,
+} from "@shopify/polaris";
 import { useNavigate } from "react-router";
-import Product from "./Product"
-function Template() {
+import Product from "./Product";
+function Template({shop}) {
   const navigate = useNavigate();
 
   const [planName, setPlanName] = useState("Plan 1");
   const [widget, setWidget] = useState("widget1");
-    const [selectedProducts, setSelectedProducts] = useState([]);
+  const [selectedProducts, setSelectedProducts] = useState([]);
+  const [productError, setProductError] = useState(false);
 
   const handleBack = () => {
     navigate("/app/plans");
@@ -15,8 +23,10 @@ function Template() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-
+    if (selectedProducts.length === 0) return setProductError(true);
+    setProductError(false);
     const payload = {
+      shop,
       planName,
       widget,
       products: selectedProducts,
@@ -26,7 +36,6 @@ function Template() {
 
     localStorage.setItem("users", JSON.stringify(payload));
   };
-
 
   return (
     <>
@@ -47,6 +56,11 @@ function Template() {
           },
         ]}
       >
+        {productError && (
+          <Banner tone="critical" title="Validation error">
+            <p>Please select at least one product.</p>
+          </Banner>
+        )}
         <Card>
           <form onSubmit={handleSubmit}>
             <FormLayout>
@@ -70,8 +84,10 @@ function Template() {
                 helpText="Will be visible for customers on the product page"
               />
               <Product
-              selectedProducts={selectedProducts}
-              setSelectedProducts={setSelectedProducts}
+                selectedProducts={selectedProducts}
+                setSelectedProducts={setSelectedProducts}
+                setProductError={setProductError}
+                productError={productError}
               />
             </FormLayout>
           </form>

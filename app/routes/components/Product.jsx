@@ -7,11 +7,12 @@ import {
   BlockStack,
   Badge,
   Divider,
+  InlineError
 } from "@shopify/polaris";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import React, { useState, useCallback } from "react";
 
-function Product({selectedProducts,setSelectedProducts}) {
+function Product({selectedProducts,setSelectedProducts,setProductError,productError}) {
   const shopify = useAppBridge();
 //   const [selectedProducts, setSelectedProducts] = useState([]);
 
@@ -20,11 +21,11 @@ function Product({selectedProducts,setSelectedProducts}) {
       type: "product",
       multiple: true,
       action: "select",
-      // Pre-check already selected products in the picker
       selectionIds: selectedProducts.map((p) => ({ id: p.id })),
     });
 
     if (selected) {
+        setProductError(false); 
       const incoming = selected.map((product) => {
         const selectedVariants = product.variants || [];
         return {
@@ -34,8 +35,8 @@ function Product({selectedProducts,setSelectedProducts}) {
           selectedVariantCount: selectedVariants.length,
           totalVariantCount: product.totalVariants || selectedVariants.length,
           variants: selectedVariants.map((variant) => ({
-            id: variant.id,
-            title: variant.title,
+            variantsId: variant.id,
+            variantsTitle: variant.title,
           })),
         };
       });
@@ -98,6 +99,7 @@ function Product({selectedProducts,setSelectedProducts}) {
                           )}
                         </BlockStack>
                       </InlineStack>
+                      
                       <Button
                         variant="plain"
                         tone="critical"
@@ -116,7 +118,9 @@ function Product({selectedProducts,setSelectedProducts}) {
             No products selected
           </Text>
         )}
-
+{productError && (
+  <InlineError message="Please select at least one product." fieldID="products" />
+)}
         {/* Action button */}
         <Button onClick={handleSelectProduct}>
           {selectedProducts.length > 0 ? "Add more products" : "Select products"}
