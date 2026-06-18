@@ -46,7 +46,7 @@ function Plans() {
 
   const rowClick = (PlandId) => {
     console.log("Clicked", PlandId);
-    navigate(`/app/plan/${PlandId}`);
+    // navigate(`/app/plan/${PlandId}`);
   };
   return (
     <>

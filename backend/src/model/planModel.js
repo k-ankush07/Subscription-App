@@ -6,22 +6,22 @@ const planSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    PlandId:{
-type: String,
+    PlandId: {
+      type: String,
       required: true,
     },
     planName: {
       type: String,
       required: true,
     },
-    widget:{
-    type: String,
+    widget: {
+      type: String,
       required: true,
     },
-     products: {
+    products: {
       type: mongoose.Schema.Types.Mixed,
     },
-    customerProductChanges:{
+    customerProductChanges: {
       type: mongoose.Schema.Types.Mixed,
     },
   },

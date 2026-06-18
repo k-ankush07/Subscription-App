@@ -14,7 +14,7 @@ function Template({shop}) {
   const navigate = useNavigate();
   const API= import.meta.env.VITE_API_URL
   const PlandId= Date.now();
-  const [planName, setPlanName] = useState("Plan 1");
+  const [planName, setPlanName] = useState("Plan #1");
   const [widget, setWidget] = useState("widget1");
 
   //customer prodcut chnages checkbox check uncheck
@@ -77,7 +77,7 @@ function Template({shop}) {
   return (
     <>
       <Page
-        title="Create Plan"
+        title={planName ?  planName : "Create subscription plan"}
         backAction={{
           content: "Plans",
           onAction: handleBack,
@@ -174,6 +174,14 @@ function Template({shop}) {
                 </p>   
             </div>
           </Card>
+        </Card>
+
+        {/* Summary side  */}
+
+        <Card>
+          <h2>Summary</h2>
+          <p> Widget: {widget}</p>
+          <p> {selectedProducts.length===1 ? selectedProducts[0].title : [`${selectedProducts.length} products`]}</p>
         </Card>
       </Page>
     </>

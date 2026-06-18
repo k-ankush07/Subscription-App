@@ -52,23 +52,28 @@ const getALLPlans = async (req, res) => {
 };
 
 
-const getPlanById = async (req, res) => {
+const getPlanByPlanId = async (req, res) => {
   try {
     const { PlandId } = req.params;
-    console.log("snjbjg",PlandId)
-    const plan = await Plan.findById(PlandId);
+
+
+    const plan = await Plan.findOne({ PlandId });
+
+    // console.log("Found plan:", plan);
+
     if (!plan) {
       return res.status(404).json({
         success: false,
         message: "Plan not found",
       });
     }
-    return res.status(200).json({
+
+    res.status(200).json({
       success: true,
       data: plan,
     });
   } catch (error) {
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       message: error.message,
     });
@@ -155,4 +160,4 @@ const getPlanById = async (req, res) => {
 
 
 
-export {  createPlan,getALLPlans  ,getPlanById};
+export {  createPlan,getALLPlans  ,getPlanByPlanId};
