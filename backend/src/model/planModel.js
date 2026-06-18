@@ -6,6 +6,10 @@ const planSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    PlandId:{
+type: String,
+      required: true,
+    },
     planName: {
       type: String,
       required: true,

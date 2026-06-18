@@ -13,6 +13,7 @@ import Product from "./Product";
 function Template({shop}) {
   const navigate = useNavigate();
   const API= import.meta.env.VITE_API_URL
+  const PlandId= Date.now();
   const [planName, setPlanName] = useState("Plan 1");
   const [widget, setWidget] = useState("widget1");
 
@@ -37,6 +38,7 @@ function Template({shop}) {
     setProductError(false);
     const payload = {
       shop,
+      PlandId,
       planName,
       widget,
       products: selectedProducts,

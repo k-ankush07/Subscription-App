@@ -44,9 +44,9 @@ function Plans() {
     navigate("/app/createplan");
   };
 
-  const rowClick = (id) => {
-    console.log("Clicked", id);
-    navigate(`/app/plan/${id}`);
+  const rowClick = (PlandId) => {
+    console.log("Clicked", PlandId);
+    navigate(`/app/plan/${PlandId}`);
   };
   return (
     <>
@@ -89,7 +89,7 @@ function Plans() {
                   {plans.map((item) => (
                     <tr
                       key={item._id}
-                      onClick={() => rowClick(item._id)}
+                      onClick={() => rowClick(item.PlandId)}
                       style={{ cursor: "pointer" }}
                     >
                       <td>{item.planName}</td>

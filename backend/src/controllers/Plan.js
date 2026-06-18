@@ -4,6 +4,7 @@ const createPlan = async (req, res) => {
   try {
     const {
       shop,
+      PlandId,
       planName,
       widget,
       products,
@@ -12,6 +13,7 @@ const createPlan = async (req, res) => {
 
     const plan = await Plan.create({
       shop,
+      PlandId,
       planName,
       widget,
       products,
@@ -52,17 +54,15 @@ const getALLPlans = async (req, res) => {
 
 const getPlanById = async (req, res) => {
   try {
-    const { planId  } = req.params;
-
-    const plan = await Plan.findOne({ _id: planId  });
-
+    const { PlandId } = req.params;
+    console.log("snjbjg",PlandId)
+    const plan = await Plan.findById(PlandId);
     if (!plan) {
       return res.status(404).json({
         success: false,
         message: "Plan not found",
       });
     }
-
     return res.status(200).json({
       success: true,
       data: plan,
