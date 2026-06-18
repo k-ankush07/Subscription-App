@@ -1,12 +1,12 @@
 import express from "express";
-import { createPlan,getALLPlans} from "../controllers/Plan.js";
+import { createPlan,getALLPlans,getPlanById} from "../controllers/Plan.js";
 
 const router = express.Router();
 
 
 router.post("/create", createPlan);
 router.get("/getAllPlans", getALLPlans);
-// router.get("/:planId", getPlanByPlanId);
+router.get("/:planId", getPlanById);
 // router.put("/update/:planId", updatePlan);
 // router.delete("/:planId", deletePlan);
 

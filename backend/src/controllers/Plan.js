@@ -52,11 +52,9 @@ const getALLPlans = async (req, res) => {
 
 const getPlanById = async (req, res) => {
   try {
-    const { id } = req.params;
+    const { planId  } = req.params;
 
-    const plan = await Plan.findById(id);
-    // Ya:
-    // const plan = await Plan.findOne({ _id: id });
+    const plan = await Plan.findOne({ _id: planId  });
 
     if (!plan) {
       return res.status(404).json({
@@ -157,4 +155,4 @@ const getPlanById = async (req, res) => {
 
 
 
-export {  createPlan,getALLPlans  };
+export {  createPlan,getALLPlans  ,getPlanById};
