@@ -19,7 +19,7 @@ export const loader = async ({ request }) => {
 function Plans() {
   const { plans } = useLoaderData();
   const navigate = useNavigate();
-  const API = import.meta.env.VITE_API_URL;
+    const [loading, setLoading] = useState(false);;
 
   // const Plans = [
   //   {
@@ -94,12 +94,13 @@ function Plans() {
                     >
                       <td>{item.planName}</td>
                       <td>
-  {Array.isArray(item.products) && item.products.length > 0
-    ? item.products.length === 1
-      ? item.products[0]?.title
-      : `${item.products.length} products`
-    : "—"}
-</td>
+                        {Array.isArray(item.products) &&
+                        item.products.length > 0
+                          ? item.products.length === 1
+                            ? item.products[0]?.title
+                            : `${item.products.length} products`
+                          : "—"}
+                      </td>
                       <td>{item.deliveryFrequency || ""}</td>
                       <td>{item.pricing || ""}</td>
                       <td>{item.widget}</td>
