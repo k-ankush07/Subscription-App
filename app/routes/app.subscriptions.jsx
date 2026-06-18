@@ -1,6 +1,6 @@
 import React from "react";
 
-import { Link, replace, useLoaderData, useNavigate } from "react-router";
+import {  useLoaderData, useNavigate } from "react-router";
 import { authenticate } from "../shopify.server";
 
 export async function loader({ request }) {
@@ -72,7 +72,7 @@ deliveryPolicy {
   `);
 
   const data = await res.json();
-  
+
   return {
     contracts: data.data.subscriptionContracts.edges.map((e) => e.node),
   };

@@ -391,7 +391,7 @@ function getCardImage(brand) {
           }}
         >
           <span>Total</span>
-          <span>{total}</span>
+          <span>₹{total}</span>
         </div>
       </div>
       {contract.status=="CANCEL" ?
