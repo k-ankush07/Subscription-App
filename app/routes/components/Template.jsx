@@ -6,22 +6,32 @@ import {
   TextField,
   Select,
   Banner,
+  Checkbox,
 } from "@shopify/polaris";
 import { useNavigate } from "react-router";
 import Product from "./Product";
 function Template({shop}) {
   const navigate = useNavigate();
-
+  const API= import.meta.env.VITE_API_URL
   const [planName, setPlanName] = useState("Plan 1");
   const [widget, setWidget] = useState("widget1");
+
+  //customer prodcut chnages checkbox check uncheck
+  const [allowProductSwaps, setAllowProductSwaps] = useState(true);
+  const [allowVariantChanges, setAllowVariantChanges] = useState(true);
+  const [allowQuantityChanges, setAllowQuantityChanges] = useState(true);
+  const [keepDiscounts, setKeepDiscounts] = useState(true);
+
+  //prodcut seleect in product page 
   const [selectedProducts, setSelectedProducts] = useState([]);
+  //prodcut error id not product select then publish
   const [productError, setProductError] = useState(false);
 
   const handleBack = () => {
     navigate("/app/plans");
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit =  async (e) => {
     e.preventDefault();
     if (selectedProducts.length === 0) return setProductError(true);
     setProductError(false);
@@ -30,7 +40,32 @@ function Template({shop}) {
       planName,
       widget,
       products: selectedProducts,
+      customerProductChanges: {
+    allowProductSwaps,
+    allowVariantChanges,
+    allowQuantityChanges,
+    keepDiscounts,
+  },
     };
+    try {
+      const response= await fetch(`${API}/plans/create`,{
+        method:"POST",
+        headers:{
+          "Content-Type":"application/json"
+        },
+        body:JSON.stringify(payload)
+      })
+      const data= await response.json();
+      if(data.success===true){
+       setTimeout(()=>
+      {
+         navigate("/app/plans")
+      },2000)
+      }
+      console.log("data", data)
+    } catch (error) {
+       console.error("Error:", error);
+    }
 
     console.log(payload);
 
@@ -51,8 +86,7 @@ function Template({shop}) {
         }}
         secondaryActions={[
           {
-            content: "Delete Plan",
-            onAction: handleBack,
+            content: "Save as a draft",
           },
         ]}
       >
@@ -91,6 +125,53 @@ function Template({shop}) {
               />
             </FormLayout>
           </form>
+
+
+          {/* customer prodcut changes */}
+          <Card>
+            <h2>Customer product changes</h2>
+
+            <div>
+              <Checkbox 
+                label="Allow product swaps"
+          checked={allowProductSwaps}
+          onChange={setAllowProductSwaps}
+              />
+              <p>{allowProductSwaps
+      ? "Customers will be able to swap their current product to a different product in this selling plan group via the customer portal."
+      : "Customers won't be able to swap their product to a different product in the customer portal."}</p>   
+            </div>
+            <div>
+             <Checkbox
+          label="Allow variant changes"
+          checked={allowVariantChanges}
+          onChange={setAllowVariantChanges}
+        />
+              <p>
+                {
+                  allowVariantChanges ? " Customers will be able to change to a different variant of the same product (e.g., size, color).": "Customers won't be able to change the product variant in the customer portal."
+                }
+               </p>   
+            </div>
+            <div>
+             <Checkbox
+          label="Allow quantity changes"
+          checked={allowQuantityChanges}
+          onChange={setAllowQuantityChanges}
+        />
+              <p>{allowQuantityChanges ? "Customers will be able to change the quantity of their subscription items." : "Customers won't be able to change the quantity of their subscription items."} </p>   
+            </div>
+            <div>
+                <Checkbox
+          label="Keep discounts on product changes"
+          checked={keepDiscounts}
+          onChange={setKeepDiscounts}
+        />
+              <p>
+                {keepDiscounts ? "Discounts and pricing policies will be preserved when customers swap products, change variants, or adjust quantities." :"Existing discounts and pricing policies will not carry over - the current product price will apply."}
+                </p>   
+            </div>
+          </Card>
         </Card>
       </Page>
     </>

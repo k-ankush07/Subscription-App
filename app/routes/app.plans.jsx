@@ -1,73 +1,112 @@
-
-
 import { Page, Icon, Card, EmptyState } from "@shopify/polaris";
-import React from "react";
-import { useNavigate } from "react-router";
+import { authenticate } from "../shopify.server";
+import React, { useEffect, useState } from "react";
+import { useLoaderData, useNavigate } from "react-router";
 import { DuplicateIcon } from "@shopify/polaris-icons";
 
-function Plans() {
-  const navigate = useNavigate();
+export const loader = async ({ request }) => {
+  const { session } = await authenticate.admin(request);
+  const shop = session.shop;
 
-  const Plans = [
-    {
-      id: 1,
-      planName: "Plan1",
-      product: "Vintage Nirvana Men Oversized Printed T-Shirt",
-      deliveryFrequency: "2 delivery frequencies",
-      pricing: "20% off",
-      widgets: "#1",
-    },
-    {
-      id: 2,
-      planName: "Plan2",
-      product: "Vintage Nirvana Men Oversized Printed T-Shirt 2",
-      deliveryFrequency: "1 delivery frequencies",
-      pricing: "10% off",
-      widgets: "#3",
-    },
-  ];
+  const response = await fetch(
+    `https://habitant-startling-cassette.ngrok-free.dev/plans/getAllPlans?shop=${shop}`,
+  );
+  const data = await response.json();
+
+  return Response.json({ plans: data.success ? data.data : [] });
+};
+
+function Plans() {
+  const { plans } = useLoaderData();
+  const navigate = useNavigate();
+  const API = import.meta.env.VITE_API_URL;
+
+  // const Plans = [
+  //   {
+  //     id: 1,
+  //     planName: "Plan1",
+  //     product: "Vintage Nirvana Men Oversized Printed T-Shirt",
+  //     deliveryFrequency: "2 delivery frequencies",
+  //     pricing: "20% off",
+  //     widgets: "#1",
+  //   },
+  //   {
+  //     id: 2,
+  //     planName: "Plan2",
+  //     product: "Vintage Nirvana Men Oversized Printed T-Shirt 2",
+  //     deliveryFrequency: "1 delivery frequencies",
+  //     pricing: "10% off",
+  //     widgets: "#3",
+  //   },
+  // ];
 
   const handelPlan = () => {
     navigate("/app/createplan");
   };
 
+  const rowClick = (id) => {
+    console.log("Clicked", id);
+    navigate(`/app/plan/${id}`);
+  };
   return (
-  <>
-   <Page
-      title="Selling Plans"
-      primaryAction={{
-        content: "Create Plan",
-        onAction: handelPlan,
-      }}
-    >
-  {Plans.length===0? 
-  <>
-  <Card>
-    <EmptyState>
-        <img src="https://subscriptions.kachingappz.app/images/empty-subscriptions-list-state.png" />
-        <h2>Get more repeat business</h2>
-        <p>Allow customers to purchase products or services on a recurring basis</p>
-    </EmptyState>
-  </Card>
-  </>
-  :
-  <>
-   
-      <Card>
-         <table border="1">
-          <thead>
-            <tr>
-              <th>Plan Title</th>
-              <th>Product</th>
-              <th>Delivery Frequency</th>
-              <th>Pricing</th>
-              <th>Widgets</th>
-              <th>Action</th>
-            </tr>
-          </thead>
+    <>
+      <Page
+        title="Selling Plans"
+        primaryAction={{
+          content: "Create Plan",
+          onAction: handelPlan,
+        }}
+      >
+        {plans.length === 0 ? (
+          <>
+            <Card>
+              <EmptyState>
+                <img src="https://subscriptions.kachingappz.app/images/empty-subscriptions-list-state.png" />
+                <h2>Get more repeat business</h2>
+                <p>
+                  Allow customers to purchase products or services on a
+                  recurring basis
+                </p>
+              </EmptyState>
+            </Card>
+          </>
+        ) : (
+          <>
+            <Card>
+              <table border="1">
+                <thead>
+                  <tr>
+                    <th>Plan Title</th>
+                    <th>Product</th>
+                    <th>Delivery Frequency</th>
+                    <th>Pricing</th>
+                    <th>Widgets</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
 
-          <tbody>
-            {Plans.map((item) => (
+                <tbody>
+                  {plans.map((item) => (
+                    <tr
+                      key={item._id}
+                      onClick={() => rowClick(item._id)}
+                      style={{ cursor: "pointer" }}
+                    >
+                      <td>{item.planName}</td>
+                      <td>
+                        {Array.isArray(item.products)
+                          ? item.products[0]?.title || "—"
+                          : "—"}
+                      </td>
+                      <td>{item.deliveryFrequency || ""}</td>
+                      <td>{item.pricing || ""}</td>
+                      <td>{item.widget}</td>
+                      <td>
+                        <Icon source={DuplicateIcon} tone="base" />
+                      </td>
+                    </tr>
+                  ))}
+                  {/* {Plans.map((item) => (
               <tr key={item.id}>
                 <td>{item.planName}</td>
                 <td>{item.product}</td>
@@ -78,15 +117,14 @@ function Plans() {
                   <Icon source={DuplicateIcon} tone="base" />
                 </td>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </Card>
-    
-  </>}
-  </Page>
-  </>
-  
+            ))} */}
+                </tbody>
+              </table>
+            </Card>
+          </>
+        )}
+      </Page>
+    </>
   );
 }
 

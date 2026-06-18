@@ -6,26 +6,18 @@ const planSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    planId: {
+    planName: {
       type: String,
       required: true,
     },
-    shopifyGroupId: { type: String, default: null },
-
-    title: {
-      type: String,
+    widget:{
+    type: String,
       required: true,
     },
-    description: {
-      type: String,
-    },
-    selectedProducts: {
+     products: {
       type: mongoose.Schema.Types.Mixed,
     },
-    productChanges: {
-      type: mongoose.Schema.Types.Mixed,
-    },
-    options: {
+    customerProductChanges:{
       type: mongoose.Schema.Types.Mixed,
     },
   },

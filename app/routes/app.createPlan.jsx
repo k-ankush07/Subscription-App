@@ -10,8 +10,6 @@ export const loader = async ({request})=>
 }
 function CreatePlan() {
   const {shop}= useLoaderData()
-  console.log("bfdfbdsj", shop)
-
   return (
    <>
    <Template  shop={shop}/>
