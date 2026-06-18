@@ -1,52 +1,115 @@
-import { Card, Button, InlineStack, Text, Thumbnail, BlockStack } from "@shopify/polaris";
+import {
+  Card,
+  Button,
+  InlineStack,
+  Text,
+  Thumbnail,
+  BlockStack,
+  Badge,
+  Divider,
+} from "@shopify/polaris";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import React, { useState, useCallback } from "react";
 
-function Product() {
+function Product({selectedProducts,setSelectedProducts}) {
   const shopify = useAppBridge();
-  const [selectedProducts, setSelectedProducts] = useState([]);
+//   const [selectedProducts, setSelectedProducts] = useState([]);
 
   const handleSelectProduct = useCallback(async () => {
     const selected = await shopify.resourcePicker({
       type: "product",
       multiple: true,
       action: "select",
+      // Pre-check already selected products in the picker
+      selectionIds: selectedProducts.map((p) => ({ id: p.id })),
     });
 
     if (selected) {
-      setSelectedProducts(
-        selected.map((product) => ({
+      const incoming = selected.map((product) => {
+        const selectedVariants = product.variants || [];
+        return {
           id: product.id,
           title: product.title,
-          handle: product.handle,
-          image: product.images?.[0],
-          variants: product.variants,
-        }))
-      );
+          ProductImage: product.images?.[0].originalSrc,
+          selectedVariantCount: selectedVariants.length,
+          totalVariantCount: product.totalVariants || selectedVariants.length,
+          variants: selectedVariants.map((variant) => ({
+            id: variant.id,
+            title: variant.title,
+          })),
+        };
+      });
+
+
+      //selct new prodcut and add state
+      setSelectedProducts((prev) => {
+        const incomingIds = new Set(incoming.map((p) => p.id));
+        const kept = prev.filter((p) => !incomingIds.has(p.id));
+        return [...kept, ...incoming];
+      });
     }
-  }, [shopify]);
+  }, [shopify, selectedProducts]);
+
+  const handleRemove = useCallback((productId) => {
+    setSelectedProducts((prev) => prev.filter((p) => p.id !== productId));
+  }, []);
+
+  const getVariantLabel = ({ selectedVariantCount, totalVariantCount }) => {
+    if (selectedVariantCount === totalVariantCount) return null;
+    return `${selectedVariantCount} of ${totalVariantCount} variants selected`;
+  };
 
   return (
     <Card>
       <BlockStack gap="400">
-        <Text as="h2" variant="headingMd">
-          Product
-        </Text>
 
+        {/* Header */}
+        <InlineStack align="space-between" blockAlign="center">
+          <Text as="h2" variant="headingMd">Products</Text>
+          {selectedProducts.length > 0 && (
+            <Badge tone="info">{selectedProducts.length} selected</Badge>
+          )}
+        </InlineStack>
+
+        {/* Product list */}
         {selectedProducts.length > 0 ? (
-          <BlockStack gap="300">
-            {selectedProducts.map((product) => (
-              <InlineStack key={product.id} gap="300" blockAlign="center">
-                <Thumbnail
-                  source={product.image?.originalSrc || product.image?.src || ""}
-                  alt={product.title}
-                  size="small"
-                />
-                <Text as="span" variant="bodyMd">
-                  {product.title}
-                </Text>
-              </InlineStack>
-            ))}
+          <BlockStack gap="0">
+            {selectedProducts.map((product, index) => {
+              const variantLabel = getVariantLabel(product);
+              return (
+                <div key={product.id}>
+                  {index > 0 && <Divider />}
+                  <div style={{ padding: "10px 0" }}>
+                    <InlineStack align="space-between" blockAlign="center">
+                      <InlineStack gap="300" blockAlign="center">
+                        <Thumbnail
+                          source={product.ProductImage  || ""}
+                          alt={product.title}
+                          size="small"
+                        />
+                        <BlockStack gap="100">
+                          <Text as="span" variant="bodyMd" fontWeight="medium">
+                            {product.title}
+                          </Text>
+                          {variantLabel && (
+                            <Text as="span" variant="bodySm" tone="subdued">
+                              {variantLabel}
+                            </Text>
+                          )}
+                        </BlockStack>
+                      </InlineStack>
+                      <Button
+                        variant="plain"
+                        tone="critical"
+                        onClick={() => handleRemove(product.id)}
+                      >
+                        Remove
+                      </Button>
+                    </InlineStack>
+                  </div>
+                </div>
+              );
+            })}
           </BlockStack>
         ) : (
           <Text as="p" variant="bodyMd" tone="subdued">
@@ -54,9 +117,11 @@ function Product() {
           </Text>
         )}
 
+        {/* Action button */}
         <Button onClick={handleSelectProduct}>
-          {selectedProducts.length > 0 ? "Change product" : "Select product"}
+          {selectedProducts.length > 0 ? "Add more products" : "Select products"}
         </Button>
+
       </BlockStack>
     </Card>
   );

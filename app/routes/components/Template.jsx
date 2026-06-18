@@ -5,8 +5,9 @@ import Product from "./Product"
 function Template() {
   const navigate = useNavigate();
 
-  const [planName, setPlanName] = useState("");
+  const [planName, setPlanName] = useState("Plan 1");
   const [widget, setWidget] = useState("widget1");
+    const [selectedProducts, setSelectedProducts] = useState([]);
 
   const handleBack = () => {
     navigate("/app/plans");
@@ -18,6 +19,7 @@ function Template() {
     const payload = {
       planName,
       widget,
+      products: selectedProducts,
     };
 
     console.log(payload);
@@ -67,7 +69,10 @@ function Template() {
                 onChange={setWidget}
                 helpText="Will be visible for customers on the product page"
               />
-              <Product />
+              <Product
+              selectedProducts={selectedProducts}
+              setSelectedProducts={setSelectedProducts}
+              />
             </FormLayout>
           </form>
         </Card>
