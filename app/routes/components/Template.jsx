@@ -86,11 +86,11 @@ function Template({shop}) {
           content: "Publish",
           onAction: handleSubmit,
         }}
-        secondaryActions={[
-          {
-            content: "Save as a draft",
-          },
-        ]}
+        // secondaryActions={[
+        //   {
+        //     content: "Save as a draft",
+        //   },
+        // ]}
       >
         {productError && (
           <Banner tone="critical" title="Validation error">
@@ -181,7 +181,13 @@ function Template({shop}) {
         <Card>
           <h2>Summary</h2>
           <p> Widget: {widget}</p>
-          <p> {selectedProducts.length===1 ? selectedProducts[0].title : [`${selectedProducts.length} products`]}</p>
+        <p>
+  {selectedProducts.length === 0
+    ? ""
+    : selectedProducts.length === 1
+    ? selectedProducts[0].title
+    : `${selectedProducts.length} products`}
+</p>
         </Card>
       </Page>
     </>
