@@ -20,70 +20,7 @@ export const loader = async ({ request, params }) => {
     shop: session.shop,
   });
 };
-export const action = async ({ request }) => {
-  const { admin } = await authenticate.admin(request);
-  const payload = await request.json();
-  console.log("idnjasbd", payload)
 
-  // Shopify pe SellingPlanGroup update karo
-  const updateRes = await admin.graphql(
-    `
-    mutation sellingPlanGroupUpdate($id: ID!, $input: SellingPlanGroupInput!) {
-      sellingPlanGroupUpdate(id: $id, input: $input) {
-        sellingPlanGroup { id }
-        userErrors { field message }
-      }
-    }
-  `,
-    {
-      variables: {
-        id: payload.shopifyGroupId, // MongoDB se aa raha hai
-        input: {
-          name: payload.planName,
-          merchantCode: payload.planName,
-        },
-      },
-    }
-  );
-
-  const updateData = await updateRes.json();
-  const userErrors = updateData.data.sellingPlanGroupUpdate.userErrors;
-
-  if (userErrors?.length > 0) {
-    return Response.json({ success: false, error: userErrors[0].message });
-  }
-
-  // Products update karo
-  const updateProductsRes = await admin.graphql(
-    `
-    mutation sellingPlanGroupAddProducts($id: ID!, $productIds: [ID!]!) {
-      sellingPlanGroupAddProducts(id: $id, productIds: $productIds) {
-        sellingPlanGroup { id }
-        userErrors { field message }
-      }
-    }
-  `,
-    {
-      variables: {
-        id: payload.shopifyGroupId,
-        productIds: payload.products.map((p) => p.id),
-      },
-    }
-  );
-
-  const updateProductsData = await updateProductsRes.json();
-  const updateProductsErrors =
-    updateProductsData.data.sellingPlanGroupAddProducts.userErrors;
-
-  if (updateProductsErrors?.length > 0) {
-    return Response.json({
-      success: false,
-      error: updateProductsErrors[0].message,
-    });
-  }
-
-  return Response.json({ success: true, shopifyGroupId: payload.shopifyGroupId });
-};
 
 function planId() {
   const {plans,shop }= useLoaderData();
