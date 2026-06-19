@@ -1,11 +1,13 @@
-import React from "react";
+import React from 'react'
 
 function DublicatePlanPage() {
   return (
     <>
-      <hello>dublicate</hello>
+    <hello>
+        dublicate
+        </hello> 
     </>
-  );
+  )
 }
 
-export default DublicatePlanPage;
+export default DublicatePlanPage
