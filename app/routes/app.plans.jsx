@@ -11,7 +11,7 @@ export const loader = async ({ request }) => {
   const shop = session.shop;
 
   const response = await fetch(
-    `${API}/plans/getAllPlans?shop=${shop}`,
+    `${API}/plans/getAllPlans`,
   );
   const data = await response.json();
 

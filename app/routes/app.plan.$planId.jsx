@@ -5,7 +5,7 @@ import { useLoaderData } from "react-router";
 import Template from "./components/Template";
 
 const API = import.meta.env.VITE_API_URL;
-console.log("API", API);
+
 
 export const loader = async ({ request, params }) => {
   const { session } = await authenticate.admin(request);

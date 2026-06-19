@@ -12,11 +12,18 @@ import {
 } from "@shopify/polaris";
 import { useNavigate } from "react-router";
 import Product from "./Product";
+
+
 function Template({ shop, editPlandData }) {
   const navigate = useNavigate();
   const API = import.meta.env.VITE_API_URL;
+  // show toast when update and create plan
+  
   const [toastActive, setToastActive] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
+  // loding in save bar save button 
+  const [loading, setLoading] = useState(false);
+  //  id editplan exit does not create new id  and id not editplan so create new id
   const PlandId = editPlandData?.PlandId || Date.now();
   // const PlandId = editPlandData?.PlandId || Date.now();
   const [planName, setPlanName] = useState("Plan #1");
@@ -32,6 +39,51 @@ function Template({ shop, editPlandData }) {
   const [selectedProducts, setSelectedProducts] = useState([]);
   //prodcut error id not product select then publish
   const [productError, setProductError] = useState(false);
+
+
+  // for savebar 
+  const [savedState, setSavedState] = useState({
+  planName: "Plan #1",
+  widget: "widget1",
+  selectedProducts: [],
+  allowProductSwaps: true,
+  allowVariantChanges: true,
+  allowQuantityChanges: true,
+  keepDiscounts: true,
+});
+const isDirty =
+  planName !== savedState.planName ||
+  widget !== savedState.widget ||
+  JSON.stringify(selectedProducts) !== JSON.stringify(savedState.selectedProducts) ||
+  allowProductSwaps !== savedState.allowProductSwaps ||
+  allowVariantChanges !== savedState.allowVariantChanges ||
+  allowQuantityChanges !== savedState.allowQuantityChanges ||
+  keepDiscounts !== savedState.keepDiscounts;
+  useEffect(() => {
+  const saveBar = document.getElementById("templates-save-bar");
+  if (!saveBar) return;
+  isDirty ? saveBar.show() : saveBar.hide();
+}, [isDirty]);
+useEffect(() => {
+  const saveBtn = document.getElementById("templates-save-btn");
+  if (!saveBtn) return;
+  if (loading) {
+    saveBtn.setAttribute("loading", "");
+    saveBtn.setAttribute("disabled", "");
+  } else {
+    saveBtn.removeAttribute("loading");
+    saveBtn.removeAttribute("disabled");
+  }
+}, [loading]);
+const handleDiscard = () => {
+  setPlanName(savedState.planName);
+  setWidget(savedState.widget);
+  setSelectedProducts(savedState.selectedProducts);
+  setAllowProductSwaps(savedState.allowProductSwaps);
+  setAllowVariantChanges(savedState.allowVariantChanges);
+  setAllowQuantityChanges(savedState.allowQuantityChanges);
+  setKeepDiscounts(savedState.keepDiscounts);
+};
 
   useEffect(() => {
     if (editPlandData) {
@@ -51,6 +103,15 @@ function Template({ shop, editPlandData }) {
       setKeepDiscounts(
         editPlandData.customerProductChanges?.keepDiscounts ?? true,
       );
+       setSavedState({   
+      planName: editPlandData.planName || "",
+      widget: editPlandData.widget || "",
+      selectedProducts: editPlandData.products || [],
+      allowProductSwaps: editPlandData.customerProductChanges?.allowProductSwaps ?? true,
+      allowVariantChanges: editPlandData.customerProductChanges?.allowVariantChanges ?? true,
+      allowQuantityChanges: editPlandData.customerProductChanges?.allowQuantityChanges ?? true,
+      keepDiscounts: editPlandData.customerProductChanges?.keepDiscounts ?? true,
+    });
     }
   }, [editPlandData]);
 
@@ -64,6 +125,7 @@ function Template({ shop, editPlandData }) {
     e.preventDefault();
     if (selectedProducts.length === 0) return setProductError(true);
     setProductError(false);
+    setLoading(true);
     const payload = {
       shop: shop || editPlandData?.shop,
       PlandId,
@@ -92,15 +154,26 @@ function Template({ shop, editPlandData }) {
       });
       const data = await response.json();
       if (data.success === true) {
+        setSavedState({   
+    planName,
+    widget,
+    selectedProducts,
+    allowProductSwaps,
+    allowVariantChanges,
+    allowQuantityChanges,
+    keepDiscounts,
+  });
         setToastMessage(editPlandData ? data.message : data.message);
         setToastActive(true);
         setTimeout(() => {
           navigate(`/app/plan/${PlandId}`);
         }, 2000);
       }
-      console.log("data", data);
+      // console.log("data", data);
     } catch (error) {
       console.error("Error:", error);
+    } finally{
+      setLoading(false);
     }
 
     console.log(payload);
@@ -137,6 +210,12 @@ function Template({ shop, editPlandData }) {
           //   },
           // ]}
         >
+          <ui-save-bar id="templates-save-bar">
+  <button variant="primary" id="templates-save-btn" onClick={handleSubmit}>
+    Save
+  </button>
+  <button onClick={handleDiscard}>Discard</button>
+</ui-save-bar>
           {productError && (
             <Banner tone="critical" title="Validation error">
               <p>Please select at least one product.</p>
