@@ -24,7 +24,6 @@ export const loader = async ({ request, params }) => {
 function planId() {
   const {plans,shop }= useLoaderData();
   const editPlandData= plans
-  console.log("editPlandData", editPlandData)
   return (
     <>
       <Template 

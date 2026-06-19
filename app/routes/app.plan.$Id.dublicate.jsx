@@ -24,7 +24,6 @@ export const loader = async({request,params})=>
 function DublicatePlanPage() {
   const {plans,shop }= useLoaderData()
   const dublicateData= plans;
-  console.log("dublicate", dublicateData)
   return (
     <>
      <Template 
