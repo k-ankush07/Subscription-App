@@ -10,19 +10,18 @@ import {
   Toast,
   Frame,
 } from "@shopify/polaris";
-import { useNavigate,useFetcher  } from "react-router";
+import { useNavigate, useFetcher } from "react-router";
 import Product from "./Product";
-
-
-function Template({ shop, editPlandData,dublicateData }) {
+import SellingPlan from "./SellingPlan"
+function Template({ shop, editPlandData, dublicateData }) {
   const navigate = useNavigate();
   const API = import.meta.env.VITE_API_URL;
   const fetcher = useFetcher();
   // show toast when update and create plan
-  
+
   const [toastActive, setToastActive] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
-  // loding in save bar save button 
+  // loding in save bar save button
   const [loading, setLoading] = useState(false);
   //  id editplan exit does not create new id  and id not editplan so create new id
   const planId = editPlandData?.planId || Date.now();
@@ -40,140 +39,97 @@ function Template({ shop, editPlandData,dublicateData }) {
   const [selectedProducts, setSelectedProducts] = useState([]);
   //prodcut error id not product select then publish
   const [productError, setProductError] = useState(false);
-
-
-  // for savebar 
-  const [savedState, setSavedState] = useState({
-  planName: "Plan #1",
-  widget: "widget1",
-  selectedProducts: [],
-  allowProductSwaps: true,
-  allowVariantChanges: true,
-  allowQuantityChanges: true,
-  keepDiscounts: true,
-});
-const isDirty =
-  planName !== savedState.planName ||
-  widget !== savedState.widget ||
-  JSON.stringify(selectedProducts) !== JSON.stringify(savedState.selectedProducts) ||
-  allowProductSwaps !== savedState.allowProductSwaps ||
-  allowVariantChanges !== savedState.allowVariantChanges ||
-  allowQuantityChanges !== savedState.allowQuantityChanges ||
-  keepDiscounts !== savedState.keepDiscounts;
-  useEffect(() => {
-  const saveBar = document.getElementById("templates-save-bar");
-  if (!saveBar) return;
-  isDirty ? saveBar.show() : saveBar.hide();
-}, [isDirty]);
-useEffect(() => {
-  const saveBtn = document.getElementById("templates-save-btn");
-  if (!saveBtn) return;
-  if (loading) {
-    saveBtn.setAttribute("loading", "");
-    saveBtn.setAttribute("disabled", "");
-  } else {
-    saveBtn.removeAttribute("loading");
-    saveBtn.removeAttribute("disabled");
-  }
-}, [loading]);
-const handleDiscard = () => {
-  setPlanName(savedState.planName);
-  setWidget(savedState.widget);
-  setSelectedProducts(savedState.selectedProducts);
-  setAllowProductSwaps(savedState.allowProductSwaps);
-  setAllowVariantChanges(savedState.allowVariantChanges);
-  setAllowQuantityChanges(savedState.allowQuantityChanges);
-  setKeepDiscounts(savedState.keepDiscounts);
-};
-
-  useEffect(() => {
-  const data = editPlandData || dublicateData;
-  if (!data) return;
-
-  setPlanName(data.planName || "");
-  setWidget(data.widget || "");
-  setSelectedProducts(data.products || []);
-
-  const cpc = data.customerProductChanges;
-  setAllowProductSwaps(cpc?.allowProductSwaps ?? true);
-  setAllowVariantChanges(cpc?.allowVariantChanges ?? true);
-  setAllowQuantityChanges(cpc?.allowQuantityChanges ?? true);
-  setKeepDiscounts(cpc?.keepDiscounts ?? true);
-
-  setSavedState({
-    planName: data.planName || "",
-    widget: data.widget || "",
-    selectedProducts: data.products || [],
-    allowProductSwaps: cpc?.allowProductSwaps ?? true,
-    allowVariantChanges: cpc?.allowVariantChanges ?? true,
-    allowQuantityChanges: cpc?.allowQuantityChanges ?? true,
-    keepDiscounts: cpc?.keepDiscounts ?? true,
+  const [sellingPlan, setSellingPlan] = useState({
+    name:  "",
+    billingType: "PAY_AS_YOU_GO",
+    intervalCount: 1,
+    interval: "MONTH",
   });
-}, [editPlandData, dublicateData]);
+
+  // for savebar
+  const [savedState, setSavedState] = useState({
+    planName: "Plan #1",
+    widget: "widget1",
+    selectedProducts: [],
+    allowProductSwaps: true,
+    allowVariantChanges: true,
+    allowQuantityChanges: true,
+    keepDiscounts: true,
+  });
+  const isDirty =
+    planName !== savedState.planName ||
+    widget !== savedState.widget ||
+    JSON.stringify(selectedProducts) !==
+      JSON.stringify(savedState.selectedProducts) ||
+    allowProductSwaps !== savedState.allowProductSwaps ||
+    allowVariantChanges !== savedState.allowVariantChanges ||
+    allowQuantityChanges !== savedState.allowQuantityChanges ||
+    keepDiscounts !== savedState.keepDiscounts;
+  useEffect(() => {
+    const saveBar = document.getElementById("templates-save-bar");
+    if (!saveBar) return;
+    isDirty ? saveBar.show() : saveBar.hide();
+  }, [isDirty]);
+  useEffect(() => {
+    const saveBtn = document.getElementById("templates-save-btn");
+    if (!saveBtn) return;
+    if (loading) {
+      saveBtn.setAttribute("loading", "");
+      saveBtn.setAttribute("disabled", "");
+    } else {
+      saveBtn.removeAttribute("loading");
+      saveBtn.removeAttribute("disabled");
+    }
+  }, [loading]);
+  const handleDiscard = () => {
+    setPlanName(savedState.planName);
+    setWidget(savedState.widget);
+    setSelectedProducts(savedState.selectedProducts);
+    setAllowProductSwaps(savedState.allowProductSwaps);
+    setAllowVariantChanges(savedState.allowVariantChanges);
+    setAllowQuantityChanges(savedState.allowQuantityChanges);
+    setKeepDiscounts(savedState.keepDiscounts);
+  };
+
+  useEffect(() => {
+    const data = editPlandData || dublicateData;
+    if (!data) return;
+
+    setPlanName(data.planName || "");
+    setWidget(data.widget || "");
+    setSelectedProducts(data.products || []);
+
+    const cpc = data.customerProductChanges;
+    setAllowProductSwaps(cpc?.allowProductSwaps ?? true);
+    setAllowVariantChanges(cpc?.allowVariantChanges ?? true);
+    setAllowQuantityChanges(cpc?.allowQuantityChanges ?? true);
+    setKeepDiscounts(cpc?.keepDiscounts ?? true);
+     setSellingPlan({
+    name: data.sellingPlan?.name || "",
+    billingType: data.sellingPlan?.billingType || "PAY_AS_YOU_GO",
+    intervalCount: data.sellingPlan?.intervalCount || 1,
+    interval: data.sellingPlan?.interval || "MONTH",
+  });
+
+    setSavedState({
+      planName: data.planName || "",
+      widget: data.widget || "",
+      selectedProducts: data.products || [],
+      allowProductSwaps: cpc?.allowProductSwaps ?? true,
+      allowVariantChanges: cpc?.allowVariantChanges ?? true,
+      allowQuantityChanges: cpc?.allowQuantityChanges ?? true,
+      keepDiscounts: cpc?.keepDiscounts ?? true,
+    });
+  }, [editPlandData, dublicateData]);
   const handleBack = () => {
-    if(isDirty){
-      return null
+    if (isDirty) {
+      return null;
     }
     setTimeout(() => {
       navigate("/app/plans");
     }, 1000);
   };
 
-  // const handleSubmit = async (e) => {
-  //   e.preventDefault();
-  //   if (selectedProducts.length === 0) return setProductError(true);
-  //   setProductError(false);
-  //   setLoading(true);
-  //   const payload = {
-  //     shop: shop || editPlandData?.shop || dublicateData?.shop,
-  //     planId,
-  //     planName,
-  //     widget,
-  //     products: selectedProducts,
-  //     customerProductChanges: {
-  //       allowProductSwaps,
-  //       allowVariantChanges,
-  //       allowQuantityChanges,
-  //       keepDiscounts,
-  //     },
-  //   };
-  //   const url = editPlandData
-  //     ? `${API}/plans/update/${planId}`
-  //     : `${API}/plans/create`;
-
-  //   const method = editPlandData ? "PUT" : "POST";
-  //   try {
-  //     const response = await fetch(url, {
-  //       method,
-  //       headers: {
-  //         "Content-Type": "application/json",
-  //       },
-  //       body: JSON.stringify(payload),
-  //     });
-  //     const data = await response.json();
-  //     if (data.success === true) {
-  //   setSavedState({   
-  //   planName,
-  //   widget,
-  //   selectedProducts,
-  //   allowProductSwaps,
-  //   allowVariantChanges,
-  //   allowQuantityChanges,
-  //   keepDiscounts,
-  // });
-  //       setToastMessage(editPlandData ? data.message : data.message);
-  //       setToastActive(true);
-  //       setTimeout(() => {
-  //         navigate(`/app/plan/${planId}`);
-  //       }, 2000);
-  //     }
-  //   } catch (error) {
-  //     console.error("Error:", error);
-  //   } finally{
-  //     setLoading(false);
-  //   }
-
-  // };
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (selectedProducts.length === 0) return setProductError(true);
@@ -186,6 +142,7 @@ const handleDiscard = () => {
       planName,
       widget,
       products: selectedProducts,
+      sellingPlan,
       customerProductChanges: {
         allowProductSwaps,
         allowVariantChanges,
@@ -198,10 +155,10 @@ const handleDiscard = () => {
       // STEP 1: Shopify action (sirf create pe, edit pe nahi)
       if (!editPlandData) {
         await new Promise((resolve, reject) => {
-          fetcher.submit(
-            payload ,
-            { method: "POST", encType: "application/json" }
-          );
+          fetcher.submit(payload, {
+            method: "POST",
+            encType: "application/json",
+          });
           // fetcher response useEffect mein handle hoga
           resolve();
         });
@@ -210,7 +167,6 @@ const handleDiscard = () => {
 
       // STEP 2: Edit case — sirf Node API
       await saveToNodeAPI(payload);
-
     } catch (error) {
       console.error("Error:", error);
       setLoading(false);
@@ -236,6 +192,7 @@ const handleDiscard = () => {
         planName,
         widget,
         products: selectedProducts,
+        sellingPlan,
         shopifyGroupId: actionData.shopifyGroupId, // Shopify ID bhi save karo
         customerProductChanges: {
           allowProductSwaps,
@@ -265,9 +222,13 @@ const handleDiscard = () => {
 
       if (data.success === true) {
         setSavedState({
-          planName, widget, selectedProducts,
-          allowProductSwaps, allowVariantChanges,
-          allowQuantityChanges, keepDiscounts,
+          planName,
+          widget,
+          selectedProducts,
+          allowProductSwaps,
+          allowVariantChanges,
+          allowQuantityChanges,
+          keepDiscounts,
         });
         setToastMessage(data.message);
         setToastActive(true);
@@ -293,8 +254,9 @@ const handleDiscard = () => {
           title={
             editPlandData
               ? `Edit: ${planName || "subscription plan"}`
-              :dublicateData ? `Dublicate ${planName || "subscription Plan"}`
-              : "Create subscription plan"
+              : dublicateData
+                ? `Dublicate ${planName || "subscription Plan"}`
+                : "Create subscription plan"
           }
           backAction={{
             content: "Plans",
@@ -311,11 +273,15 @@ const handleDiscard = () => {
           // ]}
         >
           <ui-save-bar id="templates-save-bar">
-  <button variant="primary" id="templates-save-btn" onClick={handleSubmit}>
-    Save
-  </button>
-  <button onClick={handleDiscard}>Discard</button>
-</ui-save-bar>
+            <button
+              variant="primary"
+              id="templates-save-btn"
+              onClick={handleSubmit}
+            >
+              Save
+            </button>
+            <button onClick={handleDiscard}>Discard</button>
+          </ui-save-bar>
           {productError && (
             <Banner tone="critical" title="Validation error">
               <p>Please select at least one product.</p>
@@ -351,6 +317,10 @@ const handleDiscard = () => {
                 />
               </FormLayout>
             </form>
+            <SellingPlan
+  sellingPlan={sellingPlan}
+  setSellingPlan={setSellingPlan}
+/>
 
             {/* customer prodcut changes */}
             <Card>

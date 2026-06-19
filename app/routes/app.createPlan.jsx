@@ -30,58 +30,81 @@ export const action = async ({ request }) => {
           merchantCode: payload.planName,
           options: ["Delivery Frequency"],
           sellingPlansToCreate: [
-            {
-              name: "Daily",
-              options: ["Daily"],
-              category: "SUBSCRIPTION",
-              billingPolicy: {
-                recurring: {
-                  interval: "DAY",
-                  intervalCount: 1,
-                },
-              },
-              deliveryPolicy: {
-                recurring: {
-                  interval: "DAY",
-                  intervalCount: 1,
-                },
-              },
-            },
-            {
-              name: "Weekly",
-              options: ["Weekly"],
-              category: "SUBSCRIPTION",
-              billingPolicy: {
-                recurring: {
-                  interval: "WEEK",
-                  intervalCount: 1,
-                },
-              },
-              deliveryPolicy: {
-                recurring: {
-                  interval: "WEEK",
-                  intervalCount: 1,
-                },
-              },
-            },
-            {
-              name: "Monthly",
-              options: ["Monthly"],
-              category: "SUBSCRIPTION",
-              billingPolicy: {
-                recurring: {
-                  interval: "MONTH",
-                  intervalCount: 1,
-                },
-              },
-              deliveryPolicy: {
-                recurring: {
-                  interval: "MONTH",
-                  intervalCount: 1,
-                },
-              },
-            },
-          ],
+    {
+      name: payload.sellingPlan.name,
+      options: [
+        `${payload.sellingPlan.intervalCount} ${payload.sellingPlan.interval.toLowerCase()}`
+      ],
+      category: "SUBSCRIPTION",
+
+      billingPolicy: {
+        recurring: {
+          interval: payload.sellingPlan.interval,
+          intervalCount: payload.sellingPlan.intervalCount,
+        },
+      },
+
+      deliveryPolicy: {
+        recurring: {
+          interval: payload.sellingPlan.interval,
+          intervalCount: payload.sellingPlan.intervalCount,
+        },
+      },
+    },
+  ],
+          // sellingPlansToCreate: [
+          //   {
+          //     name: "Daily",
+          //     options: ["Daily"],
+          //     category: "SUBSCRIPTION",
+          //     billingPolicy: {
+          //       recurring: {
+          //         interval: "DAY",
+          //         intervalCount: 1,
+          //       },
+          //     },
+          //     deliveryPolicy: {
+          //       recurring: {
+          //         interval: "DAY",
+          //         intervalCount: 1,
+          //       },
+          //     },
+          //   },
+          //   {
+          //     name: "Weekly",
+          //     options: ["Weekly"],
+          //     category: "SUBSCRIPTION",
+          //     billingPolicy: {
+          //       recurring: {
+          //         interval: "WEEK",
+          //         intervalCount: 1,
+          //       },
+          //     },
+          //     deliveryPolicy: {
+          //       recurring: {
+          //         interval: "WEEK",
+          //         intervalCount: 1,
+          //       },
+          //     },
+          //   },
+          //   {
+          //     name: "Monthly",
+          //     options: ["Monthly"],
+          //     category: "SUBSCRIPTION",
+          //     billingPolicy: {
+          //       recurring: {
+          //         interval: "MONTH",
+          //         intervalCount: 1,
+          //       },
+          //     },
+          //     deliveryPolicy: {
+          //       recurring: {
+          //         interval: "MONTH",
+          //         intervalCount: 1,
+          //       },
+          //     },
+          //   },
+          // ],
         },
       },
     },
