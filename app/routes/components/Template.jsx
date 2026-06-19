@@ -153,7 +153,7 @@ function Template({ shop, editPlandData, dublicateData }) {
 
     try {
       // STEP 1: Shopify action (sirf create pe, edit pe nahi)
-      if (!editPlandData) {
+      if (!editPlandData || !dublicateData) {
         await new Promise((resolve, reject) => {
           fetcher.submit(payload, {
             method: "POST",
