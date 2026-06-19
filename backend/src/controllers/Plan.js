@@ -80,54 +80,53 @@ const getPlanByPlanId = async (req, res) => {
   }
 };
 
-// const updatePlan = async (req, res) => {
-//   try {
-//     const { planId } = req.params;
+const updatePlan = async (req, res) => {
+  try {
+    const { PlandId } = req.params;
+    console.log("id",PlandId)
 
-//     const {
-//       shop,
-//       title,
-//       description,
-//       selectedProducts,
-//       productChanges,
-//       options,
-//     } = req.body;
+    const {
+      shop,
+      planName,
+      widget,
+      products,
+      customerProductChanges,
+    } = req.body;
 
-//     const updatedPlan = await Plan.findOneAndUpdate(
-//       { _id },
-//       {
-//         shop,
-//         title,
-//         description,
-//         selectedProducts,
-//         productChanges,
-//         options,
-//       },
-//       {
-//         new: true,        
-//         runValidators: true,
-//       }
-//     );
+    const updatedPlan = await Plan.findOneAndUpdate(
+      { PlandId },
+      {
+        shop,
+        planName,
+        widget,
+        products,
+        customerProductChanges,
+      },
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
 
-//     if (!updatedPlan) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "Plan not found",
-//       });
-//     }
+    if (!updatedPlan) {
+      return res.status(404).json({
+        success: false,
+        message: "Plan not found",
+      });
+    }
 
-//     res.status(200).json({
-//       success: true,
-//       message: "Plan updated successfully",
-//       data: updatedPlan,
-//     });
-//   } catch (error) {
-//     res.status(500).json({
-//       success: false,
-//       message: error.message,
-//     });
-//   }
-// };
+    res.status(200).json({
+      success: true,
+      message: "Plan updated successfully",
+      data: updatedPlan,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
 
 
 // const deletePlan = async (req, res) => {
@@ -160,4 +159,4 @@ const getPlanByPlanId = async (req, res) => {
 
 
 
-export {  createPlan,getALLPlans  ,getPlanByPlanId};
+export {  createPlan,getALLPlans  ,getPlanByPlanId,updatePlan};

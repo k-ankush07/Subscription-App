@@ -4,12 +4,14 @@ import React, { useEffect, useState } from "react";
 import { useLoaderData, useNavigate } from "react-router";
 import { DuplicateIcon } from "@shopify/polaris-icons";
 
+
+const API= import.meta.env.VITE_API_URL
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
 
   const response = await fetch(
-    `https://habitant-startling-cassette.ngrok-free.dev/plans/getAllPlans?shop=${shop}`,
+    `${API}/plans/getAllPlans?shop=${shop}`,
   );
   const data = await response.json();
 
@@ -46,7 +48,10 @@ function Plans() {
 
   const rowClick = (PlandId) => {
     console.log("Clicked", PlandId);
-    // navigate(`/app/plan/${PlandId}`);
+    setTimeout(()=>
+    {
+      navigate(`/app/plan/${PlandId}`);
+    },1000)
   };
   return (
     <>
@@ -86,7 +91,7 @@ function Plans() {
                 </thead>
 
                 <tbody>
-                  {plans.map((item) => (
+                  {[...plans].reverse().map((item) => (
                     <tr
                       key={item._id}
                       onClick={() => rowClick(item.PlandId)}

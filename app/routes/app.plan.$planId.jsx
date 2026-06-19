@@ -1,0 +1,40 @@
+import React from "react";
+import { authenticate } from "../shopify.server";
+import { json } from "@remix-run/node";
+import { useLoaderData } from "react-router";
+import Template from "./components/Template";
+
+const API = import.meta.env.VITE_API_URL;
+console.log("API", API);
+
+export const loader = async ({ request, params }) => {
+  const { session } = await authenticate.admin(request);
+
+  const planId = params.planId; 
+  console.log("id ", planId)
+
+  const response = await fetch(
+    `${API}/plans/${planId}`
+  );
+
+  const data = await response.json();
+
+  return json({
+    plans: data.success ? data.data : [],
+  });
+};
+
+function PlanId() {
+  const {plans}= useLoaderData();
+  const editPlandData= plans
+  // console.log("data", editPlandData)
+  return (
+    <>
+      <Template 
+      editPlandData={editPlandData}
+      />
+    </>
+  );
+}
+
+export default PlanId;
