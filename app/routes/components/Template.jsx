@@ -14,7 +14,7 @@ import { useNavigate } from "react-router";
 import Product from "./Product";
 
 
-function Template({ shop, editPlandData }) {
+function Template({ shop, editPlandData,dublicateData }) {
   const navigate = useNavigate();
   const API = import.meta.env.VITE_API_URL;
   // show toast when update and create plan
@@ -86,36 +86,33 @@ const handleDiscard = () => {
 };
 
   useEffect(() => {
-    if (editPlandData) {
-      setPlanName(editPlandData.planName || "");
-      setWidget(editPlandData.widget || "");
-      setSelectedProducts(editPlandData.products || []);
+  const data = editPlandData || dublicateData;
+  if (!data) return;
 
-      setAllowProductSwaps(
-        editPlandData.customerProductChanges?.allowProductSwaps ?? true,
-      );
-      setAllowVariantChanges(
-        editPlandData.customerProductChanges?.allowVariantChanges ?? true,
-      );
-      setAllowQuantityChanges(
-        editPlandData.customerProductChanges?.allowQuantityChanges ?? true,
-      );
-      setKeepDiscounts(
-        editPlandData.customerProductChanges?.keepDiscounts ?? true,
-      );
-       setSavedState({   
-      planName: editPlandData.planName || "",
-      widget: editPlandData.widget || "",
-      selectedProducts: editPlandData.products || [],
-      allowProductSwaps: editPlandData.customerProductChanges?.allowProductSwaps ?? true,
-      allowVariantChanges: editPlandData.customerProductChanges?.allowVariantChanges ?? true,
-      allowQuantityChanges: editPlandData.customerProductChanges?.allowQuantityChanges ?? true,
-      keepDiscounts: editPlandData.customerProductChanges?.keepDiscounts ?? true,
-    });
-    }
-  }, [editPlandData]);
+  setPlanName(data.planName || "");
+  setWidget(data.widget || "");
+  setSelectedProducts(data.products || []);
 
+  const cpc = data.customerProductChanges;
+  setAllowProductSwaps(cpc?.allowProductSwaps ?? true);
+  setAllowVariantChanges(cpc?.allowVariantChanges ?? true);
+  setAllowQuantityChanges(cpc?.allowQuantityChanges ?? true);
+  setKeepDiscounts(cpc?.keepDiscounts ?? true);
+
+  setSavedState({
+    planName: data.planName || "",
+    widget: data.widget || "",
+    selectedProducts: data.products || [],
+    allowProductSwaps: cpc?.allowProductSwaps ?? true,
+    allowVariantChanges: cpc?.allowVariantChanges ?? true,
+    allowQuantityChanges: cpc?.allowQuantityChanges ?? true,
+    keepDiscounts: cpc?.keepDiscounts ?? true,
+  });
+}, [editPlandData, dublicateData]);
   const handleBack = () => {
+    if(isDirty){
+      return null
+    }
     setTimeout(() => {
       navigate("/app/plans");
     }, 1000);
@@ -127,7 +124,7 @@ const handleDiscard = () => {
     setProductError(false);
     setLoading(true);
     const payload = {
-      shop: shop || editPlandData?.shop,
+      shop: shop || editPlandData?.shop || dublicateData?.shop,
       planId,
       planName,
       widget,
@@ -191,6 +188,7 @@ const handleDiscard = () => {
           title={
             editPlandData
               ? `Edit: ${planName || "subscription plan"}`
+              :dublicateData ? `Dublicate ${planName || "subscription Plan"}`
               : "Create subscription plan"
           }
           backAction={{

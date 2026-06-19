@@ -17,16 +17,18 @@ export const loader = async ({ request, params }) => {
   const data = await response.json();
   return json({
     plans: data.success ? data.data : [],
+    shop: session.shop,
   });
 };
 
 function planId() {
-  const {plans}= useLoaderData();
+  const {plans,shop }= useLoaderData();
   const editPlandData= plans
   console.log("editPlandData", editPlandData)
   return (
     <>
       <Template 
+      shop={shop}
       editPlandData={editPlandData}
       />
     </>
