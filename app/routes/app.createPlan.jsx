@@ -108,7 +108,7 @@ export const loader = async ({ request }) => {
 export const action = async ({ request }) => {
   const { admin } = await authenticate.admin(request);
   const payload = await request.json();
-  console.log("body ,", payload)
+  console.log("body ,", payload);
   // const payload =
   //   typeof body.payload === "string" ? JSON.parse(body.payload) : body.payload;
 
@@ -129,9 +129,43 @@ export const action = async ({ request }) => {
           options: ["Delivery Frequency"],
           sellingPlansToCreate: [
             {
+              name: "Daily",
+              options: ["Daily"],
+              category: "SUBSCRIPTION",
+              billingPolicy: {
+                recurring: {
+                  interval: "DAY",
+                  intervalCount: 1,
+                },
+              },
+              deliveryPolicy: {
+                recurring: {
+                  interval: "DAY",
+                  intervalCount: 1,
+                },
+              },
+            },
+            {
+              name: "Weekly",
+              options: ["Weekly"],
+              category: "SUBSCRIPTION",
+              billingPolicy: {
+                recurring: {
+                  interval: "WEEK",
+                  intervalCount: 1,
+                },
+              },
+              deliveryPolicy: {
+                recurring: {
+                  interval: "WEEK",
+                  intervalCount: 1,
+                },
+              },
+            },
+            {
               name: "Monthly",
               options: ["Monthly"],
-              category: "SUBSCRIPTION", 
+              category: "SUBSCRIPTION",
               billingPolicy: {
                 recurring: {
                   interval: "MONTH",
@@ -184,7 +218,10 @@ export const action = async ({ request }) => {
   );
 
   const addProductsData = await addProductsRes.json();
-  console.log("product attached ", addProductsData.data.sellingPlanGroupAddProducts.sellingPlanGroup)
+  console.log(
+    "product attached ",
+    addProductsData.data.sellingPlanGroupAddProducts.sellingPlanGroup,
+  );
   const addProductsErrors =
     addProductsData.data.sellingPlanGroupAddProducts.userErrors;
 
@@ -196,7 +233,7 @@ export const action = async ({ request }) => {
     });
   }
 
-  return Response.json({ success: true, shopifyGroupId ,...payload }); 
+  return Response.json({ success: true, shopifyGroupId, ...payload });
 };
 
 function CreatePlan() {

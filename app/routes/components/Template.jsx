@@ -174,56 +174,18 @@ const handleDiscard = () => {
   //   }
 
   // };
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  if (selectedProducts.length === 0) return setProductError(true);
-  setProductError(false);
-  setLoading(true);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (selectedProducts.length === 0) return setProductError(true);
+    setProductError(false);
+    setLoading(true);
 
-  const payload = {
-    shop: shop || editPlandData?.shop || dublicateData?.shop,
-    planId,
-    planName,
-    widget,
-    products: selectedProducts,
-    shopifyGroupId: editPlandData?.shopifyGroupId || null, //  edit ke liye
-    customerProductChanges: {
-      allowProductSwaps,
-      allowVariantChanges,
-      allowQuantityChanges,
-      keepDiscounts,
-    },
-  };
-
-  try {
-    //  create aur edit dono mein fetcher.submit karo
-    fetcher.submit(payload, { method: "POST", encType: "application/json" });
-  } catch (error) {
-    console.error("Error:", error);
-    setLoading(false);
-  }
-};
-
-  // Fetcher response yahan handle karo
-useEffect(() => {
-  if (fetcher.state === "idle" && fetcher.data) {
-    const actionData = fetcher.data;
-    console.log("Action response:", actionData);
-
-    if (!actionData.success) {
-      console.error("Shopify error:", actionData.error);
-      setLoading(false);
-      return;
-    }
-
-    //  create aur edit dono ke liye Node API call
     const payload = {
-      shop,
+      shop: shop || editPlandData?.shop || dublicateData?.shop,
       planId,
       planName,
       widget,
       products: selectedProducts,
-      shopifyGroupId: actionData.shopifyGroupId,
       customerProductChanges: {
         allowProductSwaps,
         allowVariantChanges,
@@ -231,9 +193,60 @@ useEffect(() => {
         keepDiscounts,
       },
     };
-    saveToNodeAPI(payload);
-  }
-}, [fetcher.state, fetcher.data]);
+
+    try {
+      // STEP 1: Shopify action (sirf create pe, edit pe nahi)
+      if (!editPlandData) {
+        await new Promise((resolve, reject) => {
+          fetcher.submit(
+            payload ,
+            { method: "POST", encType: "application/json" }
+          );
+          // fetcher response useEffect mein handle hoga
+          resolve();
+        });
+        return; // useEffect handle karega aage ka flow
+      }
+
+      // STEP 2: Edit case — sirf Node API
+      await saveToNodeAPI(payload);
+
+    } catch (error) {
+      console.error("Error:", error);
+      setLoading(false);
+    }
+  };
+
+  // Fetcher response yahan handle karo
+  useEffect(() => {
+    if (fetcher.state === "idle" && fetcher.data) {
+      const actionData = fetcher.data;
+      console.log("Action response:", actionData);
+
+      if (!actionData.success) {
+        console.error("Shopify error:", actionData.error);
+        setLoading(false);
+        return;
+      }
+
+      // Shopify success — ab Node API call karo
+      const payload = {
+        shop,
+        planId,
+        planName,
+        widget,
+        products: selectedProducts,
+        shopifyGroupId: actionData.shopifyGroupId, // Shopify ID bhi save karo
+        customerProductChanges: {
+          allowProductSwaps,
+          allowVariantChanges,
+          allowQuantityChanges,
+          keepDiscounts,
+        },
+      };
+      saveToNodeAPI(payload);
+    }
+  }, [fetcher.state, fetcher.data]);
 
   // Node API call alag function mein
   const saveToNodeAPI = async (payload) => {
