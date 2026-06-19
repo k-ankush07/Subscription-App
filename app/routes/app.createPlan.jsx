@@ -107,9 +107,10 @@ export const loader = async ({ request }) => {
 
 export const action = async ({ request }) => {
   const { admin } = await authenticate.admin(request);
-  const body = await request.json();
-  const payload =
-    typeof body.payload === "string" ? JSON.parse(body.payload) : body.payload;
+  const payload = await request.json();
+  console.log("body ,", payload)
+  // const payload =
+  //   typeof body.payload === "string" ? JSON.parse(body.payload) : body.payload;
 
   const createRes = await admin.graphql(
     `
@@ -124,13 +125,13 @@ export const action = async ({ request }) => {
       variables: {
         input: {
           name: payload.planName,
-          merchantCode: payload.planName.replace(/\s+/g, "_").toUpperCase(),
+          merchantCode: payload.planName,
           options: ["Delivery Frequency"],
           sellingPlansToCreate: [
             {
               name: "Monthly",
               options: ["Monthly"],
-              category: "SUBSCRIPTION", // ✅ sirf yahan — SellingPlanInput pe
+              category: "SUBSCRIPTION", 
               billingPolicy: {
                 recurring: {
                   interval: "MONTH",
@@ -183,7 +184,7 @@ export const action = async ({ request }) => {
   );
 
   const addProductsData = await addProductsRes.json();
-  console.log("product attached ", addProductsData)
+  console.log("product attached ", addProductsData.data.sellingPlanGroupAddProducts.sellingPlanGroup)
   const addProductsErrors =
     addProductsData.data.sellingPlanGroupAddProducts.userErrors;
 
@@ -195,7 +196,7 @@ export const action = async ({ request }) => {
     });
   }
 
-  return Response.json({ success: true, shopifyGroupId }); // ✅ Fix 4: return missing tha
+  return Response.json({ success: true, shopifyGroupId ,...payload }); 
 };
 
 function CreatePlan() {

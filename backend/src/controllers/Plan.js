@@ -109,6 +109,7 @@ const updatePlan = async (req, res) => {
 
     const {
       shop,
+      shopifyGroupId,
       planName,
       widget,
       products,
@@ -119,6 +120,7 @@ const updatePlan = async (req, res) => {
       { planId },
       {
         shop,
+        shopifyGroupId,
         planName,
         widget,
         products,
