@@ -56,10 +56,11 @@ function Plans() {
 
   const handelDublicate= (planId)=>
   {
-    console.log(`/app/plan/${planId}/dublicate`)
+    const id= planId;
+    console.log(`/app/plan/${id}/dublicate`)
     setTimeout(()=>
     {
-      navigate(`/app/plan/${planId}/dublicate`)
+      navigate(`/app/plan/${id}/dublicate`)
     },2000)
   }
   return (
