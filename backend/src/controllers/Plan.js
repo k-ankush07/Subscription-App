@@ -53,7 +53,7 @@ const createPlan = async (req, res) => {
 
 const getALLPlans = async (req, res) => {
   try {
-    const { shop } = req.query; // /plans?shop=mystore.myshopify.com
+    const { shop } = req.query; 
 
     const filter = shop ? { shop } : {};
 
