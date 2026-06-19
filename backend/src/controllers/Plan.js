@@ -6,6 +6,7 @@ const createPlan = async (req, res) => {
       shop,
       planId,
       planName,
+      shopifyGroupId,
       widget,
       products,
       customerProductChanges,
@@ -14,6 +15,7 @@ const createPlan = async (req, res) => {
     const plan = await Plan.create({
       shop,
       planId,
+      shopifyGroupId,
       planName,
       widget,
       products,

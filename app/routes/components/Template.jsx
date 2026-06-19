@@ -10,13 +10,14 @@ import {
   Toast,
   Frame,
 } from "@shopify/polaris";
-import { useNavigate } from "react-router";
+import { useNavigate,useFetcher  } from "react-router";
 import Product from "./Product";
 
 
 function Template({ shop, editPlandData,dublicateData }) {
   const navigate = useNavigate();
   const API = import.meta.env.VITE_API_URL;
+  const fetcher = useFetcher();
   // show toast when update and create plan
   
   const [toastActive, setToastActive] = useState(false);
@@ -118,11 +119,67 @@ const handleDiscard = () => {
     }, 1000);
   };
 
+  // const handleSubmit = async (e) => {
+  //   e.preventDefault();
+  //   if (selectedProducts.length === 0) return setProductError(true);
+  //   setProductError(false);
+  //   setLoading(true);
+  //   const payload = {
+  //     shop: shop || editPlandData?.shop || dublicateData?.shop,
+  //     planId,
+  //     planName,
+  //     widget,
+  //     products: selectedProducts,
+  //     customerProductChanges: {
+  //       allowProductSwaps,
+  //       allowVariantChanges,
+  //       allowQuantityChanges,
+  //       keepDiscounts,
+  //     },
+  //   };
+  //   const url = editPlandData
+  //     ? `${API}/plans/update/${planId}`
+  //     : `${API}/plans/create`;
+
+  //   const method = editPlandData ? "PUT" : "POST";
+  //   try {
+  //     const response = await fetch(url, {
+  //       method,
+  //       headers: {
+  //         "Content-Type": "application/json",
+  //       },
+  //       body: JSON.stringify(payload),
+  //     });
+  //     const data = await response.json();
+  //     if (data.success === true) {
+  //   setSavedState({   
+  //   planName,
+  //   widget,
+  //   selectedProducts,
+  //   allowProductSwaps,
+  //   allowVariantChanges,
+  //   allowQuantityChanges,
+  //   keepDiscounts,
+  // });
+  //       setToastMessage(editPlandData ? data.message : data.message);
+  //       setToastActive(true);
+  //       setTimeout(() => {
+  //         navigate(`/app/plan/${planId}`);
+  //       }, 2000);
+  //     }
+  //   } catch (error) {
+  //     console.error("Error:", error);
+  //   } finally{
+  //     setLoading(false);
+  //   }
+
+  // };
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (selectedProducts.length === 0) return setProductError(true);
     setProductError(false);
     setLoading(true);
+
     const payload = {
       shop: shop || editPlandData?.shop || dublicateData?.shop,
       planId,
@@ -136,45 +193,92 @@ const handleDiscard = () => {
         keepDiscounts,
       },
     };
-    const url = editPlandData
-      ? `${API}/plans/update/${planId}`
-      : `${API}/plans/create`;
 
-    const method = editPlandData ? "PUT" : "POST";
     try {
+      // STEP 1: Shopify action (sirf create pe, edit pe nahi)
+      if (!editPlandData) {
+        await new Promise((resolve, reject) => {
+          fetcher.submit(
+            { payload: JSON.stringify(payload) },
+            { method: "POST", encType: "application/json" }
+          );
+          // fetcher response useEffect mein handle hoga
+          resolve();
+        });
+        return; // useEffect handle karega aage ka flow
+      }
+
+      // STEP 2: Edit case — sirf Node API
+      await saveToNodeAPI(payload);
+
+    } catch (error) {
+      console.error("Error:", error);
+      setLoading(false);
+    }
+  };
+
+  // Fetcher response yahan handle karo
+  useEffect(() => {
+    if (fetcher.state === "idle" && fetcher.data) {
+      const actionData = fetcher.data;
+      console.log("Action response:", actionData);
+
+      if (!actionData.success) {
+        console.error("Shopify error:", actionData.error);
+        setLoading(false);
+        return;
+      }
+
+      // Shopify success — ab Node API call karo
+      const payload = {
+        shop,
+        planId,
+        planName,
+        widget,
+        products: selectedProducts,
+        shopifyGroupId: actionData.shopifyGroupId, // Shopify ID bhi save karo
+        customerProductChanges: {
+          allowProductSwaps,
+          allowVariantChanges,
+          allowQuantityChanges,
+          keepDiscounts,
+        },
+      };
+      saveToNodeAPI(payload);
+    }
+  }, [fetcher.state, fetcher.data]);
+
+  // Node API call alag function mein
+  const saveToNodeAPI = async (payload) => {
+    try {
+      const url = editPlandData
+        ? `${API}/plans/update/${planId}`
+        : `${API}/plans/create`;
+      const method = editPlandData ? "PUT" : "POST";
+
       const response = await fetch(url, {
         method,
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
       const data = await response.json();
+
       if (data.success === true) {
-    setSavedState({   
-    planName,
-    widget,
-    selectedProducts,
-    allowProductSwaps,
-    allowVariantChanges,
-    allowQuantityChanges,
-    keepDiscounts,
-  });
-        setToastMessage(editPlandData ? data.message : data.message);
+        setSavedState({
+          planName, widget, selectedProducts,
+          allowProductSwaps, allowVariantChanges,
+          allowQuantityChanges, keepDiscounts,
+        });
+        setToastMessage(data.message);
         setToastActive(true);
-        setTimeout(() => {
-          navigate(`/app/plan/${planId}`);
-        }, 2000);
+        setTimeout(() => navigate(`/app/plan/${planId}`), 2000);
       }
-    } catch (error) {
-      console.error("Error:", error);
-    } finally{
+    } catch (err) {
+      console.error("Node API error:", err);
+    } finally {
       setLoading(false);
     }
-    console.log(payload);
-
   };
-  
 
   return (
     <>
