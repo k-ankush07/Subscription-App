@@ -11,14 +11,10 @@ export const loader = async ({ request, params }) => {
   const { session } = await authenticate.admin(request);
 
   const planId = params.planId; 
-  console.log("id ", planId)
-
   const response = await fetch(
     `${API}/plans/${planId}`
   );
-
   const data = await response.json();
-
   return json({
     plans: data.success ? data.data : [],
   });
@@ -27,7 +23,7 @@ export const loader = async ({ request, params }) => {
 function planId() {
   const {plans}= useLoaderData();
   const editPlandData= plans
-  console.log("data", editPlandData)
+  console.log("editPlandData", editPlandData)
   return (
     <>
       <Template 

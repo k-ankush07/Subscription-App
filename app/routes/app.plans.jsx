@@ -60,7 +60,7 @@ function Plans() {
     setTimeout(()=>
     {
       navigate(`/app/plan/${planId}/dublicate`)
-    })
+    },2000)
   }
   return (
     <>
