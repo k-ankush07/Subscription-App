@@ -4,7 +4,7 @@ const createPlan = async (req, res) => {
   try {
     const {
       shop,
-      PlandId,
+      planId,
       planName,
       widget,
       products,
@@ -13,7 +13,7 @@ const createPlan = async (req, res) => {
 
     const plan = await Plan.create({
       shop,
-      PlandId,
+      planId,
       planName,
       widget,
       products,
@@ -34,9 +34,30 @@ const createPlan = async (req, res) => {
 };
 
 
+// const getALLPlans = async (req, res) => {
+//   try {
+//     const plans = await Plan.find();
+
+//     res.status(200).json({
+//       success: true,
+//       count: plans.length,
+//       data: plans,
+//     });
+//   } catch (error) {
+//     res.status(500).json({
+//       success: false,
+//       message: error.message,
+//     });
+//   }
+// };
+
 const getALLPlans = async (req, res) => {
   try {
-    const plans = await Plan.find();
+    const { shop } = req.query; // /plans?shop=mystore.myshopify.com
+
+    const filter = shop ? { shop } : {};
+
+    const plans = await Plan.find(filter);
 
     res.status(200).json({
       success: true,
@@ -51,13 +72,12 @@ const getALLPlans = async (req, res) => {
   }
 };
 
-
 const getPlanByPlanId = async (req, res) => {
   try {
-    const { PlandId } = req.params;
+    const { planId } = req.params;
 
 
-    const plan = await Plan.findOne({ PlandId });
+    const plan = await Plan.findOne({ planId });
 
     // console.log("Found plan:", plan);
 
@@ -82,8 +102,8 @@ const getPlanByPlanId = async (req, res) => {
 
 const updatePlan = async (req, res) => {
   try {
-    const { PlandId } = req.params;
-    console.log("id",PlandId)
+    const { planId } = req.params;
+    console.log("id",planId)
 
     const {
       shop,
@@ -94,7 +114,7 @@ const updatePlan = async (req, res) => {
     } = req.body;
 
     const updatedPlan = await Plan.findOneAndUpdate(
-      { PlandId },
+      { planId },
       {
         shop,
         planName,

@@ -11,7 +11,7 @@ export const loader = async ({ request }) => {
   const shop = session.shop;
 
   const response = await fetch(
-    `${API}/plans/getAllPlans`,
+    `${API}/plans/getAllPlans?shop=${shop}`,
   );
   const data = await response.json();
 
@@ -46,13 +46,22 @@ function Plans() {
     navigate("/app/createplan");
   };
 
-  const rowClick = (PlandId) => {
-    console.log("Clicked", PlandId);
+  const rowClick = (planId) => {
+    console.log("Clicked", planId);
     setTimeout(()=>
     {
-      navigate(`/app/plan/${PlandId}`);
+      navigate(`/app/plan/${planId}`);
     },1000)
   };
+
+  const handelDublicate= (planId)=>
+  {
+    console.log(`/app/plan/${planId}/dublicate`)
+    setTimeout(()=>
+    {
+      navigate(`/app/plan/${planId}/dublicate`)
+    })
+  }
   return (
     <>
       <Page
@@ -94,7 +103,7 @@ function Plans() {
                   {[...plans].reverse().map((item) => (
                     <tr
                       key={item._id}
-                      onClick={() => rowClick(item.PlandId)}
+                      onClick={() => rowClick(item.planId)}
                       style={{ cursor: "pointer" }}
                     >
                       <td>{item.planName}</td>
@@ -109,7 +118,12 @@ function Plans() {
                       <td>{item.deliveryFrequency || ""}</td>
                       <td>{item.pricing || ""}</td>
                       <td>{item.widget}</td>
-                      <td>
+                      <td 
+                      onClick={(e)=> {
+                        e.stopPropagation();
+                        handelDublicate(item.planId)
+                      }}
+                      >
                         <Icon source={DuplicateIcon} tone="base" />
                       </td>
                     </tr>

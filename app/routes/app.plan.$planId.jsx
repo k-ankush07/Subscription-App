@@ -24,10 +24,10 @@ export const loader = async ({ request, params }) => {
   });
 };
 
-function PlanId() {
+function planId() {
   const {plans}= useLoaderData();
   const editPlandData= plans
-  // console.log("data", editPlandData)
+  console.log("data", editPlandData)
   return (
     <>
       <Template 
@@ -37,4 +37,4 @@ function PlanId() {
   );
 }
 
-export default PlanId;
+export default planId;

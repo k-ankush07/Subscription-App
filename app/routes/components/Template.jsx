@@ -24,8 +24,8 @@ function Template({ shop, editPlandData }) {
   // loding in save bar save button 
   const [loading, setLoading] = useState(false);
   //  id editplan exit does not create new id  and id not editplan so create new id
-  const PlandId = editPlandData?.PlandId || Date.now();
-  // const PlandId = editPlandData?.PlandId || Date.now();
+  const planId = editPlandData?.planId || Date.now();
+  // const planId = editPlandData?.planId || Date.now();
   const [planName, setPlanName] = useState("Plan #1");
   const [widget, setWidget] = useState("widget1");
 
@@ -128,7 +128,7 @@ const handleDiscard = () => {
     setLoading(true);
     const payload = {
       shop: shop || editPlandData?.shop,
-      PlandId,
+      planId,
       planName,
       widget,
       products: selectedProducts,
@@ -140,7 +140,7 @@ const handleDiscard = () => {
       },
     };
     const url = editPlandData
-      ? `${API}/plans/update/${PlandId}`
+      ? `${API}/plans/update/${planId}`
       : `${API}/plans/create`;
 
     const method = editPlandData ? "PUT" : "POST";
@@ -154,7 +154,7 @@ const handleDiscard = () => {
       });
       const data = await response.json();
       if (data.success === true) {
-        setSavedState({   
+    setSavedState({   
     planName,
     widget,
     selectedProducts,
@@ -166,19 +166,16 @@ const handleDiscard = () => {
         setToastMessage(editPlandData ? data.message : data.message);
         setToastActive(true);
         setTimeout(() => {
-          navigate(`/app/plan/${PlandId}`);
+          navigate(`/app/plan/${planId}`);
         }, 2000);
       }
-      // console.log("data", data);
     } catch (error) {
       console.error("Error:", error);
     } finally{
       setLoading(false);
     }
-
     console.log(payload);
 
-    localStorage.setItem("users", JSON.stringify(payload));
   };
 
   return (

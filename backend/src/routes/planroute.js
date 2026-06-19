@@ -6,8 +6,8 @@ const router = express.Router();
 
 router.post("/create", createPlan);
 router.get("/getAllPlans", getALLPlans);
-router.get("/:PlandId", getPlanByPlanId);
-router.put("/update/:PlandId", updatePlan);
+router.get("/:planId", getPlanByPlanId);
+router.put("/update/:planId", updatePlan);
 // router.delete("/:planId", deletePlan);
 
 
