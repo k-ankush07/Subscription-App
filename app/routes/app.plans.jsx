@@ -1,152 +1,3 @@
-// import { Page, Icon, Card, EmptyState } from "@shopify/polaris";
-// import { authenticate } from "../shopify.server";
-// import React, { useEffect, useState } from "react";
-// import { useLoaderData, useNavigate } from "react-router";
-// import { DuplicateIcon, DeleteIcon } from "@shopify/polaris-icons";
-
-// const API = import.meta.env.VITE_API_URL;
-// export const loader = async ({ request }) => {
-//   const { session } = await authenticate.admin(request);
-//   const shop = session.shop;
-
-//   const response = await fetch(`${API}/plans/getAllPlans?shop=${shop}`);
-//   const data = await response.json();
-
-//   return Response.json({ plans: data.success ? data.data : [] });
-// };
-
-// function Plans() {
-//   const { plans } = useLoaderData();
-//   const navigate = useNavigate();
-//   const handelPlan = () => {
-//     navigate("/app/createplan");
-//   };
-
-//   const rowClick = (planId) => {
-//     console.log("Clicked", planId);
-//     setTimeout(() => {
-//       navigate(`/app/plan/${planId}`);
-//     }, 1000);
-//   };
-
-//   const handelDublicate = (planId) => {
-//     const id = planId;
-//     console.log(`/app/plan/${id}/dublicate`);
-//     setTimeout(() => {
-//       navigate(`/app/plan/${id}/dublicate`);
-//     }, 2000);
-//   };
-
-//   const planDelete = async (planId) => {
-//   const response = await fetch(`${API}/plans/${planId}`, {
-//     method: "DELETE",
-//   });
-//   const data = await response.json();
-//   if (data.success) {
-//     // Refresh plans after delete
-//     window.location.reload();
-//   }
-// };
-//   return (
-//     <>
-//       <Page
-//         title="Selling Plans"
-//         primaryAction={{
-//           content: "Create Plan",
-//           onAction: handelPlan,
-//         }}
-//       >
-//         {plans.length === 0 ? (
-//           <>
-//             <Card>
-//               <EmptyState>
-//                 <img src="https://subscriptions.kachingappz.app/images/empty-subscriptions-list-state.png" />
-//                 <h2>Get more repeat business</h2>
-//                 <p>
-//                   Allow customers to purchase products or services on a
-//                   recurring basis
-//                 </p>
-//               </EmptyState>
-//             </Card>
-//           </>
-//         ) : (
-//           <>
-//             <Card>
-//               <table border="1">
-//                 <thead>
-//                   <tr>
-//                     <th>Plan Title</th>
-//                     <th>Product</th>
-//                     <th>Delivery Frequency</th>
-//                     <th>Pricing</th>
-//                     <th>Widgets</th>
-//                     <th>Action</th>
-//                     <th>Delete</th>
-//                   </tr>
-//                 </thead>
-
-//                 <tbody>
-//                   {[...plans].reverse().map((item) => (
-//                     <tr
-//                       key={item._id}
-//                       onClick={() => rowClick(item.planId)}
-//                       style={{ cursor: "pointer" }}
-//                     >
-//                       <td>{item.planName}</td>
-//                       <td>
-//                         {Array.isArray(item.products) &&
-//                         item.products.length > 0
-//                           ? item.products.length === 1
-//                             ? item.products[0]?.title
-//                             : `${item.products.length} products`
-//                           : "—"}
-//                       </td>
-//                       <td>{item.deliveryFrequency || ""}</td>
-//                       <td>{item.pricing || ""}</td>
-//                       <td>{item.widget}</td>
-//                       <td
-//                         onClick={(e) => {
-//                           e.stopPropagation();
-//                           handelDublicate(item.planId);
-//                         }}
-//                       >
-//                         <Icon source={DuplicateIcon} tone="base" />
-//                       </td>
-//                       <td
-//                         onClick={(e) => {
-//                           e.stopPropagation();
-//                           console.log(`delete clicked ${item.planId}`);
-//                           planDelete(item.planId)
-//                         }}
-//                       >
-//                         <Icon source={DeleteIcon} tone="base" />
-//                       </td>
-//                     </tr>
-//                   ))}
-//                   {/* {Plans.map((item) => (
-//               <tr key={item.id}>
-//                 <td>{item.planName}</td>
-//                 <td>{item.product}</td>
-//                 <td>{item.deliveryFrequency}</td>
-//                 <td>{item.pricing}</td>
-//                 <td>{item.widgets}</td>
-//                 <td>
-//                   <Icon source={DuplicateIcon} tone="base" />
-//                 </td>
-//               </tr>
-//             ))} */}
-//                 </tbody>
-//               </table>
-//             </Card>
-//           </>
-//         )}
-//       </Page>
-//     </>
-//   );
-// }
-
-// export default Plans;
-
 
 import { Page, Icon, Card, EmptyState } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
@@ -156,15 +7,77 @@ import { DuplicateIcon, DeleteIcon } from "@shopify/polaris-icons";
 
 const API = import.meta.env.VITE_API_URL;
 
-export const loader = async ({ request }) => {
-  const { session } = await authenticate.admin(request);
-  const shop = session.shop;
-  const response = await fetch(`${API}/plans/getAllPlans?shop=${shop}`);
-  const data = await response.json();
-  return Response.json({ plans: data.success ? data.data : [] });
-};
+// export const loader = async ({ request }) => {
+//   const { session } = await authenticate.admin(request);
+//   const shop = session.shop;
+//   const response = await fetch(`${API}/plans/getAllPlans?shop=${shop}`);
+
+  
+//   const data = await response.json();
+//   return Response.json({ plans: data.success ? data.data : [] });
+// };
 
 // Action - server pe chalta hai, Shopify + DB dono delete karta hai
+
+export const loader = async ({ request }) => {
+  const { admin, session } = await authenticate.admin(request);
+
+  const shop = session.shop;
+
+  const response = await admin.graphql(
+    `#graphql
+    query GetSellingPlanGroups {
+      sellingPlanGroups(first: 100) {
+        edges {
+          node {
+            id
+            name
+            merchantCode
+            options
+
+            sellingPlans(first: 10) {
+              edges {
+                node {
+                  id
+                  name
+                  category
+
+                  billingPolicy {
+                    ... on SellingPlanRecurringBillingPolicy {
+                      interval
+                      intervalCount
+                      minCycles
+                      maxCycles
+                    }
+                  }
+
+                  deliveryPolicy {
+                    ... on SellingPlanRecurringDeliveryPolicy {
+                      interval
+                      intervalCount
+                    }
+                  }
+                    
+                }
+              }
+            }
+          }
+        }
+      }
+    }`
+  );
+
+  const result = await response.json();
+
+  console.log("🔥 Shopify Selling Plans:");
+  console.dir(result.data.sellingPlanGroups, { depth: null });
+
+  return Response.json({
+    plans: result.data.sellingPlanGroups.edges.map(e => e.node),
+  });
+};
+
+
 export const action = async ({ request }) => {
   const { admin } = await authenticate.admin(request);
 

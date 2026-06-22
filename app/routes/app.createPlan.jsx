@@ -193,7 +193,7 @@ export const action = async ({ request }) => {
   );
 
   const createData = await createRes.json();
-  console.log("ffjwjkf", createData.data);
+  console.log("ffjwjkf", createData.data.sellingPlanGroupCreate);
   const userErrors = createData.data.sellingPlanGroupCreate.userErrors;
 
   if (userErrors?.length > 0) {
