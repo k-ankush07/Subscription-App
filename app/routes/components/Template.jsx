@@ -188,14 +188,10 @@ function Template({ shop, editPlandData, dublicateData }) {
           sellingPlan:payload.sellingPlan,
         });
         setToastMessage(data.message);
-        setToastActive(true);
-        // setTimeout(() => navigate(`/app/plan/${data.data.planId}`), 2000);
+        setToastActive(true)
 
+        // navigate(`/app/plan/${data.data.planId}`);
         navigate("/app/plans", { replace: true });
-
-        setTimeout(() => {
-          console.log("Current path after:", window.location.pathname);
-        }, 100);
       }
     } catch (err) {
       console.error("Node API error:", err);
@@ -221,16 +217,7 @@ function Template({ shop, editPlandData, dublicateData }) {
           onAction: handleSubmit,
         }}
       >
-        {/* <ui-save-bar id="templates-save-bar">
-          <button
-            variant="primary"
-            id="templates-save-btn"
-            onClick={handleSubmit}
-          >
-            Save
-          </button>
-          <button onClick={handleDiscard}>Discard</button>
-        </ui-save-bar> */}
+       
 
         {productError && (
           <Banner tone="critical" title="Validation error">

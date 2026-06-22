@@ -128,7 +128,14 @@ function Plans() {
                       >
                         <Icon source={DuplicateIcon} tone="base" />
                       </td>
-                      <td>
+                      <td
+                      onClick={(e)=>
+                      {
+                        e.stopPropagation()
+                        console.log(`delete clicked ${item.planId}`)
+                      }
+                      }
+                      >
                         <Icon source={DeleteIcon} tone="base" />
                       </td>
                     </tr>
