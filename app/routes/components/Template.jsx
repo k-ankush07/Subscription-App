@@ -21,7 +21,6 @@ function Template({ shop, editPlandData, dublicateData }) {
 
   const [toastActive, setToastActive] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
-  const [loading, setLoading] = useState(false);
   const [planId, setPlanId] = useState(editPlandData?.planId || null);
   const [shopifyGroupId, setShopifyGroupId] = useState(null); //  state mein
 
@@ -101,7 +100,6 @@ function Template({ shop, editPlandData, dublicateData }) {
     e.preventDefault();
     if (selectedProducts.length === 0) return setProductError(true);
     setProductError(false);
-    setLoading(true);
 
     const payload = {
       shop: shop || editPlandData?.shop || dublicateData?.shop,
@@ -133,7 +131,6 @@ function Template({ shop, editPlandData, dublicateData }) {
 
       if (!actionData.success) {
         console.error("Shopify error:", actionData.error);
-        setLoading(false);
         return;
       }
 
@@ -202,9 +199,7 @@ function Template({ shop, editPlandData, dublicateData }) {
       }
     } catch (err) {
       console.error("Node API error:", err);
-    } finally {
-      setLoading(false);
-    }
+    } 
   };
 
   return (
