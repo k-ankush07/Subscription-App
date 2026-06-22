@@ -219,7 +219,6 @@ function Plans() {
   };
 
   const planDelete = (planId) => {
-    if (!confirm("Are you sure you want to delete this plan?")) return;
 
     fetcher.submit(
       { planId },         // form data

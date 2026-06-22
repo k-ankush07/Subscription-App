@@ -44,10 +44,10 @@ function Template({ shop, editPlandData, dublicateData }) {
     giveSubscriptionDiscount: true,
     discountValue: 10,
     discountType: "PERCENTAGE",
-     changeDiscountAfterOrders: false,
-      afterDiscountValue: 0,
-      afterOrders: 1,
-      afterDiscountType: "PERCENTAGE",
+    changeDiscountAfterOrders: false,
+    afterDiscountValue: 0,
+    afterOrders: 1,
+    afterDiscountType: "PERCENTAGE",
 
     minCycles: null,
     maxCycles: null,
@@ -71,6 +71,7 @@ function Template({ shop, editPlandData, dublicateData }) {
     setKeepDiscounts(cpc?.keepDiscounts ?? true);
 
     const newSellingPlan = {
+      shopifySellingPlanId: data.sellingPlan?.shopifySellingPlanId || null,
       name: data.sellingPlan?.name || "",
       billingType: data.sellingPlan?.billingType || "PAY_AS_YOU_GO",
       intervalCount: data.sellingPlan?.intervalCount || 1,
@@ -83,10 +84,11 @@ function Template({ shop, editPlandData, dublicateData }) {
         data.sellingPlan?.giveSubscriptionDiscount || true,
       discountValue: data.sellingPlan?.discountValue || 10,
       discountType: data.sellingPlan?.discountType || "PERCENTAGE",
-      changeDiscountAfterOrders: data.sellingPlan?.changeDiscountAfterOrders || false,
+      changeDiscountAfterOrders:
+        data.sellingPlan?.changeDiscountAfterOrders || false,
       afterDiscountValue: data.sellingPlan?.afterDiscountValue || 0,
-      afterOrders:  data.sellingPlan?.afterOrders ||1,
-      afterDiscountType:  data.sellingPlan?.afterDiscountType ||"PERCENTAGE",
+      afterOrders: data.sellingPlan?.afterOrders || 1,
+      afterDiscountType: data.sellingPlan?.afterDiscountType || "PERCENTAGE",
 
       minCycles: data.sellingPlan?.minCycles || null,
       maxCycles: data.sellingPlan?.maxCycles || null,
@@ -150,7 +152,11 @@ function Template({ shop, editPlandData, dublicateData }) {
         planName,
         widget,
         products: selectedProducts,
-        sellingPlan,
+        sellingPlan: {
+          ...sellingPlan,
+          shopifySellingPlanId:
+            actionData.shopifySellingPlanId || sellingPlan.shopifySellingPlanId,
+        },
         shopifyGroupId: actionData.shopifyGroupId,
         customerProductChanges: {
           allowProductSwaps,

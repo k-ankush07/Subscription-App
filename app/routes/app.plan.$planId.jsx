@@ -23,12 +23,39 @@ export const action = async ({ request }) => {
   console.log("Edit payload:", payload);
 
   const shopifyGroupId = payload.shopifyGroupId;
+  const sp = payload.sellingPlan;
+  console.log("sp edit page", sp)
 
   if (!shopifyGroupId) {
-    return Response.json({
-      success: false,
-      error: "shopifyGroupId missing",
+    return Response.json({ success: false, error: "shopifyGroupId missing" });
+  }
+
+  // Pricing policies
+  const pricingPolicies = [];
+
+  if (sp.giveSubscriptionDiscount) {
+    pricingPolicies.push({
+      fixed: {
+        adjustmentType: sp.discountType,
+        adjustmentValue:
+          sp.discountType === "PERCENTAGE"
+            ? { percentage: sp.discountValue }
+            : { fixedValue: sp.discountValue },
+      },
     });
+
+    if (sp.changeDiscountAfterOrders && sp.afterOrders) {
+      pricingPolicies.push({
+        recurring: {
+          afterCycle: sp.afterOrders,
+          adjustmentType: sp.afterDiscountType ?? "PERCENTAGE",
+          adjustmentValue:
+            (sp.afterDiscountType ?? "PERCENTAGE") === "PERCENTAGE"
+              ? { percentage: sp.afterDiscountValue ?? 0 }
+              : { fixedValue: sp.afterDiscountValue ?? 0 },
+        },
+      });
+    }
   }
 
   const updateRes = await admin.graphql(
@@ -46,13 +73,42 @@ export const action = async ({ request }) => {
         input: {
           name: payload.planName,
           merchantCode: payload.planName,
+          sellingPlansToUpdate: [
+            {
+              id: sp.shopifySellingPlanId,
+              name: sp.name,
+              options: [`${sp.intervalCount} ${sp.interval.toLowerCase()}`],
+
+              billingPolicy: {
+                recurring: {
+                  interval: sp.interval,
+                  intervalCount: sp.intervalCount,
+                  ...(sp.minCycles && sp.minCycles !== "disabled"
+                    ? { minCycles: sp.minCycles }
+                    : {}),
+                  ...(sp.maxCycles && sp.maxCycles !== "unlimited"
+                    ? { maxCycles: sp.maxCycles }
+                    : {}),
+                },
+              },
+
+              deliveryPolicy: {
+                recurring: {
+                  interval: sp.interval,
+                  intervalCount: sp.intervalCount,
+                },
+              },
+
+              ...(pricingPolicies.length > 0 ? { pricingPolicies } : {}),
+            },
+          ],
         },
       },
     }
   );
 
   const updateData = await updateRes.json();
-    console.log("update data",updateData.data)
+  console.log("update data", updateData.data);
   const updateErrors = updateData.data.sellingPlanGroupUpdate.userErrors;
 
   if (updateErrors?.length > 0) {
@@ -62,6 +118,7 @@ export const action = async ({ request }) => {
     });
   }
 
+  // Pehle purane products remove karo, phir naye add karo
   await admin.graphql(
     `
     mutation sellingPlanGroupRemoveProducts($id: ID!, $productIds: [ID!]!) {
@@ -97,7 +154,6 @@ export const action = async ({ request }) => {
   );
 
   const addData = await addRes.json();
-
   const addErrors = addData.data.sellingPlanGroupAddProducts.userErrors;
 
   if (addErrors?.length > 0) {

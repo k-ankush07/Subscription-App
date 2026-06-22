@@ -1,11 +1,11 @@
-// import { authenticate } from "../shopify.server";
-// import Template from "./components/Template";
-// import { useLoaderData } from "react-router";
+import { authenticate } from "../shopify.server";
+import Template from "./components/Template";
+import { useLoaderData } from "react-router";
 
-// export const loader = async ({ request }) => {
-//   const { session } = await authenticate.admin(request);
-//   return Response.json({ shop: session.shop });
-// };
+export const loader = async ({ request }) => {
+  const { session } = await authenticate.admin(request);
+  return Response.json({ shop: session.shop });
+};
 
 // export const action = async ({ request }) => {
 //   const { admin } = await authenticate.admin(request);
@@ -108,35 +108,12 @@
 
 //   return Response.json({ success: true, shopifyGroupId, ...payload });
 // };
-
-// function CreatePlan() {
-//   const { shop } = useLoaderData();
-//   return <Template shop={shop} />;
-// }
-
-// export default CreatePlan;
-
-
 export const action = async ({ request }) => {
   const { admin } = await authenticate.admin(request);
   const payload = await request.json();
   console.log("body ,", payload);
 
   const sp = payload.sellingPlan;
-
-  // Build delivery policy
-  const deliveryPolicy = {
-    recurring: {
-      interval: sp.interval,
-      intervalCount: sp.intervalCount,
-      ...(sp.minCycles && sp.minCycles !== "disabled"
-        ? { minCycles: sp.minCycles }
-        : {}),
-      ...(sp.maxCycles && sp.maxCycles !== "unlimited"
-        ? { maxCycles: sp.maxCycles }
-        : {}),
-    },
-  };
 
   // Build pricing policies
   const pricingPolicies = [];
@@ -184,19 +161,28 @@ export const action = async ({ request }) => {
           sellingPlansToCreate: [
             {
               name: sp.name,
-              options: [
-                `${sp.intervalCount} ${sp.interval.toLowerCase()}`,
-              ],
+              options: [`${sp.intervalCount} ${sp.interval.toLowerCase()}`],
               category: "SUBSCRIPTION",
 
               billingPolicy: {
                 recurring: {
                   interval: sp.interval,
                   intervalCount: sp.intervalCount,
+                  ...(sp.minCycles && sp.minCycles !== "disabled"
+                    ? { minCycles: sp.minCycles }
+                    : {}),
+                  ...(sp.maxCycles && sp.maxCycles !== "unlimited"
+                    ? { maxCycles: sp.maxCycles }
+                    : {}),
                 },
               },
 
-              deliveryPolicy,
+              deliveryPolicy: {
+                recurring: {
+                  interval: sp.interval,
+                  intervalCount: sp.intervalCount,
+                },
+              },
 
               ...(pricingPolicies.length > 0 ? { pricingPolicies } : {}),
             },
@@ -207,7 +193,7 @@ export const action = async ({ request }) => {
   );
 
   const createData = await createRes.json();
-  console.log("ffjwjkf", createRes.data);
+  console.log("ffjwjkf", createData.data);
   const userErrors = createData.data.sellingPlanGroupCreate.userErrors;
 
   if (userErrors?.length > 0) {
@@ -255,5 +241,34 @@ export const action = async ({ request }) => {
     });
   }
 
-  return Response.json({ success: true, shopifyGroupId, ...payload });
+
+  // Selling Plan ID fetch karo
+  const fetchRes = await admin.graphql(
+    `
+    query getSellingPlanId($id: ID!) {
+      sellingPlanGroup(id: $id) {
+        sellingPlans(first: 1) {
+          edges {
+            node { id }
+          }
+        }
+      }
+    }
+  `,
+    { variables: { id: shopifyGroupId } }
+  );
+
+  const fetchData = await fetchRes.json();
+  const shopifySellingPlanId =
+    fetchData.data.sellingPlanGroup.sellingPlans.edges[0]?.node?.id;
+
+  console.log("Shopify Selling Plan ID:", shopifySellingPlanId);
+
+  return Response.json({ success: true, shopifyGroupId,shopifySellingPlanId, ...payload });
 };
+function CreatePlan() {
+  const { shop } = useLoaderData();
+  return <Template shop={shop} />;
+}
+
+export default CreatePlan;
