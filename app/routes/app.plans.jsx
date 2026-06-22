@@ -2,7 +2,7 @@ import { Page, Icon, Card, EmptyState } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
 import React, { useEffect, useState } from "react";
 import { useLoaderData, useNavigate } from "react-router";
-import { DuplicateIcon } from "@shopify/polaris-icons";
+import { DuplicateIcon ,DeleteIcon} from "@shopify/polaris-icons";
 
 
 const API= import.meta.env.VITE_API_URL
@@ -97,6 +97,7 @@ function Plans() {
                     <th>Pricing</th>
                     <th>Widgets</th>
                     <th>Action</th>
+                    <th>Delete</th>
                   </tr>
                 </thead>
 
@@ -126,6 +127,9 @@ function Plans() {
                       }}
                       >
                         <Icon source={DuplicateIcon} tone="base" />
+                      </td>
+                      <td>
+                        <Icon source={DeleteIcon} tone="base" />
                       </td>
                     </tr>
                   ))}
