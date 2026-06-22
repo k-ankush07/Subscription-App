@@ -10,7 +10,7 @@ import {
   Toast,
   Frame,
 } from "@shopify/polaris";
-import { useNavigate, useFetcher } from "react-router";
+import { useFetcher, useNavigate } from "react-router";
 import Product from "./Product";
 import SellingPlan from "./SellingPlan";
 
@@ -23,7 +23,7 @@ function Template({ shop, editPlandData, dublicateData }) {
   const [toastMessage, setToastMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [planId, setPlanId] = useState(editPlandData?.planId || null);
-  const [shopifyGroupId, setShopifyGroupId] = useState(null); // ✅ state mein
+  const [shopifyGroupId, setShopifyGroupId] = useState(null); //  state mein
 
   const [planName, setPlanName] = useState("Plan #1");
   const [widget, setWidget] = useState("widget1");
@@ -34,7 +34,7 @@ function Template({ shop, editPlandData, dublicateData }) {
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [productError, setProductError] = useState(false);
   const [sellingPlan, setSellingPlan] = useState({
-    name: "",
+    name: "option 1",
     billingType: "PAY_AS_YOU_GO",
     intervalCount: 1,
     interval: "MONTH",
@@ -48,6 +48,12 @@ function Template({ shop, editPlandData, dublicateData }) {
     allowVariantChanges: true,
     allowQuantityChanges: true,
     keepDiscounts: true,
+    sellingPlan: {
+      name: "",
+      billingType: "PAY_AS_YOU_GO",
+      intervalCount: 1,
+      interval: "MONTH",
+    },
   });
 
   const isDirty =
@@ -58,13 +64,14 @@ function Template({ shop, editPlandData, dublicateData }) {
     allowProductSwaps !== savedState.allowProductSwaps ||
     allowVariantChanges !== savedState.allowVariantChanges ||
     allowQuantityChanges !== savedState.allowQuantityChanges ||
-    keepDiscounts !== savedState.keepDiscounts;
+    keepDiscounts !== savedState.keepDiscounts ||
+    JSON.stringify(sellingPlan) !== JSON.stringify(savedState.sellingPlan);
 
   useEffect(() => {
-  const saveBar = document.getElementById("templates-save-bar");
-  if (!saveBar) return;
-  isDirty ? saveBar.show() : saveBar.hide();
-}, [isDirty]);
+    const saveBar = document.getElementById("templates-save-bar");
+    if (!saveBar) return;
+    isDirty ? saveBar.show() : saveBar.hide();
+  }, [isDirty]);
 
   useEffect(() => {
     const saveBtn = document.getElementById("templates-save-btn");
@@ -86,6 +93,7 @@ function Template({ shop, editPlandData, dublicateData }) {
     setAllowVariantChanges(savedState.allowVariantChanges);
     setAllowQuantityChanges(savedState.allowQuantityChanges);
     setKeepDiscounts(savedState.keepDiscounts);
+     setSellingPlan(savedState.sellingPlan);
   };
 
   useEffect(() => {
@@ -105,12 +113,14 @@ function Template({ shop, editPlandData, dublicateData }) {
     setAllowQuantityChanges(cpc?.allowQuantityChanges ?? true);
     setKeepDiscounts(cpc?.keepDiscounts ?? true);
 
-    setSellingPlan({
+    const newSellingPlan = {
       name: data.sellingPlan?.name || "",
       billingType: data.sellingPlan?.billingType || "PAY_AS_YOU_GO",
       intervalCount: data.sellingPlan?.intervalCount || 1,
       interval: data.sellingPlan?.interval || "MONTH",
-    });
+    };
+
+    setSellingPlan(newSellingPlan);
 
     setSavedState({
       planName: data.planName || "",
@@ -120,6 +130,7 @@ function Template({ shop, editPlandData, dublicateData }) {
       allowVariantChanges: cpc?.allowVariantChanges ?? true,
       allowQuantityChanges: cpc?.allowQuantityChanges ?? true,
       keepDiscounts: cpc?.keepDiscounts ?? true,
+      sellingPlan: newSellingPlan,
     });
   }, [editPlandData, dublicateData]);
 
@@ -209,10 +220,9 @@ function Template({ shop, editPlandData, dublicateData }) {
       });
       const data = await response.json();
       console.log("Node API response:", data);
-
+      console.log("Node API response:", data);
       if (data.success === true) {
-        //  Pehle savedState update karo taaki isDirty false ho jaaye
-        const newSavedState = {
+        setSavedState({
           planName,
           widget,
           selectedProducts,
@@ -220,16 +230,18 @@ function Template({ shop, editPlandData, dublicateData }) {
           allowVariantChanges,
           allowQuantityChanges,
           keepDiscounts,
-        };
-        setSavedState(newSavedState);
+          sellingPlan,
+        });
+        console.log("isDirty after save", isDirty);
         setToastMessage(data.message);
         setToastActive(true);
+        // setTimeout(() => navigate(`/app/plan/${data.data.planId}`), 2000);
 
-        //  SaveBar manually hide karo
-        const saveBar = document.getElementById("templates-save-bar");
-        if (saveBar) saveBar.hide();
+        navigate("/app/plans", { replace: true });
 
-        setTimeout(() => navigate("/app/plans"), 2000);
+        setTimeout(() => {
+          console.log("Current path after:", window.location.pathname);
+        }, 100);
       }
     } catch (err) {
       console.error("Node API error:", err);

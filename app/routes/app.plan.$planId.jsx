@@ -52,7 +52,7 @@ export const action = async ({ request }) => {
   );
 
   const updateData = await updateRes.json();
-    console.log("update data",updateData.sellingPlanGroup)
+    console.log("update data",updateData.data)
   const updateErrors = updateData.data.sellingPlanGroupUpdate.userErrors;
 
   if (updateErrors?.length > 0) {

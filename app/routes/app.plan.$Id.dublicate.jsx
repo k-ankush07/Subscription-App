@@ -65,7 +65,7 @@ export const action = async ({ request }) => {
   );
 
   const createData = await createRes.json();
-  console.log("dublicate data",createData.sellingPlanGroupCreate)
+  console.log("dublicate data",createData.data)
   const userErrors = createData.data.sellingPlanGroupCreate.userErrors;
 
   if (userErrors?.length > 0) {
