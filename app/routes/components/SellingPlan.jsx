@@ -133,60 +133,6 @@ function SellingPlan({ sellingPlan, setSellingPlan }) {
   })
 }
         />
-
-        {/* SUBSCRIPTION DISCOUNT */}
-        {/* <Checkbox
-          label="Give subscription discount"
-          checked={sellingPlan.giveSubscriptionDiscount}
-          onChange={(newChecked) =>
-            setSellingPlan((prev) => ({
-              ...prev,
-              giveSubscriptionDiscount: newChecked,
-            }))
-          }
-        />
-
-        {sellingPlan.giveSubscriptionDiscount && (
-          <>
-            <TextField
-              label="Discount amount"
-              type="number"
-              value={String(sellingPlan.discountValue)}
-              onChange={(value) =>
-                setSellingPlan({
-                  ...sellingPlan,
-                  discountValue: Number(value),
-                })
-              }
-            />
-
-            <Select
-              label="Discount type"
-              options={[
-                {
-                  label: "Percentage off",
-                  value: "PERCENTAGE",
-                },
-                {
-                  label: "Amount off",
-                  value: "AMOUNT",
-                },
-                {
-                  label: "Fixed price",
-                  value: "FIXED_PRICE",
-                },
-              ]}
-              value={sellingPlan.discountType}
-              onChange={(value) =>
-                setSellingPlan({
-                  ...sellingPlan,
-                  discountType: value,
-                })
-              }
-            />
-          </>
-        )} */}
-
         {/* SUBSCRIPTION DISCOUNT */}
 <Checkbox
   label="Give subscription discount"
@@ -214,8 +160,8 @@ function SellingPlan({ sellingPlan, setSellingPlan }) {
       label="Discount type"
       options={[
         { label: "Percentage off", value: "PERCENTAGE" },
-        { label: "Amount off", value: "AMOUNT" },
-        { label: "Fixed price", value: "FIXED_PRICE" },
+        { label: "Amount off", value: "FIXED_AMOUNT" },
+        { label: "Fixed price", value: "PRICE" },
       ]}
       value={sellingPlan.discountType}
       onChange={(value) =>
@@ -259,8 +205,8 @@ function SellingPlan({ sellingPlan, setSellingPlan }) {
           label="Discount type"
           options={[
             { label: "Percentage off", value: "PERCENTAGE" },
-            { label: "Amount off", value: "AMOUNT" },
-            { label: "Fixed price", value: "FIXED_PRICE" },
+            { label: "Amount off", value: "PRICE" },
+            { label: "Fixed price", value: "FIXED_AMOUNT" },
           ]}
           value={sellingPlan.afterDiscountType ?? "PERCENTAGE"}
           onChange={(value) =>

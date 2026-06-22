@@ -7,75 +7,75 @@ import { DuplicateIcon, DeleteIcon } from "@shopify/polaris-icons";
 
 const API = import.meta.env.VITE_API_URL;
 
-// export const loader = async ({ request }) => {
-//   const { session } = await authenticate.admin(request);
-//   const shop = session.shop;
-//   const response = await fetch(`${API}/plans/getAllPlans?shop=${shop}`);
+export const loader = async ({ request }) => {
+  const { session } = await authenticate.admin(request);
+  const shop = session.shop;
+  const response = await fetch(`${API}/plans/getAllPlans?shop=${shop}`);
 
   
-//   const data = await response.json();
-//   return Response.json({ plans: data.success ? data.data : [] });
-// };
-
-// Action - server pe chalta hai, Shopify + DB dono delete karta hai
-
-export const loader = async ({ request }) => {
-  const { admin, session } = await authenticate.admin(request);
-
-  const shop = session.shop;
-
-  const response = await admin.graphql(
-    `#graphql
-    query GetSellingPlanGroups {
-      sellingPlanGroups(first: 100) {
-        edges {
-          node {
-            id
-            name
-            merchantCode
-            options
-
-            sellingPlans(first: 10) {
-              edges {
-                node {
-                  id
-                  name
-                  category
-
-                  billingPolicy {
-                    ... on SellingPlanRecurringBillingPolicy {
-                      interval
-                      intervalCount
-                      minCycles
-                      maxCycles
-                    }
-                  }
-
-                  deliveryPolicy {
-                    ... on SellingPlanRecurringDeliveryPolicy {
-                      interval
-                      intervalCount
-                    }
-                  }
-                    
-                }
-              }
-            }
-          }
-        }
-      }
-    }`
-  );
-
-  const result = await response.json();
-
-  console.log("🔥 Shopify Selling Plans:");
-  console.dir(result.data.sellingPlanGroups, { depth: null });
-
-  return Response.json({
-    plans: result.data.sellingPlanGroups.edges.map(e => e.node),
-  });
+  const data = await response.json();
+  return Response.json({ plans: data.success ? data.data : [] });
 };
+
+
+
+// export const loader = async ({ request }) => {
+//   const { admin, session } = await authenticate.admin(request);
+
+//   const shop = session.shop;
+
+//   const response = await admin.graphql(
+//     `#graphql
+//     query GetSellingPlanGroups {
+//       sellingPlanGroups(first: 100) {
+//         edges {
+//           node {
+//             id
+//             name
+//             merchantCode
+//             options
+
+//             sellingPlans(first: 10) {
+//               edges {
+//                 node {
+//                   id
+//                   name
+//                   category
+
+//                   billingPolicy {
+//                     ... on SellingPlanRecurringBillingPolicy {
+//                       interval
+//                       intervalCount
+//                       minCycles
+//                       maxCycles
+//                     }
+//                   }
+
+//                   deliveryPolicy {
+//                     ... on SellingPlanRecurringDeliveryPolicy {
+//                       interval
+//                       intervalCount
+//                     }
+//                   }
+                    
+//                 }
+//               }
+//             }
+//           }
+//         }
+//       }
+//     }`
+//   );
+
+//   const result = await response.json();
+
+//   console.log("🔥 Shopify Selling Plans:");
+//   console.dir(result.data.sellingPlanGroups, { depth: null });
+
+//   return Response.json({
+//     plans: result.data.sellingPlanGroups.edges.map(e => e.node),
+//   });
+// };
 
 
 export const action = async ({ request }) => {
