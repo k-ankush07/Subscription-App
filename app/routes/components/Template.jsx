@@ -55,47 +55,6 @@ function Template({ shop, editPlandData, dublicateData }) {
       interval: "MONTH",
     },
   });
-
-  const isDirty =
-    planName !== savedState.planName ||
-    widget !== savedState.widget ||
-    JSON.stringify(selectedProducts) !==
-      JSON.stringify(savedState.selectedProducts) ||
-    allowProductSwaps !== savedState.allowProductSwaps ||
-    allowVariantChanges !== savedState.allowVariantChanges ||
-    allowQuantityChanges !== savedState.allowQuantityChanges ||
-    keepDiscounts !== savedState.keepDiscounts ||
-    JSON.stringify(sellingPlan) !== JSON.stringify(savedState.sellingPlan);
-
-  useEffect(() => {
-    const saveBar = document.getElementById("templates-save-bar");
-    if (!saveBar) return;
-    isDirty ? saveBar.show() : saveBar.hide();
-  }, [isDirty]);
-
-  useEffect(() => {
-    const saveBtn = document.getElementById("templates-save-btn");
-    if (!saveBtn) return;
-    if (loading) {
-      saveBtn.setAttribute("loading", "");
-      saveBtn.setAttribute("disabled", "");
-    } else {
-      saveBtn.removeAttribute("loading");
-      saveBtn.removeAttribute("disabled");
-    }
-  }, [loading]);
-
-  const handleDiscard = () => {
-    setPlanName(savedState.planName);
-    setWidget(savedState.widget);
-    setSelectedProducts(savedState.selectedProducts);
-    setAllowProductSwaps(savedState.allowProductSwaps);
-    setAllowVariantChanges(savedState.allowVariantChanges);
-    setAllowQuantityChanges(savedState.allowQuantityChanges);
-    setKeepDiscounts(savedState.keepDiscounts);
-     setSellingPlan(savedState.sellingPlan);
-  };
-
   useEffect(() => {
     const data = editPlandData || dublicateData;
     if (!data) return;
@@ -135,7 +94,6 @@ function Template({ shop, editPlandData, dublicateData }) {
   }, [editPlandData, dublicateData]);
 
   const handleBack = () => {
-    if (isDirty) return null;
     navigate("/app/plans");
   };
 
@@ -230,9 +188,8 @@ function Template({ shop, editPlandData, dublicateData }) {
           allowVariantChanges,
           allowQuantityChanges,
           keepDiscounts,
-          sellingPlan,
+          sellingPlan:payload.sellingPlan,
         });
-        console.log("isDirty after save", isDirty);
         setToastMessage(data.message);
         setToastActive(true);
         // setTimeout(() => navigate(`/app/plan/${data.data.planId}`), 2000);
@@ -269,7 +226,7 @@ function Template({ shop, editPlandData, dublicateData }) {
           onAction: handleSubmit,
         }}
       >
-        <ui-save-bar id="templates-save-bar">
+        {/* <ui-save-bar id="templates-save-bar">
           <button
             variant="primary"
             id="templates-save-btn"
@@ -278,7 +235,7 @@ function Template({ shop, editPlandData, dublicateData }) {
             Save
           </button>
           <button onClick={handleDiscard}>Discard</button>
-        </ui-save-bar>
+        </ui-save-bar> */}
 
         {productError && (
           <Banner tone="critical" title="Validation error">
