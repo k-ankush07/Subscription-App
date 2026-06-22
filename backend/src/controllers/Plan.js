@@ -38,23 +38,6 @@ const createPlan = async (req, res) => {
 };
 
 
-// const getALLPlans = async (req, res) => {
-//   try {
-//     const plans = await Plan.find();
-
-//     res.status(200).json({
-//       success: true,
-//       count: plans.length,
-//       data: plans,
-//     });
-//   } catch (error) {
-//     res.status(500).json({
-//       success: false,
-//       message: error.message,
-//     });
-//   }
-// };
-
 const getALLPlans = async (req, res) => {
   try {
     const { shop } = req.query; 
@@ -157,34 +140,34 @@ const updatePlan = async (req, res) => {
 };
 
 
-// const deletePlan = async (req, res) => {
-//   try {
-//     const { planId } = req.params;
+const deletePlan = async (req, res) => {
+  try {
+    const { planId } = req.params;
 
-//     const deletedPlan = await Plan.findOneAndDelete({ planId });
+    const deletedPlan = await Plan.findOneAndDelete({ planId });
 
-//     if (!deletedPlan) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "Plan not found",
-//       });
-//     }
+    if (!deletedPlan) {
+      return res.status(404).json({
+        success: false,
+        message: "Plan not found",
+      });
+    }
 
-//     res.status(200).json({
-//       success: true,
-//       message: "Plan deleted successfully",
-//       data: deletedPlan,
-//     });
-//   } catch (error) {
-//     res.status(500).json({
-//       success: false,
-//       message: error.message,
-//     });
-//   }
-// };
-
-
+    res.status(200).json({
+      success: true,
+      message: "Plan deleted successfully",
+      data: deletedPlan,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
 
 
 
-export {  createPlan,getALLPlans  ,getPlanByPlanId,updatePlan};
+
+
+export {  createPlan,getALLPlans  ,getPlanByPlanId,updatePlan,deletePlan};

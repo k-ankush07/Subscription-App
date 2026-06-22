@@ -1,5 +1,5 @@
 import express from "express";
-import { createPlan,getALLPlans,getPlanByPlanId,updatePlan} from "../controllers/Plan.js";
+import { createPlan,getALLPlans,getPlanByPlanId,updatePlan,deletePlan} from "../controllers/Plan.js";
 
 const router = express.Router();
 
@@ -8,7 +8,7 @@ router.post("/create", createPlan);
 router.get("/getAllPlans", getALLPlans);
 router.get("/:planId", getPlanByPlanId);
 router.put("/update/:planId", updatePlan);
-// router.delete("/:planId", deletePlan);
+router.delete("/:planId", deletePlan);
 
 
 
