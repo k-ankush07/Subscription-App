@@ -33,27 +33,26 @@ function Template({ shop, editPlandData, dublicateData }) {
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [productError, setProductError] = useState(false);
   const [sellingPlan, setSellingPlan] = useState({
-    name: "option 1",
+    name: "",
     billingType: "PAY_AS_YOU_GO",
     intervalCount: 1,
     interval: "MONTH",
+
+    billingFrequency: 1,
+    billingInterval: "MONTH",
+
+    giveSubscriptionDiscount: true,
+    discountValue: 10,
+    discountType: "PERCENTAGE",
+     changeDiscountAfterOrders: false,
+      afterDiscountValue: 0,
+      afterOrders: 1,
+      afterDiscountType: "PERCENTAGE",
+
+    minCycles: null,
+    maxCycles: null,
   });
 
-  const [savedState, setSavedState] = useState({
-    planName: "Plan #1",
-    widget: "widget1",
-    selectedProducts: [],
-    allowProductSwaps: true,
-    allowVariantChanges: true,
-    allowQuantityChanges: true,
-    keepDiscounts: true,
-    sellingPlan: {
-      name: "",
-      billingType: "PAY_AS_YOU_GO",
-      intervalCount: 1,
-      interval: "MONTH",
-    },
-  });
   useEffect(() => {
     const data = editPlandData || dublicateData;
     if (!data) return;
@@ -76,20 +75,24 @@ function Template({ shop, editPlandData, dublicateData }) {
       billingType: data.sellingPlan?.billingType || "PAY_AS_YOU_GO",
       intervalCount: data.sellingPlan?.intervalCount || 1,
       interval: data.sellingPlan?.interval || "MONTH",
+
+      billingFrequency: data.sellingPlan?.billingFrequency || 1,
+      billingInterval: data.sellingPlan?.billingInterval || "MONTH",
+
+      giveSubscriptionDiscount:
+        data.sellingPlan?.giveSubscriptionDiscount || true,
+      discountValue: data.sellingPlan?.discountValue || 10,
+      discountType: data.sellingPlan?.discountType || "PERCENTAGE",
+      changeDiscountAfterOrders: data.sellingPlan?.changeDiscountAfterOrders || false,
+      afterDiscountValue: data.sellingPlan?.afterDiscountValue || 0,
+      afterOrders:  data.sellingPlan?.afterOrders ||1,
+      afterDiscountType:  data.sellingPlan?.afterDiscountType ||"PERCENTAGE",
+
+      minCycles: data.sellingPlan?.minCycles || null,
+      maxCycles: data.sellingPlan?.maxCycles || null,
     };
 
     setSellingPlan(newSellingPlan);
-
-    setSavedState({
-      planName: data.planName || "",
-      widget: data.widget || "",
-      selectedProducts: data.products || [],
-      allowProductSwaps: cpc?.allowProductSwaps ?? true,
-      allowVariantChanges: cpc?.allowVariantChanges ?? true,
-      allowQuantityChanges: cpc?.allowQuantityChanges ?? true,
-      keepDiscounts: cpc?.keepDiscounts ?? true,
-      sellingPlan: newSellingPlan,
-    });
   }, [editPlandData, dublicateData]);
 
   const handleBack = () => {
@@ -177,25 +180,15 @@ function Template({ shop, editPlandData, dublicateData }) {
       console.log("Node API response:", data);
       console.log("Node API response:", data);
       if (data.success === true) {
-        setSavedState({
-          planName,
-          widget,
-          selectedProducts,
-          allowProductSwaps,
-          allowVariantChanges,
-          allowQuantityChanges,
-          keepDiscounts,
-          sellingPlan:payload.sellingPlan,
-        });
         setToastMessage(data.message);
-        setToastActive(true)
+        setToastActive(true);
 
         // navigate(`/app/plan/${data.data.planId}`);
         navigate("/app/plans", { replace: true });
       }
     } catch (err) {
       console.error("Node API error:", err);
-    } 
+    }
   };
 
   return (
@@ -217,8 +210,6 @@ function Template({ shop, editPlandData, dublicateData }) {
           onAction: handleSubmit,
         }}
       >
-       
-
         {productError && (
           <Banner tone="critical" title="Validation error">
             <p>Please select at least one product.</p>
