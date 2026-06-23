@@ -15,35 +15,42 @@ function SellingPlan({ sellingPlan, setSellingPlan, selectedProducts }) {
 
   const allowedIds = selectedProducts.map((p) => p.id);
 
-  const handleOpenPicker = async (target) => {
-    setPickerTarget(target);
+ const handleOpenPicker = async (target) => {
+  setPickerTarget(target);
 
-    const selected = await shopify.resourcePicker({
-      type: "product",
-      multiple: true,
-      filter: {
-        variants: true,
-        query: allowedIds.map((id) => `id:${id.split("/").pop()}`).join(" OR "),
-      },
-    });
+  // Current selected ids for pre-selection
+  const currentIds =
+    target === "quantity"
+      ? sellingPlan.quantityProducts || []
+      : sellingPlan.freeProducts || [];
 
-    if (!selected || selected.length === 0) return;
+  const selected = await shopify.resourcePicker({
+    type: "product",
+    multiple: true,
+    //Pre-select already chosen products
+    selectionIds: currentIds.map((id) => ({ id })),
+    filter: {
+      variants: true,
+      query: allowedIds.map((id) => `id:${id.split("/").pop()}`).join(" OR "),
+    },
+  });
 
-    // Store only ids for backend
-    const pickedIds = selected.map((p) => p.id);
+  if (!selected || selected.length === 0) return;
 
-    if (target === "quantity") {
-  setSellingPlan((prev) => ({
-    ...prev,
-    quantityProducts: pickedIds,
-  }));
-} else if (target === "freeProduct") {
-  setSellingPlan((prev) => ({
-    ...prev,
-    freeProducts: pickedIds,
-  }));
-}
-  };
+  const pickedIds = selected.map((p) => p.id);
+
+  if (target === "quantity") {
+    setSellingPlan((prev) => ({
+      ...prev,
+      quantityProducts: pickedIds,
+    }));
+  } else if (target === "freeProduct") {
+    setSellingPlan((prev) => ({
+      ...prev,
+      freeProducts: pickedIds,
+    }));
+  }
+};
 
   return (
     <Card>
@@ -354,10 +361,10 @@ function SellingPlan({ sellingPlan, setSellingPlan, selectedProducts }) {
             />
 
             <Button onClick={() => handleOpenPicker("quantity")}>
-  {sellingPlan.quantityProducts?.length > 0
-    ? `${sellingPlan.quantityProducts.length} Product Selected`
-    : "Select Product"}
-</Button>
+              {sellingPlan.quantityProducts?.length > 0
+                ? `${sellingPlan.quantityProducts.length} Product Selected`
+                : "Select Product"}
+            </Button>
           </>
         )}
         {/* set remove free prodcut */}
@@ -385,10 +392,10 @@ function SellingPlan({ sellingPlan, setSellingPlan, selectedProducts }) {
               }
             />
             <Button onClick={() => handleOpenPicker("freeProduct")}>
-  {sellingPlan.freeProducts?.length > 0
-    ? `${sellingPlan.freeProducts.length} Product Selected`
-    : "Select Product"}
-</Button>
+              {sellingPlan.freeProducts?.length > 0
+                ? `${sellingPlan.freeProducts.length} Product Selected`
+                : "Select Product"}
+            </Button>
           </>
         )}
 
