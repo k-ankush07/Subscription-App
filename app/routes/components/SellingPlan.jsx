@@ -372,7 +372,7 @@ function SellingPlan({ sellingPlan, setSellingPlan, selectedProducts }) {
 
             <Button onClick={() => handleOpenPicker("quantity")}>
               {sellingPlan.quantityProducts?.length > 0
-                ? `${sellingPlan.quantityProducts.length} Product Selected`
+                ? ` Selected Product  (${sellingPlan.quantityProducts.length})`
                 : "Select Product"}
             </Button>
           </>
@@ -403,7 +403,7 @@ function SellingPlan({ sellingPlan, setSellingPlan, selectedProducts }) {
             />
             <Button onClick={() => handleOpenPicker("freeProduct")}>
               {sellingPlan.freeProducts?.length > 0
-                ? `${sellingPlan.freeProducts.length} Product Selected`
+                ? ` Selected  Products (${sellingPlan.freeProducts.length})`
                 : "Select Product"}
             </Button>
           </>

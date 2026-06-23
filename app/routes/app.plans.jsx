@@ -178,7 +178,7 @@ function Plans() {
       { method: "DELETE" }, // action trigger
     );
   };
-
+  const deletingId = fetcher.formData?.get("planId");
   return (
     <Page
       title="Selling Plans"
@@ -285,7 +285,12 @@ function Plans() {
                     }}
                   >
                     {/* Delete ho raha hai to loading dikhao */}
-                    {fetcher.state !== "idle" ? (
+                    {/* {fetcher.state !== "idle" ? (
+                      "..."
+                    ) : (
+                      <Icon source={DeleteIcon} tone="base" />
+                    )} */}
+                    {deletingId === item.planId && fetcher.state !== "idle" ? (
                       "..."
                     ) : (
                       <Icon source={DeleteIcon} tone="base" />
