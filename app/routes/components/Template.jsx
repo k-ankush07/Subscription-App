@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   Page,
   Card,
@@ -9,12 +9,15 @@ import {
   Checkbox,
   Toast,
   Frame,
+  Button,
 } from "@shopify/polaris";
 import { useFetcher, useNavigate } from "react-router";
 import Product from "./Product";
 import SellingPlan from "./SellingPlan";
+import { useAppBridge } from "@shopify/app-bridge-react";
 
 function Template({ shop, editPlandData, dublicateData }) {
+  const shopify = useAppBridge();
   const navigate = useNavigate();
   const API = import.meta.env.VITE_API_URL;
   const fetcher = useFetcher();
@@ -33,7 +36,7 @@ function Template({ shop, editPlandData, dublicateData }) {
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [productError, setProductError] = useState(false);
   const [sellingPlan, setSellingPlan] = useState({
-    name: "",
+    name: "opption 1",
     billingType: "PAY_AS_YOU_GO",
     intervalCount: 1,
     interval: "MONTH",
@@ -60,14 +63,52 @@ function Template({ shop, editPlandData, dublicateData }) {
     changeQuantityAfterOrders: false,
     quantityAfterOrdersValue: 1,
     quantityAfterOrders: 1,
+    quantityProducts: [],
 
     RemoveFreeProdcut: false,
     removeFreeProductValue: 1,
+    freeProducts: [],
 
-    MinimumQuanitity :  false,
-    MinimumQuanitityValue : 1
+    MinimumQuanitity: false,
+    MinimumQuanitityValue: 1,
   });
 
+  // product bunnton handel
+  const handleSelectProduct = useCallback(async () => {
+    const selected = await shopify.resourcePicker({
+      type: "product",
+      multiple: true,
+      action: "select",
+      selectionIds: selectedProducts.map((p) => ({ id: p.id })),
+    });
+
+    if (selected) {
+      setProductError(false);
+      const incoming = selected.map((product) => {
+        const selectedVariants = product.variants || [];
+        return {
+          id: product.id,
+          title: product.title,
+          ProductImage: product.images?.[0].originalSrc,
+          selectedVariantCount: selectedVariants.length,
+          totalVariantCount: product.totalVariants || selectedVariants.length,
+          variants: selectedVariants.map((variant) => ({
+            variantsId: variant.id,
+            variantsTitle: variant.title,
+          })),
+        };
+      });
+
+      //selct new prodcut and add state
+      setSelectedProducts((prev) => {
+        const incomingIds = new Set(incoming.map((p) => p.id));
+        const kept = prev.filter((p) => !incomingIds.has(p.id));
+        return [...kept, ...incoming];
+      });
+    }
+  }, [shopify, selectedProducts]);
+
+  
   useEffect(() => {
     const data = editPlandData || dublicateData;
     if (!data) return;
@@ -117,10 +158,14 @@ function Template({ shop, editPlandData, dublicateData }) {
         data.sellingPlan?.changeQuantityAfterOrders || false,
       quantityAfterOrdersValue: data.sellingPlan?.quantityAfterOrdersValue || 1,
       quantityAfterOrders: data.sellingPlan?.quantityAfterOrders || 1,
+      quantityProducts: data.sellingPlan?.quantityProducts || [],
+
       RemoveFreeProdcut: data.sellingPlan?.RemoveFreeProdcut || false,
       removeFreeProductValue: data.sellingPlan?.removeFreeProductValue || 1,
-       MinimumQuanitity : data.sellingPlan?.MinimumQuanitity ||  false,
-    MinimumQuanitityValue : data.sellingPlan?.MinimumQuanitityValue || 1,
+      freeProducts: data.sellingPlan?.freeProducts || [],
+
+      MinimumQuanitity: data.sellingPlan?.MinimumQuanitity || false,
+      MinimumQuanitityValue: data.sellingPlan?.MinimumQuanitityValue || 1,
     };
 
     setSellingPlan(newSellingPlan);
@@ -253,35 +298,40 @@ function Template({ shop, editPlandData, dublicateData }) {
 
         <Card>
           <form onSubmit={handleSubmit}>
-            <FormLayout>
-              <TextField
-                label="Plan name (internal)"
-                value={planName}
-                onChange={setPlanName}
-                helpText="For your reference only"
-              />
-              <Select
-                label="Widget assigned"
-                options={[
-                  { label: "Widget 1", value: "widget1" },
-                  { label: "Widget 2", value: "widget2" },
-                  { label: "Widget 3", value: "widget3" },
-                  { label: "Widget 4", value: "widget4" },
-                ]}
-                value={widget}
-                onChange={setWidget}
-                helpText="Will be visible for customers on the product page"
-              />
+            <TextField
+              label="Plan name (internal)"
+              value={planName}
+              onChange={setPlanName}
+              helpText="For your reference only"
+            />
+            <Select
+              label="Widget assigned"
+              options={[
+                { label: "Widget 1", value: "widget1" },
+                { label: "Widget 2", value: "widget2" },
+                { label: "Widget 3", value: "widget3" },
+                { label: "Widget 4", value: "widget4" },
+              ]}
+              value={widget}
+              onChange={setWidget}
+              helpText="Will be visible for customers on the product page"
+            />
+            <Card>
               <Product
                 selectedProducts={selectedProducts}
                 setSelectedProducts={setSelectedProducts}
-                setProductError={setProductError}
                 productError={productError}
               />
-            </FormLayout>
+              <Button onClick={handleSelectProduct}>
+                {selectedProducts.length > 0
+                  ? "Add more products"
+                  : "Select products"}
+              </Button>
+            </Card>
           </form>
 
           <SellingPlan
+            selectedProducts={selectedProducts}
             sellingPlan={sellingPlan}
             setSellingPlan={setSellingPlan}
           />

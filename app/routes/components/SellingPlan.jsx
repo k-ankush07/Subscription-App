@@ -7,7 +7,10 @@ import {
   Button,
 } from "@shopify/polaris";
 
-function SellingPlan({ sellingPlan, setSellingPlan }) {
+
+function SellingPlan({ sellingPlan, setSellingPlan,selectedProducts }) {
+  console.log("select prodcut", selectedProducts)
+
   return (
     <Card>
       <FormLayout>
@@ -317,6 +320,7 @@ function SellingPlan({ sellingPlan, setSellingPlan }) {
             />
 
             <Button>Select Product</Button>
+            
           </>
         )}
         {/* set remove free prodcut */}

@@ -7,50 +7,18 @@ import {
   BlockStack,
   Badge,
   Divider,
-  InlineError
+  InlineError,
 } from "@shopify/polaris";
-import { useAppBridge } from "@shopify/app-bridge-react";
 import React, { useState, useCallback } from "react";
 
-function Product({selectedProducts,setSelectedProducts,setProductError,productError}) {
-  const shopify = useAppBridge();
-//   const [selectedProducts, setSelectedProducts] = useState([]);
-
-  const handleSelectProduct = useCallback(async () => {
-    const selected = await shopify.resourcePicker({
-      type: "product",
-      multiple: true,
-      action: "select",
-      selectionIds: selectedProducts.map((p) => ({ id: p.id })),
-    });
-
-    if (selected) {
-        setProductError(false); 
-      const incoming = selected.map((product) => {
-        const selectedVariants = product.variants || [];
-        return {
-          id: product.id,
-          title: product.title,
-          ProductImage: product.images?.[0].originalSrc,
-          selectedVariantCount: selectedVariants.length,
-          totalVariantCount: product.totalVariants || selectedVariants.length,
-          variants: selectedVariants.map((variant) => ({
-            variantsId: variant.id,
-            variantsTitle: variant.title,
-          })),
-        };
-      });
+function Product({
+  selectedProducts,
+  setSelectedProducts,
+  productError,
+}) {
 
 
-      //selct new prodcut and add state
-      setSelectedProducts((prev) => {
-        const incomingIds = new Set(incoming.map((p) => p.id));
-        const kept = prev.filter((p) => !incomingIds.has(p.id));
-        return [...kept, ...incoming];
-      });
-    }
-  }, [shopify, selectedProducts]);
-  console.log("seelct proct ",selectedProducts)
+  console.log("seelct proct ", selectedProducts);
   const handleRemove = useCallback((productId) => {
     setSelectedProducts((prev) => prev.filter((p) => p.id !== productId));
   }, []);
@@ -63,10 +31,11 @@ function Product({selectedProducts,setSelectedProducts,setProductError,productEr
   return (
     <Card>
       <BlockStack gap="400">
-
         {/* Header */}
         <InlineStack align="space-between" blockAlign="center">
-          <Text as="h2" variant="headingMd">Products</Text>
+          <Text as="h2" variant="headingMd">
+            Products
+          </Text>
           {selectedProducts.length > 0 && (
             <Badge tone="info">{selectedProducts.length} selected</Badge>
           )}
@@ -84,7 +53,7 @@ function Product({selectedProducts,setSelectedProducts,setProductError,productEr
                     <InlineStack align="space-between" blockAlign="center">
                       <InlineStack gap="300" blockAlign="center">
                         <Thumbnail
-                          source={product.ProductImage  || ""}
+                          source={product.ProductImage || ""}
                           alt={product.title}
                           size="small"
                         />
@@ -99,7 +68,7 @@ function Product({selectedProducts,setSelectedProducts,setProductError,productEr
                           )}
                         </BlockStack>
                       </InlineStack>
-                      
+
                       <Button
                         variant="plain"
                         tone="critical"
@@ -118,14 +87,18 @@ function Product({selectedProducts,setSelectedProducts,setProductError,productEr
             No products selected
           </Text>
         )}
-{productError && (
-  <InlineError message="Please select at least one product." fieldID="products" />
-)}
+        {productError && (
+          <InlineError
+            message="Please select at least one product."
+            fieldID="products"
+          />
+        )}
         {/* Action button */}
-        <Button onClick={handleSelectProduct}>
-          {selectedProducts.length > 0 ? "Add more products" : "Select products"}
-        </Button>
-
+        {/* <Button onClick={handleSelectProduct}>
+          {selectedProducts.length > 0
+            ? "Add more products"
+            : "Select products"}
+        </Button> */}
       </BlockStack>
     </Card>
   );
