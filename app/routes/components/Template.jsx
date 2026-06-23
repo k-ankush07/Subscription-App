@@ -51,6 +51,11 @@ function Template({ shop, editPlandData, dublicateData }) {
 
     minCycles: null,
     maxCycles: null,
+
+    giveShippingDiscount: false,
+    shippingDiscountValue: 0,
+    shippingAfterOrders: 1,
+    shippingDiscountType: "PRICE",
   });
 
   useEffect(() => {
@@ -92,6 +97,11 @@ function Template({ shop, editPlandData, dublicateData }) {
 
       minCycles: data.sellingPlan?.minCycles || null,
       maxCycles: data.sellingPlan?.maxCycles || null,
+      
+      giveShippingDiscount: data.sellingPlan?.giveShippingDiscount ||false,
+      shippingDiscountValue: data.sellingPlan?.shippingDiscountValue || 0,
+      shippingAfterOrders: data.sellingPlan?.shippingAfterOrders || 1,
+      shippingDiscountType: data.sellingPlan?.shippingDiscountType || "PRICE",
     };
 
     setSellingPlan(newSellingPlan);

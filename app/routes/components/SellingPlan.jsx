@@ -217,6 +217,68 @@ function SellingPlan({ sellingPlan, setSellingPlan }) {
     )}
   </>
 )}
+
+{/* SHIPPING DISCOUNT */}
+<h2>Shipping discount</h2>
+<Checkbox
+  label="Give discount"
+  checked={sellingPlan.giveShippingDiscount}
+  onChange={(newChecked) =>
+    setSellingPlan((prev) => ({
+      ...prev,
+      giveShippingDiscount: newChecked,
+    }))
+  }
+/>
+{sellingPlan.giveShippingDiscount && (
+  <>
+    <TextField
+      label="Discount"
+      type="number"
+      value={String(sellingPlan.shippingDiscountValue)}
+      helpText="This will be the new delivery price"
+      onChange={(value) =>
+        setSellingPlan({ ...sellingPlan, shippingDiscountValue: Number(value) })
+      }
+    />
+
+    <TextField
+      label="After # of orders"
+      type="number"
+      value={String(sellingPlan.shippingAfterOrders)}
+      helpText="After how many orders to change delivery price"
+      onChange={(value) =>
+        setSellingPlan({ ...sellingPlan, shippingAfterOrders: Number(value) })
+      }
+    />
+
+    <Select
+      label="Discount type"
+      options={[
+          { label: "Percentage off", value: "PERCENTAGE" },
+        { label: "Fixed price", value: "PRICE" },
+        { label: "Amount off", value: "FIXED_AMOUNT" },
+      ]}
+      value={sellingPlan.shippingDiscountType}
+      onChange={(value) =>
+        setSellingPlan({ ...sellingPlan, shippingDiscountType: value })
+      }
+    />
+  </>
+)}
+
+<h2>Settings</h2>
+
+<Checkbox
+  label="Give discount"
+  checked={sellingPlan.ChnageProdcut}
+  onChange={(newChecked) =>
+    setSellingPlan((prev) => ({
+      ...prev,
+      ChnageProdcut: newChecked,
+    }))
+  }
+/>
       </FormLayout>
     </Card>
   );
