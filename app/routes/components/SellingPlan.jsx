@@ -30,10 +30,10 @@ function SellingPlan({ sellingPlan, setSellingPlan }) {
               label: "Pay as you go",
               value: "PAY_AS_YOU_GO",
             },
-            {
-              label: "Prepaid",
-              value: "PREPAID",
-            },
+            // {
+            //   label: "Prepaid",
+            //   value: "PREPAID",
+            // },
           ]}
           value={sellingPlan.billingType}
           onChange={(value) =>

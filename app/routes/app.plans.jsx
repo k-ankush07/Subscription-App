@@ -21,7 +21,6 @@ export const loader = async ({ request }) => {
 
 // export const loader = async ({ request }) => {
 //   const { admin, session } = await authenticate.admin(request);
-
 //   const shop = session.shop;
 
 //   const response = await admin.graphql(
@@ -34,14 +33,12 @@ export const loader = async ({ request }) => {
 //             name
 //             merchantCode
 //             options
-
 //             sellingPlans(first: 10) {
 //               edges {
 //                 node {
 //                   id
 //                   name
 //                   category
-
 //                   billingPolicy {
 //                     ... on SellingPlanRecurringBillingPolicy {
 //                       interval
@@ -50,14 +47,39 @@ export const loader = async ({ request }) => {
 //                       maxCycles
 //                     }
 //                   }
-
 //                   deliveryPolicy {
 //                     ... on SellingPlanRecurringDeliveryPolicy {
 //                       interval
 //                       intervalCount
 //                     }
 //                   }
-                    
+//                   pricingPolicies {
+//                     ... on SellingPlanFixedPricingPolicy {
+//                       adjustmentType
+//                       adjustmentValue {
+//                         ... on SellingPlanPricingPolicyPercentageValue {
+//                           percentage
+//                         }
+//                         ... on MoneyV2 {
+//                           amount
+//                           currencyCode
+//                         }
+//                       }
+//                     }
+//                     ... on SellingPlanRecurringPricingPolicy {
+//                       afterCycle
+//                       adjustmentType
+//                       adjustmentValue {
+//                         ... on SellingPlanPricingPolicyPercentageValue {
+//                           percentage
+//                         }
+//                         ... on MoneyV2 {
+//                           amount
+//                           currencyCode
+//                         }
+//                       }
+//                     }
+//                   }
 //                 }
 //               }
 //             }
@@ -69,11 +91,12 @@ export const loader = async ({ request }) => {
 
 //   const result = await response.json();
 
-//   console.log("🔥 Shopify Selling Plans:");
+//   console.log("🔥 Shopify Selling Plan Groups:");
 //   console.dir(result.data.sellingPlanGroups, { depth: null });
 
 //   return Response.json({
-//     plans: result.data.sellingPlanGroups.edges.map(e => e.node),
+//     shop,
+//     plans: result.data.sellingPlanGroups.edges.map((e) => e.node),
 //   });
 // };
 

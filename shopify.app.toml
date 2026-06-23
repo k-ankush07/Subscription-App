@@ -2,7 +2,7 @@
 
 client_id = "e3fdd452b80eb189ddded55eda8ececa"
 name = "Subscription-App"
-application_url = "https://ken-emerging-incident-sold.trycloudflare.com"
+application_url = "https://strategy-solaris-pros-controversy.trycloudflare.com"
 embedded = true
 
 [access_scopes]
