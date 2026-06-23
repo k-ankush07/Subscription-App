@@ -1,4 +1,3 @@
-
 import { Page, Icon, Card, EmptyState } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
 import React from "react";
@@ -12,12 +11,9 @@ export const loader = async ({ request }) => {
   const shop = session.shop;
   const response = await fetch(`${API}/plans/getAllPlans?shop=${shop}`);
 
-  
   const data = await response.json();
   return Response.json({ plans: data.success ? data.data : [] });
 };
-
-
 
 // export const loader = async ({ request }) => {
 //   const { admin, session } = await authenticate.admin(request);
@@ -122,7 +118,6 @@ export const loader = async ({ request }) => {
 //   });
 // };
 
-
 export const action = async ({ request }) => {
   const { admin } = await authenticate.admin(request);
 
@@ -145,7 +140,7 @@ export const action = async ({ request }) => {
       variables: {
         id: `gid://shopify/SellingPlanGroup/${planId}`,
       },
-    }
+    },
   );
 
   const result = await response.json();
@@ -163,7 +158,7 @@ export const action = async ({ request }) => {
 
 function Plans() {
   const { plans } = useLoaderData();
-  console.log("planssss",plans)
+  console.log("planssss", plans);
   const navigate = useNavigate();
   const fetcher = useFetcher();
 
@@ -178,10 +173,9 @@ function Plans() {
   };
 
   const planDelete = (planId) => {
-
     fetcher.submit(
-      { planId },         // form data
-      { method: "DELETE" } // action trigger
+      { planId }, // form data
+      { method: "DELETE" }, // action trigger
     );
   };
 
@@ -195,7 +189,10 @@ function Plans() {
           <EmptyState>
             <img src="https://subscriptions.kachingappz.app/images/empty-subscriptions-list-state.png" />
             <h2>Get more repeat business</h2>
-            <p>Allow customers to purchase products or services on a recurring basis</p>
+            <p>
+              Allow customers to purchase products or services on a recurring
+              basis
+            </p>
           </EmptyState>
         </Card>
       ) : (
@@ -227,15 +224,39 @@ function Plans() {
                         : `${item.products.length} products`
                       : "—"}
                   </td>
-                  <td>{item.deliveryFrequency || ""}</td>
-                  <td>{item.pricing || ""}</td>
+                  <td>
+                    {item.sellingPlan
+                      ? item.sellingPlan.intervalCount === 1
+                        ? `Every ${item.sellingPlan.intervalCount} ${item.sellingPlan.interval?.toLowerCase()}`
+                        : `${item.sellingPlan.intervalCount} ${item.sellingPlan.interval?.toLowerCase()}`
+                      : ""}
+                  </td>
+                  <td>
+                    {item.sellingPlan?.discountType === "PERCENTAGE"
+                      ? `${item.sellingPlan?.discountValue || ""}% off`
+                      : `₹${item.sellingPlan?.discountValue || ""} off`}
+                  </td>
                   <td>{item.widget}</td>
-                  <td onClick={(e) => { e.stopPropagation(); handelDublicate(item.planId); }}>
+                  <td
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handelDublicate(item.planId);
+                    }}
+                  >
                     <Icon source={DuplicateIcon} tone="base" />
                   </td>
-                  <td onClick={(e) => { e.stopPropagation(); planDelete(item.planId); }}>
+                  <td
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      planDelete(item.planId);
+                    }}
+                  >
                     {/* Delete ho raha hai to loading dikhao */}
-                    {fetcher.state !== "idle" ? "..." : <Icon source={DeleteIcon} tone="base" />}
+                    {fetcher.state !== "idle" ? (
+                      "..."
+                    ) : (
+                      <Icon source={DeleteIcon} tone="base" />
+                    )}
                   </td>
                 </tr>
               ))}

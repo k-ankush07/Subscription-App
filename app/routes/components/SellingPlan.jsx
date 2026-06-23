@@ -5,7 +5,11 @@ import {
   Select,
   Checkbox,
   Button,
+  Icon,
 } from "@shopify/polaris";
+import {
+  DuplicateIcon
+} from '@shopify/polaris-icons';
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { useState } from "react";
 import Automation from "./Automation";
@@ -52,9 +56,12 @@ function SellingPlan({ sellingPlan, setSellingPlan, selectedProducts }) {
     }
   };
 
+
+
   return (
     <Card>
       <FormLayout>
+  
         {/* NAME */}
         <TextField
           label="Name"
@@ -428,6 +435,7 @@ function SellingPlan({ sellingPlan, setSellingPlan, selectedProducts }) {
             />
           </>
         )}
+        <Button> Add Option</Button>
       </FormLayout>
     </Card>
   );
