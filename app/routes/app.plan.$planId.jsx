@@ -162,6 +162,61 @@ export const action = async ({ request }) => {
       error: addErrors.map((e) => e.message).join(", "),
     });
   }
+  //  purane variants remove karo
+const allVariantIds = payload.products.flatMap((p) =>
+  p.variants.map((v) => v.variantsId)
+);
+
+if (allVariantIds.length > 0) {
+  await admin.graphql(
+    `
+    mutation sellingPlanGroupRemoveProductVariants($id: ID!, $productVariantIds: [ID!]!) {
+      sellingPlanGroupRemoveProductVariants(id: $id, productVariantIds: $productVariantIds) {
+        removedProductVariantIds
+        userErrors { field message }
+      }
+    }
+  `,
+    {
+      variables: {
+        id: shopifyGroupId,
+        productVariantIds: allVariantIds,
+      },
+    }
+  );
+}
+// Variants bhi add karo
+if (allVariantIds.length > 0) {
+  const addVariantsRes = await admin.graphql(
+    `
+    mutation sellingPlanGroupAddProductVariants($id: ID!, $productVariantIds: [ID!]!) {
+      sellingPlanGroupAddProductVariants(id: $id, productVariantIds: $productVariantIds) {
+        sellingPlanGroup { id }
+        userErrors { field message }
+      }
+    }
+  `,
+    {
+      variables: {
+        id: shopifyGroupId,
+        productVariantIds: allVariantIds,
+      },
+    }
+  );
+
+  const addVariantsData = await addVariantsRes.json();
+  const addVariantsErrors =
+    addVariantsData.data.sellingPlanGroupAddProductVariants.userErrors;
+
+  if (addVariantsErrors?.length > 0) {
+    return Response.json({
+      success: false,
+      error: addVariantsErrors[0].message,
+    });
+  }
+
+  console.log("Variants updated successfully");
+}
 
   return Response.json({ success: true, shopifyGroupId, ...payload });
 };

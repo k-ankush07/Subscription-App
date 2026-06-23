@@ -263,6 +263,42 @@ export const action = async ({ request }) => {
     });
   }
 
+  const allVariantIds = payload.products.flatMap((p) =>
+  p.variants.map((v) => v.variantsId)
+);
+
+if (allVariantIds.length > 0) {
+  const addVariantsRes = await admin.graphql(
+    `
+    mutation sellingPlanGroupAddProductVariants($id: ID!, $productVariantIds: [ID!]!) {
+      sellingPlanGroupAddProductVariants(id: $id, productVariantIds: $productVariantIds) {
+        sellingPlanGroup { id }
+        userErrors { field message }
+      }
+    }
+  `,
+    {
+      variables: {
+        id: shopifyGroupId,
+        productVariantIds: allVariantIds,
+      },
+    },
+  );
+
+  const addVariantsData = await addVariantsRes.json();
+  const addVariantsErrors =
+    addVariantsData.data.sellingPlanGroupAddProductVariants.userErrors;
+
+  if (addVariantsErrors?.length > 0) {
+    console.log("Add Variants userErrors:", addVariantsErrors);
+    return Response.json({
+      success: false,
+      error: addVariantsErrors[0].message,
+    });
+  }
+
+  console.log("Variants attached successfully");
+}
   // Naye group ka selling plan ID fetch karo
   const fetchRes = await admin.graphql(
     `

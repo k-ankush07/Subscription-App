@@ -31,6 +31,28 @@ export const loader = async ({ request }) => {
 //           node {
 //             id
 //             name
+//             products(first: 100) {
+//           edges {
+//             node {
+//               id
+//               title
+//               handle
+//             }
+//           }
+//         }
+//            productVariants(first: 100) {
+//           edges {
+//             node {
+//               id
+//               title
+//               sku
+//               product {
+//                 id
+//                 title
+//               }
+//             }
+//           }
+//         }
 //             merchantCode
 //             options
 //             sellingPlans(first: 10) {

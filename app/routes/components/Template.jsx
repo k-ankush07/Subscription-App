@@ -56,6 +56,16 @@ function Template({ shop, editPlandData, dublicateData }) {
     shippingDiscountValue: 0,
     shippingAfterOrders: 1,
     shippingDiscountType: "PRICE",
+
+    changeQuantityAfterOrders: false,
+    quantityAfterOrdersValue: 1,
+    quantityAfterOrders: 1,
+
+    RemoveFreeProdcut: false,
+    removeFreeProductValue: 1,
+
+    MinimumQuanitity :  false,
+    MinimumQuanitityValue : 1
   });
 
   useEffect(() => {
@@ -97,11 +107,20 @@ function Template({ shop, editPlandData, dublicateData }) {
 
       minCycles: data.sellingPlan?.minCycles || null,
       maxCycles: data.sellingPlan?.maxCycles || null,
-      
-      giveShippingDiscount: data.sellingPlan?.giveShippingDiscount ||false,
+
+      giveShippingDiscount: data.sellingPlan?.giveShippingDiscount || false,
       shippingDiscountValue: data.sellingPlan?.shippingDiscountValue || 0,
       shippingAfterOrders: data.sellingPlan?.shippingAfterOrders || 1,
       shippingDiscountType: data.sellingPlan?.shippingDiscountType || "PRICE",
+
+      changeQuantityAfterOrders:
+        data.sellingPlan?.changeQuantityAfterOrders || false,
+      quantityAfterOrdersValue: data.sellingPlan?.quantityAfterOrdersValue || 1,
+      quantityAfterOrders: data.sellingPlan?.quantityAfterOrders || 1,
+      RemoveFreeProdcut: data.sellingPlan?.RemoveFreeProdcut || false,
+      removeFreeProductValue: data.sellingPlan?.removeFreeProductValue || 1,
+       MinimumQuanitity : data.sellingPlan?.MinimumQuanitity ||  false,
+    MinimumQuanitityValue : data.sellingPlan?.MinimumQuanitityValue || 1,
     };
 
     setSellingPlan(newSellingPlan);
