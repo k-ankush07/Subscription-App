@@ -10,6 +10,7 @@ import {
   Toast,
   Frame,
   Button,
+  Text,
 } from "@shopify/polaris";
 import { useFetcher, useNavigate } from "react-router";
 import Product from "./Product";
@@ -111,6 +112,7 @@ function Template({ shop, editPlandData, dublicateData }) {
   
   useEffect(() => {
     const data = editPlandData || dublicateData;
+    console.log("edit data",data.sellingPlan?.freeProducts?.flatMap(product => product))
     if (!data) return;
 
     setPlanName(data.planName || "");
@@ -162,7 +164,7 @@ function Template({ shop, editPlandData, dublicateData }) {
 
       RemoveFreeProdcut: data.sellingPlan?.RemoveFreeProdcut || false,
       removeFreeProductValue: data.sellingPlan?.removeFreeProductValue || 1,
-      freeProducts: data.sellingPlan?.freeProducts || [],
+      freeProducts: data.sellingPlan?.freeProducts?.flatMap(product => product) || [],
 
       MinimumQuanitity: data.sellingPlan?.MinimumQuanitity || false,
       MinimumQuanitityValue: data.sellingPlan?.MinimumQuanitityValue || 1,
@@ -270,7 +272,24 @@ function Template({ shop, editPlandData, dublicateData }) {
       console.error("Node API error:", err);
     }
   };
+const showCustomerChanges =
+  allowProductSwaps ||
+  allowVariantChanges ||
+  allowQuantityChanges ||
+  keepDiscounts;
 
+  const diablecheck=
+ !allowProductSwaps &&
+  !allowVariantChanges &&
+  !allowQuantityChanges 
+
+
+  useEffect(()=>
+  {
+    if(diablecheck){
+      setKeepDiscounts(false)
+    }
+  },[diablecheck])
   return (
     <Frame>
       {toastActive && (
@@ -377,6 +396,7 @@ function Template({ shop, editPlandData, dublicateData }) {
             <div>
               <Checkbox
                 label="Keep discounts on product changes"
+                disabled={diablecheck}
                 checked={keepDiscounts}
                 onChange={setKeepDiscounts}
               />
@@ -399,6 +419,18 @@ function Template({ shop, editPlandData, dublicateData }) {
                 ? selectedProducts[0].title
                 : `${selectedProducts.length} products`}
           </p>
+         {showCustomerChanges && (
+  <>
+  <Text as="h2" variant="headingMd"> Customer product changes </Text>
+    {allowProductSwaps && <p>Allow product swaps</p>}
+
+    {allowVariantChanges && <p>Allow variant changes</p>}
+
+    {allowQuantityChanges && <p>Allow quantity changes</p>}
+
+    {keepDiscounts && <p>Keep discounts on product changes</p>}
+  </>
+)}
         </Card>
       </Page>
     </Frame>

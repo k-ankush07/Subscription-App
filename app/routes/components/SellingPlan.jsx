@@ -6,10 +6,44 @@ import {
   Checkbox,
   Button,
 } from "@shopify/polaris";
+import { useAppBridge } from "@shopify/app-bridge-react";
+import { useState } from "react";
 
+function SellingPlan({ sellingPlan, setSellingPlan, selectedProducts }) {
+  const shopify = useAppBridge();
+  const [pickerTarget, setPickerTarget] = useState(null);
 
-function SellingPlan({ sellingPlan, setSellingPlan,selectedProducts }) {
-  console.log("select prodcut", selectedProducts)
+  const allowedIds = selectedProducts.map((p) => p.id);
+
+  const handleOpenPicker = async (target) => {
+    setPickerTarget(target);
+
+    const selected = await shopify.resourcePicker({
+      type: "product",
+      multiple: true,
+      filter: {
+        variants: true,
+        query: allowedIds.map((id) => `id:${id.split("/").pop()}`).join(" OR "),
+      },
+    });
+
+    if (!selected || selected.length === 0) return;
+
+    // Store only ids for backend
+    const pickedIds = selected.map((p) => p.id);
+
+    if (target === "quantity") {
+  setSellingPlan((prev) => ({
+    ...prev,
+    quantityProducts: pickedIds,
+  }));
+} else if (target === "freeProduct") {
+  setSellingPlan((prev) => ({
+    ...prev,
+    freeProducts: pickedIds,
+  }));
+}
+  };
 
   return (
     <Card>
@@ -319,12 +353,15 @@ function SellingPlan({ sellingPlan, setSellingPlan,selectedProducts }) {
               }
             />
 
-            <Button>Select Product</Button>
-            
+            <Button onClick={() => handleOpenPicker("quantity")}>
+  {sellingPlan.quantityProducts?.length > 0
+    ? `${sellingPlan.quantityProducts.length} Product Selected`
+    : "Select Product"}
+</Button>
           </>
         )}
         {/* set remove free prodcut */}
-         <Checkbox
+        <Checkbox
           label="Remove free products from subscription after specific number of orders"
           checked={sellingPlan.RemoveFreeProdcut}
           onChange={(newChecked) =>
@@ -334,11 +371,10 @@ function SellingPlan({ sellingPlan, setSellingPlan,selectedProducts }) {
             }))
           }
         />
-        {
-          sellingPlan.RemoveFreeProdcut && (
-            <>
-            <TextField 
-            label="After # of orders"
+        {sellingPlan.RemoveFreeProdcut && (
+          <>
+            <TextField
+              label="After # of orders"
               type="number"
               value={String(sellingPlan.removeFreeProductValue ?? 1)}
               onChange={(value) =>
@@ -348,11 +384,13 @@ function SellingPlan({ sellingPlan, setSellingPlan,selectedProducts }) {
                 })
               }
             />
-             <Button>Select Product</Button>
-            </>
-          )
-        }
-
+            <Button onClick={() => handleOpenPicker("freeProduct")}>
+  {sellingPlan.freeProducts?.length > 0
+    ? `${sellingPlan.freeProducts.length} Product Selected`
+    : "Select Product"}
+</Button>
+          </>
+        )}
 
         {/* set minimum quantity  */}
         <Checkbox
@@ -365,13 +403,12 @@ function SellingPlan({ sellingPlan, setSellingPlan,selectedProducts }) {
             }))
           }
         />
-        {
-          sellingPlan.MinimumQuanitity && (
-            <>
-            <TextField 
-            label="After # of orders"
-            type="number"
-            value={String(sellingPlan.MinimumQuanitityValue ?? 1)}
+        {sellingPlan.MinimumQuanitity && (
+          <>
+            <TextField
+              label="After # of orders"
+              type="number"
+              value={String(sellingPlan.MinimumQuanitityValue ?? 1)}
               onChange={(value) =>
                 setSellingPlan({
                   ...sellingPlan,
@@ -379,10 +416,8 @@ function SellingPlan({ sellingPlan, setSellingPlan,selectedProducts }) {
                 })
               }
             />
-            
-            </>
-          )
-        }
+          </>
+        )}
       </FormLayout>
     </Card>
   );

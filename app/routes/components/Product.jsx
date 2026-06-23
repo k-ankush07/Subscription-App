@@ -17,8 +17,6 @@ function Product({
   productError,
 }) {
 
-
-  console.log("seelct proct ", selectedProducts);
   const handleRemove = useCallback((productId) => {
     setSelectedProducts((prev) => prev.filter((p) => p.id !== productId));
   }, []);
