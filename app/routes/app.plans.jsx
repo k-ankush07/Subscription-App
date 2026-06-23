@@ -163,6 +163,7 @@ export const action = async ({ request }) => {
 
 function Plans() {
   const { plans } = useLoaderData();
+  console.log("planssss",plans)
   const navigate = useNavigate();
   const fetcher = useFetcher();
 

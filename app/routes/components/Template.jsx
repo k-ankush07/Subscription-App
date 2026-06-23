@@ -37,7 +37,7 @@ function Template({ shop, editPlandData, dublicateData }) {
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [productError, setProductError] = useState(false);
   const [sellingPlan, setSellingPlan] = useState({
-    name: "opption 1",
+    name: "",
     billingType: "PAY_AS_YOU_GO",
     intervalCount: 1,
     interval: "MONTH",
@@ -341,11 +341,18 @@ const showCustomerChanges =
               helpText="Will be visible for customers on the product page"
             />
             <Card>
+              {selectedProducts.length ===0 ?
+              <>
+              
+              </>
+              :
               <Product
                 selectedProducts={selectedProducts}
                 setSelectedProducts={setSelectedProducts}
                 productError={productError}
               />
+              }
+              
               <Button onClick={handleSelectProduct}>
                 {selectedProducts.length > 0
                   ? "Add more products"
