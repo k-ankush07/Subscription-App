@@ -217,12 +217,45 @@ function Plans() {
                   style={{ cursor: "pointer" }}
                 >
                   <td>{item.planName}</td>
-                  <td>
+                  {/* <td>
                     {Array.isArray(item.products) && item.products.length > 0
                       ? item.products.length === 1
                         ? item.products[0]?.title
                         : `${item.products.length} products`
                       : "—"}
+                  </td> */}
+                  <td>
+                    {Array.isArray(item.products) &&
+                    item.products.length > 0 ? (
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "8px",
+                        }}
+                      >
+                        {/* IMAGE */}
+                        {item.products[0]?.ProductImage && (
+                          <img
+                            src={item.products[0].ProductImage}
+                            alt={item.products[0].title}
+                            style={{
+                              width: "30px",
+                              height: "30px",
+                              objectFit: "cover",
+                              borderRadius: "4px",
+                            }}
+                          />
+                        )}
+
+                        {/* TEXT */}
+                        {item.products.length === 1
+                          ? item.products[0]?.title
+                          : `${item.products.length} products`}
+                      </div>
+                    ) : (
+                      "—"
+                    )}
                   </td>
                   <td>
                     {item.sellingPlan
