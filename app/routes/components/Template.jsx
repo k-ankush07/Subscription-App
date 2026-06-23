@@ -37,6 +37,7 @@ function Template({ shop, editPlandData, dublicateData }) {
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [productError, setProductError] = useState(false);
   const [sellingPlan, setSellingPlan] = useState({
+    shopifySellingPlanId:  null,
     name: "",
     billingType: "PAY_AS_YOU_GO",
     intervalCount: 1,
