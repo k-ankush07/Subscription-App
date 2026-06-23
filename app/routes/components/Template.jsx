@@ -72,6 +72,10 @@ function Template({ shop, editPlandData, dublicateData }) {
 
     MinimumQuanitity: false,
     MinimumQuanitityValue: 1,
+
+
+    Automation: false,
+
   });
 
   // product bunnton handel
@@ -112,7 +116,6 @@ function Template({ shop, editPlandData, dublicateData }) {
   
   useEffect(() => {
     const data = editPlandData || dublicateData;
-    console.log("edit data",data.sellingPlan?.freeProducts?.flatMap(product => product))
     if (!data) return;
 
     setPlanName(data.planName || "");
@@ -168,6 +171,8 @@ function Template({ shop, editPlandData, dublicateData }) {
 
       MinimumQuanitity: data.sellingPlan?.MinimumQuanitity || false,
       MinimumQuanitityValue: data.sellingPlan?.MinimumQuanitityValue || 1,
+
+      Automation: data.sellingPlan?.Automation || false,
     };
 
     setSellingPlan(newSellingPlan);

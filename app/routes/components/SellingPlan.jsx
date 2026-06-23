@@ -8,49 +8,49 @@ import {
 } from "@shopify/polaris";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { useState } from "react";
-
+import Automation from "./Automation";
 function SellingPlan({ sellingPlan, setSellingPlan, selectedProducts }) {
   const shopify = useAppBridge();
   const [pickerTarget, setPickerTarget] = useState(null);
 
   const allowedIds = selectedProducts.map((p) => p.id);
 
- const handleOpenPicker = async (target) => {
-  setPickerTarget(target);
+  const handleOpenPicker = async (target) => {
+    setPickerTarget(target);
 
-  // Current selected ids for pre-selection
-  const currentIds =
-    target === "quantity"
-      ? sellingPlan.quantityProducts || []
-      : sellingPlan.freeProducts || [];
+    // Current selected ids for pre-selection
+    const currentIds =
+      target === "quantity"
+        ? sellingPlan.quantityProducts || []
+        : sellingPlan.freeProducts || [];
 
-  const selected = await shopify.resourcePicker({
-    type: "product",
-    multiple: true,
-    //Pre-select already chosen products
-    selectionIds: currentIds.map((id) => ({ id })),
-    filter: {
-      variants: true,
-      query: allowedIds.map((id) => `id:${id.split("/").pop()}`).join(" OR "),
-    },
-  });
+    const selected = await shopify.resourcePicker({
+      type: "product",
+      multiple: true,
+      //Pre-select already chosen products
+      selectionIds: currentIds.map((id) => ({ id })),
+      filter: {
+        variants: true,
+        query: allowedIds.map((id) => `id:${id.split("/").pop()}`).join(" OR "),
+      },
+    });
 
-  if (!selected || selected.length === 0) return;
+    if (!selected || selected.length === 0) return;
 
-  const pickedIds = selected.map((p) => p.id);
+    const pickedIds = selected.map((p) => p.id);
 
-  if (target === "quantity") {
-    setSellingPlan((prev) => ({
-      ...prev,
-      quantityProducts: pickedIds,
-    }));
-  } else if (target === "freeProduct") {
-    setSellingPlan((prev) => ({
-      ...prev,
-      freeProducts: pickedIds,
-    }));
-  }
-};
+    if (target === "quantity") {
+      setSellingPlan((prev) => ({
+        ...prev,
+        quantityProducts: pickedIds,
+      }));
+    } else if (target === "freeProduct") {
+      setSellingPlan((prev) => ({
+        ...prev,
+        freeProducts: pickedIds,
+      }));
+    }
+  };
 
   return (
     <Card>
@@ -323,7 +323,10 @@ function SellingPlan({ sellingPlan, setSellingPlan, selectedProducts }) {
             />
           </>
         )}
+        {/* auntomation */}
+        <Automation sellingPlan={sellingPlan} setSellingPlan={setSellingPlan} />
 
+        {/* setting */}
         <h2>Settings</h2>
         <Checkbox
           label="Change product quantity after specific number of orders"
