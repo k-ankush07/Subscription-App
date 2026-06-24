@@ -27,7 +27,7 @@ const defaultPlan = {
   billingFrequency: 1,
   billingInterval: "MONTH",
   giveSubscriptionDiscount: true,
-  discountValue: 0,
+  discountValue: 10,
   discountType: "PERCENTAGE",
   changeDiscountAfterOrders: false,
   afterDiscountValue: 0,
@@ -49,15 +49,10 @@ const defaultPlan = {
   MinimumQuanitity: false,
   MinimumQuanitityValue: 1,
   Automation: false,
+  automationCycles: [],
 };
 
 
-const validation=()=>
-{
-  if(name==name && intervalCount==intervalCount){
-    return null
-  }
-}
 
 function Template({ shop, editPlandData, dublicateData }) {
   const shopify = useAppBridge();
@@ -176,6 +171,7 @@ function Template({ shop, editPlandData, dublicateData }) {
           MinimumQuanitity: sp.MinimumQuanitity || false,
           MinimumQuanitityValue: sp.MinimumQuanitityValue || 1,
           Automation: sp.Automation || false,
+          automationCycles : sp.automationCycles || [],
         },
       ]);
       // Purane single plan ki ID 
@@ -188,9 +184,6 @@ function Template({ shop, editPlandData, dublicateData }) {
   const handleBack = () => {
     navigate("/app/plans");
   };
-
-  //  Submit — sellingPlans array payload mein
-
 
   const handleSubmit = async (e) => {
     e.preventDefault();
