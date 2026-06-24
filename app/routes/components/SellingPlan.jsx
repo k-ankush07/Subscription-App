@@ -9,14 +9,19 @@ import {
 import { useAppBridge } from "@shopify/app-bridge-react";
 import Automation from "./Automation";
 
-function SellingPlan({ sellingPlans, setSellingPlans, selectedProducts, defaultPlan }) {
+function SellingPlan({
+  sellingPlans,
+  setSellingPlans,
+  selectedProducts,
+  defaultPlan,
+}) {
   const shopify = useAppBridge();
   const allowedIds = selectedProducts.map((p) => p.id);
 
   //  Kisi ek plan ko index se update karne ka helper
   const updatePlan = (index, updates) => {
     setSellingPlans((prev) =>
-      prev.map((plan, i) => (i === index ? { ...plan, ...updates } : plan))
+      prev.map((plan, i) => (i === index ? { ...plan, ...updates } : plan)),
     );
   };
 
@@ -44,9 +49,7 @@ function SellingPlan({ sellingPlans, setSellingPlans, selectedProducts, defaultP
       selectionIds: currentIds.map((id) => ({ id })),
       filter: {
         variants: true,
-        query: allowedIds
-          .map((id) => `id:${id.split("/").pop()}`)
-          .join(" OR "),
+        query: allowedIds.map((id) => `id:${id.split("/").pop()}`).join(" OR "),
       },
     });
 
@@ -64,6 +67,7 @@ function SellingPlan({ sellingPlans, setSellingPlans, selectedProducts, defaultP
     <>
       {sellingPlans.map((plan, index) => (
         <Card key={index}>
+          <Button>Dublicate Plan</Button>
           <FormLayout>
             {/*  Plan header + Remove button */}
             <div
@@ -73,12 +77,8 @@ function SellingPlan({ sellingPlans, setSellingPlans, selectedProducts, defaultP
                 alignItems: "center",
               }}
             >
-              <h2>
-                {sellingPlans.length > 1
-                  ? `Selling Plan #${index + 1}`
-                  : "Selling Plan"}
-              </h2>
-              {sellingPlans.length > 1 && (
+              <h2>{plan.name || `Selling Plan #${index + 1}`}</h2>
+              {sellingPlans.length > 1 && index !== 0 && (
                 <Button
                   tone="critical"
                   variant="plain"
@@ -99,9 +99,7 @@ function SellingPlan({ sellingPlans, setSellingPlans, selectedProducts, defaultP
             {/* BILLING TYPE */}
             <Select
               label="Billing type"
-              options={[
-                { label: "Pay as you go", value: "PAY_AS_YOU_GO" },
-              ]}
+              options={[{ label: "Pay as you go", value: "PAY_AS_YOU_GO" }]}
               value={plan.billingType}
               onChange={(value) => updatePlan(index, { billingType: value })}
             />
@@ -308,7 +306,7 @@ function SellingPlan({ sellingPlans, setSellingPlans, selectedProducts, defaultP
               setSellingPlan={(updater) => {
                 if (typeof updater === "function") {
                   setSellingPlans((prev) =>
-                    prev.map((p, i) => (i === index ? updater(p) : p))
+                    prev.map((p, i) => (i === index ? updater(p) : p)),
                   );
                 } else {
                   updatePlan(index, updater);
