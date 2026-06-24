@@ -51,6 +51,14 @@ const defaultPlan = {
   Automation: false,
 };
 
+
+const validation=()=>
+{
+  if(name==name && intervalCount==intervalCount){
+    return null
+  }
+}
+
 function Template({ shop, editPlandData, dublicateData }) {
   const shopify = useAppBridge();
   const navigate = useNavigate();
