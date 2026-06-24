@@ -64,7 +64,6 @@ function Template({ shop, editPlandData, dublicateData }) {
   const [toastMessage, setToastMessage] = useState("");
   const [planId, setPlanId] = useState(editPlandData?.planId || null);
   const [shopifyGroupId, setShopifyGroupId] = useState(null);
-
   const [planName, setPlanName] = useState("Plan #1");
   const [widget, setWidget] = useState("widget1");
   const [allowProductSwaps, setAllowProductSwaps] = useState(true);
