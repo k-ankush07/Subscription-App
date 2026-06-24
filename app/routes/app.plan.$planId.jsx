@@ -76,7 +76,7 @@ export const action = async ({ request }) => {
           merchantCode: payload.planName,
           sellingPlansToUpdate: [
             {
-              id: sp.shopifySellingPlanIds,
+              id: sp.shopifySellingPlanId,
               name: sp.name,
               options: [`${sp.intervalCount} ${sp.interval.toLowerCase()}`],
               billingPolicy: {

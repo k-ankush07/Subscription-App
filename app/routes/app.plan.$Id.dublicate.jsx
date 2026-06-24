@@ -197,18 +197,18 @@ if (allVariantIds.length > 0) {
   );
 
   const fetchData = await fetchRes.json();
-  // const shopifySellingPlanId =
-  //   fetchData.data.sellingPlanGroup.sellingPlans.edges[0]?.node?.id;
- const shopifySellingPlanIds = 
-  fetchData.data.sellingPlanGroup.sellingPlans.edges.map(
-    (edge) => edge.node.id
-  );
-  console.log("Duplicate Shopify Selling Plan ID:", shopifySellingPlanIds);
+  const shopifySellingPlanId =
+    fetchData.data.sellingPlanGroup.sellingPlans.edges[0]?.node?.id;
+//  const shopifySellingPlanIds = 
+//   fetchData.data.sellingPlanGroup.sellingPlans.edges.map(
+//     (edge) => edge.node.id
+//   );
+  console.log("Duplicate Shopify Selling Plan ID:", shopifySellingPlanId);
 
   return Response.json({
     success: true,
     shopifyGroupId,
-    shopifySellingPlanIds,
+    shopifySellingPlanId,
     ...payload,
   });
 };
