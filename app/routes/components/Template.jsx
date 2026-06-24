@@ -22,22 +22,9 @@ function Template({ shop, editPlandData, dublicateData }) {
   const navigate = useNavigate();
   const API = import.meta.env.VITE_API_URL;
   const fetcher = useFetcher();
-
-  const [toastActive, setToastActive] = useState(false);
-  const [toastMessage, setToastMessage] = useState("");
-  const [planId, setPlanId] = useState(editPlandData?.planId || null);
-  const [shopifyGroupId, setShopifyGroupId] = useState(null); //  state mein
-
-  const [planName, setPlanName] = useState("Plan #1");
-  const [widget, setWidget] = useState("widget1");
-  const [allowProductSwaps, setAllowProductSwaps] = useState(true);
-  const [allowVariantChanges, setAllowVariantChanges] = useState(true);
-  const [allowQuantityChanges, setAllowQuantityChanges] = useState(true);
-  const [keepDiscounts, setKeepDiscounts] = useState(true);
-  const [selectedProducts, setSelectedProducts] = useState([]);
-  const [productError, setProductError] = useState(false);
-  const [sellingPlan, setSellingPlan] = useState({
-    shopifySellingPlanId:  null,
+  // sellingPlan single object ki jagah array
+const defaultPlan = {
+   shopifySellingPlanId:  null,
     name: "",
     billingType: "PAY_AS_YOU_GO",
     intervalCount: 1,
@@ -76,8 +63,25 @@ function Template({ shop, editPlandData, dublicateData }) {
 
 
     Automation: false,
+};
 
-  });
+// State
+
+
+  const [toastActive, setToastActive] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
+  const [planId, setPlanId] = useState(editPlandData?.planId || null);
+  const [shopifyGroupId, setShopifyGroupId] = useState(null); //  state mein
+
+  const [planName, setPlanName] = useState("Plan #1");
+  const [widget, setWidget] = useState("widget1");
+  const [allowProductSwaps, setAllowProductSwaps] = useState(true);
+  const [allowVariantChanges, setAllowVariantChanges] = useState(true);
+  const [allowQuantityChanges, setAllowQuantityChanges] = useState(true);
+  const [keepDiscounts, setKeepDiscounts] = useState(true);
+  const [selectedProducts, setSelectedProducts] = useState([]);
+  const [productError, setProductError] = useState(false);
+  const [sellingPlan, setSellingPlan] = useState([{ ...defaultPlan }]);
 
   // product bunnton handel
   const handleSelectProduct = useCallback(async () => {
@@ -272,7 +276,9 @@ function Template({ shop, editPlandData, dublicateData }) {
         setToastActive(true);
 
         // navigate(`/app/plan/${data.data.planId}`);
-        navigate("/app/plans", { replace: true });
+     
+                  navigate("/app/plans", { replace: true });
+        
       }
     } catch (err) {
       console.error("Node API error:", err);
