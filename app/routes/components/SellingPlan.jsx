@@ -66,9 +66,7 @@ function SellingPlan({
   const duplicatePlan = (index) => {
     setSellingPlans((prev) => {
       const planToCopy = prev[index];
-
       const newPlan = structuredClone(planToCopy);
-
       return [
         ...prev,
         {
@@ -318,7 +316,7 @@ function SellingPlan({
             )}
 
             {/* AUTOMATION — setSellingPlan wrapper jo index-aware hai */}
-            {/* <Automation
+            <Automation
               sellingPlan={plan}
               setSellingPlan={(updater) => {
                 if (typeof updater === "function") {
@@ -329,7 +327,7 @@ function SellingPlan({
                   updatePlan(index, updater);
                 }
               }}
-            /> */}
+            />
 
             {/* SETTINGS */}
             <h2>Settings</h2>
