@@ -27,7 +27,7 @@ const defaultPlan = {
   billingFrequency: 1,
   billingInterval: "MONTH",
   giveSubscriptionDiscount: true,
-  discountValue: 10,
+  discountValue: 0,
   discountType: "PERCENTAGE",
   changeDiscountAfterOrders: false,
   afterDiscountValue: 0,
@@ -125,12 +125,10 @@ function Template({ shop, editPlandData, dublicateData }) {
     setAllowVariantChanges(cpc?.allowVariantChanges ?? true);
     setAllowQuantityChanges(cpc?.allowQuantityChanges ?? true);
     setKeepDiscounts(cpc?.keepDiscounts ?? true);
-
-    //  Agar backend se sellingPlans array aaye toh seedha set karo
-    //    Agar purana single sellingPlan object aaye toh usse array mein wrap karo
+// selling plan araay me aye to okh brna object me aye to use array me convert kro 
     if (Array.isArray(data.sellingPlans) && data.sellingPlans.length > 0) {
       setSellingPlans(data.sellingPlans);
-      //  DB mein jo IDs thi yaad rakho — delete detect karne ke liye
+      // delete detect karne ke liye
       setExistingSellingPlanIds(
         data.sellingPlans
           .map((sp) => sp.shopifySellingPlanId)
@@ -172,7 +170,7 @@ function Template({ shop, editPlandData, dublicateData }) {
           Automation: sp.Automation || false,
         },
       ]);
-      // Purane single plan ki ID bhi yaad rakho
+      // Purane single plan ki ID 
       if (sp.shopifySellingPlanId) {
         setExistingSellingPlanIds([sp.shopifySellingPlanId]);
       }
@@ -184,10 +182,13 @@ function Template({ shop, editPlandData, dublicateData }) {
   };
 
   //  Submit — sellingPlans array payload mein
+
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (selectedProducts.length === 0) return setProductError(true);
     setProductError(false);
+
 
     const payload = {
       shop: shop || editPlandData?.shop || dublicateData?.shop,
@@ -197,7 +198,6 @@ function Template({ shop, editPlandData, dublicateData }) {
       products: selectedProducts,
       sellingPlans,
       ...(editPlandData && { shopifyGroupId }),
-      // Edit case mein — DB mein jo IDs thi bhejo taaki backend delete detect kare
       ...(editPlandData && { existingSellingPlanIds }),
       customerProductChanges: {
         allowProductSwaps,
@@ -345,13 +345,13 @@ function Template({ shop, editPlandData, dublicateData }) {
               helpText="Will be visible for customers on the product page"
             />
             <Card>
-              {selectedProducts.length === 0 ? null : (
+              {/* {selectedProducts.length === 0 ? null : ( */}
                 <Product
                   selectedProducts={selectedProducts}
                   setSelectedProducts={setSelectedProducts}
                   productError={productError}
                 />
-              )}
+              {/* )} */}
               <Button onClick={handleSelectProduct}>
                 {selectedProducts.length > 0
                   ? "Add more products"
@@ -432,20 +432,6 @@ function Template({ shop, editPlandData, dublicateData }) {
                 ? selectedProducts[0].title
                 : `${selectedProducts.length} products`}
           </p>
-          {/*  Summary mein multiple plans dikhao */}
-          {sellingPlans.length > 0 && (
-            <>
-              <Text as="h2" variant="headingMd">
-                Selling Plans ({sellingPlans.length})
-              </Text>
-              {sellingPlans.map((plan, i) => (
-                <p key={i}>
-                  Plan {i + 1}: {plan.name || "(unnamed)"} —{" "}
-                  {plan.intervalCount} {plan.interval}
-                </p>
-              ))}
-            </>
-          )}
           {showCustomerChanges && (
             <>
               <Text as="h2" variant="headingMd">

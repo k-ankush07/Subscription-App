@@ -91,12 +91,6 @@ function Product({
             fieldID="products"
           />
         )}
-        {/* Action button */}
-        {/* <Button onClick={handleSelectProduct}>
-          {selectedProducts.length > 0
-            ? "Add more products"
-            : "Select products"}
-        </Button> */}
       </BlockStack>
     </Card>
   );

@@ -30,7 +30,7 @@ function SellingPlan({
     setSellingPlans((prev) => [...prev, { ...defaultPlan }]);
   };
 
-  //  Plan remove karo (sirf tab jab 2+ plans hon)
+  //  Plan remove karo
   const handleRemovePlan = (index) => {
     setSellingPlans((prev) => prev.filter((_, i) => i !== index));
   };
@@ -63,11 +63,28 @@ function SellingPlan({
     }
   };
 
+  const duplicatePlan = (index) => {
+    setSellingPlans((prev) => {
+      const planToCopy = prev[index];
+
+      const newPlan = structuredClone(planToCopy);
+
+      return [
+        ...prev,
+        {
+          ...newPlan,
+          shopifySellingPlanId: null, //duplicate should NOT reuse Shopify ID
+          name: `${newPlan.name || "Plan"}`,
+        },
+      ];
+    });
+  };
+
   return (
     <>
       {sellingPlans.map((plan, index) => (
         <Card key={index}>
-          <Button>Dublicate Plan</Button>
+          <Button onClick={() => duplicatePlan(index)}>Duplicate Plan</Button>
           <FormLayout>
             {/*  Plan header + Remove button */}
             <div
@@ -301,7 +318,7 @@ function SellingPlan({
             )}
 
             {/* AUTOMATION — setSellingPlan wrapper jo index-aware hai */}
-            <Automation
+            {/* <Automation
               sellingPlan={plan}
               setSellingPlan={(updater) => {
                 if (typeof updater === "function") {
@@ -312,7 +329,7 @@ function SellingPlan({
                   updatePlan(index, updater);
                 }
               }}
-            />
+            /> */}
 
             {/* SETTINGS */}
             <h2>Settings</h2>

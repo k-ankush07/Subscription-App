@@ -152,7 +152,7 @@ export const action = async ({ request }) => {
     });
   }
 
-  //  Variants attach karo
+  //  Variants attach 
   const allVariantIds = payload.products.flatMap((p) =>
     p.variants.map((v) => v.variantsId)
   );

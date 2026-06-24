@@ -90,8 +90,6 @@ export const action = async ({ request }) => {
     (id) => !incomingIds.has(id)
   );
 
-  console.log("Plans to update:", plansToUpdate.length);
-  console.log("Plans to create:", plansToCreate.length);
   console.log("Plans to delete:", sellingPlansToDelete);
 
   //  sellingPlansToUpdate array banao

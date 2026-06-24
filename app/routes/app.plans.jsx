@@ -158,7 +158,6 @@ export const action = async ({ request }) => {
 
 function Plans() {
   const { plans } = useLoaderData();
-  console.log("planssss", plans);
   const navigate = useNavigate();
   const fetcher = useFetcher();
 
@@ -169,7 +168,7 @@ function Plans() {
   };
 
   const handelDublicate = (planId) => {
-    setTimeout(() => navigate(`/app/plan/${planId}/dublicate`), 2000);
+    setTimeout(() => navigate(`/app/plan/${planId}/dublicate`), 1000);
   };
 
   const planDelete = (planId) => {
@@ -217,13 +216,6 @@ function Plans() {
                   style={{ cursor: "pointer" }}
                 >
                   <td>{item.planName}</td>
-                  {/* <td>
-                    {Array.isArray(item.products) && item.products.length > 0
-                      ? item.products.length === 1
-                        ? item.products[0]?.title
-                        : `${item.products.length} products`
-                      : "—"}
-                  </td> */}
                   <td>
                     {Array.isArray(item.products) &&
                     item.products.length > 0 ? (
@@ -263,12 +255,12 @@ function Plans() {
                       : `${item.sellingPlans?.length || 0} delivery options`}
                   </td>
                   <td>
-  {item.sellingPlans?.length === 1
-    ? item.sellingPlans[0].discountType === "PERCENTAGE"
-      ? `${item.sellingPlans[0].discountValue}% off`
-      : `₹${item.sellingPlans[0].discountValue} off`
-    : `${item.sellingPlans?.length || 0} discount options`}
-</td>
+                    {item.sellingPlans?.length === 1
+                      ? item.sellingPlans[0].discountType === "PERCENTAGE"
+                        ? `${item.sellingPlans[0].discountValue}% off`
+                        : `₹${item.sellingPlans[0].discountValue} off`
+                      : `${item.sellingPlans?.length || 0} discount options`}
+                  </td>
                   <td>{item.widget}</td>
                   <td
                     onClick={(e) => {
