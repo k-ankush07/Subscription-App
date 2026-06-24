@@ -158,6 +158,7 @@ export const action = async ({ request }) => {
 
 function Plans() {
   const { plans } = useLoaderData();
+  console.log("planssss", plans);
   const navigate = useNavigate();
   const fetcher = useFetcher();
 
@@ -257,17 +258,17 @@ function Plans() {
                     )}
                   </td>
                   <td>
-                    {item.sellingPlan
-                      ? item.sellingPlan.intervalCount === 1
-                        ? `Every ${item.sellingPlan.intervalCount} ${item.sellingPlan.interval?.toLowerCase()}`
-                        : `${item.sellingPlan.intervalCount} ${item.sellingPlan.interval?.toLowerCase()}`
-                      : ""}
+                    {item.sellingPlans?.length === 1
+                      ? `Every ${item.sellingPlans[0].intervalCount} ${item.sellingPlans[0].interval.toLowerCase()}`
+                      : `${item.sellingPlans?.length || 0} delivery options`}
                   </td>
                   <td>
-                    {item.sellingPlan?.discountType === "PERCENTAGE"
-                      ? `${item.sellingPlan?.discountValue || ""}% off`
-                      : `₹${item.sellingPlan?.discountValue || ""} off`}
-                  </td>
+  {item.sellingPlans?.length === 1
+    ? item.sellingPlans[0].discountType === "PERCENTAGE"
+      ? `${item.sellingPlans[0].discountValue}% off`
+      : `₹${item.sellingPlans[0].discountValue} off`
+    : `${item.sellingPlans?.length || 0} discount options`}
+</td>
                   <td>{item.widget}</td>
                   <td
                     onClick={(e) => {
