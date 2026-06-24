@@ -194,12 +194,16 @@ if (allVariantIds.length > 0) {
   );
 
   const fetchData = await fetchRes.json();
-  const shopifySellingPlanId =
-    fetchData.data.sellingPlanGroup.sellingPlans.edges[0]?.node?.id;
+  // const shopifySellingPlanId =
+  //   fetchData.data.sellingPlanGroup.sellingPlans.edges[0]?.node?.id;
+  const shopifySellingPlanIds = 
+  fetchData.data.sellingPlanGroup.sellingPlans.edges.map(
+    (edge) => edge.node.id
+  );
 
-  console.log("Shopify Selling Plan ID:", shopifySellingPlanId);
+  console.log("Shopify Selling Plan ID:", shopifySellingPlanIds);
 
-  return Response.json({ success: true, shopifyGroupId,shopifySellingPlanId, ...payload });
+  return Response.json({ success: true, shopifyGroupId,shopifySellingPlanIds, ...payload });
 };
 
 
