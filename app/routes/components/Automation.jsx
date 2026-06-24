@@ -1,63 +1,3 @@
-// import { Button, Checkbox, Text, Card } from "@shopify/polaris";
-// import React, { useState } from "react";
-
-// function Automation({ sellingPlan, setSellingPlan }) {
-//   const [showActions, setShowActions] = useState(false);
-
-//   const actions = [
-//     { key: "add_product_swap", label: "Add product swap" },
-//     { key: "add_variant_swap", label: "Add variant swap" },
-//     { key: "add_product", label: "Add product" },
-//     { key: "remove_product", label: "Remove product" },
-//     { key: "remove_specific_variant", label: "Remove specific variant" },
-//   ];
-//   const handleActionClick = (action) => {
-//     console.log("Key:", action.key);
-//     console.log("Value:", action.label);
-//     setShowActions(false); // close after selection
-//   };
-//   return (
-//     <>
-//       <Text as="h2" variant="headingMd">
-//         Automation
-//       </Text>
-
-//       <Checkbox
-//         label="Change product quantity after specific number of orders"
-//         checked={sellingPlan.Automation}
-//         onChange={(newChecked) =>
-//           setSellingPlan((prev) => ({
-//             ...prev,
-//             Automation: newChecked,
-//           }))
-//         }
-//       />
-//       <br />
-
-//       {sellingPlan.Automation && (
-//         <Button onClick={() => setShowActions((prev) => !prev)}>
-//           + Action
-//         </Button>
-//       )}
-
-//       {showActions && (
-//         <>
-//           {actions.map((action) => (
-//             <p
-//               key={action.key}
-//               style={{ cursor: "pointer" }}
-//               onClick={() => handleActionClick(action)}
-//             >
-//               {action.label}
-//             </p>
-//           ))}
-//         </>
-//       )}
-//     </>
-//   );
-// }
-
-// export default Automation;
 
 import React, { useState, useRef, useEffect } from "react";
 import {
@@ -75,7 +15,7 @@ import {
 import { DeleteIcon } from "@shopify/polaris-icons";
 import { useAppBridge } from "@shopify/app-bridge-react";
 
-// ─── Styles ────────────────────────────────────────────────────────────────────
+//  Styles 
 const styles = {
   cycleCard: {
     border: "1px solid var(--p-color-border)",
@@ -170,7 +110,7 @@ const styles = {
   },
 };
 
-// ─── ActionDropdown ─────────────────────────────────────────────────────────────
+//  ActionDropdown 
 function ActionDropdown({ onSelect, onClose }) {
   const ref = useRef(null);
 
@@ -248,7 +188,7 @@ function ActionDropdown({ onSelect, onClose }) {
   );
 }
 
-// ─── ActionCard ─────────────────────────────────────────────────────────────────
+//  ActionCard 
 function ActionCard({
   action,
   onDelete,
@@ -510,7 +450,7 @@ function ActionCard({
   );
 }
 
-// ─── CycleCard ──────────────────────────────────────────────────────────────────
+//  CycleCard 
 function CycleCard({
   cycle,
   onDelete,
@@ -588,7 +528,7 @@ function CycleCard({
   );
 }
 
-// ─── Normalise App Bridge selection into the internal shape ────────────────────
+//  Normalise App Bridge selection into the internal shape 
 // App Bridge product looks like: { id, title, images, variants: [{ id, title, image }] }
 function normaliseProductSelection(selection, { pickVariants = false } = {}) {
   if (!selection?.length) return [];
@@ -625,7 +565,7 @@ function normaliseProductSelection(selection, { pickVariants = false } = {}) {
   return results;
 }
 
-// ─── Main Automation Component ──────────────────────────────────────────────────
+//  Main Automation Component 
 function Automation({ sellingPlan, setSellingPlan }) {
   const shopify = useAppBridge();
 
@@ -654,7 +594,7 @@ function Automation({ sellingPlan, setSellingPlan }) {
     setSellingPlan((prev) => ({ ...prev, automationCycles: cycles }));
   }, [cycles]);
 
-  // ── Cycle / action helpers ───────────────────────────────────────────────────
+  //  Cycle / action helpers 
   const addToCycle = (cycleId, action) =>
     setCycles((prev) =>
       prev.map((c) =>
@@ -741,7 +681,7 @@ function Automation({ sellingPlan, setSellingPlan }) {
       )
     );
 
-  // ── Resource picker handlers ─────────────────────────────────────────────────
+  //  Resource picker handlers 
   const resolveActionType = async (actionType, cycleId, actionIdx = null) => {
     if (actionType === "swap-product") {
       const selection = await pickProducts({ multiple: false, showVariants: false });
@@ -850,7 +790,7 @@ function Automation({ sellingPlan, setSellingPlan }) {
     setShowMainDropdown(false);
   };
 
-  // ── Render ───────────────────────────────────────────────────────────────────
+  //  Render 
   return (
     <BlockStack gap="300">
       <Text as="h2" variant="headingMd">Automation</Text>

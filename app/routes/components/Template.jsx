@@ -59,7 +59,7 @@ function Template({ shop, editPlandData, dublicateData }) {
   const navigate = useNavigate();
   const API = import.meta.env.VITE_API_URL;
   const fetcher = useFetcher();
-
+const [sellingPlanErrors, setSellingPlanErrors] = useState([]);
   const [toastActive, setToastActive] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [planId, setPlanId] = useState(editPlandData?.planId || null);
@@ -78,6 +78,7 @@ function Template({ shop, editPlandData, dublicateData }) {
   const [sellingPlans, setSellingPlans] = useState([{ ...defaultPlan }]);
   //  Edit load hote waqt jo IDs DB mein thi — delete detect karne ke liye
   const [existingSellingPlanIds, setExistingSellingPlanIds] = useState([]);
+  
 
   //  Product picker handler
   const handleSelectProduct = useCallback(async () => {
