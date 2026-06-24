@@ -9,7 +9,7 @@ const createPlan = async (req, res) => {
       shopifyGroupId,
       widget,
       products,
-      sellingPlan,
+      sellingPlans,
       customerProductChanges,
     } = req.body;
 
@@ -20,7 +20,7 @@ const createPlan = async (req, res) => {
       planName,
       widget,
       products,
-      sellingPlan,
+      sellingPlans,
       customerProductChanges,
     });
 
@@ -98,7 +98,7 @@ const updatePlan = async (req, res) => {
       planName,
       widget,
       products,
-      sellingPlan,
+      sellingPlans,
       customerProductChanges,
     } = req.body;
 
@@ -110,7 +110,7 @@ const updatePlan = async (req, res) => {
         planName,
         widget,
         products,
-        sellingPlan,
+        sellingPlans,
         customerProductChanges,
       },
       {

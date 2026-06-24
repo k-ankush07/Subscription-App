@@ -11,7 +11,7 @@ const planSchema = new mongoose.Schema(
       required: true,
     },
     shopifyGroupId: { type: String, default: null }, 
-    sellingPlan:{
+    sellingPlans:{
         type: mongoose.Schema.Types.Mixed,
     },
     planName: {

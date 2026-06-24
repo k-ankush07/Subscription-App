@@ -17,61 +17,50 @@ import Product from "./Product";
 import SellingPlan from "./SellingPlan";
 import { useAppBridge } from "@shopify/app-bridge-react";
 
+//  defaultPlan component ke bahar — stable reference, re-render pe recreate nahi hoga
+const defaultPlan = {
+  shopifySellingPlanId: null,
+  name: "",
+  billingType: "PAY_AS_YOU_GO",
+  intervalCount: 1,
+  interval: "MONTH",
+  billingFrequency: 1,
+  billingInterval: "MONTH",
+  giveSubscriptionDiscount: true,
+  discountValue: 10,
+  discountType: "PERCENTAGE",
+  changeDiscountAfterOrders: false,
+  afterDiscountValue: 0,
+  afterOrders: 1,
+  afterDiscountType: "PERCENTAGE",
+  minCycles: null,
+  maxCycles: null,
+  giveShippingDiscount: false,
+  shippingDiscountValue: 0,
+  shippingAfterOrders: 1,
+  shippingDiscountType: "PRICE",
+  changeQuantityAfterOrders: false,
+  quantityAfterOrdersValue: 1,
+  quantityAfterOrders: 1,
+  quantityProducts: [],
+  RemoveFreeProdcut: false,
+  removeFreeProductValue: 1,
+  freeProducts: [],
+  MinimumQuanitity: false,
+  MinimumQuanitityValue: 1,
+  Automation: false,
+};
+
 function Template({ shop, editPlandData, dublicateData }) {
   const shopify = useAppBridge();
   const navigate = useNavigate();
   const API = import.meta.env.VITE_API_URL;
   const fetcher = useFetcher();
-  // sellingPlan single object ki jagah array
-const defaultPlan = {
-   shopifySellingPlanId:  null,
-    name: "",
-    billingType: "PAY_AS_YOU_GO",
-    intervalCount: 1,
-    interval: "MONTH",
-
-    billingFrequency: 1,
-    billingInterval: "MONTH",
-
-    giveSubscriptionDiscount: true,
-    discountValue: 10,
-    discountType: "PERCENTAGE",
-    changeDiscountAfterOrders: false,
-    afterDiscountValue: 0,
-    afterOrders: 1,
-    afterDiscountType: "PERCENTAGE",
-
-    minCycles: null,
-    maxCycles: null,
-
-    giveShippingDiscount: false,
-    shippingDiscountValue: 0,
-    shippingAfterOrders: 1,
-    shippingDiscountType: "PRICE",
-
-    changeQuantityAfterOrders: false,
-    quantityAfterOrdersValue: 1,
-    quantityAfterOrders: 1,
-    quantityProducts: [],
-
-    RemoveFreeProdcut: false,
-    removeFreeProductValue: 1,
-    freeProducts: [],
-
-    MinimumQuanitity: false,
-    MinimumQuanitityValue: 1,
-
-
-    Automation: false,
-};
-
-// State
-
 
   const [toastActive, setToastActive] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [planId, setPlanId] = useState(editPlandData?.planId || null);
-  const [shopifyGroupId, setShopifyGroupId] = useState(null); //  state mein
+  const [shopifyGroupId, setShopifyGroupId] = useState(null);
 
   const [planName, setPlanName] = useState("Plan #1");
   const [widget, setWidget] = useState("widget1");
@@ -81,9 +70,13 @@ const defaultPlan = {
   const [keepDiscounts, setKeepDiscounts] = useState(true);
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [productError, setProductError] = useState(false);
-  const [sellingPlan, setSellingPlan] = useState([{ ...defaultPlan }]);
 
-  // product bunnton handel
+  //  Array of selling plans
+  const [sellingPlans, setSellingPlans] = useState([{ ...defaultPlan }]);
+  //  Edit load hote waqt jo IDs DB mein thi — delete detect karne ke liye
+  const [existingSellingPlanIds, setExistingSellingPlanIds] = useState([]);
+
+  //  Product picker handler
   const handleSelectProduct = useCallback(async () => {
     const selected = await shopify.resourcePicker({
       type: "product",
@@ -99,7 +92,7 @@ const defaultPlan = {
         return {
           id: product.id,
           title: product.title,
-          ProductImage: product.images?.[0].originalSrc,
+          ProductImage: product.images?.[0]?.originalSrc,
           selectedVariantCount: selectedVariants.length,
           totalVariantCount: product.totalVariants || selectedVariants.length,
           variants: selectedVariants.map((variant) => ({
@@ -109,7 +102,6 @@ const defaultPlan = {
         };
       });
 
-      //selct new prodcut and add state
       setSelectedProducts((prev) => {
         const incomingIds = new Set(incoming.map((p) => p.id));
         const kept = prev.filter((p) => !incomingIds.has(p.id));
@@ -118,7 +110,7 @@ const defaultPlan = {
     }
   }, [shopify, selectedProducts]);
 
-  
+  //  Edit / Duplicate data load — sellingPlans array mein set karo
   useEffect(() => {
     const data = editPlandData || dublicateData;
     if (!data) return;
@@ -126,8 +118,6 @@ const defaultPlan = {
     setPlanName(data.planName || "");
     setWidget(data.widget || "");
     setSelectedProducts(data.products || []);
-
-    //  sirf edit case mein shopifyGroupId set karo
     setShopifyGroupId(editPlandData ? editPlandData.shopifyGroupId : null);
 
     const cpc = data.customerProductChanges;
@@ -136,57 +126,64 @@ const defaultPlan = {
     setAllowQuantityChanges(cpc?.allowQuantityChanges ?? true);
     setKeepDiscounts(cpc?.keepDiscounts ?? true);
 
-    const newSellingPlan = {
-      shopifySellingPlanId: data.sellingPlan?.shopifySellingPlanId || null,
-      name: data.sellingPlan?.name || "",
-      billingType: data.sellingPlan?.billingType || "PAY_AS_YOU_GO",
-      intervalCount: data.sellingPlan?.intervalCount || 1,
-      interval: data.sellingPlan?.interval || "MONTH",
-
-      billingFrequency: data.sellingPlan?.billingFrequency || 1,
-      billingInterval: data.sellingPlan?.billingInterval || "MONTH",
-
-      giveSubscriptionDiscount:
-        data.sellingPlan?.giveSubscriptionDiscount || true,
-      discountValue: data.sellingPlan?.discountValue || 10,
-      discountType: data.sellingPlan?.discountType || "PERCENTAGE",
-      changeDiscountAfterOrders:
-        data.sellingPlan?.changeDiscountAfterOrders || false,
-      afterDiscountValue: data.sellingPlan?.afterDiscountValue || 0,
-      afterOrders: data.sellingPlan?.afterOrders || 1,
-      afterDiscountType: data.sellingPlan?.afterDiscountType || "PERCENTAGE",
-
-      minCycles: data.sellingPlan?.minCycles || null,
-      maxCycles: data.sellingPlan?.maxCycles || null,
-
-      giveShippingDiscount: data.sellingPlan?.giveShippingDiscount || false,
-      shippingDiscountValue: data.sellingPlan?.shippingDiscountValue || 0,
-      shippingAfterOrders: data.sellingPlan?.shippingAfterOrders || 1,
-      shippingDiscountType: data.sellingPlan?.shippingDiscountType || "PRICE",
-
-      changeQuantityAfterOrders:
-        data.sellingPlan?.changeQuantityAfterOrders || false,
-      quantityAfterOrdersValue: data.sellingPlan?.quantityAfterOrdersValue || 1,
-      quantityAfterOrders: data.sellingPlan?.quantityAfterOrders || 1,
-      quantityProducts: data.sellingPlan?.quantityProducts || [],
-
-      RemoveFreeProdcut: data.sellingPlan?.RemoveFreeProdcut || false,
-      removeFreeProductValue: data.sellingPlan?.removeFreeProductValue || 1,
-      freeProducts: data.sellingPlan?.freeProducts?.flatMap(product => product) || [],
-
-      MinimumQuanitity: data.sellingPlan?.MinimumQuanitity || false,
-      MinimumQuanitityValue: data.sellingPlan?.MinimumQuanitityValue || 1,
-
-      Automation: data.sellingPlan?.Automation || false,
-    };
-
-    setSellingPlan(newSellingPlan);
+    //  Agar backend se sellingPlans array aaye toh seedha set karo
+    //    Agar purana single sellingPlan object aaye toh usse array mein wrap karo
+    if (Array.isArray(data.sellingPlans) && data.sellingPlans.length > 0) {
+      setSellingPlans(data.sellingPlans);
+      //  DB mein jo IDs thi yaad rakho — delete detect karne ke liye
+      setExistingSellingPlanIds(
+        data.sellingPlans
+          .map((sp) => sp.shopifySellingPlanId)
+          .filter(Boolean)
+      );
+    } else if (data.sellingPlan) {
+      const sp = data.sellingPlan;
+      setSellingPlans([
+        {
+          shopifySellingPlanId: sp.shopifySellingPlanId || null,
+          name: sp.name || "",
+          billingType: sp.billingType || "PAY_AS_YOU_GO",
+          intervalCount: sp.intervalCount || 1,
+          interval: sp.interval || "MONTH",
+          billingFrequency: sp.billingFrequency || 1,
+          billingInterval: sp.billingInterval || "MONTH",
+          giveSubscriptionDiscount: sp.giveSubscriptionDiscount ?? true,
+          discountValue: sp.discountValue || 10,
+          discountType: sp.discountType || "PERCENTAGE",
+          changeDiscountAfterOrders: sp.changeDiscountAfterOrders || false,
+          afterDiscountValue: sp.afterDiscountValue || 0,
+          afterOrders: sp.afterOrders || 1,
+          afterDiscountType: sp.afterDiscountType || "PERCENTAGE",
+          minCycles: sp.minCycles || null,
+          maxCycles: sp.maxCycles || null,
+          giveShippingDiscount: sp.giveShippingDiscount || false,
+          shippingDiscountValue: sp.shippingDiscountValue || 0,
+          shippingAfterOrders: sp.shippingAfterOrders || 1,
+          shippingDiscountType: sp.shippingDiscountType || "PRICE",
+          changeQuantityAfterOrders: sp.changeQuantityAfterOrders || false,
+          quantityAfterOrdersValue: sp.quantityAfterOrdersValue || 1,
+          quantityAfterOrders: sp.quantityAfterOrders || 1,
+          quantityProducts: sp.quantityProducts || [],
+          RemoveFreeProdcut: sp.RemoveFreeProdcut || false,
+          removeFreeProductValue: sp.removeFreeProductValue || 1,
+          freeProducts: sp.freeProducts?.flatMap((p) => p) || [],
+          MinimumQuanitity: sp.MinimumQuanitity || false,
+          MinimumQuanitityValue: sp.MinimumQuanitityValue || 1,
+          Automation: sp.Automation || false,
+        },
+      ]);
+      // Purane single plan ki ID bhi yaad rakho
+      if (sp.shopifySellingPlanId) {
+        setExistingSellingPlanIds([sp.shopifySellingPlanId]);
+      }
+    }
   }, [editPlandData, dublicateData]);
 
   const handleBack = () => {
     navigate("/app/plans");
   };
 
+  //  Submit — sellingPlans array payload mein
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (selectedProducts.length === 0) return setProductError(true);
@@ -198,9 +195,10 @@ const defaultPlan = {
       planName,
       widget,
       products: selectedProducts,
-      sellingPlan,
-      //  sirf edit case mein shopifyGroupId bhejo
+      sellingPlans,
       ...(editPlandData && { shopifyGroupId }),
+      // Edit case mein — DB mein jo IDs thi bhejo taaki backend delete detect kare
+      ...(editPlandData && { existingSellingPlanIds }),
       customerProductChanges: {
         allowProductSwaps,
         allowVariantChanges,
@@ -215,6 +213,7 @@ const defaultPlan = {
     });
   };
 
+  //  Fetcher response handle
   useEffect(() => {
     if (fetcher.state === "idle" && fetcher.data) {
       const actionData = fetcher.data;
@@ -228,9 +227,17 @@ const defaultPlan = {
       const rawGroupId = actionData.shopifyGroupId || "";
       const lastDigits = rawGroupId.split("/").pop();
 
-      //  edit pe planId same, create/duplicate pe naya
       const newPlanId = editPlandData ? planId : lastDigits;
       if (!editPlandData) setPlanId(newPlanId);
+
+      //  sellingPlans array ke har plan mein shopifySellingPlanId update karo
+      const updatedSellingPlans = sellingPlans.map((plan, i) => ({
+        ...plan,
+        shopifySellingPlanId:
+          actionData.shopifySellingPlanIds?.[i] ||
+          actionData.shopifySellingPlanId ||
+          plan.shopifySellingPlanId,
+      }));
 
       const payload = {
         shop,
@@ -238,11 +245,7 @@ const defaultPlan = {
         planName,
         widget,
         products: selectedProducts,
-        sellingPlan: {
-          ...sellingPlan,
-          shopifySellingPlanId:
-            actionData.shopifySellingPlanId || sellingPlan.shopifySellingPlanId,
-        },
+        sellingPlans: updatedSellingPlans,   //  array
         shopifyGroupId: actionData.shopifyGroupId,
         customerProductChanges: {
           allowProductSwaps,
@@ -270,38 +273,32 @@ const defaultPlan = {
       });
       const data = await response.json();
       console.log("Node API response:", data);
-      console.log("Node API response:", data);
+
       if (data.success === true) {
         setToastMessage(data.message);
         setToastActive(true);
-
-        // navigate(`/app/plan/${data.data.planId}`);
-     
-                  navigate("/app/plans", { replace: true });
-        
+        navigate("/app/plans", { replace: true });
       }
     } catch (err) {
       console.error("Node API error:", err);
     }
   };
-const showCustomerChanges =
-  allowProductSwaps ||
-  allowVariantChanges ||
-  allowQuantityChanges ||
-  keepDiscounts;
 
-  const diablecheck=
- !allowProductSwaps &&
-  !allowVariantChanges &&
-  !allowQuantityChanges 
+  const showCustomerChanges =
+    allowProductSwaps ||
+    allowVariantChanges ||
+    allowQuantityChanges ||
+    keepDiscounts;
 
+  const diablecheck =
+    !allowProductSwaps && !allowVariantChanges && !allowQuantityChanges;
 
-  useEffect(()=>
-  {
-    if(diablecheck){
-      setKeepDiscounts(false)
+  useEffect(() => {
+    if (diablecheck) {
+      setKeepDiscounts(false);
     }
-  },[diablecheck])
+  }, [diablecheck]);
+
   return (
     <Frame>
       {toastActive && (
@@ -348,18 +345,13 @@ const showCustomerChanges =
               helpText="Will be visible for customers on the product page"
             />
             <Card>
-              {selectedProducts.length ===0 ?
-              <>
-              
-              </>
-              :
-              <Product
-                selectedProducts={selectedProducts}
-                setSelectedProducts={setSelectedProducts}
-                productError={productError}
-              />
-              }
-              
+              {selectedProducts.length === 0 ? null : (
+                <Product
+                  selectedProducts={selectedProducts}
+                  setSelectedProducts={setSelectedProducts}
+                  productError={productError}
+                />
+              )}
               <Button onClick={handleSelectProduct}>
                 {selectedProducts.length > 0
                   ? "Add more products"
@@ -368,10 +360,12 @@ const showCustomerChanges =
             </Card>
           </form>
 
+          {/*  sellingPlans array pass karo */}
           <SellingPlan
             selectedProducts={selectedProducts}
-            sellingPlan={sellingPlan}
-            setSellingPlan={setSellingPlan}
+            sellingPlans={sellingPlans}
+            setSellingPlans={setSellingPlans}
+            defaultPlan={defaultPlan}
           />
 
           <Card>
@@ -438,18 +432,31 @@ const showCustomerChanges =
                 ? selectedProducts[0].title
                 : `${selectedProducts.length} products`}
           </p>
-         {showCustomerChanges && (
-  <>
-  <Text as="h2" variant="headingMd"> Customer product changes </Text>
-    {allowProductSwaps && <p>Allow product swaps</p>}
-
-    {allowVariantChanges && <p>Allow variant changes</p>}
-
-    {allowQuantityChanges && <p>Allow quantity changes</p>}
-
-    {keepDiscounts && <p>Keep discounts on product changes</p>}
-  </>
-)}
+          {/*  Summary mein multiple plans dikhao */}
+          {sellingPlans.length > 0 && (
+            <>
+              <Text as="h2" variant="headingMd">
+                Selling Plans ({sellingPlans.length})
+              </Text>
+              {sellingPlans.map((plan, i) => (
+                <p key={i}>
+                  Plan {i + 1}: {plan.name || "(unnamed)"} —{" "}
+                  {plan.intervalCount} {plan.interval}
+                </p>
+              ))}
+            </>
+          )}
+          {showCustomerChanges && (
+            <>
+              <Text as="h2" variant="headingMd">
+                Customer product changes
+              </Text>
+              {allowProductSwaps && <p>Allow product swaps</p>}
+              {allowVariantChanges && <p>Allow variant changes</p>}
+              {allowQuantityChanges && <p>Allow quantity changes</p>}
+              {keepDiscounts && <p>Keep discounts on product changes</p>}
+            </>
+          )}
         </Card>
       </Page>
     </Frame>

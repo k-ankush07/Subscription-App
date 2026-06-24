@@ -23,42 +23,136 @@ export const action = async ({ request }) => {
   console.log("Edit payload:", payload);
 
   const shopifyGroupId = payload.shopifyGroupId;
-  const sp = payload.sellingPlan;
-  console.log("sp edit page", sp);
+
+  //  sellingPlans array
+  const sellingPlans = payload.sellingPlans || [];
 
   if (!shopifyGroupId) {
     return Response.json({ success: false, error: "shopifyGroupId missing" });
   }
 
-  // Pricing policies
-  const pricingPolicies = [];
-
-  if (sp.giveSubscriptionDiscount) {
-    pricingPolicies.push({
-      fixed: {
-        adjustmentType: sp.discountType,
-        adjustmentValue:
-          sp.discountType === "PERCENTAGE"
-            ? { percentage: sp.discountValue }
-            : { fixedValue: sp.discountValue },
-      },
-    });
-
-    if (sp.changeDiscountAfterOrders && sp.afterOrders) {
-      pricingPolicies.push({
-        recurring: {
-          afterCycle: sp.afterOrders,
-          adjustmentType: sp.afterDiscountType ?? "PERCENTAGE",
-          adjustmentValue:
-            (sp.afterDiscountType ?? "PERCENTAGE") === "PERCENTAGE"
-              ? { percentage: sp.afterDiscountValue ?? 0 }
-              : { fixedValue: sp.afterDiscountValue ?? 0 },
-        },
-      });
-    }
+  if (sellingPlans.length === 0) {
+    return Response.json({ success: false, error: "No selling plans provided" });
   }
 
-  // Step 1: Selling plan update
+  //  Har plan ke liye pricingPolicies build karo
+  const buildPricingPolicies = (sp) => {
+    const pricingPolicies = [];
+
+    if (sp.giveSubscriptionDiscount) {
+      pricingPolicies.push({
+        fixed: {
+          adjustmentType: sp.discountType,
+          adjustmentValue:
+            sp.discountType === "PERCENTAGE"
+              ? { percentage: sp.discountValue }
+              : { fixedValue: sp.discountValue },
+        },
+      });
+
+      if (sp.changeDiscountAfterOrders && sp.afterOrders) {
+        pricingPolicies.push({
+          recurring: {
+            afterCycle: sp.afterOrders,
+            adjustmentType: sp.afterDiscountType ?? "PERCENTAGE",
+            adjustmentValue:
+              (sp.afterDiscountType ?? "PERCENTAGE") === "PERCENTAGE"
+                ? { percentage: sp.afterDiscountValue ?? 0 }
+                : { fixedValue: sp.afterDiscountValue ?? 0 },
+          },
+        });
+      }
+    }
+
+    return pricingPolicies;
+  };
+
+  //  Plans ko 3 categories mein baanto:
+  //    - shopifySellingPlanId hai → UPDATE (existing Shopify plan)
+  //    - shopifySellingPlanId nahi → CREATE (naya plan)
+  //    - DB mein tha par frontend se nahi aaya → DELETE (user ne remove kiya)
+  const plansToUpdate = sellingPlans.filter((sp) => sp.shopifySellingPlanId);
+  const plansToCreate = sellingPlans.filter((sp) => !sp.shopifySellingPlanId);
+
+  //  Frontend se jo IDs aayi hain
+  const incomingIds = new Set(
+    sellingPlans
+      .map((sp) => sp.shopifySellingPlanId)
+      .filter(Boolean)
+  );
+
+  //  DB mein jo IDs pehle se saved thi (payload.existingSellingPlanIds se aayengi)
+  // Yeh Frontend Template.jsx se bhejni padegi — neeche dekho
+  const existingDbIds = payload.existingSellingPlanIds || [];
+
+  //  Jo IDs DB mein thi par frontend se nahi aayi → DELETE
+  const sellingPlansToDelete = existingDbIds.filter(
+    (id) => !incomingIds.has(id)
+  );
+
+  console.log("Plans to update:", plansToUpdate.length);
+  console.log("Plans to create:", plansToCreate.length);
+  console.log("Plans to delete:", sellingPlansToDelete);
+
+  //  sellingPlansToUpdate array banao
+  const sellingPlansToUpdate = plansToUpdate.map((sp) => {
+    const pricingPolicies = buildPricingPolicies(sp);
+    return {
+      id: sp.shopifySellingPlanId,  //  existing Shopify ID
+      name: sp.name,
+      options: [`${sp.intervalCount} ${sp.interval.toLowerCase()}`],
+      billingPolicy: {
+        recurring: {
+          interval: sp.interval,
+          intervalCount: sp.intervalCount,
+          ...(sp.minCycles && sp.minCycles !== "disabled"
+            ? { minCycles: sp.minCycles }
+            : {}),
+          ...(sp.maxCycles && sp.maxCycles !== "unlimited"
+            ? { maxCycles: sp.maxCycles }
+            : {}),
+        },
+      },
+      deliveryPolicy: {
+        recurring: {
+          interval: sp.interval,
+          intervalCount: sp.intervalCount,
+        },
+      },
+      ...(pricingPolicies.length > 0 ? { pricingPolicies } : {}),
+    };
+  });
+
+  //  sellingPlansToCreate array banao (naye plans — ID nahi hai)
+  const sellingPlansToCreate = plansToCreate.map((sp) => {
+    const pricingPolicies = buildPricingPolicies(sp);
+    return {
+      name: sp.name,
+      options: [`${sp.intervalCount} ${sp.interval.toLowerCase()}`],
+      category: "SUBSCRIPTION",
+      billingPolicy: {
+        recurring: {
+          interval: sp.interval,
+          intervalCount: sp.intervalCount,
+          ...(sp.minCycles && sp.minCycles !== "disabled"
+            ? { minCycles: sp.minCycles }
+            : {}),
+          ...(sp.maxCycles && sp.maxCycles !== "unlimited"
+            ? { maxCycles: sp.maxCycles }
+            : {}),
+        },
+      },
+      deliveryPolicy: {
+        recurring: {
+          interval: sp.interval,
+          intervalCount: sp.intervalCount,
+        },
+      },
+      ...(pricingPolicies.length > 0 ? { pricingPolicies } : {}),
+    };
+  });
+
+  //  Step 1: Shopify pe group update karo — update + create ek saath
   const updateRes = await admin.graphql(
     `
     mutation sellingPlanGroupUpdate($id: ID!, $input: SellingPlanGroupInput!) {
@@ -74,38 +168,18 @@ export const action = async ({ request }) => {
         input: {
           name: payload.planName,
           merchantCode: payload.planName,
-          sellingPlansToUpdate: [
-            {
-              id: sp.shopifySellingPlanId,
-              name: sp.name,
-              options: [`${sp.intervalCount} ${sp.interval.toLowerCase()}`],
-              billingPolicy: {
-                recurring: {
-                  interval: sp.interval,
-                  intervalCount: sp.intervalCount,
-                  ...(sp.minCycles && sp.minCycles !== "disabled"
-                    ? { minCycles: sp.minCycles }
-                    : {}),
-                  ...(sp.maxCycles && sp.maxCycles !== "unlimited"
-                    ? { maxCycles: sp.maxCycles }
-                    : {}),
-                },
-              },
-              deliveryPolicy: {
-                recurring: {
-                  interval: sp.interval,
-                  intervalCount: sp.intervalCount,
-                },
-              },
-              ...(pricingPolicies.length > 0 ? { pricingPolicies } : {}),
-            },
-          ],
+          ...(sellingPlansToUpdate.length > 0 ? { sellingPlansToUpdate } : {}),
+          ...(sellingPlansToCreate.length > 0 ? { sellingPlansToCreate } : {}),
+          //  Jo plans user ne remove kiye — Shopify pe bhi delete karo
+          ...(sellingPlansToDelete.length > 0 ? { sellingPlansToDelete } : {}),
         },
       },
     }
   );
 
   const updateData = await updateRes.json();
+  console.log("sellingPlanGroupUpdate:", updateData.data.sellingPlanGroupUpdate);
+
   const updateErrors = updateData.data.sellingPlanGroupUpdate.userErrors;
   if (updateErrors?.length > 0) {
     return Response.json({
@@ -114,15 +188,13 @@ export const action = async ({ request }) => {
     });
   }
 
-  // Step 2: Shopify se existing variants fetch karo
+  //  Step 2: Existing variants fetch karo
   const existingVariantsRes = await admin.graphql(
     `
     query getExistingVariants($id: ID!) {
       sellingPlanGroup(id: $id) {
         productVariants(first: 250) {
-          edges {
-            node { id }
-          }
+          edges { node { id } }
         }
       }
     }
@@ -136,7 +208,7 @@ export const action = async ({ request }) => {
       (e) => e.node.id
     );
 
-  // Step 3: Existing variants remove karo
+  //  Step 3: Existing variants remove karo
   if (existingVariantIds.length > 0) {
     await admin.graphql(
       `
@@ -156,15 +228,13 @@ export const action = async ({ request }) => {
     );
   }
 
-  // Step 4: Shopify se existing products fetch karo
+  //  Step 4: Existing products fetch karo
   const existingProductsRes = await admin.graphql(
     `
     query getExistingProducts($id: ID!) {
       sellingPlanGroup(id: $id) {
         products(first: 250) {
-          edges {
-            node { id }
-          }
+          edges { node { id } }
         }
       }
     }
@@ -178,7 +248,7 @@ export const action = async ({ request }) => {
       (e) => e.node.id
     );
 
-  // Step 5: Existing products remove karo
+  //  Step 5: Existing products remove karo
   if (existingProductIds.length > 0) {
     await admin.graphql(
       `
@@ -198,7 +268,7 @@ export const action = async ({ request }) => {
     );
   }
 
-  // Step 6: Naye products add karo
+  //  Step 6: Naye products add karo
   const addProductsRes = await admin.graphql(
     `
     mutation sellingPlanGroupAddProducts($id: ID!, $productIds: [ID!]!) {
@@ -226,7 +296,7 @@ export const action = async ({ request }) => {
     });
   }
 
-  // Step 7: Naye variants add karo
+  //  Step 7: Naye variants add karo
   const allVariantIds = payload.products.flatMap((p) =>
     p.variants.map((v) => v.variantsId)
   );
@@ -262,7 +332,38 @@ export const action = async ({ request }) => {
     console.log("Variants updated successfully");
   }
 
-  return Response.json({ success: true, shopifyGroupId, ...payload });
+  //  Step 8: Update ke baad saari plans ki IDs fetch karo
+  const fetchRes = await admin.graphql(
+    `
+    query getSellingPlanIds($id: ID!, $first: Int!) {
+      sellingPlanGroup(id: $id) {
+        sellingPlans(first: $first) {
+          edges {
+            node { id }
+          }
+        }
+      }
+    }
+  `,
+    { variables: { id: shopifyGroupId, first: sellingPlans.length + 10 } }
+  );
+
+  const fetchData = await fetchRes.json();
+
+  //  Saari IDs array mein
+  const shopifySellingPlanIds =
+    fetchData.data.sellingPlanGroup.sellingPlans.edges.map(
+      (edge) => edge.node.id
+    );
+
+  console.log("Updated Shopify Selling Plan IDs:", shopifySellingPlanIds);
+
+  return Response.json({
+    success: true,
+    shopifyGroupId,
+    shopifySellingPlanIds,  //  array — frontend pe map hoga
+    ...payload,
+  });
 };
 
 function PlanId() {

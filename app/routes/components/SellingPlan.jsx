@@ -5,439 +5,405 @@ import {
   Select,
   Checkbox,
   Button,
-  Icon,
 } from "@shopify/polaris";
-import {
-  DuplicateIcon
-} from '@shopify/polaris-icons';
 import { useAppBridge } from "@shopify/app-bridge-react";
-import { useState } from "react";
 import Automation from "./Automation";
-function SellingPlan({ sellingPlan, setSellingPlan, selectedProducts }) {
-  const shopify = useAppBridge();
-  const [pickerTarget, setPickerTarget] = useState(null);
 
+function SellingPlan({ sellingPlans, setSellingPlans, selectedProducts, defaultPlan }) {
+  const shopify = useAppBridge();
   const allowedIds = selectedProducts.map((p) => p.id);
 
-  const handleOpenPicker = async (target) => {
-    setPickerTarget(target);
+  //  Kisi ek plan ko index se update karne ka helper
+  const updatePlan = (index, updates) => {
+    setSellingPlans((prev) =>
+      prev.map((plan, i) => (i === index ? { ...plan, ...updates } : plan))
+    );
+  };
 
-    // Current selected ids for pre-selection
+  //  Naya plan add karo
+  const handleAddPlan = () => {
+    setSellingPlans((prev) => [...prev, { ...defaultPlan }]);
+  };
+
+  //  Plan remove karo (sirf tab jab 2+ plans hon)
+  const handleRemovePlan = (index) => {
+    setSellingPlans((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // Resource picker — index aware
+  const handleOpenPicker = async (target, index) => {
+    const currentPlan = sellingPlans[index];
     const currentIds =
       target === "quantity"
-        ? sellingPlan.quantityProducts || []
-        : sellingPlan.freeProducts || [];
+        ? currentPlan.quantityProducts || []
+        : currentPlan.freeProducts || [];
 
     const selected = await shopify.resourcePicker({
       type: "product",
       multiple: true,
-      //Pre-select already chosen products
       selectionIds: currentIds.map((id) => ({ id })),
       filter: {
         variants: true,
-        query: allowedIds.map((id) => `id:${id.split("/").pop()}`).join(" OR "),
+        query: allowedIds
+          .map((id) => `id:${id.split("/").pop()}`)
+          .join(" OR "),
       },
     });
 
     if (!selected || selected.length === 0) return;
-
     const pickedIds = selected.map((p) => p.id);
 
     if (target === "quantity") {
-      setSellingPlan((prev) => ({
-        ...prev,
-        quantityProducts: pickedIds,
-      }));
-    } else if (target === "freeProduct") {
-      setSellingPlan((prev) => ({
-        ...prev,
-        freeProducts: pickedIds,
-      }));
+      updatePlan(index, { quantityProducts: pickedIds });
+    } else {
+      updatePlan(index, { freeProducts: pickedIds });
     }
   };
 
-
-
   return (
-    <Card>
-      <FormLayout>
-  
-        {/* NAME */}
-        <TextField
-          label="Name"
-          value={sellingPlan.name}
-          onChange={(value) =>
-            setSellingPlan({
-              ...sellingPlan,
-              name: value,
-            })
-          }
-        />
+    <>
+      {sellingPlans.map((plan, index) => (
+        <Card key={index}>
+          <FormLayout>
+            {/*  Plan header + Remove button */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <h2>
+                {sellingPlans.length > 1
+                  ? `Selling Plan #${index + 1}`
+                  : "Selling Plan"}
+              </h2>
+              {sellingPlans.length > 1 && (
+                <Button
+                  tone="critical"
+                  variant="plain"
+                  onClick={() => handleRemovePlan(index)}
+                >
+                  Remove
+                </Button>
+              )}
+            </div>
 
-        {/* BILLING TYPE */}
-        <Select
-          label="Billing type"
-          options={[
-            {
-              label: "Pay as you go",
-              value: "PAY_AS_YOU_GO",
-            },
-            // {
-            //   label: "Prepaid",
-            //   value: "PREPAID",
-            // },
-          ]}
-          value={sellingPlan.billingType}
-          onChange={(value) =>
-            setSellingPlan({
-              ...sellingPlan,
-              billingType: value,
-            })
-          }
-        />
-
-        {/* DELIVERY FREQUENCY */}
-        <TextField
-          label="Delivery frequency"
-          type="number"
-          value={String(sellingPlan.intervalCount)}
-          onChange={(value) =>
-            setSellingPlan({
-              ...sellingPlan,
-              intervalCount: Number(value),
-            })
-          }
-        />
-
-        {/* DELIVERY INTERVAL */}
-        <Select
-          label="Delivery interval"
-          options={[
-            { label: "Days", value: "DAY" },
-            { label: "Weeks", value: "WEEK" },
-            { label: "Months", value: "MONTH" },
-            { label: "Years", value: "YEAR" },
-          ]}
-          value={sellingPlan.interval}
-          onChange={(value) =>
-            setSellingPlan({
-              ...sellingPlan,
-              interval: value,
-              billingInterval: value,
-            })
-          }
-        />
-
-        {/* PREPAID ONLY FIELD */}
-        {sellingPlan.billingType === "PREPAID" && (
-          <>
+            {/* NAME */}
             <TextField
-              label="Billing frequency"
+              label="Name"
+              value={plan.name}
+              onChange={(value) => updatePlan(index, { name: value })}
+            />
+
+            {/* BILLING TYPE */}
+            <Select
+              label="Billing type"
+              options={[
+                { label: "Pay as you go", value: "PAY_AS_YOU_GO" },
+              ]}
+              value={plan.billingType}
+              onChange={(value) => updatePlan(index, { billingType: value })}
+            />
+
+            {/* DELIVERY FREQUENCY */}
+            <TextField
+              label="Delivery frequency"
               type="number"
-              value={String(sellingPlan.billingFrequency)}
+              value={String(plan.intervalCount)}
               onChange={(value) =>
-                setSellingPlan({
-                  ...sellingPlan,
-                  billingFrequency: Number(value),
+                updatePlan(index, { intervalCount: Number(value) })
+              }
+            />
+
+            {/* DELIVERY INTERVAL */}
+            <Select
+              label="Delivery interval"
+              options={[
+                { label: "Days", value: "DAY" },
+                { label: "Weeks", value: "WEEK" },
+                { label: "Months", value: "MONTH" },
+                { label: "Years", value: "YEAR" },
+              ]}
+              value={plan.interval}
+              onChange={(value) =>
+                updatePlan(index, { interval: value, billingInterval: value })
+              }
+            />
+
+            {/* PREPAID ONLY */}
+            {plan.billingType === "PREPAID" && (
+              <>
+                <TextField
+                  label="Billing frequency"
+                  type="number"
+                  value={String(plan.billingFrequency)}
+                  onChange={(value) =>
+                    updatePlan(index, { billingFrequency: Number(value) })
+                  }
+                />
+                <TextField
+                  label="Billing interval"
+                  value={plan.interval}
+                  readOnly
+                />
+              </>
+            )}
+
+            {/* MIN CYCLES */}
+            <Select
+              label="Minimum number of orders"
+              options={[
+                { label: "Disabled", value: "0" },
+                ...Array.from({ length: 250 }, (_, i) => ({
+                  label: String(i + 1),
+                  value: String(i + 1),
+                })),
+              ]}
+              value={String(plan.minCycles ?? "0")}
+              onChange={(value) =>
+                updatePlan(index, {
+                  minCycles: value === "0" ? null : Number(value),
                 })
               }
             />
-            <TextField
-              label="Billing interval"
-              value={sellingPlan.interval}
-              readOnly
-            />
-          </>
-        )}
 
-        <Select
-          label="Minimum number of orders"
-          options={[
-            { label: "Disabled", value: "0" },
-            ...Array.from({ length: 250 }, (_, i) => ({
-              label: String(i + 1),
-              value: String(i + 1),
-            })),
-          ]}
-          value={String(sellingPlan.minCycles ?? "0")}
-          onChange={(value) =>
-            setSellingPlan({
-              ...sellingPlan,
-              minCycles: value === "0" ? "disabled" : Number(value),
-            })
-          }
-        />
-
-        <Select
-          label="Maximum number of orders"
-          options={[
-            { label: "Unlimited", value: "0" },
-            ...Array.from({ length: 250 }, (_, i) => ({
-              label: String(i + 1),
-              value: String(i + 1),
-            })),
-          ]}
-          value={String(sellingPlan.maxCycles ?? "0")}
-          onChange={(value) =>
-            setSellingPlan({
-              ...sellingPlan,
-              maxCycles: value === "0" ? "unlimited" : Number(value),
-            })
-          }
-        />
-        {/* SUBSCRIPTION DISCOUNT */}
-        <Checkbox
-          label="Give subscription discount"
-          checked={sellingPlan.giveSubscriptionDiscount}
-          onChange={(newChecked) =>
-            setSellingPlan((prev) => ({
-              ...prev,
-              giveSubscriptionDiscount: newChecked,
-            }))
-          }
-        />
-
-        {sellingPlan.giveSubscriptionDiscount && (
-          <>
-            <TextField
-              label="Discount amount"
-              type="number"
-              value={String(sellingPlan.discountValue)}
-              onChange={(value) =>
-                setSellingPlan({ ...sellingPlan, discountValue: Number(value) })
-              }
-            />
-
+            {/* MAX CYCLES */}
             <Select
-              label="Discount type"
+              label="Maximum number of orders"
               options={[
-                { label: "Percentage off", value: "PERCENTAGE" },
-                { label: "Amount off", value: "FIXED_AMOUNT" },
-                { label: "Fixed price", value: "PRICE" },
+                { label: "Unlimited", value: "0" },
+                ...Array.from({ length: 250 }, (_, i) => ({
+                  label: String(i + 1),
+                  value: String(i + 1),
+                })),
               ]}
-              value={sellingPlan.discountType}
+              value={String(plan.maxCycles ?? "0")}
               onChange={(value) =>
-                setSellingPlan({ ...sellingPlan, discountType: value })
+                updatePlan(index, {
+                  maxCycles: value === "0" ? null : Number(value),
+                })
               }
             />
 
-            {/* CHANGE DISCOUNT AFTER SPECIFIC ORDERS */}
+            {/* SUBSCRIPTION DISCOUNT */}
             <Checkbox
-              label="Change discount after specific number of orders"
-              checked={sellingPlan.changeDiscountAfterOrders}
-              onChange={(newChecked) =>
-                setSellingPlan((prev) => ({
-                  ...prev,
-                  changeDiscountAfterOrders: newChecked,
-                }))
+              label="Give subscription discount"
+              checked={plan.giveSubscriptionDiscount}
+              onChange={(val) =>
+                updatePlan(index, { giveSubscriptionDiscount: val })
               }
             />
-
-            {sellingPlan.changeDiscountAfterOrders && (
+            {plan.giveSubscriptionDiscount && (
               <>
                 <TextField
                   label="Discount amount"
                   type="number"
-                  value={String(sellingPlan.afterDiscountValue ?? 0)}
-                  onChange={(value) =>
-                    setSellingPlan({
-                      ...sellingPlan,
-                      afterDiscountValue: Number(value),
-                    })
+                  value={String(plan.discountValue)}
+                  onChange={(val) =>
+                    updatePlan(index, { discountValue: Number(val) })
                   }
                 />
-
-                <TextField
-                  label="After # of orders"
-                  type="number"
-                  value={String(sellingPlan.afterOrders ?? 1)}
-                  onChange={(value) =>
-                    setSellingPlan({
-                      ...sellingPlan,
-                      afterOrders: Number(value),
-                    })
-                  }
-                />
-
                 <Select
                   label="Discount type"
                   options={[
                     { label: "Percentage off", value: "PERCENTAGE" },
-                    { label: "Amount off", value: "PRICE" },
-                    { label: "Fixed price", value: "FIXED_AMOUNT" },
+                    { label: "Amount off", value: "FIXED_AMOUNT" },
+                    { label: "Fixed price", value: "PRICE" },
                   ]}
-                  value={sellingPlan.afterDiscountType ?? "PERCENTAGE"}
-                  onChange={(value) =>
-                    setSellingPlan({ ...sellingPlan, afterDiscountType: value })
+                  value={plan.discountType}
+                  onChange={(val) => updatePlan(index, { discountType: val })}
+                />
+
+                {/* CHANGE DISCOUNT AFTER ORDERS */}
+                <Checkbox
+                  label="Change discount after specific number of orders"
+                  checked={plan.changeDiscountAfterOrders}
+                  onChange={(val) =>
+                    updatePlan(index, { changeDiscountAfterOrders: val })
+                  }
+                />
+                {plan.changeDiscountAfterOrders && (
+                  <>
+                    <TextField
+                      label="Discount amount"
+                      type="number"
+                      value={String(plan.afterDiscountValue ?? 0)}
+                      onChange={(val) =>
+                        updatePlan(index, { afterDiscountValue: Number(val) })
+                      }
+                    />
+                    <TextField
+                      label="After # of orders"
+                      type="number"
+                      value={String(plan.afterOrders ?? 1)}
+                      onChange={(val) =>
+                        updatePlan(index, { afterOrders: Number(val) })
+                      }
+                    />
+                    <Select
+                      label="Discount type"
+                      options={[
+                        { label: "Percentage off", value: "PERCENTAGE" },
+                        { label: "Amount off", value: "PRICE" },
+                        { label: "Fixed price", value: "FIXED_AMOUNT" },
+                      ]}
+                      value={plan.afterDiscountType ?? "PERCENTAGE"}
+                      onChange={(val) =>
+                        updatePlan(index, { afterDiscountType: val })
+                      }
+                    />
+                  </>
+                )}
+              </>
+            )}
+
+            {/* SHIPPING DISCOUNT */}
+            <h2>Shipping discount</h2>
+            <Checkbox
+              label="Give discount"
+              checked={plan.giveShippingDiscount}
+              onChange={(val) =>
+                updatePlan(index, { giveShippingDiscount: val })
+              }
+            />
+            {plan.giveShippingDiscount && (
+              <>
+                <TextField
+                  label="Discount"
+                  type="number"
+                  value={String(plan.shippingDiscountValue)}
+                  helpText="This will be the new delivery price"
+                  onChange={(val) =>
+                    updatePlan(index, { shippingDiscountValue: Number(val) })
+                  }
+                />
+                <TextField
+                  label="After # of orders"
+                  type="number"
+                  value={String(plan.shippingAfterOrders)}
+                  helpText="After how many orders to change delivery price"
+                  onChange={(val) =>
+                    updatePlan(index, { shippingAfterOrders: Number(val) })
+                  }
+                />
+                <Select
+                  label="Discount type"
+                  options={[
+                    { label: "Percentage off", value: "PERCENTAGE" },
+                    { label: "Fixed price", value: "PRICE" },
+                    { label: "Amount off", value: "FIXED_AMOUNT" },
+                  ]}
+                  value={plan.shippingDiscountType}
+                  onChange={(val) =>
+                    updatePlan(index, { shippingDiscountType: val })
                   }
                 />
               </>
             )}
-          </>
-        )}
 
-        {/* SHIPPING DISCOUNT */}
-        <h2>Shipping discount</h2>
-        <Checkbox
-          label="Give discount"
-          checked={sellingPlan.giveShippingDiscount}
-          onChange={(newChecked) =>
-            setSellingPlan((prev) => ({
-              ...prev,
-              giveShippingDiscount: newChecked,
-            }))
-          }
-        />
-        {sellingPlan.giveShippingDiscount && (
-          <>
-            <TextField
-              label="Discount"
-              type="number"
-              value={String(sellingPlan.shippingDiscountValue)}
-              helpText="This will be the new delivery price"
-              onChange={(value) =>
-                setSellingPlan({
-                  ...sellingPlan,
-                  shippingDiscountValue: Number(value),
-                })
-              }
+            {/* AUTOMATION — setSellingPlan wrapper jo index-aware hai */}
+            <Automation
+              sellingPlan={plan}
+              setSellingPlan={(updater) => {
+                if (typeof updater === "function") {
+                  setSellingPlans((prev) =>
+                    prev.map((p, i) => (i === index ? updater(p) : p))
+                  );
+                } else {
+                  updatePlan(index, updater);
+                }
+              }}
             />
 
-            <TextField
-              label="After # of orders"
-              type="number"
-              value={String(sellingPlan.shippingAfterOrders)}
-              helpText="After how many orders to change delivery price"
-              onChange={(value) =>
-                setSellingPlan({
-                  ...sellingPlan,
-                  shippingAfterOrders: Number(value),
-                })
-              }
-            />
+            {/* SETTINGS */}
+            <h2>Settings</h2>
 
-            <Select
-              label="Discount type"
-              options={[
-                { label: "Percentage off", value: "PERCENTAGE" },
-                { label: "Fixed price", value: "PRICE" },
-                { label: "Amount off", value: "FIXED_AMOUNT" },
-              ]}
-              value={sellingPlan.shippingDiscountType}
-              onChange={(value) =>
-                setSellingPlan({ ...sellingPlan, shippingDiscountType: value })
+            {/* Change Quantity After Orders */}
+            <Checkbox
+              label="Change product quantity after specific number of orders"
+              checked={plan.changeQuantityAfterOrders}
+              onChange={(val) =>
+                updatePlan(index, { changeQuantityAfterOrders: val })
               }
             />
-          </>
-        )}
-        {/* auntomation */}
-        <Automation sellingPlan={sellingPlan} setSellingPlan={setSellingPlan} />
+            {plan.changeQuantityAfterOrders && (
+              <>
+                <TextField
+                  label="Quantity"
+                  type="number"
+                  value={String(plan.quantityAfterOrdersValue ?? 1)}
+                  onChange={(val) =>
+                    updatePlan(index, { quantityAfterOrdersValue: Number(val) })
+                  }
+                />
+                <TextField
+                  label="After # of orders"
+                  type="number"
+                  value={String(plan.quantityAfterOrders ?? 1)}
+                  onChange={(val) =>
+                    updatePlan(index, { quantityAfterOrders: Number(val) })
+                  }
+                />
+                <Button onClick={() => handleOpenPicker("quantity", index)}>
+                  {plan.quantityProducts?.length > 0
+                    ? `Selected Products (${plan.quantityProducts.length})`
+                    : "Select Product"}
+                </Button>
+              </>
+            )}
 
-        {/* setting */}
-        <h2>Settings</h2>
-        <Checkbox
-          label="Change product quantity after specific number of orders"
-          checked={sellingPlan.changeQuantityAfterOrders}
-          onChange={(newChecked) =>
-            setSellingPlan((prev) => ({
-              ...prev,
-              changeQuantityAfterOrders: newChecked,
-            }))
-          }
-        />
-        {sellingPlan.changeQuantityAfterOrders && (
-          <>
-            <TextField
-              label="Quantity"
-              type="number"
-              value={String(sellingPlan.quantityAfterOrdersValue ?? 1)}
-              onChange={(value) =>
-                setSellingPlan({
-                  ...sellingPlan,
-                  quantityAfterOrdersValue: Number(value),
-                })
-              }
+            {/* Remove Free Products */}
+            <Checkbox
+              label="Remove free products from subscription after specific number of orders"
+              checked={plan.RemoveFreeProdcut}
+              onChange={(val) => updatePlan(index, { RemoveFreeProdcut: val })}
             />
-            <TextField
-              label="After # of orders"
-              type="number"
-              value={String(sellingPlan.quantityAfterOrders ?? 1)}
-              onChange={(value) =>
-                setSellingPlan({
-                  ...sellingPlan,
-                  quantityAfterOrders: Number(value),
-                })
-              }
-            />
+            {plan.RemoveFreeProdcut && (
+              <>
+                <TextField
+                  label="After # of orders"
+                  type="number"
+                  value={String(plan.removeFreeProductValue ?? 1)}
+                  onChange={(val) =>
+                    updatePlan(index, { removeFreeProductValue: Number(val) })
+                  }
+                />
+                <Button onClick={() => handleOpenPicker("freeProduct", index)}>
+                  {plan.freeProducts?.length > 0
+                    ? `Selected Products (${plan.freeProducts.length})`
+                    : "Select Product"}
+                </Button>
+              </>
+            )}
 
-            <Button onClick={() => handleOpenPicker("quantity")}>
-              {sellingPlan.quantityProducts?.length > 0
-                ? ` Selected Product  (${sellingPlan.quantityProducts.length})`
-                : "Select Product"}
-            </Button>
-          </>
-        )}
-        {/* set remove free prodcut */}
-        <Checkbox
-          label="Remove free products from subscription after specific number of orders"
-          checked={sellingPlan.RemoveFreeProdcut}
-          onChange={(newChecked) =>
-            setSellingPlan((prev) => ({
-              ...prev,
-              RemoveFreeProdcut: newChecked,
-            }))
-          }
-        />
-        {sellingPlan.RemoveFreeProdcut && (
-          <>
-            <TextField
-              label="After # of orders"
-              type="number"
-              value={String(sellingPlan.removeFreeProductValue ?? 1)}
-              onChange={(value) =>
-                setSellingPlan({
-                  ...sellingPlan,
-                  removeFreeProductValue: Number(value),
-                })
-              }
+            {/* Minimum Quantity */}
+            <Checkbox
+              label="Set minimum quantity for this plan"
+              checked={plan.MinimumQuanitity}
+              onChange={(val) => updatePlan(index, { MinimumQuanitity: val })}
             />
-            <Button onClick={() => handleOpenPicker("freeProduct")}>
-              {sellingPlan.freeProducts?.length > 0
-                ? ` Selected  Products (${sellingPlan.freeProducts.length})`
-                : "Select Product"}
-            </Button>
-          </>
-        )}
+            {plan.MinimumQuanitity && (
+              <TextField
+                label="Minimum quantity"
+                type="number"
+                value={String(plan.MinimumQuanitityValue ?? 1)}
+                onChange={(val) =>
+                  updatePlan(index, { MinimumQuanitityValue: Number(val) })
+                }
+              />
+            )}
+          </FormLayout>
+        </Card>
+      ))}
 
-        {/* set minimum quantity  */}
-        <Checkbox
-          label="Set minimum quantity for this plan"
-          checked={sellingPlan.MinimumQuanitity}
-          onChange={(newChecked) =>
-            setSellingPlan((prev) => ({
-              ...prev,
-              MinimumQuanitity: newChecked,
-            }))
-          }
-        />
-        {sellingPlan.MinimumQuanitity && (
-          <>
-            <TextField
-              label="After # of orders"
-              type="number"
-              value={String(sellingPlan.MinimumQuanitityValue ?? 1)}
-              onChange={(value) =>
-                setSellingPlan({
-                  ...sellingPlan,
-                  MinimumQuanitityValue: Number(value),
-                })
-              }
-            />
-          </>
-        )}
-        <Button> Add Option</Button>
-      </FormLayout>
-    </Card>
+      {/*  Naya plan add karne ka button */}
+      <div style={{ marginTop: "12px" }}>
+        <Button onClick={handleAddPlan} variant="secondary">
+          + Add Option
+        </Button>
+      </div>
+    </>
   );
 }
 

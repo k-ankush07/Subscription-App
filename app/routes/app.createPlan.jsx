@@ -7,44 +7,84 @@ export const loader = async ({ request }) => {
   return Response.json({ shop: session.shop });
 };
 
-
-
-
 export const action = async ({ request }) => {
   const { admin } = await authenticate.admin(request);
   const payload = await request.json();
-  console.log("body ,", payload);
+  console.log("body:", payload);
 
-  const sp = payload.sellingPlan;
+  //  sellingPlans array — pehle plan ya poora array
+  const sellingPlans = payload.sellingPlans || [];
 
-  // Build pricing policies
-  const pricingPolicies = [];
-
-  if (sp.giveSubscriptionDiscount) {
-    pricingPolicies.push({
-      fixed: {
-        adjustmentType: sp.discountType,
-        adjustmentValue:
-          sp.discountType === "PERCENTAGE"
-            ? { percentage: sp.discountValue }
-            : { fixedValue: sp.discountValue },
-      },
-    });
-
-    if (sp.changeDiscountAfterOrders && sp.afterOrders) {
-      pricingPolicies.push({
-        recurring: {
-          afterCycle: sp.afterOrders,
-          adjustmentType: sp.afterDiscountType ?? "PERCENTAGE",
-          adjustmentValue:
-            (sp.afterDiscountType ?? "PERCENTAGE") === "PERCENTAGE"
-              ? { percentage: sp.afterDiscountValue ?? 0 }
-              : { fixedValue: sp.afterDiscountValue ?? 0 },
-        },
-      });
-    }
+  if (sellingPlans.length === 0) {
+    return Response.json({ success: false, error: "No selling plans provided" });
   }
 
+  //  Har plan ke liye pricingPolicies build karo
+  const buildPricingPolicies = (sp) => {
+    const pricingPolicies = [];
+
+    if (sp.giveSubscriptionDiscount) {
+      pricingPolicies.push({
+        fixed: {
+          adjustmentType: sp.discountType,
+          adjustmentValue:
+            sp.discountType === "PERCENTAGE"
+              ? { percentage: sp.discountValue }
+              : { fixedValue: sp.discountValue },
+        },
+      });
+
+      if (sp.changeDiscountAfterOrders && sp.afterOrders) {
+        pricingPolicies.push({
+          recurring: {
+            afterCycle: sp.afterOrders,
+            adjustmentType: sp.afterDiscountType ?? "PERCENTAGE",
+            adjustmentValue:
+              (sp.afterDiscountType ?? "PERCENTAGE") === "PERCENTAGE"
+                ? { percentage: sp.afterDiscountValue ?? 0 }
+                : { fixedValue: sp.afterDiscountValue ?? 0 },
+          },
+        });
+      }
+    }
+
+    return pricingPolicies;
+  };
+
+  //  Saare plans ka sellingPlansToCreate array banao
+  const sellingPlansToCreate = sellingPlans.map((sp) => {
+    const pricingPolicies = buildPricingPolicies(sp);
+
+    return {
+      name: sp.name,
+      options: [`${sp.intervalCount} ${sp.interval.toLowerCase()}`],
+      category: "SUBSCRIPTION",
+
+      billingPolicy: {
+        recurring: {
+          interval: sp.interval,
+          intervalCount: sp.intervalCount,
+          ...(sp.minCycles && sp.minCycles !== "disabled"
+            ? { minCycles: sp.minCycles }
+            : {}),
+          ...(sp.maxCycles && sp.maxCycles !== "unlimited"
+            ? { maxCycles: sp.maxCycles }
+            : {}),
+        },
+      },
+
+      deliveryPolicy: {
+        recurring: {
+          interval: sp.interval,
+          intervalCount: sp.intervalCount,
+        },
+      },
+
+      ...(pricingPolicies.length > 0 ? { pricingPolicies } : {}),
+    };
+  });
+
+  //  Shopify pe selling plan group create karo — saare plans ek saath
   const createRes = await admin.graphql(
     `
     mutation sellingPlanGroupCreate($input: SellingPlanGroupInput!) {
@@ -60,44 +100,16 @@ export const action = async ({ request }) => {
           name: payload.planName,
           merchantCode: payload.planName,
           options: ["Delivery Frequency"],
-          sellingPlansToCreate: [
-            {
-              name: sp.name,
-              options: [`${sp.intervalCount} ${sp.interval.toLowerCase()}`],
-              category: "SUBSCRIPTION",
-
-              billingPolicy: {
-                recurring: {
-                  interval: sp.interval,
-                  intervalCount: sp.intervalCount,
-                  ...(sp.minCycles && sp.minCycles !== "disabled"
-                    ? { minCycles: sp.minCycles }
-                    : {}),
-                  ...(sp.maxCycles && sp.maxCycles !== "unlimited"
-                    ? { maxCycles: sp.maxCycles }
-                    : {}),
-                },
-              },
-
-              deliveryPolicy: {
-                recurring: {
-                  interval: sp.interval,
-                  intervalCount: sp.intervalCount,
-                },
-              },
-
-              ...(pricingPolicies.length > 0 ? { pricingPolicies } : {}),
-            },
-          ],
+          sellingPlansToCreate,  //  saare plans array
         },
       },
-    },
+    }
   );
 
   const createData = await createRes.json();
-  console.log("ffjwjkf", createData.data.sellingPlanGroupCreate);
-  const userErrors = createData.data.sellingPlanGroupCreate.userErrors;
+  console.log("sellingPlanGroupCreate:", createData.data.sellingPlanGroupCreate);
 
+  const userErrors = createData.data.sellingPlanGroupCreate.userErrors;
   if (userErrors?.length > 0) {
     console.log("Create userErrors:", userErrors);
     return Response.json({
@@ -110,6 +122,7 @@ export const action = async ({ request }) => {
     createData.data.sellingPlanGroupCreate.sellingPlanGroup.id;
   console.log("Shopify Group ID:", shopifyGroupId);
 
+  //  Products attach karo
   const addProductsRes = await admin.graphql(
     `
     mutation sellingPlanGroupAddProducts($id: ID!, $productIds: [ID!]!) {
@@ -124,7 +137,7 @@ export const action = async ({ request }) => {
         id: shopifyGroupId,
         productIds: payload.products.map((p) => p.id),
       },
-    },
+    }
   );
 
   const addProductsData = await addProductsRes.json();
@@ -138,51 +151,51 @@ export const action = async ({ request }) => {
       error: addProductsErrors[0].message,
     });
   }
-  // Variants bhi attach karo
-const allVariantIds = payload.products.flatMap((p) =>
-  p.variants.map((v) => v.variantsId)
-);
 
-if (allVariantIds.length > 0) {
-  const addVariantsRes = await admin.graphql(
-    `
-    mutation sellingPlanGroupAddProductVariants($id: ID!, $productVariantIds: [ID!]!) {
-      sellingPlanGroupAddProductVariants(id: $id, productVariantIds: $productVariantIds) {
-        sellingPlanGroup { id }
-        userErrors { field message }
-      }
-    }
-  `,
-    {
-      variables: {
-        id: shopifyGroupId,
-        productVariantIds: allVariantIds,
-      },
-    },
+  //  Variants attach karo
+  const allVariantIds = payload.products.flatMap((p) =>
+    p.variants.map((v) => v.variantsId)
   );
 
-  const addVariantsData = await addVariantsRes.json();
-  const addVariantsErrors =
-    addVariantsData.data.sellingPlanGroupAddProductVariants.userErrors;
+  if (allVariantIds.length > 0) {
+    const addVariantsRes = await admin.graphql(
+      `
+      mutation sellingPlanGroupAddProductVariants($id: ID!, $productVariantIds: [ID!]!) {
+        sellingPlanGroupAddProductVariants(id: $id, productVariantIds: $productVariantIds) {
+          sellingPlanGroup { id }
+          userErrors { field message }
+        }
+      }
+    `,
+      {
+        variables: {
+          id: shopifyGroupId,
+          productVariantIds: allVariantIds,
+        },
+      }
+    );
 
-  if (addVariantsErrors?.length > 0) {
-    console.log("Add Variants userErrors:", addVariantsErrors);
-    return Response.json({
-      success: false,
-      error: addVariantsErrors[0].message,
-    });
+    const addVariantsData = await addVariantsRes.json();
+    const addVariantsErrors =
+      addVariantsData.data.sellingPlanGroupAddProductVariants.userErrors;
+
+    if (addVariantsErrors?.length > 0) {
+      console.log("Add Variants userErrors:", addVariantsErrors);
+      return Response.json({
+        success: false,
+        error: addVariantsErrors[0].message,
+      });
+    }
+
+    console.log("Variants attached successfully");
   }
 
-  console.log("Variants attached successfully");
-}
-
-
-  // Selling Plan ID fetch karo
+  //  Saare plans ki IDs fetch karo — first: sellingPlans.length
   const fetchRes = await admin.graphql(
     `
-    query getSellingPlanId($id: ID!) {
+    query getSellingPlanIds($id: ID!, $first: Int!) {
       sellingPlanGroup(id: $id) {
-        sellingPlans(first: 1) {
+        sellingPlans(first: $first) {
           edges {
             node { id }
           }
@@ -190,22 +203,26 @@ if (allVariantIds.length > 0) {
       }
     }
   `,
-    { variables: { id: shopifyGroupId } }
+    { variables: { id: shopifyGroupId, first: sellingPlans.length } }
   );
 
   const fetchData = await fetchRes.json();
-  const shopifySellingPlanId =
-    fetchData.data.sellingPlanGroup.sellingPlans.edges[0]?.node?.id;
-  const shopifySellingPlanIds = 
-  fetchData.data.sellingPlanGroup.sellingPlans.edges.map(
-    (edge) => edge.node.id
-  );
 
-  console.log("Shopify Selling Plan ID:", shopifySellingPlanId);
+  //  Saari IDs array mein — har plan ki apni ID
+  const shopifySellingPlanIds =
+    fetchData.data.sellingPlanGroup.sellingPlans.edges.map(
+      (edge) => edge.node.id
+    );
 
-  return Response.json({ success: true, shopifyGroupId,shopifySellingPlanId, ...payload });
+  console.log("Shopify Selling Plan IDs:", shopifySellingPlanIds);
+
+  return Response.json({
+    success: true,
+    shopifyGroupId,
+    shopifySellingPlanIds,  
+    ...payload,
+  });
 };
-
 
 function CreatePlan() {
   const { shop } = useLoaderData();

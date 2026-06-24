@@ -22,36 +22,79 @@ export const action = async ({ request }) => {
   const payload = await request.json();
   console.log("Duplicate action payload:", payload);
 
-  const sp = payload.sellingPlan;
+  //  Step 1: sellingPlans array lo
+  const sellingPlans = payload.sellingPlans || [];
 
-  // Pricing policies
-  const pricingPolicies = [];
-
-  if (sp.giveSubscriptionDiscount) {
-    pricingPolicies.push({
-      fixed: {
-        adjustmentType: sp.discountType,
-        adjustmentValue:
-          sp.discountType === "PERCENTAGE"
-            ? { percentage: sp.discountValue }
-            : { fixedValue: sp.discountValue },
-      },
-    });
-
-    if (sp.changeDiscountAfterOrders && sp.afterOrders) {
-      pricingPolicies.push({
-        recurring: {
-          afterCycle: sp.afterOrders,
-          adjustmentType: sp.afterDiscountType ?? "PERCENTAGE",
-          adjustmentValue:
-            (sp.afterDiscountType ?? "PERCENTAGE") === "PERCENTAGE"
-              ? { percentage: sp.afterDiscountValue ?? 0 }
-              : { fixedValue: sp.afterDiscountValue ?? 0 },
-        },
-      });
-    }
+  if (sellingPlans.length === 0) {
+    return Response.json({ success: false, error: "No selling plans provided" });
   }
 
+  //  Step 2: Har plan ke liye pricingPolicies build karne ka helper
+  const buildPricingPolicies = (sp) => {
+    const pricingPolicies = [];
+
+    if (sp.giveSubscriptionDiscount) {
+      pricingPolicies.push({
+        fixed: {
+          adjustmentType: sp.discountType,
+          adjustmentValue:
+            sp.discountType === "PERCENTAGE"
+              ? { percentage: sp.discountValue }
+              : { fixedValue: sp.discountValue },
+        },
+      });
+
+      if (sp.changeDiscountAfterOrders && sp.afterOrders) {
+        pricingPolicies.push({
+          recurring: {
+            afterCycle: sp.afterOrders,
+            adjustmentType: sp.afterDiscountType ?? "PERCENTAGE",
+            adjustmentValue:
+              (sp.afterDiscountType ?? "PERCENTAGE") === "PERCENTAGE"
+                ? { percentage: sp.afterDiscountValue ?? 0 }
+                : { fixedValue: sp.afterDiscountValue ?? 0 },
+          },
+        });
+      }
+    }
+
+    return pricingPolicies;
+  };
+
+  //  Step 3: Saare plans ka sellingPlansToCreate array banao
+  // Duplicate mein saare plans NAYE honge — koi existing ID use nahi hogi
+  const sellingPlansToCreate = sellingPlans.map((sp) => {
+    const pricingPolicies = buildPricingPolicies(sp);
+    return {
+      name: sp.name,
+      options: [`${sp.intervalCount} ${sp.interval.toLowerCase()}`],
+      category: "SUBSCRIPTION",
+
+      billingPolicy: {
+        recurring: {
+          interval: sp.interval,
+          intervalCount: sp.intervalCount,
+          ...(sp.minCycles && sp.minCycles !== "disabled"
+            ? { minCycles: sp.minCycles }
+            : {}),
+          ...(sp.maxCycles && sp.maxCycles !== "unlimited"
+            ? { maxCycles: sp.maxCycles }
+            : {}),
+        },
+      },
+
+      deliveryPolicy: {
+        recurring: {
+          interval: sp.interval,
+          intervalCount: sp.intervalCount,
+        },
+      },
+
+      ...(pricingPolicies.length > 0 ? { pricingPolicies } : {}),
+    };
+  });
+
+  //  Step 4: Shopify pe naya group create karo — saare plans ek saath
   const createRes = await admin.graphql(
     `
     mutation sellingPlanGroupCreate($input: SellingPlanGroupInput!) {
@@ -67,44 +110,16 @@ export const action = async ({ request }) => {
           name: payload.planName,
           merchantCode: payload.planName,
           options: ["Delivery Frequency"],
-          sellingPlansToCreate: [
-            {
-              name: sp.name,
-              options: [`${sp.intervalCount} ${sp.interval.toLowerCase()}`],
-              category: "SUBSCRIPTION",
-
-              billingPolicy: {
-                recurring: {
-                  interval: sp.interval,
-                  intervalCount: sp.intervalCount,
-                  ...(sp.minCycles && sp.minCycles !== "disabled"
-                    ? { minCycles: sp.minCycles }
-                    : {}),
-                  ...(sp.maxCycles && sp.maxCycles !== "unlimited"
-                    ? { maxCycles: sp.maxCycles }
-                    : {}),
-                },
-              },
-
-              deliveryPolicy: {
-                recurring: {
-                  interval: sp.interval,
-                  intervalCount: sp.intervalCount,
-                },
-              },
-
-              ...(pricingPolicies.length > 0 ? { pricingPolicies } : {}),
-            },
-          ],
+          sellingPlansToCreate, //  saare plans array
         },
       },
     }
   );
 
   const createData = await createRes.json();
-  console.log("duplicate data", createData.data);
-  const userErrors = createData.data.sellingPlanGroupCreate.userErrors;
+  console.log("Duplicate create data:", createData.data);
 
+  const userErrors = createData.data.sellingPlanGroupCreate.userErrors;
   if (userErrors?.length > 0) {
     return Response.json({
       success: false,
@@ -116,6 +131,7 @@ export const action = async ({ request }) => {
     createData.data.sellingPlanGroupCreate.sellingPlanGroup.id;
   console.log("New Shopify Group ID:", shopifyGroupId);
 
+  //  Step 5: Products attach karo
   const addProductsRes = await admin.graphql(
     `
     mutation sellingPlanGroupAddProducts($id: ID!, $productIds: [ID!]!) {
@@ -144,48 +160,50 @@ export const action = async ({ request }) => {
     });
   }
 
+  //  Step 6: Variants attach karo
   const allVariantIds = payload.products.flatMap((p) =>
-  p.variants.map((v) => v.variantsId)
-);
-
-if (allVariantIds.length > 0) {
-  const addVariantsRes = await admin.graphql(
-    `
-    mutation sellingPlanGroupAddProductVariants($id: ID!, $productVariantIds: [ID!]!) {
-      sellingPlanGroupAddProductVariants(id: $id, productVariantIds: $productVariantIds) {
-        sellingPlanGroup { id }
-        userErrors { field message }
-      }
-    }
-  `,
-    {
-      variables: {
-        id: shopifyGroupId,
-        productVariantIds: allVariantIds,
-      },
-    },
+    p.variants.map((v) => v.variantsId)
   );
 
-  const addVariantsData = await addVariantsRes.json();
-  const addVariantsErrors =
-    addVariantsData.data.sellingPlanGroupAddProductVariants.userErrors;
+  if (allVariantIds.length > 0) {
+    const addVariantsRes = await admin.graphql(
+      `
+      mutation sellingPlanGroupAddProductVariants($id: ID!, $productVariantIds: [ID!]!) {
+        sellingPlanGroupAddProductVariants(id: $id, productVariantIds: $productVariantIds) {
+          sellingPlanGroup { id }
+          userErrors { field message }
+        }
+      }
+    `,
+      {
+        variables: {
+          id: shopifyGroupId,
+          productVariantIds: allVariantIds,
+        },
+      }
+    );
 
-  if (addVariantsErrors?.length > 0) {
-    console.log("Add Variants userErrors:", addVariantsErrors);
-    return Response.json({
-      success: false,
-      error: addVariantsErrors[0].message,
-    });
+    const addVariantsData = await addVariantsRes.json();
+    const addVariantsErrors =
+      addVariantsData.data.sellingPlanGroupAddProductVariants.userErrors;
+
+    if (addVariantsErrors?.length > 0) {
+      console.log("Add Variants userErrors:", addVariantsErrors);
+      return Response.json({
+        success: false,
+        error: addVariantsErrors[0].message,
+      });
+    }
+
+    console.log("Variants attached successfully");
   }
 
-  console.log("Variants attached successfully");
-}
-  // Naye group ka selling plan ID fetch karo
+  //  Step 7: Saare naye plans ki IDs fetch karo
   const fetchRes = await admin.graphql(
     `
-    query getSellingPlanId($id: ID!) {
+    query getSellingPlanIds($id: ID!, $first: Int!) {
       sellingPlanGroup(id: $id) {
-        sellingPlans(first: 1) {
+        sellingPlans(first: $first) {
           edges {
             node { id }
           }
@@ -193,22 +211,23 @@ if (allVariantIds.length > 0) {
       }
     }
   `,
-    { variables: { id: shopifyGroupId } }
+    { variables: { id: shopifyGroupId, first: sellingPlans.length } }
   );
 
   const fetchData = await fetchRes.json();
-  const shopifySellingPlanId =
-    fetchData.data.sellingPlanGroup.sellingPlans.edges[0]?.node?.id;
-//  const shopifySellingPlanIds = 
-//   fetchData.data.sellingPlanGroup.sellingPlans.edges.map(
-//     (edge) => edge.node.id
-//   );
-  console.log("Duplicate Shopify Selling Plan ID:", shopifySellingPlanId);
+
+  //  Saari IDs array mein — har plan ki apni naye ID
+  const shopifySellingPlanIds =
+    fetchData.data.sellingPlanGroup.sellingPlans.edges.map(
+      (edge) => edge.node.id
+    );
+
+  console.log("Duplicate Shopify Selling Plan IDs:", shopifySellingPlanIds);
 
   return Response.json({
     success: true,
     shopifyGroupId,
-    shopifySellingPlanId,
+    shopifySellingPlanIds, 
     ...payload,
   });
 };
