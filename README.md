@@ -251,3 +251,9 @@ gid://shopify/Shop/69853577402 SHOP ID this
 
 
 
+Today report:-
+Added a Duplicate Plan feature and an option to create a new plan.
+Added an Automation Cycle on the Plan page and store data in db.
+Add and remove sellingPlanIds from shopifyApi and our DataBase when plan remove and add.
+Time Spend - 7hr
+ https://admin.shopify.com/store/deepk-store/apps/subscription-app-238

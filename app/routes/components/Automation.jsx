@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from "react";
 import {
   BlockStack,
@@ -15,10 +14,10 @@ import {
 import { DeleteIcon } from "@shopify/polaris-icons";
 import { useAppBridge } from "@shopify/app-bridge-react";
 
-//  Styles 
+//  Styles
 const styles = {
   cycleCard: {
-    border: "1px solid var(--p-color-border)",
+    border: "1px solid black",
     borderRadius: 8,
     marginBottom: 12,
     background: "var(--p-color-bg-surface)",
@@ -29,15 +28,14 @@ const styles = {
     justifyContent: "space-between",
     alignItems: "center",
     padding: "10px 14px",
-    borderBottom: "1px solid var(--p-color-border)",
+    borderBottom: "1px solid black",
     background: "var(--p-color-bg-surface-secondary)",
   },
   actionCard: {
-    border: "1px solid var(--p-color-border)",
+    border: "1px solid black",
     borderRadius: 6,
     padding: 10,
     marginBottom: 8,
-    background: "var(--p-color-bg-surface)",
     position: "relative",
   },
   actionThumb: {
@@ -47,11 +45,10 @@ const styles = {
     borderRadius: 4,
   },
   destCard: {
-    border: "1px solid var(--p-color-border-secondary)",
+    border: "1px solid black",
     borderRadius: 6,
     padding: 8,
     marginTop: 6,
-    background: "var(--p-color-bg-surface-secondary)",
     display: "flex",
     gap: 8,
   },
@@ -63,11 +60,10 @@ const styles = {
     flexShrink: 0,
   },
   variantTag: {
-    background: "var(--p-color-bg-fill-secondary)",
     borderRadius: 4,
     padding: "2px 6px",
     fontSize: 11,
-    color: "var(--p-color-text-secondary)",
+    color: "black",
   },
   iconBtn: {
     background: "transparent",
@@ -82,7 +78,7 @@ const styles = {
     background: "transparent",
     border: "none",
     cursor: "pointer",
-    color: "var(--p-color-text-interactive)",
+    color: "black",
     fontSize: 13,
     padding: "4px 0",
     textDecoration: "underline",
@@ -97,7 +93,7 @@ const styles = {
     padding: "4px 12px",
     fontSize: 11,
     fontWeight: 600,
-    color: "var(--p-color-text-secondary)",
+    color: "black",
     textTransform: "uppercase",
     letterSpacing: "0.04em",
   },
@@ -110,7 +106,7 @@ const styles = {
   },
 };
 
-//  ActionDropdown 
+//  ActionDropdown
 function ActionDropdown({ onSelect, onClose }) {
   const ref = useRef(null);
 
@@ -152,7 +148,7 @@ function ActionDropdown({ onSelect, onClose }) {
         right: 0,
         bottom: "calc(100% + 4px)",
         background: "#FFFFFF",
-        border: "1px solid var(--p-color-border)",
+        border: "1px solid black",
         borderRadius: 8,
         zIndex: 200,
         boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
@@ -188,7 +184,7 @@ function ActionDropdown({ onSelect, onClose }) {
   );
 }
 
-//  ActionCard 
+//  ActionCard
 function ActionCard({
   action,
   onDelete,
@@ -213,7 +209,9 @@ function ActionCard({
     action.sourceVariantName || action.variantName || null;
   const displayImage = action.imageUrl || null;
 
-  const variantNames = Array.isArray(singleVariantName) ? singleVariantName : [];
+  const variantNames = Array.isArray(singleVariantName)
+    ? singleVariantName
+    : [];
 
   const subLabel =
     variantNames.length > 0
@@ -246,7 +244,6 @@ function ActionCard({
           <div
             style={{
               ...styles.actionThumb,
-              background: "var(--p-color-bg-surface-secondary)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -266,40 +263,71 @@ function ActionCard({
             </Text>
 
             {singleVariantName && typeof singleVariantName === "string" ? (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 4,
+                  marginTop: 4,
+                }}
+              >
                 <span style={styles.variantTag}>{singleVariantName}</span>
               </div>
             ) : variantNames.length > 0 ? (
               <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                 {variantNames.map((v, idx) => (
-                  <span key={idx} style={styles.variantTag}>{v}</span>
+                  <span key={idx} style={styles.variantTag}>
+                    {v}
+                  </span>
                 ))}
               </div>
             ) : null}
 
             {subLabel && (
-              <Text variant="bodySm" tone="subdued">{subLabel}</Text>
+              <Text variant="bodySm" tone="subdued">
+                {subLabel}
+              </Text>
             )}
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              marginBottom: 10,
+            }}
+          >
             <Badge tone={badgeTone}>{badgeLabel}</Badge>
           </div>
 
-          <button style={styles.iconBtn} onClick={onDelete} title="Delete action">
+          <button
+            style={styles.iconBtn}
+            onClick={onDelete}
+            title="Delete action"
+          >
             <Icon source={DeleteIcon} tone="base" />
           </button>
 
           {/* Add — quantity + discount */}
           {isAdd && (
-            <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+            <div
+              style={{
+                marginTop: 12,
+                display: "flex",
+                flexDirection: "column",
+                gap: 10,
+              }}
+            >
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <Text variant="bodySm">Quantity:</Text>
                 <div style={{ width: 80 }}>
                   <TextField
                     type="number"
                     value={String(action.quantity ?? 1)}
-                    onChange={(v) => onUpdateField("quantity", parseInt(v) || 1)}
+                    onChange={(v) =>
+                      onUpdateField("quantity", parseInt(v) || 1)
+                    }
                     autoComplete="off"
                     min={1}
                   />
@@ -319,7 +347,14 @@ function ActionCard({
               />
 
               {action.discountEnabled && (
-                <div style={{ display: "flex", gap: 8, alignItems: "flex-end", paddingLeft: 8 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 8,
+                    alignItems: "flex-end",
+                    paddingLeft: 8,
+                  }}
+                >
                   <div style={{ width: 90 }}>
                     <TextField
                       label="Amount"
@@ -349,7 +384,14 @@ function ActionCard({
 
           {/* Swap / Remove radio */}
           {(isSwap || isRemove) && !isAdd && (
-            <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
+            <div
+              style={{
+                marginTop: 10,
+                display: "flex",
+                flexDirection: "column",
+                gap: 6,
+              }}
+            >
               <label style={styles.radioLabel}>
                 <input
                   type="radio"
@@ -375,22 +417,35 @@ function ActionCard({
 
           {isRemove && !action.isVariant && (
             <Text variant="bodySm" tone="subdued">
-              This product will be removed from the subscription after the specified order.
+              This product will be removed from the subscription after the
+              specified order.
             </Text>
           )}
 
           {/* Swap destinations */}
           {isSwap && (
             <div style={{ marginTop: 10 }}>
-              <Text variant="bodySm" fontWeight="medium">Will swap to:</Text>
+              <Text variant="bodySm" fontWeight="medium">
+                Will swap to:
+              </Text>
               {action.dests && action.dests.length > 0 ? (
                 action.dests.map((dest, di) => (
                   <div key={di} style={styles.destCard}>
                     <div style={{ flex: 1 }}>
                       <Text variant="bodySm">{dest.name}</Text>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                        }}
+                      >
                         {dest.imageUrl && (
-                          <img src={dest.imageUrl} alt="" style={styles.destThumb} />
+                          <img
+                            src={dest.imageUrl}
+                            alt=""
+                            style={styles.destThumb}
+                          />
                         )}
                         <button
                           style={{ ...styles.iconBtn, marginLeft: "auto" }}
@@ -401,14 +456,34 @@ function ActionCard({
                         </button>
                       </div>
 
-                      {(dest.variantNames?.length > 0) && (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 6 }}>
+                      {dest.variantNames?.length > 0 && (
+                        <div
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 6,
+                            marginTop: 6,
+                          }}
+                        >
                           {dest.variantNames.map((variant, idx) => (
                             <div
                               key={idx}
-                              style={{ width: "100%", padding: "0px 5px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}
+                              style={{
+                                width: "100%",
+                                padding: "0px 5px",
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                gap: 8,
+                              }}
                             >
-                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 8,
+                                }}
+                              >
                                 {dest.variantImages?.[idx] && (
                                   <img
                                     src={dest.variantImages[idx]}
@@ -419,13 +494,22 @@ function ActionCard({
                                   />
                                 )}
                                 <span style={styles.variantTag}>
-                                  {typeof variant === "string" ? variant : variant.title}
+                                  {typeof variant === "string"
+                                    ? variant
+                                    : variant.title}
                                 </span>
                               </div>
                               <button
                                 type="button"
                                 onClick={() => onDeleteDestVariant(di, idx)}
-                                style={{ border: "none", background: "transparent", cursor: "pointer", padding: 0, display: "flex", alignItems: "center" }}
+                                style={{
+                                  border: "none",
+                                  background: "transparent",
+                                  cursor: "pointer",
+                                  padding: 0,
+                                  display: "flex",
+                                  alignItems: "center",
+                                }}
                               >
                                 <Icon source={DeleteIcon} tone="critical" />
                               </button>
@@ -437,7 +521,9 @@ function ActionCard({
                   </div>
                 ))
               ) : (
-                <Text variant="bodySm" tone="subdued">No swap destinations configured</Text>
+                <Text variant="bodySm" tone="subdued">
+                  No swap destinations configured
+                </Text>
               )}
               <button style={styles.linkBtn} onClick={onAddDest}>
                 + Add swap destination
@@ -450,7 +536,7 @@ function ActionCard({
   );
 }
 
-//  CycleCard 
+//  CycleCard
 function CycleCard({
   cycle,
   onDelete,
@@ -503,13 +589,18 @@ function CycleCard({
               onAddDest={() => onAddDest(ai)}
               onDeleteDest={(di) => onDeleteDest(ai, di)}
               onChangeType={(newType) => onChangeActionType(ai, newType)}
-              onUpdateField={(field, value) => onUpdateActionField(ai, field, value)}
+              onUpdateField={(field, value) =>
+                onUpdateActionField(ai, field, value)
+              }
               onDeleteDestVariant={(di, vi) => onDeleteDestVariant(ai, di, vi)}
             />
           ))}
 
           <div style={{ position: "relative", marginTop: 8 }}>
-            <button style={styles.linkBtn} onClick={() => setShowDropdown((s) => !s)}>
+            <button
+              style={styles.linkBtn}
+              onClick={() => setShowDropdown((s) => !s)}
+            >
               + Add action to this cycle
             </button>
             {showDropdown && (
@@ -528,7 +619,7 @@ function CycleCard({
   );
 }
 
-//  Normalise App Bridge selection into the internal shape 
+//  Normalise App Bridge selection into the internal shape
 // App Bridge product looks like: { id, title, images, variants: [{ id, title, image }] }
 function normaliseProductSelection(selection, { pickVariants = false } = {}) {
   if (!selection?.length) return [];
@@ -538,7 +629,8 @@ function normaliseProductSelection(selection, { pickVariants = false } = {}) {
   for (const product of selection) {
     const productId = product.id; // "gid://shopify/Product/123"
     const productTitle = product.title || "";
-    const productImage = product.images?.[0]?.originalSrc || product.images?.[0]?.src || "";
+    const productImage =
+      product.images?.[0]?.originalSrc || product.images?.[0]?.src || "";
 
     if (!pickVariants) {
       // product-level action — we don't need variant info
@@ -557,7 +649,7 @@ function normaliseProductSelection(selection, { pickVariants = false } = {}) {
       variantIds: selectedVariants.map((v) => v.id),
       variantTitles: selectedVariants.map((v) => v.title || ""),
       variantImages: selectedVariants.map(
-        (v) => v.image?.originalSrc || v.image?.src || productImage
+        (v) => v.image?.originalSrc || v.image?.src || productImage,
       ),
     });
   }
@@ -565,13 +657,18 @@ function normaliseProductSelection(selection, { pickVariants = false } = {}) {
   return results;
 }
 
-//  Main Automation Component 
+//  Main Automation Component
 function Automation({ sellingPlan, setSellingPlan }) {
   const shopify = useAppBridge();
 
   // Wrapper around shopify.resourcePicker() — same API as SellingPlan.jsx uses
   const pickProducts = ({ multiple = true, showVariants = true } = {}) =>
-    shopify.resourcePicker({ type: "product", multiple, filter: { variants: showVariants } })
+    shopify
+      .resourcePicker({
+        type: "product",
+        multiple,
+        filter: { variants: showVariants },
+      })
       .then((selection) => selection ?? null)
       .catch(() => null);
 
@@ -594,51 +691,78 @@ function Automation({ sellingPlan, setSellingPlan }) {
     setSellingPlan((prev) => ({ ...prev, automationCycles: cycles }));
   }, [cycles]);
 
-  //  Cycle / action helpers 
+  //  Cycle / action helpers
   const addToCycle = (cycleId, action) =>
     setCycles((prev) =>
       prev.map((c) =>
         c.id === cycleId
-          ? { ...c, actions: [...c.actions, { ...action, _id: Date.now() + Math.random() }] }
-          : c
-      )
+          ? {
+              ...c,
+              actions: [
+                ...c.actions,
+                { ...action, _id: Date.now() + Math.random() },
+              ],
+            }
+          : c,
+      ),
     );
 
   const addDestToCycle = (cycleId, ai, dest) =>
     setCycles((prev) =>
       prev.map((c) =>
         c.id === cycleId
-          ? { ...c, actions: c.actions.map((a, idx) => (idx === ai ? { ...a, dests: [...(a.dests || []), dest] } : a)) }
-          : c
-      )
+          ? {
+              ...c,
+              actions: c.actions.map((a, idx) =>
+                idx === ai ? { ...a, dests: [...(a.dests || []), dest] } : a,
+              ),
+            }
+          : c,
+      ),
     );
 
   const updateActionField = (cycleId, ai, field, value) =>
     setCycles((prev) =>
       prev.map((c) =>
         c.id === cycleId
-          ? { ...c, actions: c.actions.map((a, idx) => (idx === ai ? { ...a, [field]: value } : a)) }
-          : c
-      )
+          ? {
+              ...c,
+              actions: c.actions.map((a, idx) =>
+                idx === ai ? { ...a, [field]: value } : a,
+              ),
+            }
+          : c,
+      ),
     );
 
   const updateOrders = (cycleId, value) =>
-    setCycles((prev) => prev.map((c) => (c.id === cycleId ? { ...c, orders: value } : c)));
+    setCycles((prev) =>
+      prev.map((c) => (c.id === cycleId ? { ...c, orders: value } : c)),
+    );
 
   const changeActionType = (cycleId, ai, newType) =>
     setCycles((prev) =>
       prev.map((c) =>
         c.id === cycleId
-          ? { ...c, actions: c.actions.map((a, idx) => (idx === ai ? { ...a, type: newType } : a)) }
-          : c
-      )
+          ? {
+              ...c,
+              actions: c.actions.map((a, idx) =>
+                idx === ai ? { ...a, type: newType } : a,
+              ),
+            }
+          : c,
+      ),
     );
 
   const deleteAction = (cycleId, ai) =>
     setCycles((prev) =>
       prev
-        .map((c) => (c.id === cycleId ? { ...c, actions: c.actions.filter((_, i) => i !== ai) } : c))
-        .filter((c) => c.actions.length > 0)
+        .map((c) =>
+          c.id === cycleId
+            ? { ...c, actions: c.actions.filter((_, i) => i !== ai) }
+            : c,
+        )
+        .filter((c) => c.actions.length > 0),
     );
 
   const deleteCycle = (cycleId) =>
@@ -648,9 +772,16 @@ function Automation({ sellingPlan, setSellingPlan }) {
     setCycles((prev) =>
       prev.map((c) =>
         c.id === cycleId
-          ? { ...c, actions: c.actions.map((a, idx) => (idx === ai ? { ...a, dests: a.dests.filter((_, i) => i !== di) } : a)) }
-          : c
-      )
+          ? {
+              ...c,
+              actions: c.actions.map((a, idx) =>
+                idx === ai
+                  ? { ...a, dests: a.dests.filter((_, i) => i !== di) }
+                  : a,
+              ),
+            }
+          : c,
+      ),
     );
 
   const deleteDestinationVariant = (cycleId, ai, di, vi) =>
@@ -667,25 +798,36 @@ function Automation({ sellingPlan, setSellingPlan }) {
                         destIndex === di
                           ? {
                               ...dest,
-                              variantNames: (dest.variantNames || []).filter((_, i) => i !== vi),
-                              variantIds: (dest.variantIds || []).filter((_, i) => i !== vi),
-                              variantImages: (dest.variantImages || []).filter((_, i) => i !== vi),
+                              variantNames: (dest.variantNames || []).filter(
+                                (_, i) => i !== vi,
+                              ),
+                              variantIds: (dest.variantIds || []).filter(
+                                (_, i) => i !== vi,
+                              ),
+                              variantImages: (dest.variantImages || []).filter(
+                                (_, i) => i !== vi,
+                              ),
                             }
-                          : dest
+                          : dest,
                       ),
                     }
-                  : a
+                  : a,
               ),
             }
-          : c
-      )
+          : c,
+      ),
     );
 
-  //  Resource picker handlers 
+  //  Resource picker handlers
   const resolveActionType = async (actionType, cycleId, actionIdx = null) => {
     if (actionType === "swap-product") {
-      const selection = await pickProducts({ multiple: false, showVariants: false });
-      const items = normaliseProductSelection(selection, { pickVariants: false });
+      const selection = await pickProducts({
+        multiple: false,
+        showVariants: false,
+      });
+      const items = normaliseProductSelection(selection, {
+        pickVariants: false,
+      });
       if (!items.length) return;
       const item = items[0];
       addToCycle(cycleId, {
@@ -695,10 +837,14 @@ function Automation({ sellingPlan, setSellingPlan }) {
         imageUrl: item.imageUrl,
         dests: [],
       });
-
     } else if (actionType === "swap-variant") {
-      const selection = await pickProducts({ multiple: true, showVariants: true });
-      const items = normaliseProductSelection(selection, { pickVariants: true });
+      const selection = await pickProducts({
+        multiple: true,
+        showVariants: true,
+      });
+      const items = normaliseProductSelection(selection, {
+        pickVariants: true,
+      });
       items.forEach((item) => {
         (item.variantIds || []).forEach((variantId, vi) => {
           addToCycle(cycleId, {
@@ -712,10 +858,14 @@ function Automation({ sellingPlan, setSellingPlan }) {
           });
         });
       });
-
     } else if (actionType === "add-product") {
-      const selection = await pickProducts({ multiple: true, showVariants: true });
-      const items = normaliseProductSelection(selection, { pickVariants: true });
+      const selection = await pickProducts({
+        multiple: true,
+        showVariants: true,
+      });
+      const items = normaliseProductSelection(selection, {
+        pickVariants: true,
+      });
       items.forEach((item) => {
         (item.variantIds || []).forEach((variantId, vi) => {
           addToCycle(cycleId, {
@@ -732,10 +882,14 @@ function Automation({ sellingPlan, setSellingPlan }) {
           });
         });
       });
-
     } else if (actionType === "remove-product") {
-      const selection = await pickProducts({ multiple: false, showVariants: false });
-      const items = normaliseProductSelection(selection, { pickVariants: false });
+      const selection = await pickProducts({
+        multiple: false,
+        showVariants: false,
+      });
+      const items = normaliseProductSelection(selection, {
+        pickVariants: false,
+      });
       if (!items.length) return;
       const item = items[0];
       addToCycle(cycleId, {
@@ -744,10 +898,14 @@ function Automation({ sellingPlan, setSellingPlan }) {
         productName: item.productTitle,
         imageUrl: item.imageUrl,
       });
-
     } else if (actionType === "remove-variant") {
-      const selection = await pickProducts({ multiple: true, showVariants: true });
-      const items = normaliseProductSelection(selection, { pickVariants: true });
+      const selection = await pickProducts({
+        multiple: true,
+        showVariants: true,
+      });
+      const items = normaliseProductSelection(selection, {
+        pickVariants: true,
+      });
       items.forEach((item) => {
         (item.variantIds || []).forEach((variantId, vi) => {
           addToCycle(cycleId, {
@@ -760,14 +918,18 @@ function Automation({ sellingPlan, setSellingPlan }) {
           });
         });
       });
-
     } else if (actionType === "add-dest" && actionIdx !== null) {
       const cycle = cycles.find((c) => c.id === cycleId);
       const action = cycle?.actions[actionIdx];
       const isVariantSwap = !!action?.sourceVariantId;
 
-      const selection = await pickProducts({ multiple: true, showVariants: isVariantSwap });
-      const items = normaliseProductSelection(selection, { pickVariants: isVariantSwap });
+      const selection = await pickProducts({
+        multiple: true,
+        showVariants: isVariantSwap,
+      });
+      const items = normaliseProductSelection(selection, {
+        pickVariants: isVariantSwap,
+      });
 
       items.forEach((item) => {
         addDestToCycle(cycleId, actionIdx, {
@@ -790,10 +952,12 @@ function Automation({ sellingPlan, setSellingPlan }) {
     setShowMainDropdown(false);
   };
 
-  //  Render 
+  //  Render
   return (
     <BlockStack gap="300">
-      <Text as="h2" variant="headingMd">Automation</Text>
+      <Text as="h2" variant="headingMd">
+        Automation
+      </Text>
 
       <Checkbox
         label="Allow automatic actions (swap, add or remove products)"
@@ -805,7 +969,6 @@ function Automation({ sellingPlan, setSellingPlan }) {
 
       {sellingPlan.Automation && (
         <>
-
           {cycles
             .filter((cycle) => cycle.actions.length > 0)
             .map((cycle) => (
@@ -818,9 +981,15 @@ function Automation({ sellingPlan, setSellingPlan }) {
                 onDeleteAction={(ai) => deleteAction(cycle.id, ai)}
                 onAddDest={(ai) => resolveActionType("add-dest", cycle.id, ai)}
                 onDeleteDest={(ai, di) => deleteDestination(cycle.id, ai, di)}
-                onChangeActionType={(ai, newType) => changeActionType(cycle.id, ai, newType)}
-                onUpdateActionField={(ai, field, value) => updateActionField(cycle.id, ai, field, value)}
-                onDeleteDestVariant={(ai, di, vi) => deleteDestinationVariant(cycle.id, ai, di, vi)}
+                onChangeActionType={(ai, newType) =>
+                  changeActionType(cycle.id, ai, newType)
+                }
+                onUpdateActionField={(ai, field, value) =>
+                  updateActionField(cycle.id, ai, field, value)
+                }
+                onDeleteDestVariant={(ai, di, vi) =>
+                  deleteDestinationVariant(cycle.id, ai, di, vi)
+                }
               />
             ))}
 
