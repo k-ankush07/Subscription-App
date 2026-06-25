@@ -6,6 +6,7 @@ import { DuplicateIcon, DeleteIcon } from "@shopify/polaris-icons";
 
 const API = import.meta.env.VITE_API_URL;
 const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY
+console.log("keybjs", SECRET_KEY)
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;

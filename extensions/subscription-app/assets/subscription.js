@@ -1,10 +1,12 @@
 (function () {
   const shop = window.Shopify?.shop;
   SECRET_KEY = "08466sdmfbf94374nkjsnfdkyry89nfksd388934jkdsf89y389bjkkr32";
+  console.log("key", SECRET_KEY);
+  let planData = null;
   async function getData() {
     try {
       const response = await fetch(
-        `https://habitant-startling-cassette.ngrok-free.dev/plans/getAllPlans?shop=${shop}`,
+        `http://localhost:5000/plans/getAllPlans?shop=${shop}`,
         {
           headers: {
             "x-api-key": SECRET_KEY,
@@ -12,15 +14,40 @@
         },
       );
       const data = await response.json();
+      planData = data?.data?.[0];
 
-      console.log("Custom API data:", data);
+      applyMinQuantity();
+
+      console.log("Custom API data:", planData);
       return data;
     } catch (error) {
       console.error("Fetch error:", error);
     }
   }
 
-  getData().catch(err => console.error("getData failed:", err));
+  getData();
+
+
+ function applyMinQuantity() {
+  const quantityInput = document.querySelector('[name="quantity"]');
+  const currentQty = parseInt(quantityInput?.value || 1);
+  console.log("Current quantity:", currentQty);
+
+  planData?.sellingPlans?.forEach((plan, index) => {
+    console.log(`Plan ${index + 1} - ${plan.name}`);
+
+    if (plan.MinimumQuanitity === true) {
+      console.log(`MinimumQuanitityValue:`, plan.MinimumQuanitityValue);
+      // Current quantity me set karo
+      if (quantityInput) {
+        quantityInput.value = plan.MinimumQuanitityValue;
+        console.log(`Quantity setsss to:`, plan.MinimumQuanitityValue);
+      }
+    } else {
+      console.log(`MinimumQuanitity disabledsss, default value: 1`);
+    }
+  });
+}
   const widget = document.getElementById("subscription-widget");
   if (!widget) return;
 
