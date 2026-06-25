@@ -56,7 +56,8 @@ export const action = async ({ request }) => {
     const pricingPolicies = buildPricingPolicies(sp);
 
     return {
-      name: sp.name,
+      // name: sp.name ||  `Every ${sp.intervalCount} ${sp.interval.toLowerCase()}`,
+      name: sp.name?.trim() || `Every ${sp.intervalCount} ${sp.interval.toLowerCase()}`,
       options: [`${sp.intervalCount} ${sp.interval.toLowerCase()}`],
       category: "SUBSCRIPTION",
 

@@ -20,7 +20,7 @@ import { useAppBridge } from "@shopify/app-bridge-react";
 //  defaultPlan component ke bahar — stable reference, re-render pe recreate nahi hoga
 const defaultPlan = {
   shopifySellingPlanId: null,
-  name: "",
+  name: "" ,
   billingType: "PAY_AS_YOU_GO",
   intervalCount: 1,
   interval: "MONTH",
@@ -260,6 +260,14 @@ function Template({ shop, editPlandData, dublicateData }) {
 
   const saveToNodeAPI = async (payload) => {
     try {
+       const fixedSellingPlans = payload.sellingPlans.map((sp) => ({
+      ...sp,
+      name: sp.name?.trim() || `Every ${sp.intervalCount} ${sp.interval.toLowerCase()}`,
+    }));
+    const finalPayload = {
+      ...payload,
+      sellingPlans: fixedSellingPlans,
+    };
       const url = editPlandData
         ? `${API}/plans/update/${payload.planId}`
         : `${API}/plans/create`;
@@ -271,7 +279,7 @@ function Template({ shop, editPlandData, dublicateData }) {
           "Content-Type": "application/json",
           "x-api-key": SECRET_KEY,
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(finalPayload),
       });
       const data = await response.json();
       console.log("Node API response:", data);
