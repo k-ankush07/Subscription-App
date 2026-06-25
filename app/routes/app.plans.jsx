@@ -126,6 +126,7 @@ export const action = async ({ request }) => {
   const { admin } = await authenticate.admin(request);
 
   const formData = await request.formData();
+  console.log("formdata",formData)
   const planId = formData.get("planId");
 
   // 1. Shopify se delete
