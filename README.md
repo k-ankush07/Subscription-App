@@ -249,7 +249,7 @@ gid://shopify/Shop/69853577402 SHOP ID this
 
 
 https://admin.shopify.com/store/deepk-store/products/8937317761244
-link prodcut redirect
+link prodcut redirect.
 
 
 
