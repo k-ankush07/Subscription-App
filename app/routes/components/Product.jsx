@@ -8,15 +8,20 @@ import {
   Badge,
   Divider,
   InlineError,
+  Icon
 } from "@shopify/polaris";
 import React, { useState, useCallback } from "react";
+import { ViewIcon } from "@shopify/polaris-icons";
 
 function Product({
   selectedProducts,
   setSelectedProducts,
+  editPlandData,
+  shop,
   productError,
 }) {
-
+  const shopName = shop.split(".")[0];
+  console.log("shopNmae", shopName);
   const handleRemove = useCallback((productId) => {
     setSelectedProducts((prev) => prev.filter((p) => p.id !== productId));
   }, []);
@@ -56,11 +61,31 @@ function Product({
                           size="small"
                         />
                         <BlockStack gap="100">
-                          <Text as="span" variant="bodyMd" fontWeight="medium">
+                          {editPlandData ? (
+                             <>
+                             {product.title}
+                            <a
+                              href={`https://admin.shopify.com/store/${shopName}/products/${product.id.split("/").pop()}`}
+                              target="_top"
+                              style={{
+                                textDecoration: "none",
+                                color: "inherit",
+                                fontWeight: 600,
+                              }}
+                            >
+                              <Icon source={ViewIcon} tone="base" />
+                            </a>
+                             </>
+
+                          ) : (
+                            <Text fontWeight="medium">{product.title}</Text>
+                          )}
+                          {/* <Text as="span" variant="bodyMd" fontWeight="medium">
                             {product.title}
-                          </Text>
+                          </Text> */}
                           {variantLabel && (
                             <Text as="span" variant="bodySm" tone="subdued">
+                              {editPlandData ? "" : ""}
                               {variantLabel}
                             </Text>
                           )}

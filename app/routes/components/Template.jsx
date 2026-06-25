@@ -351,6 +351,8 @@ function Template({ shop, editPlandData, dublicateData }) {
                 <Product
                   selectedProducts={selectedProducts}
                   setSelectedProducts={setSelectedProducts}
+                  editPlandData={editPlandData}
+                  shop={shop}
                   productError={productError}
                 />
               {/* )} */}
