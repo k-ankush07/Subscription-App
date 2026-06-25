@@ -101,7 +101,8 @@ export const action = async ({ request }) => {
     const pricingPolicies = buildPricingPolicies(sp);
     return {
       id: sp.shopifySellingPlanId,  //  existing Shopify ID
-      name: sp.name,
+      // name: sp.name,
+      name:sp.name?.trim() || `Delivery: Every ${sp.intervalCount} ${sp.interval.toLowerCase()}`,
       options: [`${sp.intervalCount} ${sp.interval.toLowerCase()}`],
       billingPolicy: {
         recurring: {
@@ -129,7 +130,8 @@ export const action = async ({ request }) => {
   const sellingPlansToCreate = plansToCreate.map((sp) => {
     const pricingPolicies = buildPricingPolicies(sp);
     return {
-      name: sp.name,
+      // name: sp.name,
+      name: sp.name?.trim() || `Delivery: Every ${sp.intervalCount} ${sp.interval.toLowerCase()}`,
       options: [`${sp.intervalCount} ${sp.interval.toLowerCase()}`],
       category: "SUBSCRIPTION",
       billingPolicy: {

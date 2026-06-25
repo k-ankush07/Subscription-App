@@ -70,7 +70,8 @@ export const action = async ({ request }) => {
   const sellingPlansToCreate = sellingPlans.map((sp) => {
     const pricingPolicies = buildPricingPolicies(sp);
     return {
-      name: sp.name,
+      // name: sp.name,
+      name: sp.name?.trim() || `Delivery: Every ${sp.intervalCount} ${sp.interval.toLowerCase()}`,
       options: [`${sp.intervalCount} ${sp.interval.toLowerCase()}`],
       category: "SUBSCRIPTION",
 

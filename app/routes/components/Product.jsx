@@ -80,9 +80,6 @@ function Product({
                           ) : (
                             <Text fontWeight="medium">{product.title}</Text>
                           )}
-                          {/* <Text as="span" variant="bodyMd" fontWeight="medium">
-                            {product.title}
-                          </Text> */}
                           {variantLabel && (
                             <Text as="span" variant="bodySm" tone="subdued">
                               {editPlandData ? "" : ""}

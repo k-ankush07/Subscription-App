@@ -57,7 +57,7 @@ export const action = async ({ request }) => {
 
     return {
       // name: sp.name ||  `Every ${sp.intervalCount} ${sp.interval.toLowerCase()}`,
-      name: sp.name?.trim() || `Every ${sp.intervalCount} ${sp.interval.toLowerCase()}`,
+      name: sp.name?.trim() || `Delivery: Every ${sp.intervalCount} ${sp.interval.toLowerCase()}`,
       options: [`${sp.intervalCount} ${sp.interval.toLowerCase()}`],
       category: "SUBSCRIPTION",
 

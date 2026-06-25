@@ -14,16 +14,27 @@ function SellingPlan({
   setSellingPlans,
   selectedProducts,
   defaultPlan,
+    planErrors,             // add
+  validateSellingPlans,
 }) {
   const shopify = useAppBridge();
   const allowedIds = selectedProducts.map((p) => p.id);
 
   //  Kisi ek plan ko index se update karne ka helper
+  // const updatePlan = (index, updates) => {
+  //   setSellingPlans((prev) =>
+  //     prev.map((plan, i) => (i === index ? { ...plan, ...updates } : plan)),
+  //   );
+  // };
   const updatePlan = (index, updates) => {
-    setSellingPlans((prev) =>
-      prev.map((plan, i) => (i === index ? { ...plan, ...updates } : plan)),
+  setSellingPlans((prev) => {
+    const updated = prev.map((plan, i) =>
+      i === index ? { ...plan, ...updates } : plan
     );
-  };
+    validateSellingPlans(updated); // add
+    return updated;
+  });
+};
 
   //  Naya plan add karo
   const handleAddPlan = () => {
@@ -109,6 +120,7 @@ function SellingPlan({
               label="Name"
               value={plan.name}
               onChange={(value) => updatePlan(index, { name: value })}
+              error={planErrors[`name_${index}`]} 
             />
 
             {/* BILLING TYPE */}
@@ -127,6 +139,7 @@ function SellingPlan({
               onChange={(value) =>
                 updatePlan(index, { intervalCount: Number(value) })
               }
+               error={planErrors[`interval_${index}`]}
             />
 
             {/* DELIVERY INTERVAL */}

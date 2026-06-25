@@ -1,18 +1,37 @@
 
 
-(function () {
-  var widget = document.getElementById('subscription-widget');
-  if (!widget) return;
-
-  var radios = widget.querySelectorAll('input[name="purchase_type"]');
-  var plansContainer = document.getElementById('selling-plans-container');
-  var planSelect = document.getElementById('selling-plan-select');
-  var addToCartBtn = document.querySelector('[name="add"]') 
-                  || document.querySelector('.product-form__submit');
-
  
 
-  var currentSellingPlanId = null;
+(function () {
+  const shop = window.Shopify?.shop;
+SECRET_KEY="08466sdmfbf94374nkjsnfdkyry89nfksd388934jkdsf89y389bjkkr32"
+   const getData = async ()=>
+  {
+    const response= await fetch(`https://habitant-startling-cassette.ngrok-free.dev/plans/getAllPlans?shop=${shop}`,{
+  headers:{
+    "x-api-key": SECRET_KEY
+  }
+}) .then((response) => response.json())
+  .then((data) => {
+    console.log("custom API data", data);
+  })
+  .catch((err) => {
+    console.error(err);
+  });
+  }
+ 
+ getData()
+  const widget = document.getElementById('subscription-widget');
+  if (!widget) return;
+
+  const radios = widget.querySelectorAll('input[name="purchase_type"]');
+  const plansContainer = document.getElementById('selling-plans-container');
+  const planSelect = document.getElementById('selling-plan-select');
+  const addToCartBtn =
+    document.querySelector('[name="add"]') ||
+    document.querySelector('.product-form__submit');
+
+  let currentSellingPlanId = null;
 
   radios.forEach(function (radio) {
     radio.addEventListener('change', function () {
@@ -30,45 +49,42 @@
     currentSellingPlanId = this.value;
   });
 
-  // Add to cart intercept
   if (addToCartBtn) {
-    addToCartBtn.addEventListener('click', function (e) {
-      if (!currentSellingPlanId) return; // one-time — normal flow
+    addToCartBtn.addEventListener(
+      'click',
+      function (e) {
+        if (!currentSellingPlanId) return;
 
-      e.preventDefault();
-      e.stopImmediatePropagation();
+        e.preventDefault();
+        e.stopImmediatePropagation();
 
-      var form = document.querySelector('form[action="/cart/add"]');
-      var variantId = form.querySelector('[name="id"]').value;
-      var quantity = form.querySelector('[name="quantity"]')?.value || 1;
-      
+        const form = document.querySelector('form[action="/cart/add"]');
+        const variantId = form.querySelector('[name="id"]').value;
+        const quantity =
+          form.querySelector('[name="quantity"]')?.value || 1;
 
+        fetch('/cart/add.js', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: variantId,
+            quantity: parseInt(quantity),
+            selling_plan: parseInt(currentSellingPlanId),
+          }),
+        })
+          .then(function (res) {
+            return res.json();
+          })
+          .then(function (data) {
+            console.log("Cart response:", data);
 
-      fetch('/cart/add.js', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: variantId,
-          quantity: parseInt(quantity),
-          selling_plan: parseInt(currentSellingPlanId),
-        }),
-      })
-      .then(function (res) { return res.json(); })
-      .then(function (data) {
-        console.log("Cart response:", data);
-        // Cart refresh karo
-        document.dispatchEvent(new CustomEvent('cart:refresh'));
-        // window.location.reload();
-      })
-      .catch(function (err) {
-        console.error("Cart error:", err);
-      });
-    }, true); //  true = capture phase, theme se pehle chalega
+            document.dispatchEvent(new CustomEvent('cart:refresh'));
+          })
+          .catch(function (err) {
+            console.error("Cart error:", err);
+          });
+      },
+      true
+    );
   }
-
 })();
-
-
-
-
-

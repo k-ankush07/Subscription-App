@@ -53,7 +53,6 @@ const defaultPlan = {
 };
 
 
-
 function Template({ shop, editPlandData, dublicateData }) {
   const shopify = useAppBridge();
   const navigate = useNavigate();
@@ -76,6 +75,31 @@ function Template({ shop, editPlandData, dublicateData }) {
   const [sellingPlans, setSellingPlans] = useState([{ ...defaultPlan }]);
   //  Edit load hote waqt jo IDs DB mein thi — delete detect karne ke liye
   const [existingSellingPlanIds, setExistingSellingPlanIds] = useState([]);
+  const [planErrors, setPlanErrors] = useState({});
+
+const validateSellingPlans = (plans) => {
+  const newErrors = {};
+  const names = [];
+  const intervals = [];
+
+  plans.forEach((plan, index) => {
+    if (plan.name && names.includes(plan.name.trim())) {
+      newErrors[`name_${index}`] = " Plan name must be unique";
+    } else if (plan.name) {
+      names.push(plan.name.trim());
+    }
+
+    const combo = `${plan.intervalCount}_${plan.interval}`;
+    if (intervals.includes(combo)) {
+      newErrors[`interval_${index}`] = "This delivery frequency already exists";
+    } else {
+      intervals.push(combo);
+    }
+  });
+
+  setPlanErrors(newErrors);
+  return Object.keys(newErrors).length === 0;
+};
 
   //  Product picker handler
   const handleSelectProduct = useCallback(async () => {
@@ -110,6 +134,8 @@ function Template({ shop, editPlandData, dublicateData }) {
       });
     }
   }, [shopify, selectedProducts]);
+  
+
 
   //  Edit / Duplicate data load — sellingPlans array mein set karo
   useEffect(() => {
@@ -187,7 +213,7 @@ function Template({ shop, editPlandData, dublicateData }) {
     e.preventDefault();
     if (selectedProducts.length === 0) return setProductError(true);
     setProductError(false);
-
+if (!validateSellingPlans(sellingPlans)) return;
 
     const payload = {
       shop: shop || editPlandData?.shop || dublicateData?.shop,
@@ -262,7 +288,7 @@ function Template({ shop, editPlandData, dublicateData }) {
     try {
        const fixedSellingPlans = payload.sellingPlans.map((sp) => ({
       ...sp,
-      name: sp.name?.trim() || `Every ${sp.intervalCount} ${sp.interval.toLowerCase()}`,
+      name: sp.name?.trim() || `Delivery: Every ${sp.intervalCount} ${sp.interval.toLowerCase()}`,
     }));
     const finalPayload = {
       ...payload,
@@ -334,6 +360,7 @@ function Template({ shop, editPlandData, dublicateData }) {
           </Banner>
         )}
 
+
         <Card>
           <form onSubmit={handleSubmit}>
             <TextField
@@ -378,6 +405,8 @@ function Template({ shop, editPlandData, dublicateData }) {
             sellingPlans={sellingPlans}
             setSellingPlans={setSellingPlans}
             defaultPlan={defaultPlan}
+             planErrors={planErrors}              // add
+  validateSellingPlans={validateSellingPlans}
           />
 
           <Card>
