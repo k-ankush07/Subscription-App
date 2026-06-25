@@ -15,39 +15,38 @@
       );
       const data = await response.json();
       planData = data?.data?.[0];
-
       applyMinQuantity();
-
       console.log("Custom API data:", planData);
       return data;
     } catch (error) {
       console.error("Fetch error:", error);
     }
   }
-
   getData();
 
 
- function applyMinQuantity() {
+function applyMinQuantity() {
   const quantityInput = document.querySelector('[name="quantity"]');
-  const currentQty = parseInt(quantityInput?.value || 1);
-  console.log("Current quantity:", currentQty);
+  const selectedRadio = widget.querySelector('input[name="purchase_type"]:checked');
 
-  planData?.sellingPlans?.forEach((plan, index) => {
-    console.log(`Plan ${index + 1} - ${plan.name}`);
+  //  Sirf subscription me set karo
+  if (selectedRadio?.value !== "subscription") {
+    quantityInput.value = 1;
+    console.log(`One-time purchase, quantity reset to: 1`);
+    return;
+  }
 
-    if (plan.MinimumQuanitity === true) {
-      console.log(`MinimumQuanitityValue:`, plan.MinimumQuanitityValue);
-      // Current quantity me set karo
-      if (quantityInput) {
-        quantityInput.value = plan.MinimumQuanitityValue;
-        console.log(`Quantity setsss to:`, plan.MinimumQuanitityValue);
-      }
-    } else {
-      console.log(`MinimumQuanitity disabledsss, default value: 1`);
-    }
-  });
+  const defaultPlan = planData?.sellingPlans?.[0];
+
+  if (defaultPlan?.MinimumQuanitity === true) {
+    quantityInput.value = defaultPlan.MinimumQuanitityValue;
+    console.log(`Default quantity set to:`, defaultPlan.MinimumQuanitityValue);
+  } else {
+    quantityInput.value = 1;
+    console.log(`Default quantity set to: 1`);
+  }
 }
+
   const widget = document.getElementById("subscription-widget");
   if (!widget) return;
 
@@ -69,12 +68,32 @@
         plansContainer.style.display = "none";
         currentSellingPlanId = null;
       }
+       applyMinQuantity();
     });
   });
 
+  // planSelect.addEventListener("change", function () {
+  //   currentSellingPlanId = this.value;
+  // });
   planSelect.addEventListener("change", function () {
-    currentSellingPlanId = this.value;
-  });
+  currentSellingPlanId = this.value;
+  console.log("this value ",this.value)
+
+  const selectedPlan = planData?.sellingPlans?.find(
+  (plan) => plan.shopifySellingPlanId.includes(this.value)
+);
+  console.log("select plan id ",selectedPlan)
+
+  const quantityInput = document.querySelector('[name="quantity"]');
+
+  if (selectedPlan?.MinimumQuanitity === true) {
+    quantityInput.value = selectedPlan.MinimumQuanitityValue;
+    console.log(`Plan changed - Quantity set to:`, selectedPlan.MinimumQuanitityValue);
+  } else {
+    quantityInput.value = 1;
+    console.log(`Plan changed - MinimumQuanitity false, Quantity set to: 1`);
+  }
+});
 
   if (addToCartBtn) {
     addToCartBtn.addEventListener(
