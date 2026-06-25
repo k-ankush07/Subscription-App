@@ -58,6 +58,7 @@ function Template({ shop, editPlandData, dublicateData }) {
   const shopify = useAppBridge();
   const navigate = useNavigate();
   const API = import.meta.env.VITE_API_URL;
+  const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY
   const fetcher = useFetcher();
   const [toastActive, setToastActive] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
@@ -266,7 +267,10 @@ function Template({ shop, editPlandData, dublicateData }) {
 
       const response = await fetch(url, {
         method,
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "x-api-key": SECRET_KEY,
+        },
         body: JSON.stringify(payload),
       });
       const data = await response.json();

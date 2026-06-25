@@ -5,11 +5,17 @@ import { useLoaderData, useNavigate, useFetcher } from "react-router";
 import { DuplicateIcon, DeleteIcon } from "@shopify/polaris-icons";
 
 const API = import.meta.env.VITE_API_URL;
+const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY
 
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
-  const response = await fetch(`${API}/plans/getAllPlans?shop=${shop}`);
+  const response = await fetch(`${API}/plans/getAllPlans?shop=${shop}`,{
+    headers: { 
+          "x-api-key": SECRET_KEY,
+        },
+  }
+  );
 
   const data = await response.json();
   return Response.json({ plans: data.success ? data.data : [] });
