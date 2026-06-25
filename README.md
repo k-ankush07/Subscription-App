@@ -253,3 +253,12 @@ link prodcut redirect.
 
 
 
+
+Today Report:-
+Secured API by updating, getting, and deleting routes using a secret key.
+Redirect to the product view page after a plan is created. After creating a plan, the user can be redirected to that product page from the plan page.
+Automatically create a selling plan name based on delivery interval and interval count (for example: “Delivery: Every 1 Month”) if the user does not fill in a name and submits the form.
+Added validation for selling plans so that delivery frequency and name  must be unique  when multiple plans exist. (Done) 
+Working on product quantity: if quantity is set on the plan page, the product quantity should be added. The user can increase it but cannot decrease it. Still in progress.
+Time Spend- (7hr)
+https://admin.shopify.com/store/deepk-store/apps/subscription-app-238/
