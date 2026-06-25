@@ -6,16 +6,14 @@ import { DuplicateIcon, DeleteIcon } from "@shopify/polaris-icons";
 
 const API = import.meta.env.VITE_API_URL;
 const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY
-
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
   const response = await fetch(`${API}/plans/getAllPlans?shop=${shop}`,{
-    headers: { 
-          "x-api-key": SECRET_KEY,
-        },
-  }
-  );
+    headers:{
+      "x-api-key": SECRET_KEY,
+    }
+  });
 
   const data = await response.json();
   return Response.json({ plans: data.success ? data.data : [] });
@@ -157,7 +155,11 @@ export const action = async ({ request }) => {
   }
 
   // 2. Apne DB se delete
-  await fetch(`${API}/plans/${planId}`, { method: "DELETE" });
+  await fetch(`${API}/plans/${planId}`, { method: "DELETE",
+    headers:{
+      "x-api-key": SECRET_KEY,
+    }
+   });
 
   return Response.json({ success: true });
 };

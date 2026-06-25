@@ -5,11 +5,15 @@ import { useLoaderData } from "react-router";
 import Template from "./components/Template";
 
 const API = import.meta.env.VITE_API_URL;
-
+const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY
 export const loader = async ({ request, params }) => {
   const { session } = await authenticate.admin(request);
   const planId = params.planId;
-  const response = await fetch(`${API}/plans/${planId}`);
+  const response = await fetch(`${API}/plans/${planId}`,{
+    headers:{
+       "x-api-key": SECRET_KEY,
+    }
+  });
   const data = await response.json();
   return json({
     plans: data.success ? data.data : null,
