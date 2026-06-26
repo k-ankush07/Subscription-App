@@ -67,7 +67,6 @@
       );
 
     console.log("Matched Plan", matchedPlan);
-    console.log("Matched Plan", matchedPlan.MinimumQuanitity);
     if (!matchedPlan) return;
     if (matchedPlan.MinimumQuanitity) {
       let QuantityValue = document.querySelector('[name="quantity"]');
@@ -75,8 +74,6 @@
       quantityInput.value = minVal;
       quantityInput.min = minVal;
       console.log("dhjsfhs", QuantityValue);
-      QuantityValue = matchedPlan.MinimumQuanitityValue;
-      console.log("Minimum Quantity:", matchedPlan.MinimumQuanitityValue);
     }
   });
 
