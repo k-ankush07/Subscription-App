@@ -83,9 +83,9 @@
       const discountValue = matchedPlan.discountValue;
       if (discountType === "PERCENTAGE") {
         discountText = ` | Discount: ${discountValue}%.`;
-      } else if (discountType === "FIXED_AMOUNT") {
-        discountText = ` | Fixed Price: ₹${discountValue}.`;
       } else if (discountType === "PRICE") {
+        discountText = ` | Fixed Price: ₹${discountValue}.`;
+      } else if (discountType === "FIXED_AMOUNT") {
         discountText = ` | Discount: ₹${discountValue} off.`;
       }
 
@@ -95,10 +95,10 @@
         const afterOrders = matchedPlan.afterOrders;
         if (afterDiscountType === "PERCENTAGE") {
           afterOrderSubscription = ` After ${afterOrders} Orders Discount will change to ${afterDiscountValue}%.`;
-        } else if (afterDiscountType === "FIXED_AMOUNT") {
-          afterOrderSubscription = ` After ${afterOrders} Orders price will be fixed at ₹${afterDiscountValue}.`;
         } else if (afterDiscountType === "PRICE") {
-          afterOrderSubscription = ` After ${afterOrders} price will be ₹${afterDiscountValue}.`;
+          afterOrderSubscription = `After ${afterOrders} Orders price will be fixed at ₹${afterDiscountValue}.`;
+        } else if (afterDiscountType === "FIXED_AMOUNT") {
+          afterOrderSubscription = ` After ${afterOrders} Orders price will be reduce from original price ₹${afterDiscountValue}.`;
         }
       }
     }
@@ -125,9 +125,9 @@
 
       if (shippingDiscountType === "PERCENTAGE") {
         ShippingDiscount = `Delivery price will be reduced by ${shippingDiscountValue}% after ${shippingAfterOrders} Orders.`;
-      } else if (shippingDiscountType === "FIXED_AMOUNT") {
-        ShippingDiscount = `Delivery price will be fixed at ₹${shippingDiscountValue} after ${shippingAfterOrders} Orders.`;
       } else if (shippingDiscountType === "PRICE") {
+        ShippingDiscount = `Delivery price will be fixed at ₹${shippingDiscountValue} after ${shippingAfterOrders} Orders.`;
+      } else if (shippingDiscountType === "FIXED_AMOUNT") {
         ShippingDiscount = `Delivery price will be reduced by ₹${shippingDiscountValue} after ${shippingAfterOrders} Orders.`;
       }
     }

@@ -271,8 +271,8 @@ function SellingPlan({
                       label="Discount type"
                       options={[
                         { label: "Percentage off", value: "PERCENTAGE" },
-                        { label: "Amount off", value: "PRICE" },
-                        { label: "Fixed price", value: "FIXED_AMOUNT" },
+                        { label: "Amount off", value: "FIXED_AMOUNT" },
+                        { label: "Fixed price", value: "PRICE" },
                       ]}
                       value={plan.afterDiscountType ?? "PERCENTAGE"}
                       onChange={(val) =>
