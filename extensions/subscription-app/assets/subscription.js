@@ -33,7 +33,6 @@
   const addToCartBtn =
     document.querySelector('[name="add"]') ||
     document.querySelector(".product-form__submit");
-
   let currentSellingPlanId = null;
 
   radios.forEach(function (radio) {
@@ -49,7 +48,7 @@
         plansContainer.style.display = "none";
         currentSellingPlanId = null;
         // One-time select hone par quantity reset karo
-        const quantityInput = document.querySelector('[name="quantity"]');
+        planSelect.selectedIndex = 0;
         quantityInput.value = 1;
         quantityInput.min = 1;
       }
@@ -69,11 +68,12 @@
     console.log("Matched Plan", matchedPlan);
     if (!matchedPlan) return;
     if (matchedPlan.MinimumQuanitity) {
-      let QuantityValue = document.querySelector('[name="quantity"]');
       const minVal = matchedPlan.MinimumQuanitityValue;
       quantityInput.value = minVal;
       quantityInput.min = minVal;
-      console.log("dhjsfhs", QuantityValue);
+    } else {
+      quantityInput.value = 1;
+      quantityInput.min = 1;
     }
   });
 
