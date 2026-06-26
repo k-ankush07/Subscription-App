@@ -76,25 +76,31 @@
     const DeliveryInterval = matchedPlan.interval;
 
     let discountText = "";
-    let afterOrderSubscription="";
+    let afterOrderSubscription = "";
+
     if (matchedPlan.giveSubscriptionDiscount) {
       const discountType = matchedPlan.discountType;
       const discountValue = matchedPlan.discountValue;
-      discountText =
-        discountType === "PERCENTAGE"
-          ? ` | Discount: ${discountValue}%.`
-          : ` | Discount: ₹${discountValue}.`;
-    }
-    if(matchedPlan.changeDiscountAfterOrders){
-      const afterDiscountType= matchedPlan.afterDiscountType
-      const afterDiscountValue= matchedPlan.afterDiscountValue
-      const afterOrders =  matchedPlan.afterOrders
+      if (discountType === "PERCENTAGE") {
+        discountText = ` | Discount: ${discountValue}%.`;
+      } else if (discountType === "FIXED_PRICE") {
+        discountText = ` | Fixed Price: ₹${discountValue}.`;
+      } else if (discountType === "AMOUNT") {
+        discountText = ` | Discount: ₹${discountValue} off.`;
+      }
 
-
-      afterOrderSubscription= 
-      afterDiscountType==="PERCENTAGE"
-      ? `After  ${afterOrders} Orders Discount will change to ${afterDiscountValue}%.`
-      : `After ${afterOrders} Orders Discount will change to  ₹${afterDiscountValue}.`
+      if (matchedPlan.changeDiscountAfterOrders) {
+        const afterDiscountType = matchedPlan.afterDiscountType;
+        const afterDiscountValue = matchedPlan.afterDiscountValue;
+        const afterOrders = matchedPlan.afterOrders;
+        if (afterDiscountType === "PERCENTAGE") {
+          afterOrderSubscription = ` After ${afterOrders} Orders Discount will change to ${afterDiscountValue}%.`;
+        } else if (afterDiscountType === "FIXED_PRICE") {
+          afterOrderSubscription = ` After ${afterOrders} Orders price will be fixed at ₹${afterDiscountValue}.`;
+        } else if (afterDiscountType === "AMOUNT") {
+          afterOrderSubscription = ` After ${afterOrders} Orders ₹${afterDiscountValue} will be deducted from price.`;
+        }
+      }
     }
 
     let MinCycle = null;
@@ -111,15 +117,19 @@
         BothCombine = `Subscription will cancel automatically after ${MaxCycle} Orders.`;
       }
     }
-    const ShippingDiscount="";
-    if(matchedPlan.giveShippingDiscount){
-      let shippingDiscountType= matchedPlan.shippingDiscountType;
-      let shippingDiscountValue = matchedPlan.shippingDiscountValue;
-      let shippingAfterOrders= matchedPlan.shippingAfterOrders;
-      ShippingDiscount= 
-      shippingDiscountType==="PERCENTAGE"
-      ?`Delivery price will be reduce by ${shippingDiscountValue}% after ${shippingAfterOrders} Orders .`
-      : ` Delivery price will be reduce by ₹${shippingDiscountValue} after ${ shippingAfterOrders} Orders.`
+    let ShippingDiscount = "";
+    if (matchedPlan.giveShippingDiscount) {
+      const shippingDiscountType = matchedPlan.shippingDiscountType;
+      const shippingDiscountValue = matchedPlan.shippingDiscountValue;
+      const shippingAfterOrders = matchedPlan.shippingAfterOrders;
+
+      if (shippingDiscountType === "PERCENTAGE") {
+        ShippingDiscount = `Delivery price will be reduced by ${shippingDiscountValue}% after ${shippingAfterOrders} Orders.`;
+      } else if (shippingDiscountType === "FIXED_PRICE") {
+        ShippingDiscount = `Delivery price will be fixed at ₹${shippingDiscountValue} after ${shippingAfterOrders} Orders.`;
+      } else if (shippingDiscountType === "AMOUNT") {
+        ShippingDiscount = `Delivery price will be reduced by ₹${shippingDiscountValue} after ${shippingAfterOrders} Orders.`;
+      }
     }
 
     if (Subscription_innerText) {
