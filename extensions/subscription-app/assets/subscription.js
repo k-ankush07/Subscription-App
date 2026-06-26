@@ -41,9 +41,17 @@
       console.log("Radio Changed:", this.value);
       if (this.value === "subscription") {
         plansContainer.style.display = "block";
+        //Pehli baar subscription select hone par default plan apply karo
+        if (planSelect.value) {
+          planSelect.dispatchEvent(new Event("change"));
+        }
       } else {
         plansContainer.style.display = "none";
         currentSellingPlanId = null;
+        // One-time select hone par quantity reset karo
+        const quantityInput = document.querySelector('[name="quantity"]');
+        quantityInput.value = 1;
+        quantityInput.min = 1;
       }
     });
   });
@@ -60,12 +68,17 @@
 
     console.log("Matched Plan", matchedPlan);
     console.log("Matched Plan", matchedPlan.MinimumQuanitity);
-      if (!matchedPlan) return;
-  if (matchedPlan.MinimumQuanitity) {
-    console.log("Minimum Quantity:", matchedPlan.MinimumQuanitityValue);
-}
+    if (!matchedPlan) return;
+    if (matchedPlan.MinimumQuanitity) {
+      let QuantityValue = document.querySelector('[name="quantity"]');
+      const minVal = matchedPlan.MinimumQuanitityValue;
+      quantityInput.value = minVal;
+      quantityInput.min = minVal;
+      console.log("dhjsfhs", QuantityValue);
+      QuantityValue = matchedPlan.MinimumQuanitityValue;
+      console.log("Minimum Quantity:", matchedPlan.MinimumQuanitityValue);
+    }
   });
-
 
   if (addToCartBtn) {
     addToCartBtn.addEventListener(
