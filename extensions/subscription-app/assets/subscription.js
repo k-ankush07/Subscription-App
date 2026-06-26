@@ -51,15 +51,20 @@
   planSelect.addEventListener("change", function () {
     currentSellingPlanId = this.value;
     console.log("idss",currentSellingPlanId)
-    console.log("dnnksdkdksndk",allData)
-     const matchedPlan = allData.find(group =>
+   const matchedGroup = allData.find(group =>
         group.sellingPlans.some(plan =>
             plan.shopifySellingPlanId.split("/").pop() === currentSellingPlanId
         )
     );
 
-    console.log("Matched Group:", matchedPlan);
-  });
+    if (!matchedGroup) return;
+
+    const matchedPlan = matchedGroup.sellingPlans.find(
+        plan => plan.shopifySellingPlanId.split("/").pop() === currentSellingPlanId
+    );
+
+    console.log("Matched Group:", matchedGroup);
+    console.log("Matched Plan:", matchedPlan);
 
   if (addToCartBtn) {
     addToCartBtn.addEventListener(
