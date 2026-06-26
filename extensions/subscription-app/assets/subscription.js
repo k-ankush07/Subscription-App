@@ -1,7 +1,7 @@
 (function () {
   const shop = window.Shopify?.shop;
   SECRET_KEY = "08466sdmfbf94374nkjsnfdkyry89nfksd388934jkdsf89y389bjkkr32"
-  console.log("key", SECRET_KEY)
+  let allData= null;
   async function getData() {
     try {
       const response = await fetch(
@@ -13,6 +13,7 @@
         },
       );
       const data = await response.json();
+      allData= data.data
 
       console.log("Custom API data:", data);
       return data;
@@ -20,7 +21,7 @@
       console.error("Fetch error:", error);
     }
   }
-
+  console.log("data from api",allData)
   getData();
   const widget = document.getElementById("subscription-widget");
   if (!widget) return;
