@@ -52,6 +52,13 @@
     currentSellingPlanId = this.value;
     console.log("idss",currentSellingPlanId)
     console.log("dnnksdkdksndk",allData)
+     const matchedPlan = allData.find(group =>
+        group.sellingPlans.some(plan =>
+            plan.shopifySellingPlanId.split("/").pop() === currentSellingPlanId
+        )
+    );
+
+    console.log("Matched Group:", matchedPlan);
   });
 
   if (addToCartBtn) {
