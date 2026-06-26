@@ -254,10 +254,4 @@ link prodcut redirect.
 
 
 
-Today Report -:
-Display the product quantity based on the selected plan.
-If there are multiple plans with different minimum quantities, update the quantity automatically when the selected plan changes (onChange).
-Also, display the following details on the product widget using the custom API:
-Minimum quantity,Maximum quantity,Delivery month,Delivery count,Subscription discount,Post-order subscription discount,Shipping discount.
-Time Spend - (7hr)
-https://admin.shopify.com/store/deepk-store/apps/subscription-app-238/
+
