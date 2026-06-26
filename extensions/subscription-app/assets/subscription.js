@@ -30,7 +30,9 @@
   const radios = widget.querySelectorAll('input[name="purchase_type"]');
   const plansContainer = document.getElementById("selling-plans-container");
   const planSelect = document.getElementById("selling-plan-select");
-  const Subscription_innerText = document.getElementsByClassName("Subscription_innerText",)[0];
+  const Subscription_innerText = document.getElementsByClassName(
+    "Subscription_innerText",
+  )[0];
   const addToCartBtn =
     document.querySelector('[name="add"]') ||
     document.querySelector(".product-form__submit");
@@ -79,12 +81,27 @@
       const discountValue = matchedPlan.discountValue;
       discountText =
         discountType === "PERCENTAGE"
-          ? ` | Discount: ${discountValue}%`
-          : ` | Discount: ₹${discountValue}`;
+          ? ` | Discount: ${discountValue}%.`
+          : ` | Discount: ₹${discountValue}.`;
+    }
+
+    let MinCycle = null;
+    let MaxCycle = null;
+    let BothCombine = "";
+    if (matchedPlan.minCycles !== null || matchedPlan.maxCycles !== null) {
+      MinCycle = matchedPlan.minCycles;
+      MaxCycle = matchedPlan.maxCycles;
+      if (MinCycle && MaxCycle) {
+        BothCombine = ` You will be able to cancel your subscription after ${MinCycle} Orders. Subscription will cancel automatically after  ${MaxCycle} Orders`;
+      } else if (MinCycle) {
+        BothCombine = ` | You can cancel after ${MinCycle} Orders.`;
+      } else if (MaxCycle) {
+        BothCombine = ` | Subscription auto-cancels after ${MaxCycle} Orders.`;
+      }
     }
 
     if (Subscription_innerText) {
-      Subscription_innerText.textContent = `Delivery: Every ${DeliveryCount} ${DeliveryInterval}${discountText}`;
+      Subscription_innerText.textContent = `Delivery: Every ${DeliveryCount} ${DeliveryInterval} ${discountText} ${BothCombine} `;
     }
 
     if (matchedPlan.MinimumQuanitity) {
