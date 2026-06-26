@@ -13,19 +13,20 @@
         },
       );
       const data = await response.json();
-      allData= data.data
+      allData= data.data;
 
       console.log("Custom API data:", data);
+      console.log("data from api",allData)
       return data;
     } catch (error) {
       console.error("Fetch error:", error);
     }
   }
-  console.log("data from api",allData)
   getData();
+
   const widget = document.getElementById("subscription-widget");
   if (!widget) return;
-
+  const quantityInput = document.querySelector('[name="quantity"]');
   const radios = widget.querySelectorAll('input[name="purchase_type"]');
   const plansContainer = document.getElementById("selling-plans-container");
   const planSelect = document.getElementById("selling-plan-select");
@@ -39,7 +40,7 @@
     radio.addEventListener("change", function () {
       if (this.value === "subscription") {
         plansContainer.style.display = "block";
-        currentSellingPlanId = planSelect.value;
+
       } else {
         plansContainer.style.display = "none";
         currentSellingPlanId = null;
@@ -49,6 +50,8 @@
 
   planSelect.addEventListener("change", function () {
     currentSellingPlanId = this.value;
+    console.log("idss",currentSellingPlanId)
+    console.log("dnnksdkdksndk",allData)
   });
 
   if (addToCartBtn) {
