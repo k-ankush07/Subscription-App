@@ -93,8 +93,8 @@
 
       afterOrderSubscription= 
       afterDiscountType==="PERCENTAGE"
-      ? `After Orders ${afterOrders} Discount will change to ${afterDiscountValue}%`
-      : `After Orders ${afterOrders} Discount will change to  ₹${afterDiscountValue}`
+      ? `After  ${afterOrders} Orders Discount will change to ${afterDiscountValue}%.`
+      : `After ${afterOrders} Orders Discount will change to  ₹${afterDiscountValue}.`
     }
 
     let MinCycle = null;
@@ -111,9 +111,19 @@
         BothCombine = `Subscription will cancel automatically after ${MaxCycle} Orders.`;
       }
     }
+    const ShippingDiscount="";
+    if(matchedPlan.giveShippingDiscount){
+      let shippingDiscountType= matchedPlan.shippingDiscountType;
+      let shippingDiscountValue = matchedPlan.shippingDiscountValue;
+      let shippingAfterOrders= matchedPlan.shippingAfterOrders;
+      ShippingDiscount= 
+      shippingDiscountType==="PERCENTAGE"
+      ?`Delivery price will be reduce by ${shippingDiscountValue}% after ${shippingAfterOrders} Orders .`
+      : ` Delivery price will be reduce by ₹${shippingDiscountValue} after ${ shippingAfterOrders} Orders.`
+    }
 
     if (Subscription_innerText) {
-      Subscription_innerText.textContent = `Delivery: Every ${DeliveryCount} ${DeliveryInterval}. ${discountText} ${afterOrderSubscription} ${BothCombine} `;
+      Subscription_innerText.textContent = `Delivery: Every ${DeliveryCount} ${DeliveryInterval}. ${discountText} ${afterOrderSubscription} ${BothCombine} ${ShippingDiscount} `;
     }
 
     if (matchedPlan.MinimumQuanitity) {
