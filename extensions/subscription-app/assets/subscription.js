@@ -76,6 +76,7 @@
     const DeliveryInterval = matchedPlan.interval;
 
     let discountText = "";
+    let afterOrderSubscription="";
     if (matchedPlan.giveSubscriptionDiscount) {
       const discountType = matchedPlan.discountType;
       const discountValue = matchedPlan.discountValue;
@@ -83,6 +84,17 @@
         discountType === "PERCENTAGE"
           ? ` | Discount: ${discountValue}%.`
           : ` | Discount: ₹${discountValue}.`;
+    }
+    if(matchedPlan.changeDiscountAfterOrders){
+      const afterDiscountType= matchedPlan.afterDiscountType
+      const afterDiscountValue= matchedPlan.afterDiscountValue
+      const afterOrders =  matchedPlan.afterOrders
+
+
+      afterOrderSubscription= 
+      afterDiscountType==="PERCENTAGE"
+      ? `After Orders ${afterOrders} Discount will change to ${afterDiscountValue}%`
+      : `After Orders ${afterOrders} Discount will change to  ₹${afterDiscountValue}`
     }
 
     let MinCycle = null;
@@ -92,16 +104,16 @@
       MinCycle = matchedPlan.minCycles;
       MaxCycle = matchedPlan.maxCycles;
       if (MinCycle && MaxCycle) {
-        BothCombine = ` You will be able to cancel your subscription after ${MinCycle} Orders. Subscription will cancel automatically after  ${MaxCycle} Orders`;
+        BothCombine = ` You will be able to cancel your subscription after ${MinCycle} Orders. Subscription will cancel automatically after  ${MaxCycle} Orders.`;
       } else if (MinCycle) {
-        BothCombine = ` | You can cancel after ${MinCycle} Orders.`;
+        BothCombine = `You can cancel Subscription after ${MinCycle} Orders.`;
       } else if (MaxCycle) {
-        BothCombine = ` | Subscription auto-cancels after ${MaxCycle} Orders.`;
+        BothCombine = `Subscription will cancel automatically after ${MaxCycle} Orders.`;
       }
     }
 
     if (Subscription_innerText) {
-      Subscription_innerText.textContent = `Delivery: Every ${DeliveryCount} ${DeliveryInterval} ${discountText} ${BothCombine} `;
+      Subscription_innerText.textContent = `Delivery: Every ${DeliveryCount} ${DeliveryInterval}. ${discountText} ${afterOrderSubscription} ${BothCombine} `;
     }
 
     if (matchedPlan.MinimumQuanitity) {
