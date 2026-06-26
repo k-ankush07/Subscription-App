@@ -58,6 +58,13 @@
             plan.shopifySellingPlanId.split("/").pop() === currentSellingPlanId
         )
     );
+    const matchedPlan = allData
+    .flatMap(group => group.sellingPlans)
+    .find(plan =>
+        plan.shopifySellingPlanId.split("/").pop() === currentSellingPlanId
+    );
+
+console.log( "Matched Plan",matchedPlan);
 
     console.log("Matched Group:", matchedPlan);
   });
