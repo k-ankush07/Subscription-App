@@ -38,6 +38,7 @@
 
   radios.forEach(function (radio) {
     radio.addEventListener("change", function () {
+      console.log("Radio Changed:", this.value);
       if (this.value === "subscription") {
         plansContainer.style.display = "block";
 
@@ -51,20 +52,15 @@
   planSelect.addEventListener("change", function () {
     currentSellingPlanId = this.value;
     console.log("idss",currentSellingPlanId)
-   const matchedGroup = allData.find(group =>
+    console.log("dnnksdkdksndk",allData)
+     const matchedPlan = allData.find(group =>
         group.sellingPlans.some(plan =>
             plan.shopifySellingPlanId.split("/").pop() === currentSellingPlanId
         )
     );
 
-    if (!matchedGroup) return;
-
-    const matchedPlan = matchedGroup.sellingPlans.find(
-        plan => plan.shopifySellingPlanId.split("/").pop() === currentSellingPlanId
-    );
-
-    console.log("Matched Group:", matchedGroup);
-    console.log("Matched Plan:", matchedPlan);
+    console.log("Matched Group:", matchedPlan);
+  });
 
   if (addToCartBtn) {
     addToCartBtn.addEventListener(
