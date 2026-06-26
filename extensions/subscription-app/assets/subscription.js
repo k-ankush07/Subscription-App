@@ -30,8 +30,8 @@
   const radios = widget.querySelectorAll('input[name="purchase_type"]');
   const plansContainer = document.getElementById("selling-plans-container");
   const planSelect = document.getElementById("selling-plan-select");
-  const subscriptionOuter= document.getElementsByClassName('subscription_Outer')
-  console.log("ffhbhcbsjcbjs",subscriptionOuter)
+  const Subscription_innerText= document.getElementsByClassName('Subscription_innerText')
+  console.log("ffhbhcbsjcbjs",Subscription_innerText)
   const addToCartBtn =
     document.querySelector('[name="add"]') ||
     document.querySelector(".product-form__submit");
@@ -70,6 +70,12 @@
 
     console.log("Matched Plan", matchedPlan);
     if (!matchedPlan) return;
+    if( Subscription_innerText){
+      const DeliveryCount= matchedPlan.intervalCount;
+      const DeliveryInterval = matchedPlan.interval;
+      Subscription_innerText.textContent= `${DeliveryCount} and ${DeliveryInterval}`
+    }
+
     if (matchedPlan.MinimumQuanitity) {
       const minVal = matchedPlan.MinimumQuanitityValue;
       quantityInput.value = minVal;
