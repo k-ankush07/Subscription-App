@@ -30,7 +30,7 @@
   const radios = widget.querySelectorAll('input[name="purchase_type"]');
   const plansContainer = document.getElementById("selling-plans-container");
   const planSelect = document.getElementById("selling-plan-select");
-  const Subscription_innerText= document.getElementsByClassName('Subscription_innerText')
+  const Subscription_innerText= document.getElementsByClassName('Subscription_innerText')[0]
   console.log("ffhbhcbsjcbjs",Subscription_innerText)
   const addToCartBtn =
     document.querySelector('[name="add"]') ||
@@ -42,6 +42,7 @@
       console.log("Radio Changed:", this.value);
       if (this.value === "subscription") {
         plansContainer.style.display = "block";
+        Subscription_innerText.style.display = "block";
         //Pehli baar subscription select hone par default plan apply karo
         if (planSelect.value) {
           planSelect.dispatchEvent(new Event("change"));
@@ -54,6 +55,7 @@
         quantityInput.value = 1;
         quantityInput.min = 1;
         quantityInput.setAttribute("data-min", 1);
+         Subscription_innerText.style.display = "none";
       }
     });
   });
@@ -70,10 +72,10 @@
 
     console.log("Matched Plan", matchedPlan);
     if (!matchedPlan) return;
-    if( Subscription_innerText){
+    if(Subscription_innerText){
       const DeliveryCount= matchedPlan.intervalCount;
       const DeliveryInterval = matchedPlan.interval;
-      Subscription_innerText.textContent= `${DeliveryCount} and ${DeliveryInterval}`
+      Subscription_innerText.textContent= `Delievry: Every ${DeliveryCount} ${DeliveryInterval}`
     }
 
     if (matchedPlan.MinimumQuanitity) {
