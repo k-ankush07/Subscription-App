@@ -1,7 +1,7 @@
 (function () {
   const shop = window.Shopify?.shop;
-  SECRET_KEY = "08466sdmfbf94374nkjsnfdkyry89nfksd388934jkdsf89y389bjkkr32"
-  let allData= null;
+  SECRET_KEY = "08466sdmfbf94374nkjsnfdkyry89nfksd388934jkdsf89y389bjkkr32";
+  let allData = null;
   async function getData() {
     try {
       const response = await fetch(
@@ -13,10 +13,10 @@
         },
       );
       const data = await response.json();
-      allData= data.data;
+      allData = data.data;
 
       console.log("Custom API data:", data);
-      console.log("data from api",allData)
+      console.log("data from api", allData);
       return data;
     } catch (error) {
       console.error("Fetch error:", error);
@@ -41,7 +41,6 @@
       console.log("Radio Changed:", this.value);
       if (this.value === "subscription") {
         plansContainer.style.display = "block";
-
       } else {
         plansContainer.style.display = "none";
         currentSellingPlanId = null;
@@ -51,23 +50,20 @@
 
   planSelect.addEventListener("change", function () {
     currentSellingPlanId = this.value;
-    console.log("idss",currentSellingPlanId)
-    console.log("dnnksdkdksndk",allData)
-     const matchedPlan = allData.find(group =>
-        group.sellingPlans.some(plan =>
-            plan.shopifySellingPlanId.split("/").pop() === currentSellingPlanId
-        )
-    );
+    console.log("idss", currentSellingPlanId);
     const matchedPlan = allData
-    .flatMap(group => group.sellingPlans)
-    .find(plan =>
-        plan.shopifySellingPlanId.split("/").pop() === currentSellingPlanId
-    );
+      .flatMap((group) => group.sellingPlans)
+      .find(
+        (plan) =>
+          plan.shopifySellingPlanId.split("/").pop() === currentSellingPlanId,
+      );
 
-console.log( "Matched Plan",matchedPlan);
-
-    console.log("Matched Group:", matchedPlan);
+    console.log("Matched Plan", matchedPlan);
   });
+  if (!matchedPlan) return;
+  if (matchedPlan.MinimumQuanitity) {
+    console.log("Minimum Quantity:", matchedPlan.MinimumQuanitityValue);
+}
 
   if (addToCartBtn) {
     addToCartBtn.addEventListener(
@@ -107,4 +103,3 @@ console.log( "Matched Plan",matchedPlan);
     );
   }
 })();
-
