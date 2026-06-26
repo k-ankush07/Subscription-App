@@ -30,10 +30,7 @@
   const radios = widget.querySelectorAll('input[name="purchase_type"]');
   const plansContainer = document.getElementById("selling-plans-container");
   const planSelect = document.getElementById("selling-plan-select");
-  const Subscription_innerText = document.getElementsByClassName(
-    "Subscription_innerText",
-  )[0];
-  console.log("ffhbhcbsjcbjs", Subscription_innerText);
+  const Subscription_innerText = document.getElementsByClassName("Subscription_innerText",)[0];
   const addToCartBtn =
     document.querySelector('[name="add"]') ||
     document.querySelector(".product-form__submit");
@@ -41,11 +38,9 @@
 
   radios.forEach(function (radio) {
     radio.addEventListener("change", function () {
-      console.log("Radio Changed:", this.value);
       if (this.value === "subscription") {
         plansContainer.style.display = "block";
         Subscription_innerText.style.display = "block";
-        subscription_discount.style.display = "block";
         //Pehli baar subscription select hone par default plan apply karo
         if (planSelect.value) {
           planSelect.dispatchEvent(new Event("change"));
@@ -59,7 +54,6 @@
         quantityInput.min = 1;
         quantityInput.setAttribute("data-min", 1);
         Subscription_innerText.style.display = "none";
-        subscription_discount.style.display = "none";
       }
     });
   });
@@ -76,26 +70,21 @@
 
     console.log("Matched Plan", matchedPlan);
     if (!matchedPlan) return;
-    if (Subscription_innerText) {
-      const DeliveryCount = matchedPlan.intervalCount;
-      const DeliveryInterval = matchedPlan.interval;
-      Subscription_innerText.textContent = `Subscription Details => Delievry: Every ${DeliveryCount} ${DeliveryInterval}`;
-    }
+    const DeliveryCount = matchedPlan.intervalCount;
+    const DeliveryInterval = matchedPlan.interval;
+
+    let discountText = "";
     if (matchedPlan.giveSubscriptionDiscount) {
-      const subscription_discount = document.getElementsByClassName(
-        "subscription_discount",
-      )[0];
       const discountType = matchedPlan.discountType;
       const discountValue = matchedPlan.discountValue;
+      discountText =
+        discountType === "PERCENTAGE"
+          ? ` | Discount: ${discountValue}%`
+          : ` | Discount: ₹${discountValue}`;
+    }
 
-      let discountText = "";
-      if (discountType === "PERCENTAGE") {
-        discountText = `${discountValue}%`;
-      } else {
-        discountText = `₹${discountValue}`;
-      }
-
-      subscription_discount.textContent = discountText;
+    if (Subscription_innerText) {
+      Subscription_innerText.textContent = `Delivery: Every ${DeliveryCount} ${DeliveryInterval}${discountText}`;
     }
 
     if (matchedPlan.MinimumQuanitity) {
