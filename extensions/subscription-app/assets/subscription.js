@@ -53,6 +53,7 @@
         planSelect.selectedIndex = 0;
         quantityInput.value = 1;
         quantityInput.min = 1;
+        quantityInput.setAttribute("data-min", 1);
       }
     });
   });
@@ -73,9 +74,11 @@
       const minVal = matchedPlan.MinimumQuanitityValue;
       quantityInput.value = minVal;
       quantityInput.min = minVal;
+      quantityInput.setAttribute("data-min", minVal);
     } else {
       quantityInput.value = 1;
       quantityInput.min = 1;
+      quantityInput.setAttribute("data-min", 1);
     }
   });
 
