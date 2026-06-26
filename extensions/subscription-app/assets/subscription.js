@@ -98,7 +98,7 @@
         } else if (afterDiscountType === "FIXED_AMOUNT") {
           afterOrderSubscription = ` After ${afterOrders} Orders price will be fixed at ₹${afterDiscountValue}.`;
         } else if (afterDiscountType === "PRICE") {
-          afterOrderSubscription = ` After ${afterOrders} Orders ₹${afterDiscountValue} will be deducted from price.`;
+          afterOrderSubscription = ` After ${afterOrders} price will be ₹${afterDiscountValue}.`;
         }
       }
     }
