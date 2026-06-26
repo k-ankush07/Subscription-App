@@ -59,11 +59,13 @@
       );
 
     console.log("Matched Plan", matchedPlan);
-  });
-  if (!matchedPlan) return;
+    console.log("Matched Plan", matchedPlan.MinimumQuanitity);
+      if (!matchedPlan) return;
   if (matchedPlan.MinimumQuanitity) {
     console.log("Minimum Quantity:", matchedPlan.MinimumQuanitityValue);
 }
+  });
+
 
   if (addToCartBtn) {
     addToCartBtn.addEventListener(
