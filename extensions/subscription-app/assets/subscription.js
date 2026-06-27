@@ -14,15 +14,13 @@
       );
       const data = await response.json();
       allData = data.data;
-
-      console.log("Custom API data:", data);
+      updateWidgetVisibility();
       console.log("data from api", allData);
       return data;
     } catch (error) {
       console.error("Fetch error:", error);
     }
   }
-  getData();
 
   const widget = document.getElementById("subscription-widget");
   if (!widget) return;
@@ -37,6 +35,50 @@
     document.querySelector('[name="add"]') ||
     document.querySelector(".product-form__submit");
   let currentSellingPlanId = null;
+  getData();
+  function updateWidgetVisibility() {
+    const variantInput = document.querySelector(
+      'form[action="/cart/add"] [name="id"]',
+    );
+    if (!variantInput || !allData) return;
+    if (variantInput) {
+  const observer = new MutationObserver(() => {
+    updateWidgetVisibility();
+  });
+
+  observer.observe(variantInput, {
+    attributes: true,
+    attributeFilter: ["value"]
+  });
+}
+
+    const currentVariantId = `gid://shopify/ProductVariant/${variantInput.value}`;
+    console.log("cureentVarient Id", currentVariantId);
+
+    const hasPlan = allData.some((plan) =>
+      plan.products.some((product) =>
+        product.variants.some(
+          (variant) => variant.variantsId === currentVariantId,
+        ),
+      ),
+    );
+    console.log("had data", hasPlan);
+
+    const outer = document.getElementById("subscription_Outer");
+
+    if (hasPlan) {
+      widget.style.display = "block";
+      outer.style.display = "block";
+    } else {
+      widget.style.display = "none";
+      outer.style.display = "none";
+    }
+  }
+  document.addEventListener("change", function (e) {
+    if (e.target.name === "id") {
+      setTimeout(updateWidgetVisibility);
+    }
+  });
 
   radios.forEach(function (radio) {
     radio.addEventListener("change", function () {
@@ -133,11 +175,11 @@
     }
 
     //quantity chnage
-    let QuantityChange="";
-    if(matchedPlan.changeQuantityAfterOrders){
+    let QuantityChange = "";
+    if (matchedPlan.changeQuantityAfterOrders) {
       const quantityAfterOrdersValue = matchedPlan.quantityAfterOrdersValue;
-      const quantityAfterOrders= matchedPlan.quantityAfterOrders
-      QuantityChange= ` Quantity will change ${quantityAfterOrdersValue} after ${quantityAfterOrders} Orders.`
+      const quantityAfterOrders = matchedPlan.quantityAfterOrders;
+      QuantityChange = ` Quantity will change ${quantityAfterOrdersValue} after ${quantityAfterOrders} Orders.`;
     }
 
     if (Subscription_innerText) {
