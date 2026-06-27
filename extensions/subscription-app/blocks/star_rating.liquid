@@ -11,17 +11,26 @@
 }
 {% endschema %}
 
-
 <script>
-  console.log("Product ID:", {{ product.id }});
-  console.log("Product Title:", {{ product.title | json }});
-  console.log("Variants:", {{ product.variants | json }});
-  console.log("Variant Selling Plans:");
-  {% for variant in product.variants %}
-    console.log("Variant: {{ variant.title }} (ID: {{ variant.id }})", 
-      "Plans:", {{ variant.selling_plan_allocations | map: 'selling_plan' | map: 'id' | json }}
-    );
-  {% endfor %}
+  window.variantSellingPlans = {
+    {% for variant in product.variants %}
+      "{{ variant.id }}": [
+        {% for alloc in variant.selling_plan_allocations %}
+          "{{ alloc.selling_plan.id | split: '/' | last }}"
+          {% unless forloop.last %},{% endunless %}
+        {% endfor %}
+      ]
+      {% unless forloop.last %},{% endunless %}
+    {% endfor %}
+  };
+
+  console.log("variantSellingPlans:", window.variantSellingPlans);
+
+  const initialVariant = new URLSearchParams(window.location.search).get("variant")
+    || document.querySelector('[name="id"]')?.value;
+  
+  console.log("Current Variant ID:", initialVariant);
+  console.log("Plans for current variant:", window.variantSellingPlans?.[initialVariant]);
 </script>
 
 {% if product.selling_plan_groups.size > 0 %}
