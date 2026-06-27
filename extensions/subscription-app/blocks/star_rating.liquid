@@ -11,27 +11,7 @@
 }
 {% endschema %}
 
-<script>
-  window.variantSellingPlans = {
-    {% for variant in product.variants %}
-      "{{ variant.id }}": [
-        {% for alloc in variant.selling_plan_allocations %}
-          "{{ alloc.selling_plan.id | split: '/' | last }}"
-          {% unless forloop.last %},{% endunless %}
-        {% endfor %}
-      ]
-      {% unless forloop.last %},{% endunless %}
-    {% endfor %}
-  };
 
-  console.log("variantSellingPlans:", window.variantSellingPlans);
-
-  const initialVariant = new URLSearchParams(window.location.search).get("variant")
-    || document.querySelector('[name="id"]')?.value;
-  
-  console.log("Current Variant ID:", initialVariant);
-  console.log("Plans for current variant:", window.variantSellingPlans?.[initialVariant]);
-</script>
 
 {% if product.selling_plan_groups.size > 0 %}
 <div class="subscription-widget" id="subscription-widget">
