@@ -20,7 +20,6 @@ const styles = {
     border: "1px solid black",
     borderRadius: 8,
     marginBottom: 12,
-    background: "var(--p-color-bg-surface)",
     overflow: "hidden",
   },
   cycleHeader: {
@@ -29,7 +28,6 @@ const styles = {
     alignItems: "center",
     padding: "10px 14px",
     borderBottom: "1px solid black",
-    background: "var(--p-color-bg-surface-secondary)",
   },
   actionCard: {
     border: "1px solid black",
@@ -203,8 +201,14 @@ function ActionCard({
   const badgeTone = isRemove ? "critical" : isAdd ? "success" : "info";
   const badgeLabel = isSwap ? "Swap" : isAdd ? "Add" : "Remove";
 
+  // const productName =
+  //   action.productName || action.sourceProductName || "Unknown product";
   const productName =
-    action.productName || action.sourceProductName || "Unknown product";
+  action.sourceVariantName ||   // variant swap — variant name dikhao
+  action.variantName ||          // add/remove variant
+  action.productName ||          // add/remove product
+  action.sourceProductName ||    // swap product
+  "Unknown product";
   const singleVariantName =
     action.sourceVariantName || action.variantName || null;
   const displayImage = action.imageUrl || null;
@@ -214,11 +218,11 @@ function ActionCard({
     : [];
 
   const subLabel =
-    variantNames.length > 0
-      ? null
-      : action.type === "swap" && !action.isVariant
-        ? "Will match all variants"
-        : null;
+  action.sourceVariantName || action.sourceVariantId
+    ? null                          // variant swap — label mat dikhao
+    : action.type === "swap"
+      ? "Will match all variants"   // sirf product swap pe dikhao
+      : null;
 
   return (
     <div style={styles.actionCard}>
@@ -395,7 +399,7 @@ function ActionCard({
               <label style={styles.radioLabel}>
                 <input
                   type="radio"
-                  name={`action-type-${action._id}`}
+                  name={`action-type-${action.sourceVariantId || action.sourceProductId || action.variantId}`}
                   checked={isSwap}
                   onChange={() => onChangeType("swap")}
                   style={{ marginRight: 8 }}
@@ -405,7 +409,7 @@ function ActionCard({
               <label style={styles.radioLabel}>
                 <input
                   type="radio"
-                  name={`action-type-${action._id}`}
+                  name={`action-type-${action.sourceVariantId || action.sourceProductId ||action.variantId}`}
                   checked={isRemove}
                   onChange={() => onChangeType("remove")}
                   style={{ marginRight: 8 }}
@@ -676,10 +680,8 @@ function Automation({ sellingPlan, setSellingPlan }) {
     if (!sellingPlan.automationCycles?.length) return [];
     return sellingPlan.automationCycles.map((cycle) => ({
       ...cycle,
-      id: cycle.id ?? Date.now() + Math.random(),
       actions: (cycle.actions || []).map((action) => ({
         ...action,
-        _id: action._id ?? Date.now() + Math.random(),
       })),
     }));
   });
@@ -700,7 +702,7 @@ function Automation({ sellingPlan, setSellingPlan }) {
               ...c,
               actions: [
                 ...c.actions,
-                { ...action, _id: Date.now() + Math.random() },
+                { ...action },
               ],
             }
           : c,
@@ -839,7 +841,7 @@ function Automation({ sellingPlan, setSellingPlan }) {
       });
     } else if (actionType === "swap-variant") {
       const selection = await pickProducts({
-        multiple: true,
+        multiple: false,
         showVariants: true,
       });
       const items = normaliseProductSelection(selection, {
@@ -849,6 +851,7 @@ function Automation({ sellingPlan, setSellingPlan }) {
         (item.variantIds || []).forEach((variantId, vi) => {
           addToCycle(cycleId, {
             type: "swap",
+            _id: Date.now(),
             sourceProductId: item.productId,
             sourceProductName: item.productTitle,
             sourceVariantId: variantId,
@@ -860,7 +863,7 @@ function Automation({ sellingPlan, setSellingPlan }) {
       });
     } else if (actionType === "add-product") {
       const selection = await pickProducts({
-        multiple: true,
+        multiple: false,
         showVariants: true,
       });
       const items = normaliseProductSelection(selection, {
@@ -897,10 +900,13 @@ function Automation({ sellingPlan, setSellingPlan }) {
         productId: item.productId,
         productName: item.productTitle,
         imageUrl: item.imageUrl,
+         variantId,
+  variantName: item.variantTitles?.[vi] || "",
+  imageUrl: item.variantImages?.[vi] || item.imageUrl || "",
       });
     } else if (actionType === "remove-variant") {
       const selection = await pickProducts({
-        multiple: true,
+        multiple: false,
         showVariants: true,
       });
       const items = normaliseProductSelection(selection, {
@@ -919,16 +925,13 @@ function Automation({ sellingPlan, setSellingPlan }) {
         });
       });
     } else if (actionType === "add-dest" && actionIdx !== null) {
-      const cycle = cycles.find((c) => c.id === cycleId);
-      const action = cycle?.actions[actionIdx];
-      const isVariantSwap = !!action?.sourceVariantId;
-
+      // Hamesha variants show karo destination picker mein
       const selection = await pickProducts({
         multiple: true,
-        showVariants: isVariantSwap,
+        showVariants: true, // Always true
       });
       const items = normaliseProductSelection(selection, {
-        pickVariants: isVariantSwap,
+        pickVariants: true, // Always true
       });
 
       items.forEach((item) => {
