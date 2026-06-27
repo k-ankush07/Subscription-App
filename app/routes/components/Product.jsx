@@ -21,7 +21,6 @@ function Product({
   productError,
 }) {
   const shopName = shop.split(".")[0];
-  console.log("shopNmae", shopName);
   const handleRemove = useCallback((productId) => {
     setSelectedProducts((prev) => prev.filter((p) => p.id !== productId));
   }, []);
