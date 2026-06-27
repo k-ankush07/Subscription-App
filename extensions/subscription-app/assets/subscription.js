@@ -40,17 +40,20 @@
     const variantInput = document.querySelector(
       'form[action="/cart/add"] [name="id"]',
     );
-    if (!variantInput || !allData) return;
     if (variantInput) {
   const observer = new MutationObserver(() => {
+    console.log("Variant changed to:", variantInput.value);
     updateWidgetVisibility();
   });
 
   observer.observe(variantInput, {
     attributes: true,
-    attributeFilter: ["value"]
+    attributeFilter: ["value"], 
   });
 }
+    console.log("INPUT ", variantInput)
+    if (!variantInput || !allData) return;
+    console.log("dbvdjvjdbvjdfjvdjfv",variantInput.value)
 
     const currentVariantId = `gid://shopify/ProductVariant/${variantInput.value}`;
     console.log("cureentVarient Id", currentVariantId);
@@ -66,19 +69,26 @@
 
     const outer = document.getElementById("subscription_Outer");
 
-    if (hasPlan) {
-      widget.style.display = "block";
-      outer.style.display = "block";
-    } else {
-      widget.style.display = "none";
-      outer.style.display = "none";
-    }
+    console.log("hasPlan:", hasPlan);
+
+if (hasPlan) {
+  console.log("SHOW");
+  widget.style.display = "block";
+  outer.style.display = "block";
+} else {
+  console.log("HIDE");
+  widget.style.display = "none";
+  outer.style.display = "none";
+}
   }
-  document.addEventListener("change", function (e) {
-    if (e.target.name === "id") {
-      setTimeout(updateWidgetVisibility);
-    }
+ document.querySelectorAll('input[type="radio"]').forEach((radio) => {
+  radio.addEventListener("change", () => {
+    // Shopify ko hidden variant id update karne ka time do
+    setTimeout(() => {
+      updateWidgetVisibility();
+    }, 50);
   });
+});
 
   radios.forEach(function (radio) {
     radio.addEventListener("change", function () {
