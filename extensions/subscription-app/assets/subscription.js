@@ -132,8 +132,16 @@
       }
     }
 
+    //quantity chnage
+    let QuantityChange="";
+    if(matchedPlan.changeQuantityAfterOrders){
+      const quantityAfterOrdersValue = matchedPlan.quantityAfterOrdersValue;
+      const quantityAfterOrders= matchedPlan.quantityAfterOrders
+      QuantityChange= ` Quantity will change ${quantityAfterOrdersValue} after ${quantityAfterOrders} Orders.`
+    }
+
     if (Subscription_innerText) {
-      Subscription_innerText.textContent = `Delivery: Every ${DeliveryCount} ${DeliveryInterval}. ${discountText} ${afterOrderSubscription} ${BothCombine} ${ShippingDiscount} `;
+      Subscription_innerText.textContent = `Delivery: Every ${DeliveryCount} ${DeliveryInterval}. ${discountText} ${afterOrderSubscription} ${BothCombine} ${ShippingDiscount}  ${QuantityChange}`;
     }
 
     if (matchedPlan.MinimumQuanitity) {
