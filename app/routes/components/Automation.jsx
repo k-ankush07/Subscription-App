@@ -204,11 +204,11 @@ function ActionCard({
   // const productName =
   //   action.productName || action.sourceProductName || "Unknown product";
   const productName =
-  action.sourceVariantName ||   // variant swap — variant name dikhao
-  action.variantName ||          // add/remove variant
-  action.productName ||          // add/remove product
-  action.sourceProductName ||    // swap product
-  "Unknown product";
+    action.sourceVariantName || // variant swap — variant name dikhao
+    action.variantName || // add/remove variant
+    action.productName || // add/remove product
+    action.sourceProductName || // swap product
+    "Unknown product";
   const singleVariantName =
     action.sourceVariantName || action.variantName || null;
   const displayImage = action.imageUrl || null;
@@ -218,11 +218,11 @@ function ActionCard({
     : [];
 
   const subLabel =
-  action.sourceVariantName || action.sourceVariantId
-    ? null                          // variant swap — label mat dikhao
-    : action.type === "swap"
-      ? "Will match all variants"   // sirf product swap pe dikhao
-      : null;
+    action.sourceVariantName || action.sourceVariantId
+      ? null // variant swap — label mat dikhao
+      : action.type === "swap"
+        ? "Will match all variants" // sirf product swap pe dikhao
+        : null;
 
   return (
     <div style={styles.actionCard}>
@@ -409,7 +409,7 @@ function ActionCard({
               <label style={styles.radioLabel}>
                 <input
                   type="radio"
-                  name={`action-type-${action.sourceVariantId || action.sourceProductId ||action.variantId}`}
+                  name={`action-type-${action.sourceVariantId || action.sourceProductId || action.variantId}`}
                   checked={isRemove}
                   onChange={() => onChangeType("remove")}
                   style={{ marginRight: 8 }}
@@ -700,10 +700,7 @@ function Automation({ sellingPlan, setSellingPlan }) {
         c.id === cycleId
           ? {
               ...c,
-              actions: [
-                ...c.actions,
-                { ...action },
-              ],
+              actions: [...c.actions, { ...action }],
             }
           : c,
       ),
@@ -900,9 +897,9 @@ function Automation({ sellingPlan, setSellingPlan }) {
         productId: item.productId,
         productName: item.productTitle,
         imageUrl: item.imageUrl,
-         variantId,
-  variantName: item.variantTitles?.[vi] || "",
-  imageUrl: item.variantImages?.[vi] || item.imageUrl || "",
+        variantId,
+        variantName: item.variantTitles?.[vi] || "",
+        imageUrl: item.variantImages?.[vi] || item.imageUrl || "",
       });
     } else if (actionType === "remove-variant") {
       const selection = await pickProducts({
