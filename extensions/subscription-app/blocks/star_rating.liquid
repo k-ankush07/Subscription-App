@@ -12,6 +12,18 @@
 {% endschema %}
 
 
+<script>
+  console.log("Product ID:", {{ product.id }});
+  console.log("Product Title:", {{ product.title | json }});
+  console.log("Variants:", {{ product.variants | json }});
+  console.log("Variant Selling Plans:");
+  {% for variant in product.variants %}
+    console.log("Variant: {{ variant.title }} (ID: {{ variant.id }})", 
+      "Plans:", {{ variant.selling_plan_allocations | map: 'selling_plan' | map: 'id' | json }}
+    );
+  {% endfor %}
+</script>
+
 {% if product.selling_plan_groups.size > 0 %}
 <div class="subscription-widget" id="subscription-widget">
   <label class="purchase-option">
