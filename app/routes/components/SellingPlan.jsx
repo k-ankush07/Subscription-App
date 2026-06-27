@@ -48,31 +48,61 @@ function SellingPlan({
 
   // Resource picker — index aware
   const handleOpenPicker = async (target, index) => {
-    const currentPlan = sellingPlans[index];
-    const currentIds =
-      target === "quantity"
-        ? currentPlan.quantityProducts || []
-        : currentPlan.freeProducts || [];
+  const currentPlan = sellingPlans[index];
+  const currentIds =
+    target === "quantity"
+      ? currentPlan.quantityProducts || []
+      : currentPlan.freeProducts || [];
 
-    const selected = await shopify.resourcePicker({
-      type: "product",
-      multiple: true,
-      selectionIds: currentIds.map((id) => ({ id })),
-      filter: {
-        variants: true,
-        query: allowedIds.map((id) => `id:${id.split("/").pop()}`).join(" OR "),
-      },
+  const currentProducts =
+    target === "quantity"
+      ? currentPlan.quantityProductObjects || []
+      : currentPlan.freeProductObjects || [];
+
+  // selectionIds mein variant info bhi do
+  const selectionIds = currentIds.map((productId) => {
+    const productObj = currentProducts.find((p) => p.id === productId);
+    return {
+      id: productId,
+      variants: productObj?.variants?.map((v) => ({ id: v.variantsId })) || [],
+    };
+  });
+
+  const selected = await shopify.resourcePicker({
+    type: "product",
+    multiple: true,
+    selectionIds,
+    filter: {
+      variants: true,
+      query: allowedIds.map((id) => `id:${id.split("/").pop()}`).join(" OR "),
+    },
+  });
+
+  if (!selected || selected.length === 0) return;
+
+  // Sirf selected variants store karo (IDs ke saath objects)
+  const pickedIds = selected.map((p) => p.id);
+  const pickedObjects = selected.map((p) => ({
+    id: p.id,
+    title: p.title,
+    variants: (p.variants || []).map((v) => ({
+      variantsId: v.id,
+      variantsTitle: v.title,
+    })),
+  }));
+
+  if (target === "quantity") {
+    updatePlan(index, {
+      quantityProducts: pickedIds,
+      quantityProductObjects: pickedObjects, // variant info save karo
     });
-
-    if (!selected || selected.length === 0) return;
-    const pickedIds = selected.map((p) => p.id);
-
-    if (target === "quantity") {
-      updatePlan(index, { quantityProducts: pickedIds });
-    } else {
-      updatePlan(index, { freeProducts: pickedIds });
-    }
-  };
+  } else {
+    updatePlan(index, {
+      freeProducts: pickedIds,
+      freeProductObjects: pickedObjects, // variant info save karo
+    });
+  }
+};
 
   const duplicatePlan = (index) => {
     setSellingPlans((prev) => {

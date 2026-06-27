@@ -20,7 +20,7 @@ import { useAppBridge } from "@shopify/app-bridge-react";
 //  defaultPlan component ke bahar — stable reference, re-render pe recreate nahi hoga
 const defaultPlan = {
   shopifySellingPlanId: null,
-  name: "" ,
+  name: "",
   billingType: "PAY_AS_YOU_GO",
   intervalCount: 1,
   interval: "MONTH",
@@ -52,12 +52,11 @@ const defaultPlan = {
   automationCycles: [],
 };
 
-
 function Template({ shop, editPlandData, dublicateData }) {
   const shopify = useAppBridge();
   const navigate = useNavigate();
   const API = import.meta.env.VITE_API_URL;
-  const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY
+  const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
   const fetcher = useFetcher();
   const [toastActive, setToastActive] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
@@ -77,65 +76,73 @@ function Template({ shop, editPlandData, dublicateData }) {
   const [existingSellingPlanIds, setExistingSellingPlanIds] = useState([]);
   const [planErrors, setPlanErrors] = useState({});
 
-const validateSellingPlans = (plans) => {
-  const newErrors = {};
-  const names = [];
-  const intervals = [];
+  const validateSellingPlans = (plans) => {
+    const newErrors = {};
+    const names = [];
+    const intervals = [];
 
-  plans.forEach((plan, index) => {
-    if (plan.name && names.includes(plan.name.trim())) {
-      newErrors[`name_${index}`] = " Plan name must be unique";
-    } else if (plan.name) {
-      names.push(plan.name.trim());
-    }
+    plans.forEach((plan, index) => {
+      if (plan.name && names.includes(plan.name.trim())) {
+        newErrors[`name_${index}`] = " Plan name must be unique";
+      } else if (plan.name) {
+        names.push(plan.name.trim());
+      }
 
-    const combo = `${plan.intervalCount}_${plan.interval}`;
-    if (intervals.includes(combo)) {
-      newErrors[`interval_${index}`] = "This delivery frequency already exists";
-    } else {
-      intervals.push(combo);
-    }
-  });
+      const combo = `${plan.intervalCount}_${plan.interval}`;
+      if (intervals.includes(combo)) {
+        newErrors[`interval_${index}`] =
+          "This delivery frequency already exists";
+      } else {
+        intervals.push(combo);
+      }
+    });
 
-  setPlanErrors(newErrors);
-  return Object.keys(newErrors).length === 0;
-};
+    setPlanErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   //  Product picker handler
   const handleSelectProduct = useCallback(async () => {
-    const selected = await shopify.resourcePicker({
-      type: "product",
-      multiple: true,
-      action: "select",
-      selectionIds: selectedProducts.map((p) => ({ id: p.id })),
+  // Build selectionIds with both product AND variant IDs
+  const selectionIds = selectedProducts.map((p) => ({
+    id: p.id,
+    variants: p.variants.map((v) => ({ id: v.variantsId })),
+  }));
+
+  const selected = await shopify.resourcePicker({
+    type: "product",
+    multiple: true,
+    action: "select",
+    selectionIds,
+  });
+
+  if (selected) {
+    setProductError(false);
+
+    const incoming = selected.map((product) => {
+      // Resource picker sirf wahi variants return karta hai jo user ne select kiye
+      const selectedVariants = product.variants || [];
+
+      return {
+        id: product.id,
+        title: product.title,
+        ProductImage: product.images?.[0]?.originalSrc,
+        selectedVariantCount: selectedVariants.length,
+        totalVariantCount: product.totalVariants || selectedVariants.length,
+        variants: selectedVariants.map((variant) => ({
+          variantsId: variant.id,
+          variantsTitle: variant.title,
+        })),
+      };
     });
 
-    if (selected) {
-      setProductError(false);
-      const incoming = selected.map((product) => {
-        const selectedVariants = product.variants || [];
-        return {
-          id: product.id,
-          title: product.title,
-          ProductImage: product.images?.[0]?.originalSrc,
-          selectedVariantCount: selectedVariants.length,
-          totalVariantCount: product.totalVariants || selectedVariants.length,
-          variants: selectedVariants.map((variant) => ({
-            variantsId: variant.id,
-            variantsTitle: variant.title,
-          })),
-        };
-      });
-
-      setSelectedProducts((prev) => {
-        const incomingIds = new Set(incoming.map((p) => p.id));
-        const kept = prev.filter((p) => !incomingIds.has(p.id));
-        return [...kept, ...incoming];
-      });
-    }
-  }, [shopify, selectedProducts]);
-  
-
+    setSelectedProducts((prev) => {
+      const incomingIds = new Set(incoming.map((p) => p.id));
+      const kept = prev.filter((p) => !incomingIds.has(p.id));
+      return [...kept, ...incoming];
+    });
+  }
+}, [shopify, selectedProducts]);
 
   //  Edit / Duplicate data load — sellingPlans array mein set karo
   useEffect(() => {
@@ -152,14 +159,12 @@ const validateSellingPlans = (plans) => {
     setAllowVariantChanges(cpc?.allowVariantChanges ?? true);
     setAllowQuantityChanges(cpc?.allowQuantityChanges ?? true);
     setKeepDiscounts(cpc?.keepDiscounts ?? true);
-// selling plan araay me aye to okh brna object me aye to use array me convert kro 
+    // selling plan araay me aye to okh brna object me aye to use array me convert kro
     if (Array.isArray(data.sellingPlans) && data.sellingPlans.length > 0) {
       setSellingPlans(data.sellingPlans);
       // delete detect karne ke liye
       setExistingSellingPlanIds(
-        data.sellingPlans
-          .map((sp) => sp.shopifySellingPlanId)
-          .filter(Boolean)
+        data.sellingPlans.map((sp) => sp.shopifySellingPlanId).filter(Boolean),
       );
     } else if (data.sellingPlan) {
       const sp = data.sellingPlan;
@@ -195,10 +200,10 @@ const validateSellingPlans = (plans) => {
           MinimumQuanitity: sp.MinimumQuanitity || false,
           MinimumQuanitityValue: sp.MinimumQuanitityValue || 1,
           Automation: sp.Automation || false,
-          automationCycles : sp.automationCycles || [],
+          automationCycles: sp.automationCycles || [],
         },
       ]);
-      // Purane single plan ki ID 
+      // Purane single plan ki ID
       if (sp.shopifySellingPlanId) {
         setExistingSellingPlanIds([sp.shopifySellingPlanId]);
       }
@@ -213,7 +218,7 @@ const validateSellingPlans = (plans) => {
     e.preventDefault();
     if (selectedProducts.length === 0) return setProductError(true);
     setProductError(false);
-if (!validateSellingPlans(sellingPlans)) return;
+    if (!validateSellingPlans(sellingPlans)) return;
 
     const payload = {
       shop: shop || editPlandData?.shop || dublicateData?.shop,
@@ -270,7 +275,7 @@ if (!validateSellingPlans(sellingPlans)) return;
         planName,
         widget,
         products: selectedProducts,
-        sellingPlans: updatedSellingPlans,   //  array
+        sellingPlans: updatedSellingPlans, //  array
         shopifyGroupId: actionData.shopifyGroupId,
         customerProductChanges: {
           allowProductSwaps,
@@ -286,14 +291,16 @@ if (!validateSellingPlans(sellingPlans)) return;
 
   const saveToNodeAPI = async (payload) => {
     try {
-       const fixedSellingPlans = payload.sellingPlans.map((sp) => ({
-      ...sp,
-      name: sp.name?.trim() || `Delivery: Every ${sp.intervalCount} ${sp.interval.toLowerCase()}`,
-    }));
-    const finalPayload = {
-      ...payload,
-      sellingPlans: fixedSellingPlans,
-    };
+      const fixedSellingPlans = payload.sellingPlans.map((sp) => ({
+        ...sp,
+        name:
+          sp.name?.trim() ||
+          `Delivery: Every ${sp.intervalCount} ${sp.interval.toLowerCase()}`,
+      }));
+      const finalPayload = {
+        ...payload,
+        sellingPlans: fixedSellingPlans,
+      };
       const url = editPlandData
         ? `${API}/plans/update/${payload.planId}`
         : `${API}/plans/create`;
@@ -301,7 +308,7 @@ if (!validateSellingPlans(sellingPlans)) return;
 
       const response = await fetch(url, {
         method,
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
           "x-api-key": SECRET_KEY,
         },
@@ -360,7 +367,6 @@ if (!validateSellingPlans(sellingPlans)) return;
           </Banner>
         )}
 
-
         <Card>
           <form onSubmit={handleSubmit}>
             <TextField
@@ -383,13 +389,13 @@ if (!validateSellingPlans(sellingPlans)) return;
             />
             <Card>
               {/* {selectedProducts.length === 0 ? null : ( */}
-                <Product
-                  selectedProducts={selectedProducts}
-                  setSelectedProducts={setSelectedProducts}
-                  editPlandData={editPlandData}
-                  shop={shop}
-                  productError={productError}
-                />
+              <Product
+                selectedProducts={selectedProducts}
+                setSelectedProducts={setSelectedProducts}
+                editPlandData={editPlandData}
+                shop={shop}
+                productError={productError}
+              />
               {/* )} */}
               <Button onClick={handleSelectProduct}>
                 {selectedProducts.length > 0
@@ -405,8 +411,8 @@ if (!validateSellingPlans(sellingPlans)) return;
             sellingPlans={sellingPlans}
             setSellingPlans={setSellingPlans}
             defaultPlan={defaultPlan}
-             planErrors={planErrors}              // add
-  validateSellingPlans={validateSellingPlans}
+            planErrors={planErrors} // add
+            validateSellingPlans={validateSellingPlans}
           />
 
           <Card>
