@@ -352,9 +352,9 @@ function SellingPlan({
                 <Select
                   label="Discount type"
                   options={[
-                    { label: "Percentage off", value: "PERCENTAGE" },
-                    { label: "Fixed price", value: "PRICE" },
-                    { label: "Amount off", value: "FIXED_AMOUNT" },
+                      { label: "Percentage off", value: "PERCENTAGE" },
+                        { label: "Amount off", value: "FIXED_AMOUNT" },
+                        { label: "Fixed price", value: "PRICE" },
                   ]}
                   value={plan.shippingDiscountType}
                   onChange={(val) =>
