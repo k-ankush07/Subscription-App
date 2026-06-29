@@ -1,3 +1,5 @@
+
+
 (function () {
   const shop = window.Shopify?.shop;
   SECRET_KEY = "08466sdmfbf94374nkjsnfdkyry89nfksd388934jkdsf89y389bjkkr32";
@@ -15,7 +17,7 @@
       const data = await response.json();
       allData = data.data;
       updateWidgetVisibility();
-      console.log("data from api", allData);
+      // console.log("data from api", allData);
       return data;
     } catch (error) {
       console.error("Fetch error:", error);
@@ -42,7 +44,7 @@
     );
     if (variantInput) {
   const observer = new MutationObserver(() => {
-    console.log("Variant changed to:", variantInput.value);
+    // console.log("Variant changed to:", variantInput.value);
     updateWidgetVisibility();
   });
 
@@ -51,13 +53,8 @@
     attributeFilter: ["value"], 
   });
 }
-    console.log("INPUT ", variantInput)
     if (!variantInput || !allData) return;
-    console.log("dbvdjvjdbvjdfjvdjfv",variantInput.value)
-
     const currentVariantId = `gid://shopify/ProductVariant/${variantInput.value}`;
-    console.log("cureentVarient Id", currentVariantId);
-
     const hasPlan = allData.some((plan) =>
       plan.products.some((product) =>
         product.variants.some(
@@ -66,7 +63,6 @@
         ),
       ),
     );
-    console.log("had data", hasPlan);
 
     const outer = document.getElementById("subscription_Outer");
 
@@ -123,7 +119,7 @@ if (hasPlan) {
           plan.shopifySellingPlanId.split("/").pop() === currentSellingPlanId,
       );
 
-    console.log("Matched Plan", matchedPlan);
+    // console.log("Matched Plan", matchedPlan);
     if (!matchedPlan) return;
     const DeliveryCount = matchedPlan.intervalCount;
     const DeliveryInterval = matchedPlan.interval;
@@ -235,7 +231,7 @@ if (hasPlan) {
             return res.json();
           })
           .then(function (data) {
-            console.log("Cart response:", data);
+            // console.log("Cart response:", data);
 
             document.dispatchEvent(new CustomEvent("cart:refresh"));
           })
