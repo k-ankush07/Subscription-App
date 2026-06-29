@@ -38,46 +38,103 @@
     document.querySelector(".product-form__submit");
   let currentSellingPlanId = null;
   getData();
-  function updateWidgetVisibility() {
-    const variantInput = document.querySelector(
-      'form[action="/cart/add"] [name="id"]',
-    );
-    if (variantInput) {
+const variantInput = document.querySelector(
+  'form[action="/cart/add"] [name="id"]'
+);
+
+if (variantInput) {
   const observer = new MutationObserver(() => {
-    // console.log("Variant changed to:", variantInput.value);
     updateWidgetVisibility();
   });
 
   observer.observe(variantInput, {
     attributes: true,
-    attributeFilter: ["value"], 
+    attributeFilter: ["value"],
   });
 }
-    if (!variantInput || !allData) return;
-    const currentVariantId = `gid://shopify/ProductVariant/${variantInput.value}`;
-    const hasPlan = allData.some((plan) =>
-      plan.products.some((product) =>
-        product.variants.some(
-          (variant) => variant.variantsId === currentVariantId,
-          
-        ),
-      ),
-    );
+  function updateWidgetVisibility() {
+  if (!variantInput || !allData) return;
 
-    const outer = document.getElementById("subscription_Outer");
+  const currentVariantId =
+    `gid://shopify/ProductVariant/${variantInput.value}`;
 
-    console.log("hasPlan:", hasPlan);
+  const hasPlan = allData.some(plan =>
+    plan.products.some(product =>
+      product.variants.some(
+        variant => variant.variantsId === currentVariantId
+      )
+    )
+  );
 
-if (hasPlan) {
-  console.log("SHOW");
-  widget.style.display = "block";
-  outer.style.display = "block";
-} else {
-  console.log("HIDE");
-  widget.style.display = "none";
-  outer.style.display = "none";
+  console.log("hasPlan:", hasPlan);
 }
+
+function updateWidgetVisibility() {
+  if (!variantInput || !allData) return;
+
+  const currentVariantId =
+    `gid://shopify/ProductVariant/${variantInput.value}`;
+
+  const hasPlan = allData.some(plan =>
+    plan.products.some(product =>
+      product.variants.some(
+        variant => variant.variantsId === currentVariantId
+      )
+    )
+  );
+
+  const outer = document.getElementById("subscription_Outer");
+
+  console.log("hasPlan:", hasPlan);
+
+  if (hasPlan) {
+    widget.style.display = "block";
+    outer.style.display = "block";
+  } else {
+    widget.style.display = "none";
+    outer.style.display = "none";
   }
+}
+//   function updateWidgetVisibility() {
+//     const variantInput = document.querySelector(
+//       'form[action="/cart/add"] [name="id"]',
+//     );
+//     if (variantInput) {
+//   const observer = new MutationObserver(() => {
+//     // console.log("Variant changed to:", variantInput.value);
+//     updateWidgetVisibility();
+//   });
+
+//   observer.observe(variantInput, {
+//     attributes: true,
+//     attributeFilter: ["value"], 
+//   });
+// }
+//     if (!variantInput || !allData) return;
+//     const currentVariantId = `gid://shopify/ProductVariant/${variantInput.value}`;
+//     const hasPlan = allData.some((plan) =>
+//       plan.products.some((product) =>
+//         product.variants.some(
+//           (variant) => variant.variantsId === currentVariantId,
+          
+//         ),
+//       ),
+//     );
+
+//     const outer = document.getElementById("subscription_Outer");
+
+//     console.log("hasPlan:", hasPlan);
+
+// if (hasPlan) {
+//   console.log("SHOW");
+//   widget.style.display = "block";
+//   outer.style.display = "block";
+// } else {
+//   console.log("HIDE");
+//   widget.style.display = "none";
+//   outer.style.display = "none";
+// }
+//   }
  document.querySelectorAll('input[type="radio"]').forEach((radio) => {
   radio.addEventListener("change", () => {
     // Shopify ko hidden variant id update karne ka time do
