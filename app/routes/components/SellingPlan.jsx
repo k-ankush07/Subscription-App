@@ -165,6 +165,7 @@ function SellingPlan({
             <TextField
               label="Delivery frequency"
               type="number"
+              min={1}
               value={String(plan.intervalCount)}
               onChange={(value) =>
                 updatePlan(index, { intervalCount: Number(value) })
@@ -255,6 +256,7 @@ function SellingPlan({
                 <TextField
                   label="Discount amount"
                   type="number"
+                  min={0}
                   value={String(plan.discountValue)}
                   onChange={(val) =>
                     updatePlan(index, { discountValue: Number(val) })
@@ -284,6 +286,7 @@ function SellingPlan({
                     <TextField
                       label="Discount amount"
                       type="number"
+                      min={0}
                       value={String(plan.afterDiscountValue ?? 0)}
                       onChange={(val) =>
                         updatePlan(index, { afterDiscountValue: Number(val) })
@@ -292,6 +295,7 @@ function SellingPlan({
                     <TextField
                       label="After # of orders"
                       type="number"
+                      min={1}
                       value={String(plan.afterOrders ?? 1)}
                       onChange={(val) =>
                         updatePlan(index, { afterOrders: Number(val) })
@@ -328,6 +332,7 @@ function SellingPlan({
                 <TextField
                   label="Discount"
                   type="number"
+                  min={0}
                   value={String(plan.shippingDiscountValue)}
                   helpText="This will be the new delivery price"
                   onChange={(val) =>
@@ -337,6 +342,7 @@ function SellingPlan({
                 <TextField
                   label="After # of orders"
                   type="number"
+                  min={1}
                   value={String(plan.shippingAfterOrders)}
                   helpText="After how many orders to change delivery price"
                   onChange={(val) =>
@@ -388,6 +394,7 @@ function SellingPlan({
                 <TextField
                   label="Quantity"
                   type="number"
+                  min={0}
                   value={String(plan.quantityAfterOrdersValue ?? 1)}
                   onChange={(val) =>
                     updatePlan(index, { quantityAfterOrdersValue: Number(val) })
@@ -396,6 +403,7 @@ function SellingPlan({
                 <TextField
                   label="After # of orders"
                   type="number"
+                  min={1}
                   value={String(plan.quantityAfterOrders ?? 1)}
                   onChange={(val) =>
                     updatePlan(index, { quantityAfterOrders: Number(val) })
@@ -420,6 +428,7 @@ function SellingPlan({
                 <TextField
                   label="After # of orders"
                   type="number"
+                  min={1}
                   value={String(plan.removeFreeProductValue ?? 1)}
                   onChange={(val) =>
                     updatePlan(index, { removeFreeProductValue: Number(val) })
@@ -443,6 +452,7 @@ function SellingPlan({
               <TextField
                 label="Minimum quantity"
                 type="number"
+                min={0}
                 value={String(plan.MinimumQuanitityValue ?? 1)}
                 onChange={(val) =>
                   updatePlan(index, { MinimumQuanitityValue: Number(val) })
