@@ -28,10 +28,6 @@ export async function loader({ request }) {
           interval
           intervalCount
         }
-        deliveryPrice {
-          amount
-          currencyCode
-        }
         lines(first: 10) {
           edges {
             node {
