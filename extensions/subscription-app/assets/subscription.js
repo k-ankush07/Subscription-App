@@ -1,5 +1,3 @@
-
-
 (function () {
   const shop = window.Shopify?.shop;
   SECRET_KEY = "08466sdmfbf94374nkjsnfdkyry89nfksd388934jkdsf89y389bjkkr32";
@@ -38,111 +36,49 @@
     document.querySelector(".product-form__submit");
   let currentSellingPlanId = null;
   getData();
-const variantInput = document.querySelector(
-  'form[action="/cart/add"] [name="id"]'
-);
 
-if (variantInput) {
-  const observer = new MutationObserver(() => {
-    updateWidgetVisibility();
-  });
-
-  observer.observe(variantInput, {
-    attributes: true,
-    attributeFilter: ["value"],
-  });
-}
-  function updateWidgetVisibility() {
-  if (!variantInput || !allData) return;
-
-  const currentVariantId =
-    `gid://shopify/ProductVariant/${variantInput.value}`;
-
-  const hasPlan = allData.some(plan =>
-    plan.products.some(product =>
-      product.variants.some(
-        variant => variant.variantsId === currentVariantId
-      )
-    )
+  const variantInput = document.querySelector(
+    'form[action="/cart/add"] [name="id"]',
   );
 
-  console.log("hasPlan:", hasPlan);
-}
-
-function updateWidgetVisibility() {
-  if (!variantInput || !allData) return;
-
-  const currentVariantId =
-    `gid://shopify/ProductVariant/${variantInput.value}`;
-
-  const hasPlan = allData.some(plan =>
-    plan.products.some(product =>
-      product.variants.some(
-        variant => variant.variantsId === currentVariantId
-      )
-    )
-  );
-
-  const outer = document.getElementById("subscription_Outer");
-
-  console.log("hasPlan:", hasPlan);
-
-  if (hasPlan) {
-    widget.style.display = "block";
-    outer.style.display = "block";
-  } else {
-    widget.style.display = "none";
-    outer.style.display = "none";
-  }
-}
-//   function updateWidgetVisibility() {
-//     const variantInput = document.querySelector(
-//       'form[action="/cart/add"] [name="id"]',
-//     );
-//     if (variantInput) {
-//   const observer = new MutationObserver(() => {
-//     // console.log("Variant changed to:", variantInput.value);
-//     updateWidgetVisibility();
-//   });
-
-//   observer.observe(variantInput, {
-//     attributes: true,
-//     attributeFilter: ["value"], 
-//   });
-// }
-//     if (!variantInput || !allData) return;
-//     const currentVariantId = `gid://shopify/ProductVariant/${variantInput.value}`;
-//     const hasPlan = allData.some((plan) =>
-//       plan.products.some((product) =>
-//         product.variants.some(
-//           (variant) => variant.variantsId === currentVariantId,
-          
-//         ),
-//       ),
-//     );
-
-//     const outer = document.getElementById("subscription_Outer");
-
-//     console.log("hasPlan:", hasPlan);
-
-// if (hasPlan) {
-//   console.log("SHOW");
-//   widget.style.display = "block";
-//   outer.style.display = "block";
-// } else {
-//   console.log("HIDE");
-//   widget.style.display = "none";
-//   outer.style.display = "none";
-// }
-//   }
- document.querySelectorAll('input[type="radio"]').forEach((radio) => {
-  radio.addEventListener("change", () => {
-    // Shopify ko hidden variant id update karne ka time do
-    setTimeout(() => {
+  if (variantInput) {
+    const observer = new MutationObserver(() => {
       updateWidgetVisibility();
-    }, 50);
+    });
+
+    observer.observe(variantInput, {
+      attributes: true,
+      attributeFilter: ["value"],
+    });
+  }
+
+  function updateWidgetVisibility() {
+    if (!variantInput || !allData) return;
+    console.log("variantInput.value =", variantInput.value);
+    const currentVariantId = `gid://shopify/ProductVariant/${variantInput.value}`;
+    console.log("currentVariantId =", currentVariantId);
+    const hasPlan = allData.some((plan) =>
+      plan.products.some((product) =>
+        product.variants.some(
+          (variant) => variant.variantsId === currentVariantId,
+        ),
+      ),
+    );
+    const outer = document.getElementById("subscription_Outer");
+    console.log("hasPlan:", hasPlan);
+    if (hasPlan) {
+      widget.style.display = "block";
+      outer.style.display = "block";
+    } else {
+      widget.style.display = "none";
+      outer.style.display = "none";
+    }
+  }
+  document.querySelectorAll('input[type="radio"]').forEach((radio) => {
+    radio.addEventListener("change", () => {
+      updateWidgetVisibility();
+    });
   });
-});
 
   radios.forEach(function (radio) {
     radio.addEventListener("change", function () {
@@ -272,7 +208,8 @@ function updateWidgetVisibility() {
         e.stopImmediatePropagation();
 
         const form = document.querySelector('form[action="/cart/add"]');
-        const variantId = form.querySelector('[name="id"]').value;
+        // const variantId = form.querySelector('[name="id"]').value;
+        const variantId = variantInput.value;
         const quantity = form.querySelector('[name="quantity"]')?.value || 1;
 
         fetch("/cart/add.js", {
