@@ -28,7 +28,7 @@ export async function loader({ request }) {
           interval
           intervalCount
         }
-        lines(first: 10) {
+        lines(first: 50) {
           edges {
             node {
               id
