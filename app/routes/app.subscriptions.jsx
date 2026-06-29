@@ -95,13 +95,16 @@ export async function loader({ request }) {
 
 function Subscriptions() {
   const { contracts } = useLoaderData();
-  console.log("subscription data", contracts);
   const formatDate = (date) => {
     return new Date(date).toLocaleDateString("en-US", {
       month: "long",
       day: "numeric",
       year: "numeric",
     });
+  };
+
+  const handelRowClick = (id) => {
+    console.log("print id ", id);
   };
   return (
     <>
@@ -138,9 +141,8 @@ function Subscriptions() {
 
                   // Sabhi lines ka total nikalo
                   const total = lines.reduce((sum, line) => {
-                    console.log("sum",sum)
+                    console.log("sum", sum);
                     return (
-                        
                       sum +
                       parseFloat(line?.currentPrice?.amount ?? 0) *
                         (line?.quantity ?? 1)
@@ -157,7 +159,11 @@ function Subscriptions() {
                       : `${lines.length} Products`;
 
                   return (
-                    <tr key={item.id}>
+                    <tr
+                      key={item.id}
+                      style={{ cursor: "pointer" }}
+                      onClick={() => handelRowClick(item.id)}
+                    >
                       <td>{item.id.split("/").pop()}</td>
                       <td>{item.status}</td>
                       <td>
