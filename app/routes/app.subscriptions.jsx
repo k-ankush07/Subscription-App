@@ -1,7 +1,7 @@
 import { Page, Card } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
 import React from "react";
-import { useLoaderData } from "react-router";
+import { useLoaderData, useNavigate } from "react-router";
 
 export async function loader({ request }) {
   const { admin } = await authenticate.admin(request);
@@ -49,38 +49,8 @@ export async function loader({ request }) {
                 amount
                 currencyCode
               }
-
-              pricingPolicy {
-                cycleDiscounts {
-                  adjustmentType
-                  adjustmentValue {
-                    ... on SellingPlanPricingPolicyPercentageValue {
-                      percentage
-                    }
-                    ... on MoneyV2 {
-                      amount
-                      currencyCode
-                    }
-                  }
-                }
-              }
             }
           }
-        }
-
-        orders(first: 50) {
-          edges {
-            node {
-              id
-              name
-              createdAt
-            }
-          }
-        }
-
-        originOrder {
-          id
-          name
         }
       }
     }
@@ -95,6 +65,7 @@ export async function loader({ request }) {
 
 function Subscriptions() {
   const { contracts } = useLoaderData();
+  const navigate= useNavigate()
   const formatDate = (date) => {
     return new Date(date).toLocaleDateString("en-US", {
       month: "long",
@@ -105,6 +76,7 @@ function Subscriptions() {
 
   const handelRowClick = (id) => {
     console.log("print id ", id);
+    navigate(`/app/subscription/${id}`)
   };
   return (
     <>
@@ -141,7 +113,6 @@ function Subscriptions() {
 
                   // Sabhi lines ka total nikalo
                   const total = lines.reduce((sum, line) => {
-                    console.log("sum", sum);
                     return (
                       sum +
                       parseFloat(line?.currentPrice?.amount ?? 0) *
@@ -162,7 +133,7 @@ function Subscriptions() {
                     <tr
                       key={item.id}
                       style={{ cursor: "pointer" }}
-                      onClick={() => handelRowClick(item.id)}
+                      onClick={() => handelRowClick(item.id.split("/").pop())}
                     >
                       <td>{item.id.split("/").pop()}</td>
                       <td>{item.status}</td>
