@@ -1,12 +1,12 @@
-import { Page,Card } from '@shopify/polaris'
-import { authenticate } from '../shopify.server'
-import React from 'react'
-import { useLoaderData } from 'react-router'
+import { Page, Card } from "@shopify/polaris";
+import { authenticate } from "../shopify.server";
+import React from "react";
+import { useLoaderData } from "react-router";
 
-export  async function  loader ({request})
-{ const {admin}= await authenticate.admin(request)
+export async function loader({ request }) {
+  const { admin } = await authenticate.admin(request);
 
-const res= await admin.graphql(`
+  const res = await admin.graphql(`
     query {
   subscriptionContracts(first: 50) {
     edges {
@@ -85,10 +85,8 @@ const res= await admin.graphql(`
       }
     }
   }
-}`
-
-)
-const data = await res.json();
+}`);
+  const data = await res.json();
 
   return {
     contracts: data.data.subscriptionContracts.edges.map((e) => e.node),
@@ -96,65 +94,98 @@ const data = await res.json();
 }
 
 function Subscriptions() {
-    const {contracts}= useLoaderData();
-    console.log("subscription data ",contracts)
-
+  const { contracts } = useLoaderData();
+  console.log("subscription data", contracts);
+  const formatDate = (date) => {
+    return new Date(date).toLocaleDateString("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
+  };
   return (
     <>
-    <Page title="Subscriptions">
+      <Page title="Subscriptions">
         <Card>
-           <div>
+          <div>
             <table border="1">
-          <thead>
-              <tr>
-                <th>ContractId</th>
-            <th>Status</th>
-            <th>Customer Email</th>
-            <th>Created</th>
-            <th>Updated</th>
-            <th>Next Order Date</th>
-            <th>Product</th>
-            <th>Price</th>
-            <th>Delivery Frequency</th>
-            </tr>
-          </thead>
-           <tbody>
-  {contracts.map((item) => {
-    const line = item.lines?.edges?.[0]?.node;
+              <thead>
+                <tr>
+                  <th>ContractId</th>
+                  <th>Status</th>
+                  <th>Customer Email</th>
+                  <th>Created</th>
+                  <th>Updated</th>
+                  <th>Next Order Date</th>
+                  <th>Product</th>
+                  <th>Price</th>
+                  <th>Delivery Frequency</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...contracts].reverse().map((item) => {
+                  const lines = item.lines?.edges?.map((e) => e.node) ?? [];
 
-    return (
-      <tr key={item.id}>
-        <td>{item.id.split("/").pop()}</td>
-        <td>{item.status}</td>
-        <td>
-            {item.customer?.firstName}{item.customer?.lastName} <br/>
-            {item.customer?.email}</td>
-        <td>{new Date(item.createdAt).toLocaleDateString()}</td>
-        <td>{new Date(item.updatedAt).toLocaleDateString()}</td>
-        <td>{new Date(item.nextBillingDate).toLocaleDateString()}</td>
+                  const currencySymbols = {
+                    INR: "₹",
+                    USD: "$",
+                    EUR: "€",
+                    GBP: "£",
+                    JPY: "¥",
+                    CAD: "CA$",
+                    AUD: "A$",
+                  };
 
-        <td>{line?.title}</td>
+                  // Sabhi lines ka total nikalo
+                  const total = lines.reduce((sum, line) => {
+                    console.log("sum",sum)
+                    return (
+                        
+                      sum +
+                      parseFloat(line?.currentPrice?.amount ?? 0) *
+                        (line?.quantity ?? 1)
+                    );
+                  }, 0);
 
-        <td>
-         
-        </td>
+                  const currencyCode = lines[0]?.currentPrice?.currencyCode;
+                  const symbol =
+                    currencySymbols[currencyCode] ?? currencyCode ?? "";
 
-        <td>
-          Every {item.deliveryPolicy?.intervalCount}{" "}
-          {item.deliveryPolicy?.interval}
-        </td>
-      </tr>
-    );
-  })}
-</tbody>
-           </table>
-           </div>
+                  const productLabel =
+                    lines.length === 1
+                      ? lines[0].title
+                      : `${lines.length} Products`;
 
+                  return (
+                    <tr key={item.id}>
+                      <td>{item.id.split("/").pop()}</td>
+                      <td>{item.status}</td>
+                      <td>
+                        {item.customer?.firstName} {item.customer?.lastName}{" "}
+                        <br />
+                        {item.customer?.email}
+                      </td>
+                      <td>{formatDate(item.createdAt)}</td>
+                      <td>{formatDate(item.updatedAt)}</td>
+                      <td>{formatDate(item.nextBillingDate)}</td>
+                      <td>{productLabel}</td>
+                      <td>
+                        {symbol} {total.toFixed(2)}
+                      </td>
+                      <td>
+                        Every {item.deliveryPolicy?.intervalCount}{" "}
+                        {item.deliveryPolicy?.interval}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </Card>
-
-    </Page>
+      </Page>
     </>
-  )
+  );
 }
 
-export default Subscriptions
+export default Subscriptions;

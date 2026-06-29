@@ -16,6 +16,7 @@
       allData = data.data;
       updateWidgetVisibility();
       // console.log("data from api", allData);
+      
       return data;
     } catch (error) {
       console.error("Fetch error:", error);
@@ -74,11 +75,11 @@
       outer.style.display = "none";
     }
   }
-  // document.querySelectorAll('input[type="radio"]').forEach((radio) => {
-  //   radio.addEventListener("change", () => {
-  //     updateWidgetVisibility();
-  //   });
-  // });
+  document.querySelectorAll('input[type="radio"]').forEach((radio) => {
+    radio.addEventListener("change", () => {
+      updateWidgetVisibility();
+    });
+  });
 
   radios.forEach(function (radio) {
     radio.addEventListener("change", function () {
