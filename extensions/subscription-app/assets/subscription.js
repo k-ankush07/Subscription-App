@@ -62,6 +62,7 @@
       plan.products.some((product) =>
         product.variants.some(
           (variant) => variant.variantsId === currentVariantId,
+          
         ),
       ),
     );
