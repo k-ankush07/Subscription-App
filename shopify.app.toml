@@ -52,3 +52,5 @@ redirect_urls = [ "https://katie-plot-merely-succeed.trycloudflare.com" ]
 
 [build]
 automatically_update_urls_on_dev = true
+
+
