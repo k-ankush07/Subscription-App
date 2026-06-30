@@ -9,7 +9,6 @@ const subscription =async (req, res) => {
         subscriptionId,
         contractId,
         contract,
-        updatedAt: new Date(),
       },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );

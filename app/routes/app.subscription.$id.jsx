@@ -1,6 +1,6 @@
-import { Card, Page } from "@shopify/polaris";
+import { Button, Card, Page } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
-import React from "react";
+import React, { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useLoaderData } from "react-router";
 const API = import.meta.env.VITE_API_URL;
@@ -30,14 +30,6 @@ export async function loader({ request, params }) {
       id
       name
     }
-      billingAttempts(first: 250) {
-  edges {
-    node {
-      id
-      ready
-    }
-  }
-}
       customer {
           id
           firstName
@@ -69,7 +61,7 @@ export async function loader({ request, params }) {
             }
           }
         }
-        orders(first: 100) {
+        orders(first: 10) {
           edges {
             node {
               id
@@ -129,8 +121,6 @@ export async function loader({ request, params }) {
   `);
  const data = await res.json();
   const contract = data.data.subscriptionContract;
-
-  // backend ko bhejo
   try {
     await fetch(`https://habitant-startling-cassette.ngrok-free.dev/api/subscription`, {
       method: "POST",
@@ -147,8 +137,11 @@ export async function loader({ request, params }) {
 }
 
 function subscriptionsId() {
+  const [showNotes, setShowNotes] = useState(false);
+  const [notes, setNotes] = useState("");
   const { id } = useParams();
   const { contract } = useLoaderData();
+  console.log("billing ",contract)
   const lines = contract?.lines?.edges;
   const shipingChargesAmount= contract?.orders?.edges[0]?.node?.totalShippingPriceSet?.shopMoney?.amount;
   const shipingChargesCurrency= contract?.orders?.edges?.node?.totalShippingPriceSet?.shopMoney?.currencyCode;
@@ -156,6 +149,10 @@ function subscriptionsId() {
   const navigate = useNavigate();
   const backButton = () => {
     navigate("/app/subscriptions");
+  };
+   const handleSave = () => {
+    console.log("Saved:", notes);
+    setShowNotes(false);
   };
   const formateDate = (date) => {
     return new Date(date).toLocaleDateString("en-US", {
@@ -178,9 +175,27 @@ function subscriptionsId() {
           <b>{contract.status}</b>, <b>{formateDate(contract?.createdAt)}</b> ,{" "}
           <b>{contract?.originOrder?.name}</b>
         </div>
+
+        {
+          contract?.status==="ACTIVE"
+          ? <>
+          <Button>Place order now</Button>
+          <Button>Pause</Button>
+          </>
+          : <>
+          <Button>Resume</Button>
+          </>
+        }
+        
+        <Button>cancel subscription</Button>
         <div>
-          <h2>Next Order</h2>
+          <b>Next Order</b>
           <p>{formateDate(contract?.nextBillingDate)}</p>
+          {
+            contract?.status==="ACTIVE" 
+            ? <><Button>Place next order</Button></>
+            : ""
+          }
         </div>
         <div>
           <b>Customer</b>
@@ -299,6 +314,17 @@ function subscriptionsId() {
           </div>
           </div>
         </Card>
+      <div>
+      <b>Internal Notes</b><br/>
+      <Button onClick={() => setShowNotes(true)}>Click</Button><br/>
+      {showNotes && (
+        <>
+          <textarea value={notes} onChange={(e) => setNotes(e.target.value)}></textarea>
+          <Button onClick={() => setShowNotes(false)}>Cancel</Button>
+          <Button onClick={handleSave}>Save</Button>
+        </>
+      )}
+    </div>
       </Page>
     </>
   );
