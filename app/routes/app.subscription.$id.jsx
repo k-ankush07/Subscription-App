@@ -30,6 +30,14 @@ export async function loader({ request, params }) {
       id
       name
     }
+      billingAttempts(first: 250) {
+  edges {
+    node {
+      id
+      ready
+    }
+  }
+}
       customer {
           id
           firstName
@@ -50,6 +58,37 @@ export async function loader({ request, params }) {
             }
   }
 }
+   customerPaymentMethod {
+          id
+          instrument {
+            ... on CustomerCreditCard {
+              brand
+              lastDigits
+              expiryMonth
+              expiryYear
+            }
+          }
+        }
+        orders(first: 100) {
+          edges {
+            node {
+              id
+              createdAt
+              name
+          totalShippingPriceSet {
+        shopMoney {
+          amount
+          currencyCode
+        }
+        presentmentMoney {
+          amount
+          currencyCode
+        }
+      }
+            }
+          }
+        }
+        
     lines(first: 10) {
       edges {
         node {
@@ -99,7 +138,7 @@ export async function loader({ request, params }) {
 function subscriptionsId() {
   const { id } = useParams();
   const { contract } = useLoaderData();
-  console.log('dbjsbjsb',contract)
+  console.log("dbjsbjsb", contract);
   const lines = contract?.lines?.edges;
   const navigate = useNavigate();
   const backButton = () => {
@@ -124,21 +163,56 @@ function subscriptionsId() {
           <p>{formateDate(contract?.nextBillingDate)}</p>
         </div>
         <div>
-          <h2>Customer</h2>
-          <p><b>{contract?.customer?.firstName} {contract?.customer?.lastName}</b></p>
-          <b>{contract?.customer?.email}</b>
+          <b>Customer</b>
+          <p>
+            <span>
+              {contract?.customer?.firstName} {contract?.customer?.lastName}
+            </span>
+          </p>
+          <span>{contract?.customer?.email}</span>
 
           <div>
+            <b>Shipping address</b> <br />
+            <span>
+              {contract?.deliveryMethod?.address?.firstName}{" "}
+              {contract?.deliveryMethod?.address?.lastName}
+            </span>{" "}
+            <br />
+            <span>
+              {contract?.deliveryMethod?.address?.address1}{" "}
+              {contract?.deliveryMethod?.address?.address2}
+            </span>{" "}
+            <br />
+            <span>{contract?.deliveryMethod?.address?.zip}</span>{" "}
+            <span>{contract?.deliveryMethod?.address?.city}</span>{" "}
+            <span>{contract?.deliveryMethod?.address?.province}</span>{" "}
+            <span>{contract?.deliveryMethod?.address?.country}</span>
+          </div>
 
-            <h2>Shipping address</h2>
-            <b>{contract?.deliveryMethod?.address?.firstName} {contract?.deliveryMethod?.address?.lastName}</b>
-            <p>{contract?.deliveryMethod?.address?.address1} {contract?.deliveryMethod?.address?.address2}</p>
-            <b>{contract?.deliveryMethod?.address?.zip}</b>
+          <div>
+            <b>Payment Method</b> <br />
+            <img
+              src="https://subscriptions-assets.kachingappz.app/payment-method-icons/bogus.svg"
+              alt={`${contract?.customerPaymentMethod?.instrument?.brand}`}
+            />
+            <span>
+              ●●●●●●●●●●●
+              {contract?.customerPaymentMethod?.instrument?.lastDigits}
+            </span>
+            <br />
+            <span>
+              Expires:{" "}
+              {contract?.customerPaymentMethod?.instrument?.expiryMonth}
+            </span>
+            /
+            <span>
+              {contract?.customerPaymentMethod?.instrument?.expiryYear}
+            </span>
           </div>
         </div>
 
         <div>
-          <h2> Subscription details</h2>
+          <b> Subscription details</b>
           <div>
             {lines.map((item, index) => {
               console.log("log", item);
@@ -179,12 +253,22 @@ function subscriptionsId() {
                       </span>
                     </p>
                   )}
-                  <p><b>{`Delivery: Every ${contract?.deliveryPolicy?.intervalCount} ${contract?.deliveryPolicy?.interval} `}</b><b>{`Billing: every ${contract?.billingPolicy?.intervalCount} ${contract?.billingPolicy?.interval}`}</b></p>
+                  <p>
+                    <b>{`Delivery: Every ${contract?.deliveryPolicy?.intervalCount} ${contract?.deliveryPolicy?.interval} `}</b>
+                    <b>{`Billing: every ${contract?.billingPolicy?.intervalCount} ${contract?.billingPolicy?.interval}`}</b>
+                  </p>
                 </Card>
               );
             })}
           </div>
         </div>
+        <Card>
+          <b>Payment Summary</b>
+
+          <p>Subtotal</p>
+          <p>Shipping</p>
+          <p>Total</p>
+        </Card>
       </Page>
     </>
   );
