@@ -3,7 +3,6 @@ import express from "express";
 import cors from "cors";
 
 import planRoutes from "./src/routes/planroute.js";
-import subscription from "./src/routes/subscriptionroute.js"
 import Db from "./src/config/db.js";
 import  {ProtectMiddleware}  from "./src/middleware/protectMiddleware.js";
 dotenv.config();
@@ -25,7 +24,7 @@ Db();
 
 app.use("/",ProtectMiddleware);
 app.use("/plans", planRoutes);
-app.use("/api",subscription)
+
 
 
 
