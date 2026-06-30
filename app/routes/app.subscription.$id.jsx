@@ -1,13 +1,13 @@
 import { Card, Page } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
 import React from "react";
-import { useNavigate, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 import { useLoaderData } from "react-router";
-
+const API = import.meta.env.VITE_API_URL;
+const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY
 export async function loader({ request, params }) {
   const { admin } = await authenticate.admin(request);
   const subscriptionId = params.id;
-  console.log("idd", subscriptionId);
   const contractId = `gid://shopify/SubscriptionContract/${subscriptionId}`;
   console.log("bsvjhfvjhs", contractId);
   const res = await admin.graphql(`
@@ -80,10 +80,6 @@ export async function loader({ request, params }) {
           amount
           currencyCode
         }
-        presentmentMoney {
-          amount
-          currencyCode
-        }
       }
             }
           }
@@ -131,8 +127,23 @@ export async function loader({ request, params }) {
   }
 }
   `);
-  const data = await res.json();
-  return { contract: data.data.subscriptionContract };
+ const data = await res.json();
+  const contract = data.data.subscriptionContract;
+
+  // backend ko bhejo
+  try {
+    await fetch(`${API}/api/subscription`, {
+      method: "POST",
+      headers: {
+         "Content-Type": "application/json" ,
+         "x-api-key": SECRET_KEY,
+        },
+      body: JSON.stringify({ subscriptionId, contractId, contract }),
+    });
+  } catch (err) {
+    console.error("Backend save call failed:", err);
+  }
+  return { contract };
 }
 
 function subscriptionsId() {
@@ -140,6 +151,9 @@ function subscriptionsId() {
   const { contract } = useLoaderData();
   console.log("dbjsbjsb", contract);
   const lines = contract?.lines?.edges;
+  const shipingChargesAmount= contract?.orders?.edges[0]?.node?.totalShippingPriceSet?.shopMoney?.amount;
+  const shipingChargesCurrency= contract?.orders?.edges?.node?.totalShippingPriceSet?.shopMoney?.currencyCode;
+
   const navigate = useNavigate();
   const backButton = () => {
     navigate("/app/subscriptions");
@@ -151,7 +165,14 @@ function subscriptionsId() {
       year: "numeric",
     });
   };
+  const grandTotal = lines?.reduce((sum, item) => {
+    const price = parseFloat(item?.node?.currentPrice?.amount || 0);
+    const quantity = item?.node?.quantity || 0;
+    return sum + price * quantity;
+  }, 0);
+
   return (
+   
     <>
       <Page backAction={{ onAction: backButton }} title={`${id}`}>
         <div>
@@ -265,9 +286,19 @@ function subscriptionsId() {
         <Card>
           <b>Payment Summary</b>
 
-          <p>Subtotal</p>
-          <p>Shipping</p>
-          <p>Total</p>
+          <p>Subtotal {grandTotal}</p>
+          <p>Shipping Standard {parseFloat(shipingChargesAmount)}</p>
+          <p>Total {grandTotal + parseFloat(shipingChargesAmount)} </p>
+        </Card>
+        <Card>
+          <b>Upcoming orders</b>
+          <div  style={{ display:"flex", justifyContent:"space-between" }}>
+            <p>{formateDate(contract?.nextBillingDate)}</p>
+          <div style={{ display:"flex", gap:"30px", }}>
+              <Link>Edit</Link> 
+            <Link>skip</Link>
+          </div>
+          </div>
         </Card>
       </Page>
     </>
