@@ -30,6 +30,26 @@ export async function loader({ request, params }) {
       id
       name
     }
+      customer {
+          id
+          firstName
+          lastName
+          email
+        }
+         deliveryMethod {
+  ... on SubscriptionDeliveryMethodShipping {
+     address {
+              firstName
+              lastName
+              address1
+              address2
+              city
+              province
+              zip
+              country
+            }
+  }
+}
     lines(first: 10) {
       edges {
         node {
@@ -96,8 +116,25 @@ function subscriptionsId() {
     <>
       <Page backAction={{ onAction: backButton }} title={`${id}`}>
         <div>
-          <b>{contract.status}</b>, <b>{formateDate(contract.createdAt)}</b> ,{" "}
+          <b>{contract.status}</b>, <b>{formateDate(contract?.createdAt)}</b> ,{" "}
           <b>{contract?.originOrder?.name}</b>
+        </div>
+        <div>
+          <h2>Next Order</h2>
+          <p>{formateDate(contract?.nextBillingDate)}</p>
+        </div>
+        <div>
+          <h2>Customer</h2>
+          <p><b>{contract?.customer?.firstName} {contract?.customer?.lastName}</b></p>
+          <b>{contract?.customer?.email}</b>
+
+          <div>
+
+            <h2>Shipping address</h2>
+            <b>{contract?.deliveryMethod?.address?.firstName} {contract?.deliveryMethod?.address?.lastName}</b>
+            <p>{contract?.deliveryMethod?.address?.address1} {contract?.deliveryMethod?.address?.address2}</p>
+            <b>{contract?.deliveryMethod?.address?.zip}</b>
+          </div>
         </div>
 
         <div>
@@ -142,7 +179,7 @@ function subscriptionsId() {
                       </span>
                     </p>
                   )}
-                  <p><b>{`Delivery: Every ${item?.node?.deliveryPolicy?.intervalCount} ${item?.node?.deliveryPolicy?.interval} `}</b></p>
+                  <p><b>{`Delivery: Every ${contract?.deliveryPolicy?.intervalCount} ${contract?.deliveryPolicy?.interval} `}</b><b>{`Billing: every ${contract?.billingPolicy?.intervalCount} ${contract?.billingPolicy?.interval}`}</b></p>
                 </Card>
               );
             })}
