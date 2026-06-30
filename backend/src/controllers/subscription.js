@@ -1,3 +1,4 @@
+import Subscription from "../model/Subscription.js"; 
 const subscription =async (req, res) => {
   try {
     const { subscriptionId, contractId, contract } = req.body;

@@ -132,7 +132,7 @@ export async function loader({ request, params }) {
 
   // backend ko bhejo
   try {
-    await fetch(`${API}/api/subscription`, {
+    await fetch(`https://habitant-startling-cassette.ngrok-free.dev/api/subscription`, {
       method: "POST",
       headers: {
          "Content-Type": "application/json" ,
@@ -149,7 +149,6 @@ export async function loader({ request, params }) {
 function subscriptionsId() {
   const { id } = useParams();
   const { contract } = useLoaderData();
-  console.log("dbjsbjsb", contract);
   const lines = contract?.lines?.edges;
   const shipingChargesAmount= contract?.orders?.edges[0]?.node?.totalShippingPriceSet?.shopMoney?.amount;
   const shipingChargesCurrency= contract?.orders?.edges?.node?.totalShippingPriceSet?.shopMoney?.currencyCode;
