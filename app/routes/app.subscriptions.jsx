@@ -124,9 +124,9 @@ function Subscriptions() {
                   return (
                     <tr
                       key={item.id}
-                      style={{ cursor: "pointer" }}
+                     
                     >
-                      <td onClick={() => handelRowClick(item.id.split("/").pop())}>{item.id.split("/").pop()}</td>
+                      <td  style={{ cursor: "pointer" }} onClick={() => handelRowClick(item.id.split("/").pop())}>{item.id.split("/").pop()}</td>
                       <td>{item.status}</td>
                       <td>
                         {item.customer?.firstName} {item.customer?.lastName}{" "}
