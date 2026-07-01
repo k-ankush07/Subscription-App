@@ -126,6 +126,43 @@ export async function loader({ request, params }) {
   `);
  const data = await res.json();
   const contract = data.data.subscriptionContract;
+  const cyclesRes = await admin.graphql(
+  `
+    query UpcomingSubscriptionUpcomingOrders(
+      $contractId: ID!
+      $startIndex: Int = 1
+      $endIndex: Int = 5
+      $first: Int = 10
+    ) {
+      subscriptionBillingCycles(
+        contractId: $contractId
+        first: $first
+        billingCyclesIndexRangeSelector: { startIndex: $startIndex, endIndex: $endIndex }
+      ) {
+        edges {
+          node {
+            cycleStartAt
+            cycleEndAt
+            billingAttemptExpectedDate
+            skipped
+          }
+        }
+      }
+    }
+  `,
+  {
+    variables: {
+      contractId,
+      startIndex: 1,
+      endIndex: 5,
+      first: 10,
+    },
+  }
+);
+
+const cyclesData = await cyclesRes.json();
+const billingCycles = cyclesData.data.subscriptionBillingCycles;
+
   try {
     await fetch(`https://habitant-startling-cassette.ngrok-free.dev/api/subscription`, {
       method: "POST",
@@ -133,7 +170,7 @@ export async function loader({ request, params }) {
          "Content-Type": "application/json" ,
          "x-api-key": SECRET_KEY,
         },
-      body: JSON.stringify({ subscriptionId, contractId, contract }),
+      body: JSON.stringify({ subscriptionId, contractId, contract ,billingCycles}),
     });
   } catch (err) {
     console.error("Backend save call failed:", err);
@@ -148,8 +185,8 @@ function subscriptionsId() {
   const [CustomerNotes, setCustomerNotes]= useState("")
 
   const { id } = useParams();
-  const { contract } = useLoaderData();
-  console.log("billing ",contract)
+  const { contract,billingCycles } = useLoaderData();
+  console.log("billing ",contract,billingCycles)
   const lines = contract?.lines?.edges;
   const shipingChargesAmount= contract?.orders?.edges[0]?.node?.totalShippingPriceSet?.shopMoney?.amount;
   const shipingChargesCurrency= contract?.orders?.edges[0]?.node?.totalShippingPriceSet?.shopMoney?.currencyCode;
