@@ -129,8 +129,7 @@ export async function loader({ request, params }) {
   const contract = data.data.subscriptionContract;
 
   // Current billing cycle nikaalo
-  const currentDate = new Date().toISOString();
-
+ const currentDate = new Date().toISOString();
   const cycleRes = await admin.graphql(
     `
 query subscriptionCurrentCycle {
@@ -153,8 +152,10 @@ query subscriptionCurrentCycle {
     },
   );
 
-  const cycleData = await cycleRes.json();
-  const currentCycle = cycleData?.data?.subscriptionBillingCycle || null;
+
+const cycleData = await cycleRes.json();
+const currentCycle = cycleData?.data?.subscriptionBillingCycle || null;
+
 
   try {
     await fetch(
