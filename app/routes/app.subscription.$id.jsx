@@ -301,7 +301,7 @@ function subscriptionsId() {
         <div>
           <b>Billing Cycle</b>
 
-          <p>{currentCycle.cycleIndex}</p>
+          {/* <p>{currentCycle.cycleIndex}</p> */}
         </div>
         <div>
           <b>Customer</b>
@@ -412,7 +412,7 @@ function subscriptionsId() {
           </p>
           <p>Total {grandTotal + parseFloat(shipingChargesAmount)} </p>
         </Card>
-        <Card>
+        {/* <Card>
           <b>Upcoming orders</b>
           <div style={{ display: "flex", justifyContent: "space-between" }}>
             <p>{formateDate(contract?.nextBillingDate)}</p>
@@ -421,7 +421,32 @@ function subscriptionsId() {
               <Link>skip</Link>
             </div>
           </div>
-        </Card>
+        </Card> */}
+        <Card>
+  <b>Upcoming orders</b>
+  {upcomingCycles.length === 0 ? (
+    <p>No upcoming orders found.</p>
+  ) : (
+    upcomingCycles
+      // Optional: only show truly upcoming (unbilled) cycles
+      .filter(({ node }) => node.status === "UNBILLED")
+      .map(({ node }) => {
+        const date = node.billingAttemptExpectedDate || node.cycleStartAt;
+        return (
+          <div
+            key={node.cycleIndex}
+            style={{ display: "flex", justifyContent: "space-between", marginTop: 8 }}
+          >
+            <p>{formateDate(date)}</p>
+            <div style={{ display: "flex", gap: "30px" }}>
+              <Link>Edit</Link>
+              <Link>skip</Link>
+            </div>
+          </div>
+        );
+      })
+  )}
+</Card>
         <div>
           <b>Internal Notes</b>
           <br />
