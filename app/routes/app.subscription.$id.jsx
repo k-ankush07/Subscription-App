@@ -367,7 +367,8 @@ function subscriptionsId() {
   console.log("billing ", contract, "cycle",upcomingCycles);
   const lines = contract?.lines?.edges;
   const nextCycleIndex = upcomingCycles?.[0]?.cycleIndex ?? null;
-   const nextCycleDate = upcomingCycles?.billingAttemptExpectedDate ?? null;
+   const nextCycleDate = upcomingCycles?.[0]?.billingAttemptExpectedDate ?? null;
+   console.log("fndsjfbsbfsbdj",nextCycleDate)
   const shipingChargesAmount =
     contract?.orders?.edges[0]?.node?.totalShippingPriceSet?.shopMoney?.amount;
   const shipingChargesCurrency =
@@ -424,7 +425,7 @@ function subscriptionsId() {
         <Button>cancel subscription</Button>
         <div>
           <b>Next Order</b>
-          <p>{nextCycleDate}</p>
+          <p>{formateDate(nextCycleDate)}</p>
           {contract?.status === "ACTIVE" ? (
             <>
               <Button>Place next order</Button>
