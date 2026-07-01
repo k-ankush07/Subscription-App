@@ -1,7 +1,7 @@
 import Subscription from "../model/Subscription.js"; 
 const subscription =async (req, res) => {
   try {
-    const { subscriptionId, contractId, contract } = req.body;
+    const { subscriptionId, contractId, contract,upcomingCycles,} = req.body;
 
     const updated = await Subscription.findOneAndUpdate(
       { subscriptionId },
@@ -9,6 +9,7 @@ const subscription =async (req, res) => {
         subscriptionId,
         contractId,
         contract,
+        upcomingCycles,
       },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );

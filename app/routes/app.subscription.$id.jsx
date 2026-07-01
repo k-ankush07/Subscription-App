@@ -1,7 +1,7 @@
 import { Button, Card, Page } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
 import React, { useState } from "react";
-import { Link, useNavigate, useParams } from "react-router";
+import { Link, useNavigate, useParams,useFetcher  } from "react-router";
 import { useLoaderData } from "react-router";
 const API = import.meta.env.VITE_API_URL;
 const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
@@ -356,6 +356,7 @@ export async function loader({ request, params }) {
   return { contract, upcomingCycles };
 }
 
+
 function subscriptionsId() {
   const [showInternalNotes, setShowInternalNotes] = useState(false);
   const [Internalnotes, setInternalNotes] = useState("");
@@ -402,6 +403,15 @@ function subscriptionsId() {
     const quantity = item?.node?.quantity || 0;
     return sum + price * quantity;
   }, 0);
+  function getCardImage(brand) {
+  const brandMap = {
+    visa: "https://subscriptions-assets.kachingappz.app/payment-method-icons/visa.svg",
+    mastercard: "https://subscriptions-assets.kachingappz.app/payment-method-icons/mastercard.svg",
+    amex: "https://subscriptions-assets.kachingappz.app/payment-method-icons/amex.svg",
+    bogus: "https://subscriptions-assets.kachingappz.app/payment-method-icons/bogus.svg",
+  };
+  return brandMap[brand?.toLowerCase()] || brandMap["bogus"];
+}
 
   return (
     <>
@@ -482,7 +492,7 @@ function subscriptionsId() {
           <div>
             <b>Payment Method</b> <br />
             <img
-              src="https://subscriptions-assets.kachingappz.app/payment-method-icons/bogus.svg"
+              src={getCardImage(contract?.customerPaymentMethod?.instrument?.brand)}
               alt={`${contract?.customerPaymentMethod?.instrument?.brand}`}
             />
             <span>
@@ -572,6 +582,7 @@ function subscriptionsId() {
           </div>
         </Card> */}
         <Card>
+           <b>Upcoming orders</b>
            {upcomingCycles?.map((cycle, index) => (
             <div
               key={cycle.cycleIndex ?? index}
