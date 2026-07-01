@@ -128,63 +128,6 @@ export async function loader({ request, params }) {
   const data = await res.json();
   const contract = data.data.subscriptionContract;
 
- const now = new Date();
-const startDate = now.toISOString();
-
-// 6 months ahead
-const future = new Date();
-future.setMonth(future.getMonth() + 6);
-const endDate = future.toISOString();
-const upcomingCyclesRes = await admin.graphql(
-  `
-  query UpcomingSubscriptionBillingCycles(
-    $contractId: ID!
-    $startDate: DateTime!
-    $endDate: DateTime!
-  ) {
-    subscriptionBillingCycles(
-      first: 10
-      contractId: $contractId
-      billingCyclesDateRangeSelector: {
-        startDate: $startDate
-        endDate: $endDate
-      }
-    ) {
-      edges {
-        node {
-          status
-          cycleIndex
-          cycleStartAt
-          cycleEndAt
-          billingAttemptExpectedDate
-          billingAttempts(first: 1) {
-            edges {
-              node {
-                order {
-                  id
-                  name
-                  createdAt
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-  `,
-  {
-    variables: {
-      contractId,
-      startDate,
-      endDate,
-    },
-  },
-);
-
-const upcomingCyclesData = await upcomingCyclesRes.json();
-const upcomingCycles =
-  upcomingCyclesData?.data?.subscriptionBillingCycles?.edges || [];
 
 
   try {
@@ -207,7 +150,7 @@ const upcomingCycles =
   } catch (err) {
     console.error("Backend save call failed:", err);
   }
-  return { contract, upcomingCycles };
+  return { contract,  };
 }
 
 function subscriptionsId() {
@@ -217,8 +160,8 @@ function subscriptionsId() {
   const [CustomerNotes, setCustomerNotes] = useState("");
 
   const { id } = useParams();
-  const { contract, upcomingCycles } = useLoaderData();
-  console.log("billing ", contract, "cycle", upcomingCycles);
+  const { contract } = useLoaderData();
+  console.log("billing ", contract, "cycle");
   const lines = contract?.lines?.edges;
   const shipingChargesAmount =
     contract?.orders?.edges[0]?.node?.totalShippingPriceSet?.shopMoney?.amount;
@@ -412,7 +355,7 @@ function subscriptionsId() {
           </p>
           <p>Total {grandTotal + parseFloat(shipingChargesAmount)} </p>
         </Card>
-        {/* <Card>
+        <Card>
           <b>Upcoming orders</b>
           <div style={{ display: "flex", justifyContent: "space-between" }}>
             <p>{formateDate(contract?.nextBillingDate)}</p>
@@ -421,32 +364,7 @@ function subscriptionsId() {
               <Link>skip</Link>
             </div>
           </div>
-        </Card> */}
-        <Card>
-  <b>Upcoming orders</b>
-  {upcomingCycles.length === 0 ? (
-    <p>No upcoming orders found.</p>
-  ) : (
-    upcomingCycles
-      // Optional: only show truly upcoming (unbilled) cycles
-      .filter(({ node }) => node.status === "UNBILLED")
-      .map(({ node }) => {
-        const date = node.billingAttemptExpectedDate || node.cycleStartAt;
-        return (
-          <div
-            key={node.cycleIndex}
-            style={{ display: "flex", justifyContent: "space-between", marginTop: 8 }}
-          >
-            <p>{formateDate(date)}</p>
-            <div style={{ display: "flex", gap: "30px" }}>
-              <Link>Edit</Link>
-              <Link>skip</Link>
-            </div>
-          </div>
-        );
-      })
-  )}
-</Card>
+        </Card>
         <div>
           <b>Internal Notes</b>
           <br />
