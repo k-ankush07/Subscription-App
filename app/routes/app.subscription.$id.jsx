@@ -413,7 +413,6 @@ function subscriptionsId() {
   const lines = contract?.lines?.edges;
   const nextCycleIndex = upcomingCycles?.[0]?.cycleIndex ?? null;
    const nextCycleDate = upcomingCycles?.[0]?.billingAttemptExpectedDate ?? null;
-   console.log("fndsjfbsbfsbdj",nextCycleDate)
   const shipingChargesAmount =
     contract?.orders?.edges[0]?.node?.totalShippingPriceSet?.shopMoney?.amount;
   const shipingChargesCurrency =
