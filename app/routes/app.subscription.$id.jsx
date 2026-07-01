@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useLoaderData } from "react-router";
 const API = import.meta.env.VITE_API_URL;
-const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY
+const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
 export async function loader({ request, params }) {
   const { admin } = await authenticate.admin(request);
   const subscriptionId = params.id;
@@ -122,56 +122,23 @@ export async function loader({ request, params }) {
       }
     }
   }
+    
 }
   `);
- const data = await res.json();
+  const data = await res.json();
   const contract = data.data.subscriptionContract;
-  const cyclesRes = await admin.graphql(
-  `
-    query UpcomingSubscriptionUpcomingOrders(
-      $contractId: ID!
-      $startIndex: Int = 1
-      $endIndex: Int = 5
-      $first: Int = 10
-    ) {
-      subscriptionBillingCycles(
-        contractId: $contractId
-        first: $first
-        billingCyclesIndexRangeSelector: { startIndex: $startIndex, endIndex: $endIndex }
-      ) {
-        edges {
-          node {
-            cycleStartAt
-            cycleEndAt
-            billingAttemptExpectedDate
-            skipped
-          }
-        }
-      }
-    }
-  `,
-  {
-    variables: {
-      contractId,
-      startIndex: 1,
-      endIndex: 5,
-      first: 10,
-    },
-  }
-);
-
-const cyclesData = await cyclesRes.json();
-const billingCycles = cyclesData.data.subscriptionBillingCycles;
-
   try {
-    await fetch(`https://habitant-startling-cassette.ngrok-free.dev/api/subscription`, {
-      method: "POST",
-      headers: {
-         "Content-Type": "application/json" ,
-         "x-api-key": SECRET_KEY,
+    await fetch(
+      `https://habitant-startling-cassette.ngrok-free.dev/api/subscription`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": SECRET_KEY,
         },
-      body: JSON.stringify({ subscriptionId, contractId, contract ,billingCycles}),
-    });
+        body: JSON.stringify({ subscriptionId, contractId, contract }),
+      },
+    );
   } catch (err) {
     console.error("Backend save call failed:", err);
   }
@@ -181,30 +148,33 @@ const billingCycles = cyclesData.data.subscriptionBillingCycles;
 function subscriptionsId() {
   const [showInternalNotes, setShowInternalNotes] = useState(false);
   const [Internalnotes, setInternalNotes] = useState("");
-  const [showCustomerNotes, setshowCustomerNotes]= useState(false)
-  const [CustomerNotes, setCustomerNotes]= useState("")
+  const [showCustomerNotes, setshowCustomerNotes] = useState(false);
+  const [CustomerNotes, setCustomerNotes] = useState("");
 
   const { id } = useParams();
-  const { contract,billingCycles } = useLoaderData();
-  console.log("billing ",contract,billingCycles)
+  const { contract } = useLoaderData();
+  console.log("billing ", contract);
   const lines = contract?.lines?.edges;
-  const shipingChargesAmount= contract?.orders?.edges[0]?.node?.totalShippingPriceSet?.shopMoney?.amount;
-  const shipingChargesCurrency= contract?.orders?.edges[0]?.node?.totalShippingPriceSet?.shopMoney?.currencyCode;
-  const shippingTitle= contract?.orders?.edges[0]?.node?.shippingLine?.title;
+  const shipingChargesAmount =
+    contract?.orders?.edges[0]?.node?.totalShippingPriceSet?.shopMoney?.amount;
+  const shipingChargesCurrency =
+    contract?.orders?.edges[0]?.node?.totalShippingPriceSet?.shopMoney
+      ?.currencyCode;
+  const shippingTitle = contract?.orders?.edges[0]?.node?.shippingLine?.title;
 
   const navigate = useNavigate();
   const backButton = () => {
     navigate("/app/subscriptions");
   };
-   const handleSave = () => {
-    JSON.stringify(localStorage.setItem("notes data",Internalnotes))
+  const handleSave = () => {
+    JSON.stringify(localStorage.setItem("notes data", Internalnotes));
     setShowInternalNotes(false);
-    setInternalNotes("")
+    setInternalNotes("");
   };
-   const handleSaveCustomer = () => {
-    JSON.stringify(localStorage.setItem("customer data",CustomerNotes))
+  const handleSaveCustomer = () => {
+    JSON.stringify(localStorage.setItem("customer data", CustomerNotes));
     setshowCustomerNotes(false);
-    setCustomerNotes("")
+    setCustomerNotes("");
   };
   const formateDate = (date) => {
     return new Date(date).toLocaleDateString("en-US", {
@@ -220,7 +190,6 @@ function subscriptionsId() {
   }, 0);
 
   return (
-   
     <>
       <Page backAction={{ onAction: backButton }} title={`${id}`}>
         <div>
@@ -228,39 +197,41 @@ function subscriptionsId() {
           <b>{contract?.originOrder?.name}</b>
         </div>
 
-        {
-          contract?.status==="ACTIVE"
-          ? <>
-          <Button>Place order now</Button>
-          <Button>Pause</Button>
+        {contract?.status === "ACTIVE" ? (
+          <>
+            <Button>Place order now</Button>
+            <Button>Pause</Button>
           </>
-          : <>
-          <Button>Resume</Button>
+        ) : (
+          <>
+            <Button>Resume</Button>
           </>
-        }
-        
+        )}
+
         <Button>cancel subscription</Button>
         <div>
           <b>Next Order</b>
           <p>{formateDate(contract?.nextBillingDate)}</p>
-          {
-            contract?.status==="ACTIVE" 
-            ? <><Button>Place next order</Button></>
-            : ""
-          } <br/>
-        {
-  (contract?.billingPolicy?.minCycles != null || contract?.billingPolicy?.maxCycles != null) && (
-    <>
-      <b>Order limits</b>
-      {contract?.billingPolicy?.minCycles != null && (
-        <p>Minimum cycles: {contract.billingPolicy.minCycles}</p>
-      )}
-      {contract?.billingPolicy?.maxCycles != null && (
-        <p>Maximum cycles: {contract.billingPolicy.maxCycles}</p>
-      )}
-    </>
-  )
-}
+          {contract?.status === "ACTIVE" ? (
+            <>
+              <Button>Place next order</Button>
+            </>
+          ) : (
+            ""
+          )}{" "}
+          <br />
+          {(contract?.billingPolicy?.minCycles != null ||
+            contract?.billingPolicy?.maxCycles != null) && (
+            <>
+              <b>Order limits</b>
+              {contract?.billingPolicy?.minCycles != null && (
+                <p>Minimum cycles: {contract.billingPolicy.minCycles}</p>
+              )}
+              {contract?.billingPolicy?.maxCycles != null && (
+                <p>Maximum cycles: {contract.billingPolicy.maxCycles}</p>
+              )}
+            </>
+          )}
         </div>
         <div>
           <b>Customer</b>
@@ -366,47 +337,67 @@ function subscriptionsId() {
           <b>Payment Summary</b>
 
           <p>Subtotal {grandTotal}</p>
-          <p>Shipping {shippingTitle} {parseFloat(shipingChargesAmount)}</p>
+          <p>
+            Shipping {shippingTitle} {parseFloat(shipingChargesAmount)}
+          </p>
           <p>Total {grandTotal + parseFloat(shipingChargesAmount)} </p>
         </Card>
         <Card>
           <b>Upcoming orders</b>
-          <div  style={{ display:"flex", justifyContent:"space-between" }}>
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
             <p>{formateDate(contract?.nextBillingDate)}</p>
-          <div style={{ display:"flex", gap:"30px", }}>
-              <Link>Edit</Link> 
-            <Link>skip</Link>
-          </div>
+            <div style={{ display: "flex", gap: "30px" }}>
+              <Link>Edit</Link>
+              <Link>skip</Link>
+            </div>
           </div>
         </Card>
-      <div>
-      <b>Internal Notes</b><br/>
-      <Button onClick={() => setShowInternalNotes(true)}>Click</Button><br/>
-      {showInternalNotes && (
-        <>
-          <textarea value={Internalnotes} onChange={(e) => setInternalNotes(e.target.value)}></textarea>
-          <Button onClick={() => {
-            localStorage.removeItem("notes data")
-            setShowInternalNotes(false)
-          }}>Cancel</Button>
-          <Button onClick={handleSave}>Save</Button>
-        </>
-      )}
-    </div>
-     <div>
-      <b>Customer Notes</b><br/>
-      <Button onClick={() => setshowCustomerNotes(true)}>Click</Button><br/>
-      {showCustomerNotes && (
-        <>
-          <textarea value={CustomerNotes} onChange={(e) => setCustomerNotes(e.target.value)}></textarea>
-          <Button onClick={() => {
-            localStorage.removeItem("customer data")
-            setshowCustomerNotes(false)
-          }}>Cancel</Button>
-          <Button onClick={handleSaveCustomer}>Save</Button>
-        </>
-      )}
-    </div>
+        <div>
+          <b>Internal Notes</b>
+          <br />
+          <Button onClick={() => setShowInternalNotes(true)}>Click</Button>
+          <br />
+          {showInternalNotes && (
+            <>
+              <textarea
+                value={Internalnotes}
+                onChange={(e) => setInternalNotes(e.target.value)}
+              ></textarea>
+              <Button
+                onClick={() => {
+                  localStorage.removeItem("notes data");
+                  setShowInternalNotes(false);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleSave}>Save</Button>
+            </>
+          )}
+        </div>
+        <div>
+          <b>Customer Notes</b>
+          <br />
+          <Button onClick={() => setshowCustomerNotes(true)}>Click</Button>
+          <br />
+          {showCustomerNotes && (
+            <>
+              <textarea
+                value={CustomerNotes}
+                onChange={(e) => setCustomerNotes(e.target.value)}
+              ></textarea>
+              <Button
+                onClick={() => {
+                  localStorage.removeItem("customer data");
+                  setshowCustomerNotes(false);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleSaveCustomer}>Save</Button>
+            </>
+          )}
+        </div>
       </Page>
     </>
   );
