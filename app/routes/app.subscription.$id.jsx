@@ -353,19 +353,63 @@ export async function loader({ request, params }) {
     console.error("Backend save call failed:", err);
   }
 
-  return { contract, upcomingCycles };
+  let internalNotes = "";
+  let customerNotes = "";
+  try {
+    const notesRes = await fetch(`${API}/api/${subscriptionId}`, {
+      method: "GET",
+      headers: {
+        "x-api-key": SECRET_KEY,
+      },
+    });
+    if (notesRes.ok) {
+      const notesData = await notesRes.json();
+      internalNotes = notesData?.data?.internalNotes || "";
+      customerNotes = notesData?.data?.customerNotes || "";
+    }
+  } catch (err) {
+    console.error("Backend fetch notes failed:", err);
+  }
+  return { contract, upcomingCycles, internalNotes, customerNotes };
 }
 
+export async function action({ request, params }) {
+  const formData = await request.formData();
+  const type = formData.get("type");   // "internal" ya "customer"
+  const notes = formData.get("notes");
+  const subscriptionId = params.id;
+  const contractId = `gid://shopify/SubscriptionContract/${subscriptionId}`;
 
+  const payload = {
+    subscriptionId,
+    contractId,
+    ...(type === "internal" ? { internalNotes: notes } : { customerNotes: notes }),
+  };
+
+  try {
+    await fetch(`${API}/api/subscription`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": SECRET_KEY,
+      },
+      body: JSON.stringify(payload),
+    });
+    return { success: true };
+  } catch (err) {
+    console.error("Backend save notes call failed:", err);
+    return { success: false, error: err.message };
+  }
+}
 function subscriptionsId() {
+    const { contract,upcomingCycles, internalNotes, customerNotes } = useLoaderData();
   const [showInternalNotes, setShowInternalNotes] = useState(false);
-  const [Internalnotes, setInternalNotes] = useState("");
+  const [Internalnotes, setInternalNotes] = useState( internalNotes ||"");
   const [showCustomerNotes, setshowCustomerNotes] = useState(false);
-  const [CustomerNotes, setCustomerNotes] = useState("");
-
+  const [CustomerNotes, setCustomerNotes] = useState( customerNotes ||"");
   const { id } = useParams();
-  const { contract,upcomingCycles } = useLoaderData();
-  console.log("billing ", contract, "cycle",upcomingCycles);
+  const fetcher = useFetcher(); 
+  console.log(internalNotes,customerNotes);
   const lines = contract?.lines?.edges;
   const nextCycleIndex = upcomingCycles?.[0]?.cycleIndex ?? null;
    const nextCycleDate = upcomingCycles?.[0]?.billingAttemptExpectedDate ?? null;
@@ -382,12 +426,19 @@ function subscriptionsId() {
     navigate("/app/subscriptions");
   };
   const handleSave = () => {
-    JSON.stringify(localStorage.setItem("notes data", Internalnotes));
+    fetcher.submit(
+      { type: "internal", notes: Internalnotes },
+      { method: "post" }
+    );
     setShowInternalNotes(false);
     setInternalNotes("");
   };
+
   const handleSaveCustomer = () => {
-    JSON.stringify(localStorage.setItem("customer data", CustomerNotes));
+    fetcher.submit(
+      { type: "customer", notes: CustomerNotes },
+      { method: "post" }
+    );
     setshowCustomerNotes(false);
     setCustomerNotes("");
   };

@@ -6,6 +6,8 @@ const subscriptionSchema = new mongoose.Schema(
     contractId: { type: String },
     contract: { type: Object },
     upcomingCycles: { type: Array },
+    internalNotes: { type: String, default: "" },
+customerNotes: { type: String, default: "" },
   },
   { timestamps: true }
 );
