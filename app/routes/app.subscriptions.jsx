@@ -8,7 +8,7 @@ export async function loader({ request }) {
 
   const res = await admin.graphql(`
     query {
-  subscriptionContracts(first: 50) {
+  subscriptionContracts(first: 100) {
     edges {
       node {
         id

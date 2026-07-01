@@ -127,6 +127,26 @@ export async function loader({ request, params }) {
   `);
   const data = await res.json();
   const contract = data.data.subscriptionContract;
+
+  // 2) Current billing cycle nikaalo
+  const currentDate = new Date().toISOString();
+  const cycleRes = await admin.graphql(`
+    query subscriptionCurrentCycle {
+    subscriptionBillingCycle(
+      billingCycleInput: {
+        contractId: "${contractId}"
+        selector: { date: "${currentDate}" }
+      }
+    ) {
+      cycleIndex
+      billingAttemptExpectedDate
+    }
+  }
+  `);
+
+  const cycleData = await cycleRes.json();
+  const currentCycle = cycleData?.data?.subscriptionBillingCycle || null;
+
   try {
     await fetch(
       `https://habitant-startling-cassette.ngrok-free.dev/api/subscription`,
@@ -136,13 +156,18 @@ export async function loader({ request, params }) {
           "Content-Type": "application/json",
           "x-api-key": SECRET_KEY,
         },
-        body: JSON.stringify({ subscriptionId, contractId, contract }),
+        body: JSON.stringify({
+          subscriptionId,
+          contractId,
+          contract,
+          currentCycle,
+        }),
       },
     );
   } catch (err) {
     console.error("Backend save call failed:", err);
   }
-  return { contract };
+  return { contract, currentCycle };
 }
 
 function subscriptionsId() {
@@ -152,8 +177,8 @@ function subscriptionsId() {
   const [CustomerNotes, setCustomerNotes] = useState("");
 
   const { id } = useParams();
-  const { contract } = useLoaderData();
-  console.log("billing ", contract);
+  const { contract, currentCycle } = useLoaderData();
+  console.log("billing ", contract, "cycle", currentCycle);
   const lines = contract?.lines?.edges;
   const shipingChargesAmount =
     contract?.orders?.edges[0]?.node?.totalShippingPriceSet?.shopMoney?.amount;
@@ -232,6 +257,11 @@ function subscriptionsId() {
               )}
             </>
           )}
+        </div>
+        <div>
+          <b>Billing Cycle</b>
+
+          <p>{currentCycle.cycleIndex}</p>
         </div>
         <div>
           <b>Customer</b>
