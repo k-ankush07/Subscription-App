@@ -151,14 +151,21 @@ const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
 //   }
 //   return { contract,  };
 // }
+
+
 export async function loader({ request, params }) {
   const { admin } = await authenticate.admin(request);
 
   const subscriptionId = params.id;
   const contractId = `gid://shopify/SubscriptionContract/${subscriptionId}`;
+
+  // Date range: aaj se next 6 months (tum chaaho to yahan months change kar sakte ho)
   const startDate = new Date().toISOString();
-  const endDate = new Date();
-  endDate.setMonth(endDate.getMonth() + 6);
+  const endDateObj = new Date();
+  endDateObj.setMonth(endDateObj.getMonth()+12);
+  console.log("endDateObj", endDateObj);
+  const endDate = endDateObj.toISOString();
+
   const graphqlResponse = await admin.graphql(
     `
     query SubscriptionContractWithUpcoming(
@@ -277,7 +284,7 @@ export async function loader({ request, params }) {
       }
 
       subscriptionBillingCycles(
-        first: 10
+        first: 250
         contractId: $contractId
         billingCyclesDateRangeSelector: {
           startDate: $startDate
@@ -286,11 +293,11 @@ export async function loader({ request, params }) {
       ) {
         edges {
           node {
-          status
-          cycleIndex
-          cycleStartAt
-          cycleEndAt
-          skipped
+            status
+            cycleIndex
+            cycleStartAt
+            cycleEndAt
+            skipped
             billingAttemptExpectedDate
           }
         }
@@ -301,42 +308,47 @@ export async function loader({ request, params }) {
       variables: {
         contractId,
         startDate,
-        endDate: endDate.toISOString(),
+        endDate,
       },
     },
   );
 
   const data = await graphqlResponse.json();
-  const contract = data.data.subscriptionContract;
-  const allCycles = data.data.subscriptionBillingCycles.edges.map(
-    (edge) => edge.node,
-  );
-  let upcomingCycles = allCycles;
-  const maxCycles = contract?.billingPolicy?.maxCycles ?? null;
-  if (maxCycles != null) {
-  upcomingCycles = allCycles.filter(
-    (cycle) => cycle.cycleIndex <= maxCycles,
-  );
-}
-  
 
-  try {
-    await fetch(
-      `https://habitant-startling-cassette.ngrok-free.dev/api/subscription`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": SECRET_KEY,
-        },
-        body: JSON.stringify({
-          subscriptionId,
-          contractId,
-          contract,
-          upcomingCycles, // AB yahan actual data jaa raha hai
-        }),
-      },
+  if (!data?.data?.subscriptionContract) {
+    throw new Response("Subscription contract not found", { status: 404 });
+  }
+
+  const contract = data.data.subscriptionContract;
+  const allCycles =
+    data.data.subscriptionBillingCycles?.edges?.map((edge) => edge.node) || [];
+  const maxCycles = contract?.billingPolicy?.maxCycles ?? null;
+  const now = new Date();
+  let upcomingCycles = allCycles.filter(
+    (cycle) =>
+      cycle.billingAttemptExpectedDate &&
+      new Date(cycle.billingAttemptExpectedDate) >= now,
+  );
+
+  if (maxCycles != null) {
+    upcomingCycles = upcomingCycles.filter(
+      (cycle) => typeof cycle.cycleIndex === "number" && cycle.cycleIndex <= maxCycles,
     );
+  }
+  try {
+    await fetch(`${API}/api/subscription`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": SECRET_KEY,
+      },
+      body: JSON.stringify({
+        subscriptionId,
+        contractId,
+        contract,
+        upcomingCycles,
+      }),
+    });
   } catch (err) {
     console.error("Backend save call failed:", err);
   }
@@ -354,6 +366,8 @@ function subscriptionsId() {
   const { contract,upcomingCycles } = useLoaderData();
   console.log("billing ", contract, "cycle",upcomingCycles);
   const lines = contract?.lines?.edges;
+  const nextCycleIndex = upcomingCycles?.[0]?.cycleIndex ?? null;
+   const nextCycleDate = upcomingCycles?.billingAttemptExpectedDate ?? null;
   const shipingChargesAmount =
     contract?.orders?.edges[0]?.node?.totalShippingPriceSet?.shopMoney?.amount;
   const shipingChargesCurrency =
@@ -410,7 +424,7 @@ function subscriptionsId() {
         <Button>cancel subscription</Button>
         <div>
           <b>Next Order</b>
-          <p>{formateDate(contract?.nextBillingDate)}</p>
+          <p>{nextCycleDate}</p>
           {contract?.status === "ACTIVE" ? (
             <>
               <Button>Place next order</Button>
@@ -435,7 +449,7 @@ function subscriptionsId() {
         <div>
           <b>Billing Cycle</b>
 
-          {/* <p>{currentCycle.cycleIndex}</p> */}
+          <p>{nextCycleIndex}</p>
         </div>
         <div>
           <b>Customer</b>
@@ -546,7 +560,7 @@ function subscriptionsId() {
           </p>
           <p>Total {grandTotal + parseFloat(shipingChargesAmount)} </p>
         </Card>
-        <Card>
+        {/* <Card>
           <b>Upcoming orders</b>
           <div style={{ display: "flex", justifyContent: "space-between" }}>
             <p>{formateDate(contract?.nextBillingDate)}</p>
@@ -555,6 +569,24 @@ function subscriptionsId() {
               <Link>skip</Link>
             </div>
           </div>
+        </Card> */}
+        <Card>
+           {upcomingCycles?.map((cycle, index) => (
+            <div
+              key={cycle.cycleIndex ?? index}
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                marginTop: "8px",
+              }}
+            >
+              <p>{formateDate(cycle.billingAttemptExpectedDate)}</p>
+              <div style={{ display: "flex", gap: "30px" }}>
+                <Link>Edit</Link>
+                <Link>skip</Link>
+              </div>
+            </div>
+          ))}
         </Card>
         <div>
           <b>Internal Notes</b>

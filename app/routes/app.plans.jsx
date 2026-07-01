@@ -123,48 +123,48 @@ export const loader = async ({ request }) => {
 //   });
 // };
 
-export const action = async ({ request }) => {
-  const { admin } = await authenticate.admin(request);
+// export const action = async ({ request }) => {
+//   const { admin } = await authenticate.admin(request);
 
-  const formData = await request.formData();
-  console.log("formdata",formData)
-  const planId = formData.get("planId");
+//   const formData = await request.formData();
+//   console.log("formdata",formData)
+//   const planId = formData.get("planId");
 
-  // 1. Shopify se delete
-  const response = await admin.graphql(
-    `#graphql
-    mutation deletePlan($id: ID!) {
-      sellingPlanGroupDelete(id: $id) {
-        deletedSellingPlanGroupId
-        userErrors {
-          field
-          message
-        }
-      }
-    }`,
-    {
-      variables: {
-        id: `gid://shopify/SellingPlanGroup/${planId}`,
-      },
-    },
-  );
+//   // 1. Shopify se delete
+//   const response = await admin.graphql(
+//     `#graphql
+//     mutation deletePlan($id: ID!) {
+//       sellingPlanGroupDelete(id: $id) {
+//         deletedSellingPlanGroupId
+//         userErrors {
+//           field
+//           message
+//         }
+//       }
+//     }`,
+//     {
+//       variables: {
+//         id: `gid://shopify/SellingPlanGroup/${planId}`,
+//       },
+//     },
+//   );
 
-  const result = await response.json();
-  const errors = result.data.sellingPlanGroupDelete.userErrors;
+//   const result = await response.json();
+//   const errors = result.data.sellingPlanGroupDelete.userErrors;
 
-  if (errors.length > 0) {
-    return Response.json({ success: false, errors });
-  }
+//   if (errors.length > 0) {
+//     return Response.json({ success: false, errors });
+//   }
 
-  // 2. Apne DB se delete
-  await fetch(`${API}/plans/${planId}`, { method: "DELETE",
-    headers:{
-      "x-api-key": SECRET_KEY,
-    }
-   });
+//   // 2. Apne DB se delete
+//   await fetch(`${API}/plans/${planId}`, { method: "DELETE",
+//     headers:{
+//       "x-api-key": SECRET_KEY,
+//     }
+//    });
 
-  return Response.json({ success: true });
-};
+//   return Response.json({ success: true });
+// };
 
 function Plans() {
   const { plans } = useLoaderData();
