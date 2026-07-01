@@ -128,35 +128,63 @@ export async function loader({ request, params }) {
   const data = await res.json();
   const contract = data.data.subscriptionContract;
 
-  // Current billing cycle nikaalo
- const currentDate = new Date().toISOString();
+ const now = new Date();
+const startDate = now.toISOString();
 
-  
-
-  const cycleRes = await admin.graphql(
-    `
-query subscriptionCurrentCycle {
-    subscriptionBillingCycle(
-      billingCycleInput: {
-        contractId: "${contractId}"
-        selector: { date: "${currentDate}" }
+// 6 months ahead
+const future = new Date();
+future.setMonth(future.getMonth() + 6);
+const endDate = future.toISOString();
+const upcomingCyclesRes = await admin.graphql(
+  `
+  query UpcomingSubscriptionBillingCycles(
+    $contractId: ID!
+    $startDate: DateTime!
+    $endDate: DateTime!
+  ) {
+    subscriptionBillingCycles(
+      first: 10
+      contractId: $contractId
+      billingCyclesDateRangeSelector: {
+        startDate: $startDate
+        endDate: $endDate
       }
     ) {
-      cycleIndex
-      billingAttemptExpectedDate
+      edges {
+        node {
+          status
+          cycleIndex
+          cycleStartAt
+          cycleEndAt
+          billingAttemptExpectedDate
+          billingAttempts(first: 1) {
+            edges {
+              node {
+                order {
+                  id
+                  name
+                  createdAt
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
   `,
-    {
-      variables: {
-        contractId,
-        date: currentDate,
-      },
+  {
+    variables: {
+      contractId,
+      startDate,
+      endDate,
     },
-  );
+  },
+);
 
-const cycleData = await cycleRes.json();
-const currentCycle = cycleData?.data?.subscriptionBillingCycle || null;
+const upcomingCyclesData = await upcomingCyclesRes.json();
+const upcomingCycles =
+  upcomingCyclesData?.data?.subscriptionBillingCycles?.edges || [];
 
 
   try {
@@ -172,14 +200,14 @@ const currentCycle = cycleData?.data?.subscriptionBillingCycle || null;
           subscriptionId,
           contractId,
           contract,
-          currentCycle,
+          upcomingCycles,
         }),
       },
     );
   } catch (err) {
     console.error("Backend save call failed:", err);
   }
-  return { contract, currentCycle };
+  return { contract, upcomingCycles };
 }
 
 function subscriptionsId() {
@@ -189,8 +217,8 @@ function subscriptionsId() {
   const [CustomerNotes, setCustomerNotes] = useState("");
 
   const { id } = useParams();
-  const { contract, currentCycle } = useLoaderData();
-  console.log("billing ", contract, "cycle", currentCycle);
+  const { contract, upcomingCycles } = useLoaderData();
+  console.log("billing ", contract, "cycle", upcomingCycles);
   const lines = contract?.lines?.edges;
   const shipingChargesAmount =
     contract?.orders?.edges[0]?.node?.totalShippingPriceSet?.shopMoney?.amount;
