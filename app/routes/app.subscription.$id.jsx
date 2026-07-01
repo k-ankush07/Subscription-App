@@ -163,7 +163,6 @@ export async function loader({ request, params }) {
   const startDate = new Date().toISOString();
   const endDateObj = new Date();
   endDateObj.setMonth(endDateObj.getMonth()+12);
-  console.log("endDateObj", endDateObj);
   const endDate = endDateObj.toISOString();
 
   const graphqlResponse = await admin.graphql(
@@ -298,6 +297,7 @@ export async function loader({ request, params }) {
             cycleStartAt
             cycleEndAt
             skipped
+            edited
             billingAttemptExpectedDate
           }
         }
@@ -320,8 +320,7 @@ export async function loader({ request, params }) {
   }
 
   const contract = data.data.subscriptionContract;
-  const allCycles =
-    data.data.subscriptionBillingCycles?.edges?.map((edge) => edge.node) || [];
+  const allCycles = data.data.subscriptionBillingCycles?.edges?.map((edge) => edge.node) || [];
   const maxCycles = contract?.billingPolicy?.maxCycles ?? null;
   const now = new Date();
   let upcomingCycles = allCycles.filter(
@@ -403,6 +402,7 @@ export async function action({ request, params }) {
 }
 function subscriptionsId() {
     const { contract,upcomingCycles, internalNotes, customerNotes } = useLoaderData();
+    console.log("contract",contract)
   const [showInternalNotes, setShowInternalNotes] = useState(false);
   const [Internalnotes, setInternalNotes] = useState( internalNotes ||"");
   const [showCustomerNotes, setshowCustomerNotes] = useState(false);
