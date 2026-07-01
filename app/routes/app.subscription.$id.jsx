@@ -128,10 +128,12 @@ export async function loader({ request, params }) {
   const data = await res.json();
   const contract = data.data.subscriptionContract;
 
-  // 2) Current billing cycle nikaalo
+  // Current billing cycle nikaalo
   const currentDate = new Date().toISOString();
-  const cycleRes = await admin.graphql(`
-    query subscriptionCurrentCycle {
+
+  const cycleRes = await admin.graphql(
+    `
+query subscriptionCurrentCycle {
     subscriptionBillingCycle(
       billingCycleInput: {
         contractId: "${contractId}"
@@ -142,7 +144,14 @@ export async function loader({ request, params }) {
       billingAttemptExpectedDate
     }
   }
-  `);
+  `,
+    {
+      variables: {
+        contractId,
+        date: currentDate,
+      },
+    },
+  );
 
   const cycleData = await cycleRes.json();
   const currentCycle = cycleData?.data?.subscriptionBillingCycle || null;
