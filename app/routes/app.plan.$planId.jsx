@@ -72,9 +72,7 @@ export const action = async ({ request }) => {
   };
 
   //  Plans ko 3 categories mein baanto:
-  //    - shopifySellingPlanId hai → UPDATE (existing Shopify plan)
-  //    - shopifySellingPlanId nahi → CREATE (naya plan)
-  //    - DB mein tha par frontend se nahi aaya → DELETE (user ne remove kiya)
+
   const plansToUpdate = sellingPlans.filter((sp) => sp.shopifySellingPlanId);
   const plansToCreate = sellingPlans.filter((sp) => !sp.shopifySellingPlanId);
 
