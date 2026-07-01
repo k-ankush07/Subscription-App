@@ -5,42 +5,196 @@ import { Link, useNavigate, useParams } from "react-router";
 import { useLoaderData } from "react-router";
 const API = import.meta.env.VITE_API_URL;
 const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
+// export async function loader({ request, params }) {
+//   const { admin } = await authenticate.admin(request);
+//   const subscriptionId = params.id;
+//   const contractId = `gid://shopify/SubscriptionContract/${subscriptionId}`;
+//   console.log("bsvjhfvjhs", contractId);
+//   const res = await admin.graphql(`
+//  query {
+//   subscriptionContract(id: "${contractId}") {
+//     id
+//     status
+//     createdAt
+//     updatedAt
+//     nextBillingDate
+//     deliveryPolicy {
+//       interval
+//       intervalCount
+//     }
+//     billingPolicy {
+//       interval
+//       intervalCount
+//       minCycles
+//       maxCycles
+//     }
+//     originOrder {
+//       id
+//       name
+//     }
+//       customer {
+//           id
+//           firstName
+//           lastName
+//           email
+//         }
+//          deliveryMethod {
+//   ... on SubscriptionDeliveryMethodShipping {
+//      address {
+//               firstName
+//               lastName
+//               address1
+//               address2
+//               city
+//               province
+//               zip
+//               country
+//             }
+//   }
+// }
+//    customerPaymentMethod {
+//           id
+//           instrument {
+//             ... on CustomerCreditCard {
+//               brand
+//               lastDigits
+//               expiryMonth
+//               expiryYear
+//             }
+//           }
+//         }
+//         orders(first: 10) {
+//           edges {
+//             node {
+//               id
+//               createdAt
+//               name
+//               shippingLine {
+//         title
+//       }
+//           totalShippingPriceSet {
+//         shopMoney {
+//           amount
+//           currencyCode
+//         }
+//       }
+//             }
+//           }
+//         }
+        
+//     lines(first: 10) {
+//       edges {
+//         node {
+//           id
+//           title
+//           variantTitle
+//           quantity
+//           productId       
+//           variantId 
+//           sku
+//           currentPrice {
+//             amount
+//             currencyCode
+//           }
+//           variantImage {
+//             url
+//           }
+//             pricingPolicy {
+//                   cycleDiscounts {
+//                     afterCycle
+//                     adjustmentType
+//                     adjustmentValue {
+//                       ... on SellingPlanPricingPolicyPercentageValue {
+//                         percentage
+//                       }
+//                       ... on MoneyV2 {
+//                         amount
+//                         currencyCode
+//                       }
+//                     }
+//                     computedPrice {
+//                       amount
+//                       currencyCode
+//                     }
+//   }
+// }
+//         }
+//       }
+//     }
+//   }
+    
+// }
+//   `);
+//   const data = await res.json();
+//   const contract = data.data.subscriptionContract;
+
+
+
+//   try {
+//     await fetch(
+//       `https://habitant-startling-cassette.ngrok-free.dev/api/subscription`,
+//       {
+//         method: "POST",
+//         headers: {
+//           "Content-Type": "application/json",
+//           "x-api-key": SECRET_KEY,
+//         },
+//         body: JSON.stringify({
+//           subscriptionId,
+//           contractId,
+//           contract,
+//         }),
+//       },
+//     );
+//   } catch (err) {
+//     console.error("Backend save call failed:", err);
+//   }
+//   return { contract,  };
+// }
 export async function loader({ request, params }) {
   const { admin } = await authenticate.admin(request);
+
   const subscriptionId = params.id;
   const contractId = `gid://shopify/SubscriptionContract/${subscriptionId}`;
-  console.log("bsvjhfvjhs", contractId);
-  const res = await admin.graphql(`
- query {
-  subscriptionContract(id: "${contractId}") {
-    id
-    status
-    createdAt
-    updatedAt
-    nextBillingDate
-    deliveryPolicy {
-      interval
-      intervalCount
-    }
-    billingPolicy {
-      interval
-      intervalCount
-      minCycles
-      maxCycles
-    }
-    originOrder {
-      id
-      name
-    }
-      customer {
+  const startDate = new Date().toISOString();
+  const endDate = new Date();
+  endDate.setMonth(endDate.getMonth() + 6);
+  const graphqlResponse = await admin.graphql(
+    `
+    query SubscriptionContractWithUpcoming(
+      $contractId: ID!
+      $startDate: DateTime!
+      $endDate: DateTime!
+    ) {
+      subscriptionContract(id: $contractId) {
+        id
+        status
+        createdAt
+        updatedAt
+        nextBillingDate
+        deliveryPolicy {
+          interval
+          intervalCount
+        }
+        billingPolicy {
+          interval
+          intervalCount
+          minCycles
+          maxCycles
+        }
+        originOrder {
+          id
+          name
+        }
+        customer {
           id
           firstName
           lastName
           email
         }
-         deliveryMethod {
-  ... on SubscriptionDeliveryMethodShipping {
-     address {
+        deliveryMethod {
+          ... on SubscriptionDeliveryMethodShipping {
+            address {
               firstName
               lastName
               address1
@@ -50,9 +204,9 @@ export async function loader({ request, params }) {
               zip
               country
             }
-  }
-}
-   customerPaymentMethod {
+          }
+        }
+        customerPaymentMethod {
           id
           instrument {
             ... on CustomerCreditCard {
@@ -70,65 +224,101 @@ export async function loader({ request, params }) {
               createdAt
               name
               shippingLine {
-        title
-      }
-          totalShippingPriceSet {
-        shopMoney {
-          amount
-          currencyCode
-        }
-      }
+                title
+              }
+              totalShippingPriceSet {
+                shopMoney {
+                  amount
+                  currencyCode
+                }
+              }
             }
           }
         }
-        
-    lines(first: 10) {
-      edges {
-        node {
-          id
-          title
-          variantTitle
-          quantity
-          productId       
-          variantId 
-          sku
-          currentPrice {
-            amount
-            currencyCode
-          }
-          variantImage {
-            url
-          }
-            pricingPolicy {
-                  cycleDiscounts {
-                    afterCycle
-                    adjustmentType
-                    adjustmentValue {
-                      ... on SellingPlanPricingPolicyPercentageValue {
-                        percentage
-                      }
-                      ... on MoneyV2 {
-                        amount
-                        currencyCode
-                      }
+        lines(first: 10) {
+          edges {
+            node {
+              id
+              title
+              variantTitle
+              quantity
+              productId
+              variantId
+              sku
+              currentPrice {
+                amount
+                currencyCode
+              }
+              variantImage {
+                url
+              }
+              pricingPolicy {
+                cycleDiscounts {
+                  afterCycle
+                  adjustmentType
+                  adjustmentValue {
+                    ... on SellingPlanPricingPolicyPercentageValue {
+                      percentage
                     }
-                    computedPrice {
+                    ... on MoneyV2 {
                       amount
                       currencyCode
                     }
-  }
-}
+                  }
+                  computedPrice {
+                    amount
+                    currencyCode
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
+      subscriptionBillingCycles(
+        first: 10
+        contractId: $contractId
+        billingCyclesDateRangeSelector: {
+          startDate: $startDate
+          endDate: $endDate
+        }
+      ) {
+        edges {
+          node {
+          status
+          cycleIndex
+          cycleStartAt
+          cycleEndAt
+          skipped
+            billingAttemptExpectedDate
+          }
         }
       }
     }
-  }
-    
-}
-  `);
-  const data = await res.json();
+    `,
+    {
+      variables: {
+        contractId,
+        startDate,
+        endDate: endDate.toISOString(),
+      },
+    },
+  );
+
+  const data = await graphqlResponse.json();
   const contract = data.data.subscriptionContract;
-
-
+  const allCycles = data.data.subscriptionBillingCycles.edges.map(
+    (edge) => edge.node,
+  );
+  let upcomingCycles = allCycles;
+  const maxCycles = contract?.billingPolicy?.maxCycles ?? null;
+  if (maxCycles != null) {
+  upcomingCycles = allCycles.filter(
+    (cycle) => cycle.cycleIndex <= maxCycles,
+  );
+}
+  
 
   try {
     await fetch(
@@ -143,14 +333,15 @@ export async function loader({ request, params }) {
           subscriptionId,
           contractId,
           contract,
-          upcomingCycles,
+          upcomingCycles, // AB yahan actual data jaa raha hai
         }),
       },
     );
   } catch (err) {
     console.error("Backend save call failed:", err);
   }
-  return { contract,  };
+
+  return { contract, upcomingCycles };
 }
 
 function subscriptionsId() {
@@ -160,8 +351,8 @@ function subscriptionsId() {
   const [CustomerNotes, setCustomerNotes] = useState("");
 
   const { id } = useParams();
-  const { contract } = useLoaderData();
-  console.log("billing ", contract, "cycle");
+  const { contract,upcomingCycles } = useLoaderData();
+  console.log("billing ", contract, "cycle",upcomingCycles);
   const lines = contract?.lines?.edges;
   const shipingChargesAmount =
     contract?.orders?.edges[0]?.node?.totalShippingPriceSet?.shopMoney?.amount;
