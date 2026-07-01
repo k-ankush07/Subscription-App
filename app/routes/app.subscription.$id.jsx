@@ -563,6 +563,7 @@ function subscriptionsId() {
 
         <div>
           <b> Subscription details</b>
+          <Link to="" >Edit</Link>
           <div>
             {lines.map((item, index) => {
               console.log("log", item);
