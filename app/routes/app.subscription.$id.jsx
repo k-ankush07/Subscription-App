@@ -830,16 +830,16 @@ function subscriptionsId() {
                 <p>
                   {formateDate(cycle.billingAttemptExpectedDate)}{" "}
                   {cycle.skipped && (
-                    <span style={{ color: "red", marginLeft: "8px" }}>
+                    <span >
                       (Skipped)
-                    </span>
+                    </span> 
                   )}
                 </p>
 
                 <div
                   style={{ display: "flex", gap: "30px", alignItems: "center" }}
                 >
-                  {!cycle.skipped && <Link>Edit</Link>}
+                  {!cycle.skipped && <Button>Edit</Button>}
                   {contract?.status === "ACTIVE" && !cycle.skipped && (
                     <Button
                       plain
