@@ -162,7 +162,7 @@ export async function loader({ request, params }) {
   // Date range: aaj se next 6 months (tum chaaho to yahan months change kar sakte ho)
   const startDate = new Date().toISOString();
   const endDateObj = new Date();
-  endDateObj.setMonth(endDateObj.getMonth()+12);
+  endDateObj.setMonth(endDateObj.getMonth() *12);
   const endDate = endDateObj.toISOString();
 
   const graphqlResponse = await admin.graphql(
