@@ -3,6 +3,7 @@ import { authenticate } from "../shopify.server";
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useFetcher } from "react-router";
 import { useLoaderData } from "react-router";
+import crypto from "crypto";
 const API = import.meta.env.VITE_API_URL;
 const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
 // export async function loader({ request, params }) {
@@ -380,9 +381,7 @@ export async function action({ request, params }) {
 
   const { admin } = await authenticate.admin(request);
 
-  if (type === "pause" || type === "cancel") {
-    const { admin } = await authenticate.admin(request);
-
+  if (type === "pause" || type === "cancel" || type === "resume" || type === "place_now") {
     if (type === "pause") {
       const res = await admin.graphql(
         `
@@ -412,7 +411,9 @@ export async function action({ request, params }) {
         console.error("Pause failed", payload?.userErrors);
         return {
           success: false,
-          error: payload?.userErrors?.map(e => e.message).join(", ") || "Pause failed",
+          error:
+            payload?.userErrors?.map((e) => e.message).join(", ") ||
+            "Pause failed",
         };
       }
       return { success: true, status: payload.contract.status };
@@ -447,7 +448,48 @@ export async function action({ request, params }) {
         console.error("Cancel failed", payload?.userErrors);
         return {
           success: false,
-          error: payload?.userErrors?.map(e => e.message).join(", ") || "Cancel failed",
+          error:
+            payload?.userErrors?.map((e) => e.message).join(", ") ||
+            "Cancel failed",
+        };
+      }
+
+      return { success: true, status: payload.contract.status };
+    }
+    if (type === "resume") {
+
+      const res = await admin.graphql(
+        `
+      mutation ActivateSubscriptionContract($contractId: ID!) {
+        subscriptionContractActivate(
+          subscriptionContractId: $contractId
+        ) {
+          contract {
+            id
+            status
+            nextBillingDate
+          }
+          userErrors {
+            field
+            message
+            code
+          }
+        }
+      }
+      `,
+        { variables: { contractId } },
+      );
+
+      const data = await res.json();
+      const payload = data?.data?.subscriptionContractActivate;
+
+      if (!payload || payload.userErrors?.length) {
+        console.error("Resume failed", payload?.userErrors);
+        return {
+          success: false,
+          error:
+            payload?.userErrors?.map((e) => e.message).join(", ") ||
+            "Resume failed",
         };
       }
 
@@ -549,12 +591,12 @@ function subscriptionsId() {
   const handlePause = () => {
     fetcher.submit({ type: "pause" }, { method: "post" });
   };
+  const handleResume = () => {
+    fetcher.submit({ type: "resume" }, { method: "post" });
+  };
   const handleCancelSubscription = () => {
-  fetcher.submit(
-    { type: "cancel" },
-    { method: "post" }
-  );
-};
+    fetcher.submit({ type: "cancel" }, { method: "post" });
+  };
   return (
     <>
       <Page backAction={{ onAction: backButton }} title={`${id}`}>
@@ -571,65 +613,46 @@ function subscriptionsId() {
         ) : (
           <>
             {contract?.status !== "CANCELLED" && (
-              <Button>Resume</Button>
+              <Button onClick={handleResume}>Resume</Button>
             )}
           </>
         )}
-        {contract?.status !== "CANCELLED" && (
-          <Card>
-            <b>Upcoming orders</b>
-            {upcomingCycles?.map((cycle, index) => (
-              <div
-                key={cycle.cycleIndex ?? index}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  marginTop: "8px",
-                }}
-              >
-                <p>{formateDate(cycle.billingAttemptExpectedDate)}</p>
-                <div style={{ display: "flex", gap: "30px" }}>
-                  <Link>Edit</Link>
-                  {contract?.status === "ACTIVE" && <Link>skip</Link>}
-                </div>
-              </div>
-            ))}
-          </Card>
-        )}
-        {contract?.status !== "CANCELLED" ? (
-          <Button onClick={handleCancelSubscription}>Cancel Subscription</Button>
-        )
-      :
-      (
-        <Button>
-          ACTIVATE
-        </Button>
-      )}
 
-        <div>
-          <b>Next Order</b>
-          <p>{formateDate(nextCycleDate)}</p>
-          {contract?.status === "ACTIVE" ? (
-            <>
-              <Button>Place next order</Button>
-            </>
-          ) : (
-            ""
-          )}{" "}
-          <br />
-          {(contract?.billingPolicy?.minCycles != null ||
-            contract?.billingPolicy?.maxCycles != null) && (
-            <>
-              <b>Order limits</b>
-              {contract?.billingPolicy?.minCycles != null && (
-                <p>Minimum cycles: {contract.billingPolicy.minCycles}</p>
-              )}
-              {contract?.billingPolicy?.maxCycles != null && (
-                <p>Maximum cycles: {contract.billingPolicy.maxCycles}</p>
-              )}
-            </>
-          )}
-        </div>
+        {contract?.status !== "CANCELLED" ? (
+          <Button onClick={handleCancelSubscription}>
+            Cancel Subscription
+          </Button>
+        ) : (
+          ""
+        )}
+
+        {contract?.status !== "CANCELLED" && (
+          <div>
+            <b>Next Order</b>
+            <p>{formateDate(nextCycleDate)}</p>
+            {contract?.status === "ACTIVE" ? (
+              <>
+                <Button>Place next order</Button>
+              </>
+            ) : (
+              ""
+            )}{" "}
+            <br />
+            {(contract?.billingPolicy?.minCycles != null ||
+              contract?.billingPolicy?.maxCycles != null) && (
+              <>
+                <b>Order limits</b>
+                {contract?.billingPolicy?.minCycles != null && (
+                  <p>Minimum cycles: {contract.billingPolicy.minCycles}</p>
+                )}
+                {contract?.billingPolicy?.maxCycles != null && (
+                  <p>Maximum cycles: {contract.billingPolicy.maxCycles}</p>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
         <div>
           <b>Billing Cycle</b>
 
@@ -747,16 +770,27 @@ function subscriptionsId() {
           </p>
           <p>Total {grandTotal + parseFloat(shipingChargesAmount)} </p>
         </Card>
-        {/* <Card>
-          <b>Upcoming orders</b>
-          <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <p>{formateDate(contract?.nextBillingDate)}</p>
-            <div style={{ display: "flex", gap: "30px" }}>
-              <Link>Edit</Link>
-              <Link>skip</Link>
-            </div>
-          </div>
-        </Card> */}
+        {contract?.status !== "CANCELLED" && (
+          <Card>
+            <b>Upcoming orders</b>
+            {upcomingCycles?.map((cycle, index) => (
+              <div
+                key={cycle.cycleIndex ?? index}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginTop: "8px",
+                }}
+              >
+                <p>{formateDate(cycle.billingAttemptExpectedDate)}</p>
+                <div style={{ display: "flex", gap: "30px" }}>
+                  <Link>Edit</Link>
+                  {contract?.status === "ACTIVE" && <Link>skip</Link>}
+                </div>
+              </div>
+            ))}
+          </Card>
+        )}
 
         <div>
           <b>Internal Notes</b>
