@@ -832,7 +832,7 @@ function subscriptionsId() {
                   {cycle.skipped && (
                     <span >
                       (Skipped)
-                    </span> 
+                    </span>
                   )}
                 </p>
 
