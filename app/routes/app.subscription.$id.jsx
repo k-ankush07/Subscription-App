@@ -1,4 +1,4 @@
-import { Button, Card, Page } from "@shopify/polaris";
+import { Banner, Button, Card, Page } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useFetcher } from "react-router";
@@ -610,6 +610,12 @@ function subscriptionsId() {
   return (
     <>
       <Page backAction={{ onAction: backButton }} title={`${id}`}>
+        {contract?.status === "CANCELLED" && (
+          <Banner
+            title="This subscription has been cancelled."
+            tone="critical"
+          ></Banner>
+        )}
         <div>
           <b>{contract.status}</b>, <b>{formateDate(contract?.createdAt)}</b> ,{" "}
           <b>{contract?.originOrder?.name}</b>
@@ -829,11 +835,7 @@ function subscriptionsId() {
               >
                 <p>
                   {formateDate(cycle.billingAttemptExpectedDate)}{" "}
-                  {cycle.skipped && (
-                    <span >
-                      (Skipped)
-                    </span>
-                  )}
+                  {cycle.skipped && <span>(Skipped)</span>}
                 </p>
 
                 <div
