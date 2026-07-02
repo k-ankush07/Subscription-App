@@ -7,121 +7,121 @@ import { DuplicateIcon, DeleteIcon } from "@shopify/polaris-icons";
 const API = import.meta.env.VITE_API_URL;
 const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY
 console.log("keybjs", SECRET_KEY)
-// export const loader = async ({ request }) => {
-//   const { session } = await authenticate.admin(request);
-//   const shop = session.shop;
-//   const response = await fetch(`${API}/plans/getAllPlans?shop=${shop}`,{
-//     headers:{
-//       "x-api-key": SECRET_KEY,
-//     }
-//   });
-
-//   const data = await response.json();
-//   return Response.json({ plans: data.success ? data.data : [] });
-// };
-
 export const loader = async ({ request }) => {
-  const { admin, session } = await authenticate.admin(request);
+  const { session } = await authenticate.admin(request);
   const shop = session.shop;
-
-  const response = await admin.graphql(
-    `#graphql
-    query GetSellingPlanGroups {
-      sellingPlanGroups(first: 100) {
-        edges {
-          node {
-            id
-            name
-            products(first: 100) {
-          edges {
-            node {
-              id
-              title
-              handle
-            }
-          }
-        }
-           productVariants(first: 100) {
-          edges {
-            node {
-              id
-              title
-              sku
-              product {
-                id
-                title
-              }
-            }
-          }
-        }
-            merchantCode
-            options
-            sellingPlans(first: 10) {
-              edges {
-                node {
-                  id
-                  name
-                  category
-                  billingPolicy {
-                    ... on SellingPlanRecurringBillingPolicy {
-                      interval
-                      intervalCount
-                      minCycles
-                      maxCycles
-                    }
-                  }
-                  deliveryPolicy {
-                    ... on SellingPlanRecurringDeliveryPolicy {
-                      interval
-                      intervalCount
-                    }
-                  }
-                  pricingPolicies {
-                    ... on SellingPlanFixedPricingPolicy {
-                      adjustmentType
-                      adjustmentValue {
-                        ... on SellingPlanPricingPolicyPercentageValue {
-                          percentage
-                        }
-                        ... on MoneyV2 {
-                          amount
-                          currencyCode
-                        }
-                      }
-                    }
-                    ... on SellingPlanRecurringPricingPolicy {
-                      afterCycle
-                      adjustmentType
-                      adjustmentValue {
-                        ... on SellingPlanPricingPolicyPercentageValue {
-                          percentage
-                        }
-                        ... on MoneyV2 {
-                          amount
-                          currencyCode
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }`
-  );
-
-  const result = await response.json();
-
-  console.log("🔥 Shopify Selling Plan Groups:");
-  console.dir(result.data.sellingPlanGroups, { depth: null });
-
-  return Response.json({
-    shop,
-    plans: result.data.sellingPlanGroups.edges.map((e) => e.node),
+  const response = await fetch(`${API}/plans/getAllPlans?shop=${shop}`,{
+    headers:{
+      "x-api-key": SECRET_KEY,
+    }
   });
+
+  const data = await response.json();
+  return Response.json({ plans: data.success ? data.data : [] });
 };
+
+// export const loader = async ({ request }) => {
+//   const { admin, session } = await authenticate.admin(request);
+//   const shop = session.shop;
+
+//   const response = await admin.graphql(
+//     `#graphql
+//     query GetSellingPlanGroups {
+//       sellingPlanGroups(first: 100) {
+//         edges {
+//           node {
+//             id
+//             name
+//             products(first: 100) {
+//           edges {
+//             node {
+//               id
+//               title
+//               handle
+//             }
+//           }
+//         }
+//            productVariants(first: 100) {
+//           edges {
+//             node {
+//               id
+//               title
+//               sku
+//               product {
+//                 id
+//                 title
+//               }
+//             }
+//           }
+//         }
+//             merchantCode
+//             options
+//             sellingPlans(first: 10) {
+//               edges {
+//                 node {
+//                   id
+//                   name
+//                   category
+//                   billingPolicy {
+//                     ... on SellingPlanRecurringBillingPolicy {
+//                       interval
+//                       intervalCount
+//                       minCycles
+//                       maxCycles
+//                     }
+//                   }
+//                   deliveryPolicy {
+//                     ... on SellingPlanRecurringDeliveryPolicy {
+//                       interval
+//                       intervalCount
+//                     }
+//                   }
+//                   pricingPolicies {
+//                     ... on SellingPlanFixedPricingPolicy {
+//                       adjustmentType
+//                       adjustmentValue {
+//                         ... on SellingPlanPricingPolicyPercentageValue {
+//                           percentage
+//                         }
+//                         ... on MoneyV2 {
+//                           amount
+//                           currencyCode
+//                         }
+//                       }
+//                     }
+//                     ... on SellingPlanRecurringPricingPolicy {
+//                       afterCycle
+//                       adjustmentType
+//                       adjustmentValue {
+//                         ... on SellingPlanPricingPolicyPercentageValue {
+//                           percentage
+//                         }
+//                         ... on MoneyV2 {
+//                           amount
+//                           currencyCode
+//                         }
+//                       }
+//                     }
+//                   }
+//                 }
+//               }
+//             }
+//           }
+//         }
+//       }
+//     }`
+//   );
+
+//   const result = await response.json();
+
+//   console.log("🔥 Shopify Selling Plan Groups:");
+//   console.dir(result.data.sellingPlanGroups, { depth: null });
+
+//   return Response.json({
+//     shop,
+//     plans: result.data.sellingPlanGroups.edges.map((e) => e.node),
+//   });
+// };
 
 export const action = async ({ request }) => {
   const { admin } = await authenticate.admin(request);

@@ -1,6 +1,6 @@
 import { Button, Card, Page } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useNavigate, useParams,useFetcher  } from "react-router";
 import { useLoaderData } from "react-router";
 const API = import.meta.env.VITE_API_URL;
@@ -402,14 +402,17 @@ export async function action({ request, params }) {
 }
 function subscriptionsId() {
     const { contract,upcomingCycles, internalNotes, customerNotes } = useLoaderData();
-    console.log("contract",contract)
+    console.log("contract",contract, "upcoming orders ",upcomingCycles)
   const [showInternalNotes, setShowInternalNotes] = useState(false);
   const [Internalnotes, setInternalNotes] = useState( internalNotes ||"");
   const [showCustomerNotes, setshowCustomerNotes] = useState(false);
   const [CustomerNotes, setCustomerNotes] = useState( customerNotes ||"");
   const { id } = useParams();
   const fetcher = useFetcher(); 
-  console.log(internalNotes,customerNotes);
+  useEffect(() => {
+  setInternalNotes(internalNotes || "");
+   setCustomerNotes(customerNotes || "");
+}, [internalNotes,showCustomerNotes]);
   const lines = contract?.lines?.edges;
   const nextCycleIndex = upcomingCycles?.[0]?.cycleIndex ?? null;
    const nextCycleDate = upcomingCycles?.[0]?.billingAttemptExpectedDate ?? null;
