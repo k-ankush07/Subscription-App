@@ -1,7 +1,7 @@
 import { Button, Card, Page } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
 import React, { useEffect, useState } from "react";
-import { Link, useNavigate, useParams,useFetcher  } from "react-router";
+import { Link, useNavigate, useParams, useFetcher } from "react-router";
 import { useLoaderData } from "react-router";
 const API = import.meta.env.VITE_API_URL;
 const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
@@ -81,7 +81,7 @@ const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
 //             }
 //           }
 //         }
-        
+
 //     lines(first: 10) {
 //       edges {
 //         node {
@@ -89,8 +89,8 @@ const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
 //           title
 //           variantTitle
 //           quantity
-//           productId       
-//           variantId 
+//           productId
+//           variantId
 //           sku
 //           currentPrice {
 //             amount
@@ -122,13 +122,11 @@ const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
 //       }
 //     }
 //   }
-    
+
 // }
 //   `);
 //   const data = await res.json();
 //   const contract = data.data.subscriptionContract;
-
-
 
 //   try {
 //     await fetch(
@@ -152,7 +150,6 @@ const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
 //   return { contract,  };
 // }
 
-
 export async function loader({ request, params }) {
   const { admin } = await authenticate.admin(request);
 
@@ -162,7 +159,7 @@ export async function loader({ request, params }) {
   // Date range: aaj se next 6 months (tum chaaho to yahan months change kar sakte ho)
   const startDate = new Date().toISOString();
   const endDateObj = new Date();
-  endDateObj.setMonth(endDateObj.getMonth() *12);
+  endDateObj.setMonth(endDateObj.getMonth() * 12);
   const endDate = endDateObj.toISOString();
 
   const graphqlResponse = await admin.graphql(
@@ -320,7 +317,8 @@ export async function loader({ request, params }) {
   }
 
   const contract = data.data.subscriptionContract;
-  const allCycles = data.data.subscriptionBillingCycles?.edges?.map((edge) => edge.node) || [];
+  const allCycles =
+    data.data.subscriptionBillingCycles?.edges?.map((edge) => edge.node) || [];
   const maxCycles = contract?.billingPolicy?.maxCycles ?? null;
   const now = new Date();
   let upcomingCycles = allCycles.filter(
@@ -331,7 +329,8 @@ export async function loader({ request, params }) {
 
   if (maxCycles != null) {
     upcomingCycles = upcomingCycles.filter(
-      (cycle) => typeof cycle.cycleIndex === "number" && cycle.cycleIndex <= maxCycles,
+      (cycle) =>
+        typeof cycle.cycleIndex === "number" && cycle.cycleIndex <= maxCycles,
     );
   }
   try {
@@ -374,15 +373,94 @@ export async function loader({ request, params }) {
 
 export async function action({ request, params }) {
   const formData = await request.formData();
-  const type = formData.get("type");   // "internal" ya "customer"
+  const type = formData.get("type"); // "internal" ya "customer"
   const notes = formData.get("notes");
   const subscriptionId = params.id;
   const contractId = `gid://shopify/SubscriptionContract/${subscriptionId}`;
 
+  const { admin } = await authenticate.admin(request);
+
+  if (type === "pause" || type === "cancel") {
+    const { admin } = await authenticate.admin(request);
+
+    if (type === "pause") {
+      const res = await admin.graphql(
+        `
+        mutation PauseSubscriptionContract($contractId: ID!) {
+          subscriptionContractPause(
+            subscriptionContractId: $contractId
+          ) {
+            contract {
+              id
+              status
+              nextBillingDate
+            }
+            userErrors {
+              field
+              message
+              code
+            }
+          }
+        }
+        `,
+        { variables: { contractId } },
+      );
+
+      const data = await res.json();
+      const payload = data?.data?.subscriptionContractPause;
+      if (!payload || payload.userErrors?.length) {
+        console.error("Pause failed", payload?.userErrors);
+        return {
+          success: false,
+          error: payload?.userErrors?.map(e => e.message).join(", ") || "Pause failed",
+        };
+      }
+      return { success: true, status: payload.contract.status };
+    }
+
+    if (type === "cancel") {
+      const res = await admin.graphql(
+        `
+        mutation CancelSubscriptionContract($contractId: ID!) {
+          subscriptionContractCancel(
+            subscriptionContractId: $contractId
+          ) {
+            contract {
+              id
+              status
+              nextBillingDate
+            }
+            userErrors {
+              field
+              message
+              code
+            }
+          }
+        }
+        `,
+        { variables: { contractId } },
+      );
+
+      const data = await res.json();
+      const payload = data?.data?.subscriptionContractCancel;
+      if (!payload || payload.userErrors?.length) {
+        console.error("Cancel failed", payload?.userErrors);
+        return {
+          success: false,
+          error: payload?.userErrors?.map(e => e.message).join(", ") || "Cancel failed",
+        };
+      }
+
+      return { success: true, status: payload.contract.status };
+    }
+  }
+
   const payload = {
     subscriptionId,
     contractId,
-    ...(type === "internal" ? { internalNotes: notes } : { customerNotes: notes }),
+    ...(type === "internal"
+      ? { internalNotes: notes }
+      : { customerNotes: notes }),
   };
 
   try {
@@ -401,21 +479,22 @@ export async function action({ request, params }) {
   }
 }
 function subscriptionsId() {
-    const { contract,upcomingCycles, internalNotes, customerNotes } = useLoaderData();
-    console.log("contract",contract, "upcoming orders ",upcomingCycles)
+  const { contract, upcomingCycles, internalNotes, customerNotes } =
+    useLoaderData();
+  console.log("contract", contract, "upcoming orders ", upcomingCycles);
   const [showInternalNotes, setShowInternalNotes] = useState(false);
-  const [Internalnotes, setInternalNotes] = useState( internalNotes ||"");
+  const [Internalnotes, setInternalNotes] = useState(internalNotes || "");
   const [showCustomerNotes, setshowCustomerNotes] = useState(false);
-  const [CustomerNotes, setCustomerNotes] = useState( customerNotes ||"");
+  const [CustomerNotes, setCustomerNotes] = useState(customerNotes || "");
   const { id } = useParams();
-  const fetcher = useFetcher(); 
+  const fetcher = useFetcher();
   useEffect(() => {
-  setInternalNotes(internalNotes || "");
-   setCustomerNotes(customerNotes || "");
-}, [internalNotes,showCustomerNotes]);
+    setInternalNotes(internalNotes || "");
+    setCustomerNotes(customerNotes || "");
+  }, [internalNotes, showCustomerNotes]);
   const lines = contract?.lines?.edges;
   const nextCycleIndex = upcomingCycles?.[0]?.cycleIndex ?? null;
-   const nextCycleDate = upcomingCycles?.[0]?.billingAttemptExpectedDate ?? null;
+  const nextCycleDate = upcomingCycles?.[0]?.billingAttemptExpectedDate ?? null;
   const shipingChargesAmount =
     contract?.orders?.edges[0]?.node?.totalShippingPriceSet?.shopMoney?.amount;
   const shipingChargesCurrency =
@@ -430,7 +509,7 @@ function subscriptionsId() {
   const handleSave = () => {
     fetcher.submit(
       { type: "internal", notes: Internalnotes },
-      { method: "post" }
+      { method: "post" },
     );
     setShowInternalNotes(false);
     setInternalNotes("");
@@ -439,7 +518,7 @@ function subscriptionsId() {
   const handleSaveCustomer = () => {
     fetcher.submit(
       { type: "customer", notes: CustomerNotes },
-      { method: "post" }
+      { method: "post" },
     );
     setshowCustomerNotes(false);
     setCustomerNotes("");
@@ -457,15 +536,25 @@ function subscriptionsId() {
     return sum + price * quantity;
   }, 0);
   function getCardImage(brand) {
-  const brandMap = {
-    visa: "https://subscriptions-assets.kachingappz.app/payment-method-icons/visa.svg",
-    mastercard: "https://subscriptions-assets.kachingappz.app/payment-method-icons/mastercard.svg",
-    amex: "https://subscriptions-assets.kachingappz.app/payment-method-icons/amex.svg",
-    bogus: "https://subscriptions-assets.kachingappz.app/payment-method-icons/bogus.svg",
+    const brandMap = {
+      visa: "https://subscriptions-assets.kachingappz.app/payment-method-icons/visa.svg",
+      mastercard:
+        "https://subscriptions-assets.kachingappz.app/payment-method-icons/mastercard.svg",
+      amex: "https://subscriptions-assets.kachingappz.app/payment-method-icons/amex.svg",
+      bogus:
+        "https://subscriptions-assets.kachingappz.app/payment-method-icons/bogus.svg",
+    };
+    return brandMap[brand?.toLowerCase()] || brandMap["bogus"];
+  }
+  const handlePause = () => {
+    fetcher.submit({ type: "pause" }, { method: "post" });
   };
-  return brandMap[brand?.toLowerCase()] || brandMap["bogus"];
-}
-
+  const handleCancelSubscription = () => {
+  fetcher.submit(
+    { type: "cancel" },
+    { method: "post" }
+  );
+};
   return (
     <>
       <Page backAction={{ onAction: backButton }} title={`${id}`}>
@@ -477,15 +566,46 @@ function subscriptionsId() {
         {contract?.status === "ACTIVE" ? (
           <>
             <Button>Place order now</Button>
-            <Button>Pause</Button>
+            <Button onClick={handlePause}>Pause</Button>
           </>
         ) : (
           <>
-            <Button>Resume</Button>
+            {contract?.status !== "CANCELLED" && (
+              <Button>Resume</Button>
+            )}
           </>
         )}
+        {contract?.status !== "CANCELLED" && (
+          <Card>
+            <b>Upcoming orders</b>
+            {upcomingCycles?.map((cycle, index) => (
+              <div
+                key={cycle.cycleIndex ?? index}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginTop: "8px",
+                }}
+              >
+                <p>{formateDate(cycle.billingAttemptExpectedDate)}</p>
+                <div style={{ display: "flex", gap: "30px" }}>
+                  <Link>Edit</Link>
+                  {contract?.status === "ACTIVE" && <Link>skip</Link>}
+                </div>
+              </div>
+            ))}
+          </Card>
+        )}
+        {contract?.status !== "CANCELLED" ? (
+          <Button onClick={handleCancelSubscription}>Cancel Subscription</Button>
+        )
+      :
+      (
+        <Button>
+          ACTIVATE
+        </Button>
+      )}
 
-        <Button>cancel subscription</Button>
         <div>
           <b>Next Order</b>
           <p>{formateDate(nextCycleDate)}</p>
@@ -545,7 +665,9 @@ function subscriptionsId() {
           <div>
             <b>Payment Method</b> <br />
             <img
-              src={getCardImage(contract?.customerPaymentMethod?.instrument?.brand)}
+              src={getCardImage(
+                contract?.customerPaymentMethod?.instrument?.brand,
+              )}
               alt={`${contract?.customerPaymentMethod?.instrument?.brand}`}
             />
             <span>
@@ -566,7 +688,7 @@ function subscriptionsId() {
 
         <div>
           <b> Subscription details</b>
-          <Link to="" >Edit</Link>
+          <Link to="">Edit</Link>
           <div>
             {lines.map((item, index) => {
               console.log("log", item);
@@ -635,25 +757,7 @@ function subscriptionsId() {
             </div>
           </div>
         </Card> */}
-        <Card>
-           <b>Upcoming orders</b>
-           {upcomingCycles?.map((cycle, index) => (
-            <div
-              key={cycle.cycleIndex ?? index}
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                marginTop: "8px",
-              }}
-            >
-              <p>{formateDate(cycle.billingAttemptExpectedDate)}</p>
-              <div style={{ display: "flex", gap: "30px" }}>
-                <Link>Edit</Link>
-                <Link>skip</Link>
-              </div>
-            </div>
-          ))}
-        </Card>
+
         <div>
           <b>Internal Notes</b>
           <br />
