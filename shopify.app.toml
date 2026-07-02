@@ -2,7 +2,7 @@
 
 client_id = "e3fdd452b80eb189ddded55eda8ececa"
 name = "Subscription-App"
-application_url = "https://asbestos-istanbul-key-class.trycloudflare.com"
+application_url = "https://champion-detroit-favourites-functioning.trycloudflare.com"
 embedded = true
 
 [access_scopes]
@@ -48,7 +48,7 @@ api_version = "2026-07"
   topics = [ "app/scopes_update" ]
 
 [auth]
-redirect_urls = [ "https://asbestos-istanbul-key-class.trycloudflare.com" ]
+redirect_urls = [ "https://champion-detroit-favourites-functioning.trycloudflare.com" ]
 
 [build]
 automatically_update_urls_on_dev = true

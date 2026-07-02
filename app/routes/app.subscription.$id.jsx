@@ -6,151 +6,6 @@ import { useLoaderData } from "react-router";
 import crypto from "crypto";
 const API = import.meta.env.VITE_API_URL;
 const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
-// export async function loader({ request, params }) {
-//   const { admin } = await authenticate.admin(request);
-//   const subscriptionId = params.id;
-//   const contractId = `gid://shopify/SubscriptionContract/${subscriptionId}`;
-//   console.log("bsvjhfvjhs", contractId);
-//   const res = await admin.graphql(`
-//  query {
-//   subscriptionContract(id: "${contractId}") {
-//     id
-//     status
-//     createdAt
-//     updatedAt
-//     nextBillingDate
-//     deliveryPolicy {
-//       interval
-//       intervalCount
-//     }
-//     billingPolicy {
-//       interval
-//       intervalCount
-//       minCycles
-//       maxCycles
-//     }
-//     originOrder {
-//       id
-//       name
-//     }
-//       customer {
-//           id
-//           firstName
-//           lastName
-//           email
-//         }
-//          deliveryMethod {
-//   ... on SubscriptionDeliveryMethodShipping {
-//      address {
-//               firstName
-//               lastName
-//               address1
-//               address2
-//               city
-//               province
-//               zip
-//               country
-//             }
-//   }
-// }
-//    customerPaymentMethod {
-//           id
-//           instrument {
-//             ... on CustomerCreditCard {
-//               brand
-//               lastDigits
-//               expiryMonth
-//               expiryYear
-//             }
-//           }
-//         }
-//         orders(first: 10) {
-//           edges {
-//             node {
-//               id
-//               createdAt
-//               name
-//               shippingLine {
-//         title
-//       }
-//           totalShippingPriceSet {
-//         shopMoney {
-//           amount
-//           currencyCode
-//         }
-//       }
-//             }
-//           }
-//         }
-
-//     lines(first: 10) {
-//       edges {
-//         node {
-//           id
-//           title
-//           variantTitle
-//           quantity
-//           productId
-//           variantId
-//           sku
-//           currentPrice {
-//             amount
-//             currencyCode
-//           }
-//           variantImage {
-//             url
-//           }
-//             pricingPolicy {
-//                   cycleDiscounts {
-//                     afterCycle
-//                     adjustmentType
-//                     adjustmentValue {
-//                       ... on SellingPlanPricingPolicyPercentageValue {
-//                         percentage
-//                       }
-//                       ... on MoneyV2 {
-//                         amount
-//                         currencyCode
-//                       }
-//                     }
-//                     computedPrice {
-//                       amount
-//                       currencyCode
-//                     }
-//   }
-// }
-//         }
-//       }
-//     }
-//   }
-
-// }
-//   `);
-//   const data = await res.json();
-//   const contract = data.data.subscriptionContract;
-
-//   try {
-//     await fetch(
-//       `https://habitant-startling-cassette.ngrok-free.dev/api/subscription`,
-//       {
-//         method: "POST",
-//         headers: {
-//           "Content-Type": "application/json",
-//           "x-api-key": SECRET_KEY,
-//         },
-//         body: JSON.stringify({
-//           subscriptionId,
-//           contractId,
-//           contract,
-//         }),
-//       },
-//     );
-//   } catch (err) {
-//     console.error("Backend save call failed:", err);
-//   }
-//   return { contract,  };
-// }
-
 export async function loader({ request, params }) {
   const { admin } = await authenticate.admin(request);
 
@@ -378,10 +233,14 @@ export async function action({ request, params }) {
   const notes = formData.get("notes");
   const subscriptionId = params.id;
   const contractId = `gid://shopify/SubscriptionContract/${subscriptionId}`;
-
   const { admin } = await authenticate.admin(request);
-
-  if (type === "pause" || type === "cancel" || type === "resume" || type === "place_now") {
+  if (
+    type === "pause" ||
+    type === "cancel" ||
+    type === "resume" ||
+    type === "skip" ||
+    type === "unskip"
+  ) {
     if (type === "pause") {
       const res = await admin.graphql(
         `
@@ -457,7 +316,6 @@ export async function action({ request, params }) {
       return { success: true, status: payload.contract.status };
     }
     if (type === "resume") {
-
       const res = await admin.graphql(
         `
       mutation ActivateSubscriptionContract($contractId: ID!) {
@@ -494,6 +352,158 @@ export async function action({ request, params }) {
       }
 
       return { success: true, status: payload.contract.status };
+    }
+    if (type === "skip") {
+      const cycleIndex = parseInt(formData.get("cycleIndex"), 10);
+
+      if (Number.isNaN(cycleIndex)) {
+        return {
+          success: false,
+          error: "Invalid billing cycle index",
+        };
+      }
+
+      const res = await admin.graphql(
+        `
+        mutation SkipSubscriptionBillingCycle(
+          $billingCycleInput: SubscriptionBillingCycleInput!
+        ) {
+          subscriptionBillingCycleSkip(
+            billingCycleInput: $billingCycleInput
+          ) {
+            billingCycle {
+              cycleIndex
+              billingAttemptExpectedDate
+              skipped
+              edited
+              status
+            }
+            userErrors {
+              field
+              message
+              code
+            }
+          }
+        }
+        `,
+        {
+          variables: {
+            billingCycleInput: {
+              contractId,
+              // Use the cycle index to identify which cycle to skip
+              selector: {
+                index: cycleIndex,
+              },
+            },
+          },
+        },
+      );
+
+      const data = await res.json();
+      const payload = data?.data?.subscriptionBillingCycleSkip;
+
+      if (!payload || payload.userErrors?.length) {
+        console.error("Skip failed", payload?.userErrors);
+        return {
+          success: false,
+          error:
+            payload?.userErrors?.map((e) => e.message).join(", ") ||
+            "Skip failed",
+        };
+      }
+
+      return {
+        success: true,
+        skippedCycleIndex: payload.billingCycle.cycleIndex,
+      };
+    }
+    if (
+      type === "pause" ||
+      type === "cancel" ||
+      type === "resume" ||
+      type === "place_now" ||
+      type === "skip" ||
+      type === "unskip"
+    ) {
+      if (type === "pause") {
+        // existing pause code...
+      }
+
+      if (type === "cancel") {
+        // existing cancel code...
+      }
+
+      if (type === "resume") {
+        // existing contract resume code...
+      }
+
+      if (type === "skip") {
+        // existing billing cycle skip code we added earlier
+      }
+
+      if (type === "unskip") {
+        const cycleIndex = parseInt(formData.get("cycleIndex"), 10);
+
+        if (Number.isNaN(cycleIndex)) {
+          return {
+            success: false,
+            error: "Invalid billing cycle index",
+          };
+        }
+
+        const res = await admin.graphql(
+          `
+      mutation UnskipSubscriptionBillingCycle(
+        $billingCycleInput: SubscriptionBillingCycleInput!
+      ) {
+        subscriptionBillingCycleUnskip(
+          billingCycleInput: $billingCycleInput
+        ) {
+          billingCycle {
+            cycleIndex
+            billingAttemptExpectedDate
+            skipped
+            edited
+            status
+          }
+          userErrors {
+            field
+            message
+            code
+          }
+        }
+      }
+      `,
+          {
+            variables: {
+              billingCycleInput: {
+                contractId,
+                selector: {
+                  index: cycleIndex,
+                },
+              },
+            },
+          },
+        );
+
+        const data = await res.json();
+        const payload = data?.data?.subscriptionBillingCycleUnskip;
+
+        if (!payload || payload.userErrors?.length) {
+          console.error("Unskip failed", payload?.userErrors);
+          return {
+            success: false,
+            error:
+              payload?.userErrors?.map((e) => e.message).join(", ") ||
+              "Unskip failed",
+          };
+        }
+
+        return {
+          success: true,
+          unskippedCycleIndex: payload.billingCycle.cycleIndex,
+        };
+      }
     }
   }
 
@@ -714,7 +724,6 @@ function subscriptionsId() {
           <Link to="">Edit</Link>
           <div>
             {lines.map((item, index) => {
-              console.log("log", item);
               const price = item?.node?.currentPrice?.amount;
               const quantity = item?.node?.quantity;
               const Total = parseFloat(price * quantity);
@@ -770,7 +779,7 @@ function subscriptionsId() {
           </p>
           <p>Total {grandTotal + parseFloat(shipingChargesAmount)} </p>
         </Card>
-        {contract?.status !== "CANCELLED" && (
+        {/* {contract?.status !== "CANCELLED" && (
           <Card>
             <b>Upcoming orders</b>
             {upcomingCycles?.map((cycle, index) => (
@@ -785,7 +794,85 @@ function subscriptionsId() {
                 <p>{formateDate(cycle.billingAttemptExpectedDate)}</p>
                 <div style={{ display: "flex", gap: "30px" }}>
                   <Link>Edit</Link>
-                  {contract?.status === "ACTIVE" && <Link>skip</Link>}
+                  {contract?.status === "ACTIVE" &&(
+                    <Button
+              plain
+              onClick={() => {
+                fetcher.submit(
+                  {
+                    type: "skip",
+                    cycleIndex: String(cycle.cycleIndex),
+                  },
+                  { method: "post" },
+                );
+              }}
+            >
+              Skip
+            </Button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </Card>
+        )} */}
+        {contract?.status !== "CANCELLED" && (
+          <Card>
+            <b>Upcoming orders</b>
+            {upcomingCycles?.map((cycle, index) => (
+              <div
+                key={cycle.cycleIndex ?? index}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginTop: "8px",
+                }}
+              >
+                <p>
+                  {formateDate(cycle.billingAttemptExpectedDate)}{" "}
+                  {cycle.skipped && (
+                    <span style={{ color: "red", marginLeft: "8px" }}>
+                      (Skipped)
+                    </span>
+                  )}
+                </p>
+
+                <div
+                  style={{ display: "flex", gap: "30px", alignItems: "center" }}
+                >
+                  {!cycle.skipped && <Link>Edit</Link>}
+                  {contract?.status === "ACTIVE" && !cycle.skipped && (
+                    <Button
+                      plain
+                      onClick={() => {
+                        fetcher.submit(
+                          {
+                            type: "skip",
+                            cycleIndex: String(cycle.cycleIndex),
+                          },
+                          { method: "post" },
+                        );
+                      }}
+                    >
+                      Skip
+                    </Button>
+                  )}
+
+                  {contract?.status === "ACTIVE" && cycle.skipped && (
+                    <Button
+                      plain
+                      onClick={() => {
+                        fetcher.submit(
+                          {
+                            type: "unskip",
+                            cycleIndex: String(cycle.cycleIndex),
+                          },
+                          { method: "post" },
+                        );
+                      }}
+                    >
+                      Resume
+                    </Button>
+                  )}
                 </div>
               </div>
             ))}
@@ -842,5 +929,4 @@ function subscriptionsId() {
     </>
   );
 }
-
 export default subscriptionsId;
