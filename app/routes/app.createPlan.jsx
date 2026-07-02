@@ -61,16 +61,24 @@ export const action = async ({ request }) => {
       options: [`${sp.intervalCount} ${sp.interval.toLowerCase()}`],
       category: "SUBSCRIPTION",
 
+      // billingPolicy: {
+      //   recurring: {
+      //     interval: sp.interval,
+      //     intervalCount: sp.intervalCount,
+      //     ...(sp.minCycles && sp.minCycles !== "disabled"
+      //       ? { minCycles: sp.minCycles }
+      //       : {}),
+      //     ...(sp.maxCycles && sp.maxCycles !== "unlimited"
+      //       ? { maxCycles: sp.maxCycles }
+      //       : {}),
+      //   },
+      // },
       billingPolicy: {
         recurring: {
           interval: sp.interval,
           intervalCount: sp.intervalCount,
-          ...(sp.minCycles && sp.minCycles !== "disabled"
-            ? { minCycles: sp.minCycles }
-            : {}),
-          ...(sp.maxCycles && sp.maxCycles !== "unlimited"
-            ? { maxCycles: sp.maxCycles }
-            : {}),
+          minCycles: sp.minCycles ? Number(sp.minCycles) : null,
+          maxCycles: sp.maxCycles ? Number(sp.maxCycles) : null,
         },
       },
 

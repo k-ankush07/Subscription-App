@@ -102,16 +102,24 @@ export const action = async ({ request }) => {
       // name: sp.name,
       name:sp.name?.trim() || `Delivery: Every ${sp.intervalCount} ${sp.interval.toLowerCase()}`,
       options: [`${sp.intervalCount} ${sp.interval.toLowerCase()}`],
+      // billingPolicy: {
+      //   recurring: {
+      //     interval: sp.interval,
+      //     intervalCount: sp.intervalCount,
+      //     ...(sp.minCycles && sp.minCycles !== "disabled"
+      //       ? { minCycles: sp.minCycles }
+      //       : {}),
+      //     ...(sp.maxCycles && sp.maxCycles !== "unlimited"
+      //       ? { maxCycles: sp.maxCycles }
+      //       : {}),
+      //   },
+      // },
       billingPolicy: {
         recurring: {
           interval: sp.interval,
           intervalCount: sp.intervalCount,
-          ...(sp.minCycles && sp.minCycles !== "disabled"
-            ? { minCycles: sp.minCycles }
-            : {}),
-          ...(sp.maxCycles && sp.maxCycles !== "unlimited"
-            ? { maxCycles: sp.maxCycles }
-            : {}),
+          minCycles: sp.minCycles ? Number(sp.minCycles) : null,
+          maxCycles: sp.maxCycles ? Number(sp.maxCycles) : null,
         },
       },
       deliveryPolicy: {
