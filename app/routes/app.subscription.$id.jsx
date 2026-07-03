@@ -239,7 +239,8 @@ export async function action({ request, params }) {
     type === "cancel" ||
     type === "resume" ||
     type === "skip" ||
-    type === "unskip"
+    type === "unskip" ||
+    type === "edit_date"
   ) {
     if (type === "pause") {
       const res = await admin.graphql(
@@ -417,31 +418,7 @@ export async function action({ request, params }) {
         skippedCycleIndex: payload.billingCycle.cycleIndex,
       };
     }
-    if (
-      type === "pause" ||
-      type === "cancel" ||
-      type === "resume" ||
-      type === "place_now" ||
-      type === "skip" ||
-      type === "unskip"
-    ) {
-      if (type === "pause") {
-        // existing pause code...
-      }
-
-      if (type === "cancel") {
-        // existing cancel code...
-      }
-
-      if (type === "resume") {
-        // existing contract resume code...
-      }
-
-      if (type === "skip") {
-        // existing billing cycle skip code we added earlier
-      }
-
-      if (type === "unskip") {
+    if (type === "unskip") {
         const cycleIndex = parseInt(formData.get("cycleIndex"), 10);
 
         if (Number.isNaN(cycleIndex)) {
@@ -504,7 +481,6 @@ export async function action({ request, params }) {
           unskippedCycleIndex: payload.billingCycle.cycleIndex,
         };
       }
-    }
   }
 
   const payload = {
