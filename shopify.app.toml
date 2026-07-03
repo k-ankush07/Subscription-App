@@ -2,7 +2,7 @@
 
 client_id = "e3fdd452b80eb189ddded55eda8ececa"
 name = "Subscription-App"
-application_url = "https://numbers-intro-acoustic-merit.trycloudflare.com"
+application_url = "https://sons-switching-antenna-based.trycloudflare.com"
 embedded = true
 
 [access_scopes]
@@ -48,7 +48,7 @@ api_version = "2026-07"
   topics = [ "app/scopes_update" ]
 
 [auth]
-redirect_urls = [ "https://numbers-intro-acoustic-merit.trycloudflare.com" ]
+redirect_urls = [ "https://sons-switching-antenna-based.trycloudflare.com" ]
 
 [build]
 automatically_update_urls_on_dev = true

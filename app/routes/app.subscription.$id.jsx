@@ -152,13 +152,14 @@ export async function loader({ request, params }) {
         edges {
           node {
            billingAttemptExpectedDate
-            billingAttempts
              cycleEndAt
              cycleIndex
              cycleStartAt
              edited
               skipped
-              sourceContract
+              sourceContract {
+        id
+      }
             status
           }
         }
@@ -514,8 +515,7 @@ export async function action({ request, params }) {
   }
 }
 function subscriptionsId() {
-  const { contract, upcomingCycles, internalNotes, customerNotes } =
-    useLoaderData();
+  const { contract, upcomingCycles, internalNotes, customerNotes } = useLoaderData();
   console.log("contract", contract, "upcoming orders ", upcomingCycles);
   const [showInternalNotes, setShowInternalNotes] = useState(false);
   const [Internalnotes, setInternalNotes] = useState(internalNotes || "");
@@ -588,7 +588,7 @@ function subscriptionsId() {
     fetcher.submit({ type: "resume" }, { method: "post" });
   };
   const handleCancelSubscription = () => {
-    confirm(
+     let confirmed= confirm(
       "Are you sure you want to cancel this subscription? This action cannot be undone.",
     );
     if (!confirmed) return;

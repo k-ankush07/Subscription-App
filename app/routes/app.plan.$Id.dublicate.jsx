@@ -74,19 +74,6 @@ export const action = async ({ request }) => {
       name: sp.name?.trim() || `Delivery: Every ${sp.intervalCount} ${sp.interval.toLowerCase()}`,
       options: [`${sp.intervalCount} ${sp.interval.toLowerCase()}`],
       category: "SUBSCRIPTION",
-
-      // billingPolicy: {
-      //   recurring: {
-      //     interval: sp.interval,
-      //     intervalCount: sp.intervalCount,
-      //     ...(sp.minCycles && sp.minCycles !== "disabled"
-      //       ? { minCycles: sp.minCycles }
-      //       : {}),
-      //     ...(sp.maxCycles && sp.maxCycles !== "unlimited"
-      //       ? { maxCycles: sp.maxCycles }
-      //       : {}),
-      //   },
-      // },
       billingPolicy: {
         recurring: {
           interval: sp.interval,
