@@ -535,8 +535,10 @@ function subscriptionsId() {
     setCustomerNotes(customerNotes || "");
   }, [internalNotes, customerNotes]);
   const lines = contract?.lines?.edges;
+  const firstUpcomingCycle = upcomingCycles?.[0] || null;
   const nextCycleIndex = upcomingCycles?.[0]?.cycleIndex ?? null;
   const nextCycleDate = upcomingCycles?.[0]?.billingAttemptExpectedDate ?? null;
+  const isFirstUpcomingSkipped = firstUpcomingCycle?.skipped === true;
   const shipingChargesAmount =
     contract?.orders?.edges[0]?.node?.totalShippingPriceSet?.shopMoney?.amount;
   const shipingChargesCurrency =
@@ -618,7 +620,9 @@ function subscriptionsId() {
         {contract?.status === "ACTIVE" ? (
           <>
           
-            <Button>Place order now</Button>
+            {!isFirstUpcomingSkipped && (
+      <Button>Place order now</Button>
+    )}
             <Button onClick={handlePause}>Pause</Button>
           </>
         ) : (
@@ -641,7 +645,7 @@ function subscriptionsId() {
           <div>
             <b>Next Order</b>
             <p>{formateDate(nextCycleDate)}</p>
-            {contract?.status === "ACTIVE" ? (
+            {contract?.status === "ACTIVE"  && !isFirstUpcomingSkipped  ? (
               <>
                 <Button>Place order now</Button>
               </>

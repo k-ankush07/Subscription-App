@@ -252,7 +252,3 @@ https://admin.shopify.com/store/deepk-store/products/8937317761244
 link prodcut redirect.
 
 
-
-
-
-
