@@ -607,6 +607,15 @@ function subscriptionsId() {
   const handleCancelSubscription = () => {
     fetcher.submit({ type: "cancel" }, { method: "post" });
   };
+  const currencySymbols = {
+    INR: "₹",
+    USD: "$",
+    EUR: "€",
+    GBP: "£",
+    JPY: "¥",
+    CAD: "CA$",
+    AUD: "A$",
+  };
   return (
     <>
       <Page backAction={{ onAction: backButton }} title={`${id}`}>
@@ -735,6 +744,7 @@ function subscriptionsId() {
               const Total = parseFloat(price * quantity);
               const cycleDiscounts =
                 item?.node?.pricingPolicy?.cycleDiscounts || [];
+
               return (
                 <Card key={index}>
                   <img

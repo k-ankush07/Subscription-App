@@ -94,7 +94,7 @@ function Subscriptions() {
                   <th>Customer Email</th>
                   <th>Created</th>
                   <th>Updated</th>
-                  <th>Next Order Date</th>
+                  {/* <th>Next Order Date</th> */}
                   <th>Product</th>
                   <th>Price</th>
                   <th>Delivery Frequency</th>
@@ -124,8 +124,7 @@ function Subscriptions() {
                   }, 0);
 
                   const currencyCode = lines[0]?.currentPrice?.currencyCode;
-                  const symbol =
-                    currencySymbols[currencyCode] ?? currencyCode ?? "";
+                  const symbol = currencySymbols[currencyCode] ?? currencyCode ?? "";
 
                   const productLabel =
                     lines.length === 1
@@ -146,7 +145,9 @@ function Subscriptions() {
                       </td>
                       <td>{formatDate(item.createdAt)}</td>
                       <td>{formatDate(item.updatedAt)}</td>
-                      <td>{formatDate(item.nextBillingDate)}</td>
+                      {/* <td>{
+                        item.status !=="CANCELLED" ? formatDate(item.nextBillingDate) :""
+                        }</td> */}
                       <td>{productLabel}</td>
                       <td>
                         {symbol} {total.toFixed(2)}
