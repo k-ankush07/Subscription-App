@@ -1,4 +1,4 @@
-import { Page, Card } from "@shopify/polaris";
+import { Page, Card ,EmptyState} from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
 import React from "react";
 import { useLoaderData, useNavigate } from "react-router";
@@ -73,7 +73,18 @@ function Subscriptions() {
   return (
     <>
       <Page title="Subscriptions">
+       {contracts.length > 0 ? (
         <Card>
+                  <EmptyState>
+                    <img src="https://subscriptions.kachingappz.app/images/empty-subscriptions-list-state.png" />
+                    {/* <h2>Get more repeat business</h2> */}
+                    <p>
+                      No Subscriptions
+                    </p>
+                  </EmptyState>
+                </Card>
+       ) : (
+         <Card>
           <div>
             <table border="1">
               <thead>
@@ -151,6 +162,7 @@ function Subscriptions() {
             </table>
           </div>
         </Card>
+       )}
       </Page>
     </>
   );
