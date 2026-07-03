@@ -73,7 +73,7 @@ function Subscriptions() {
   return (
     <>
       <Page title="Subscriptions">
-       {contracts.length > 0 ? (
+       {contracts.length === 0 ? (
         <Card>
                   <EmptyState>
                     <img src="https://subscriptions.kachingappz.app/images/empty-subscriptions-list-state.png" />
