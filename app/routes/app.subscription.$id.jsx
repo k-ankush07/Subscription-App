@@ -83,12 +83,19 @@ export async function loader({ request, params }) {
             }
           }
         }
-        orders(first: 10) {
+        orders(first: 10,reverse: true) {
           edges {
             node {
               id
               createdAt
               name
+              processedAt
+          displayFinancialStatus
+          displayFulfillmentStatus
+          cancelReason
+          cancelledAt
+          currencyCode
+
               shippingLine {
                 title
               }
@@ -610,6 +617,7 @@ function subscriptionsId() {
 
         {contract?.status === "ACTIVE" ? (
           <>
+          
             <Button>Place order now</Button>
             <Button onClick={handlePause}>Pause</Button>
           </>
