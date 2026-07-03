@@ -1,9 +1,13 @@
 import { Banner, Button, Card, Page } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
 import React, { useEffect, useState } from "react";
-import { Link, useNavigate, useParams, useFetcher } from "react-router";
-import { useLoaderData } from "react-router";
-import crypto from "crypto";
+import {
+  Link,
+  useNavigate,
+  useParams,
+  useFetcher,
+  useLoaderData,
+} from "react-router";
 const API = import.meta.env.VITE_API_URL;
 const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
 export async function loader({ request, params }) {
@@ -15,7 +19,7 @@ export async function loader({ request, params }) {
   // Date range: aaj se next 6 months (tum chaaho to yahan months change kar sakte ho)
   const startDate = new Date().toISOString();
   const endDateObj = new Date();
-  endDateObj.setMonth(endDateObj.getMonth() * 12);
+  endDateObj.setMonth(endDateObj.getMonth() + 12);
   const endDate = endDateObj.toISOString();
 
   const graphqlResponse = await admin.graphql(
@@ -49,7 +53,10 @@ export async function loader({ request, params }) {
           id
           firstName
           lastName
-          email
+          note
+          defaultEmailAddress{
+          emailAddress
+          }
         }
         deliveryMethod {
           ... on SubscriptionDeliveryMethodShipping {
@@ -134,7 +141,6 @@ export async function loader({ request, params }) {
           }
         }
       }
-
       subscriptionBillingCycles(
         first: 250
         contractId: $contractId
@@ -145,13 +151,15 @@ export async function loader({ request, params }) {
       ) {
         edges {
           node {
+           billingAttemptExpectedDate
+            billingAttempts
+             cycleEndAt
+             cycleIndex
+             cycleStartAt
+             edited
+              skipped
+              sourceContract
             status
-            cycleIndex
-            cycleStartAt
-            cycleEndAt
-            skipped
-            edited
-            billingAttemptExpectedDate
           }
         }
       }
@@ -239,8 +247,7 @@ export async function action({ request, params }) {
     type === "cancel" ||
     type === "resume" ||
     type === "skip" ||
-    type === "unskip" ||
-    type === "edit_date"
+    type === "unskip"
   ) {
     if (type === "pause") {
       const res = await admin.graphql(
@@ -419,17 +426,17 @@ export async function action({ request, params }) {
       };
     }
     if (type === "unskip") {
-        const cycleIndex = parseInt(formData.get("cycleIndex"), 10);
+      const cycleIndex = parseInt(formData.get("cycleIndex"), 10);
 
-        if (Number.isNaN(cycleIndex)) {
-          return {
-            success: false,
-            error: "Invalid billing cycle index",
-          };
-        }
+      if (Number.isNaN(cycleIndex)) {
+        return {
+          success: false,
+          error: "Invalid billing cycle index",
+        };
+      }
 
-        const res = await admin.graphql(
-          `
+      const res = await admin.graphql(
+        `
       mutation UnskipSubscriptionBillingCycle(
         $billingCycleInput: SubscriptionBillingCycleInput!
       ) {
@@ -451,36 +458,36 @@ export async function action({ request, params }) {
         }
       }
       `,
-          {
-            variables: {
-              billingCycleInput: {
-                contractId,
-                selector: {
-                  index: cycleIndex,
-                },
+        {
+          variables: {
+            billingCycleInput: {
+              contractId,
+              selector: {
+                index: cycleIndex,
               },
             },
           },
-        );
+        },
+      );
 
-        const data = await res.json();
-        const payload = data?.data?.subscriptionBillingCycleUnskip;
+      const data = await res.json();
+      const payload = data?.data?.subscriptionBillingCycleUnskip;
 
-        if (!payload || payload.userErrors?.length) {
-          console.error("Unskip failed", payload?.userErrors);
-          return {
-            success: false,
-            error:
-              payload?.userErrors?.map((e) => e.message).join(", ") ||
-              "Unskip failed",
-          };
-        }
-
+      if (!payload || payload.userErrors?.length) {
+        console.error("Unskip failed", payload?.userErrors);
         return {
-          success: true,
-          unskippedCycleIndex: payload.billingCycle.cycleIndex,
+          success: false,
+          error:
+            payload?.userErrors?.map((e) => e.message).join(", ") ||
+            "Unskip failed",
         };
       }
+
+      return {
+        success: true,
+        unskippedCycleIndex: payload.billingCycle.cycleIndex,
+      };
+    }
   }
 
   const payload = {
@@ -519,7 +526,7 @@ function subscriptionsId() {
   useEffect(() => {
     setInternalNotes(internalNotes || "");
     setCustomerNotes(customerNotes || "");
-  }, [internalNotes, showCustomerNotes]);
+  }, [internalNotes, customerNotes]);
   const lines = contract?.lines?.edges;
   const nextCycleIndex = upcomingCycles?.[0]?.cycleIndex ?? null;
   const nextCycleDate = upcomingCycles?.[0]?.billingAttemptExpectedDate ?? null;
@@ -581,16 +588,11 @@ function subscriptionsId() {
     fetcher.submit({ type: "resume" }, { method: "post" });
   };
   const handleCancelSubscription = () => {
+    confirm(
+      "Are you sure you want to cancel this subscription? This action cannot be undone.",
+    );
+    if (!confirmed) return;
     fetcher.submit({ type: "cancel" }, { method: "post" });
-  };
-  const currencySymbols = {
-    INR: "₹",
-    USD: "$",
-    EUR: "€",
-    GBP: "£",
-    JPY: "¥",
-    CAD: "CA$",
-    AUD: "A$",
   };
   return (
     <>
@@ -633,7 +635,7 @@ function subscriptionsId() {
             <p>{formateDate(nextCycleDate)}</p>
             {contract?.status === "ACTIVE" ? (
               <>
-                <Button>Place next order</Button>
+                <Button>Place order now</Button>
               </>
             ) : (
               ""
@@ -666,7 +668,7 @@ function subscriptionsId() {
               {contract?.customer?.firstName} {contract?.customer?.lastName}
             </span>
           </p>
-          <span>{contract?.customer?.email}</span>
+          <span>{contract?.customer?.defaultEmailAddress?.emailAddress}</span>
 
           <div>
             <b>Shipping address</b> <br />
