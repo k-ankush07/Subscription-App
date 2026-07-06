@@ -18,11 +18,11 @@ function getCurrentComputedPrice(item, currentCycleIndex) {
     .filter((d) => d.afterCycle <= currentCycleIndex)
     .sort((a, b) => b.afterCycle - a.afterCycle)[0];
 
-  const tier = applicable || discounts[0];
-  console.log("tier", tier);
-  return parseFloat(
-    tier?.computedPrice?.amount ?? item?.node?.currentPrice?.amount ?? 0,
-  );
+  if (!applicable) {
+    return parseFloat(item?.node?.currentPrice?.amount || 0);
+  }
+
+  return parseFloat(applicable.computedPrice?.amount ?? item?.node?.currentPrice?.amount ?? 0);
 }
 
 function getCardImage(brand) {
@@ -48,6 +48,7 @@ function formateDate(date) {
 export default function SubscriptionDetail() {
   const { contract, upcomingCycles, internalNotes, customerNotes } =
     useLoaderData();
+    console.log("nsnjds",contract)
     console.log(
   "UPCOMING CYCLES",
   upcomingCycles?.map((c) => ({
@@ -341,20 +342,7 @@ export default function SubscriptionDetail() {
                       Skip
                     </Button>
                   )}
-                  <Button
-                    primary
-                    onClick={() => {
-                      fetcher.submit(
-                        {
-                          type: "charge",
-                          cycleIndex: String(cycle.cycleIndex), // <- yahi se index jaa raha
-                        },
-                        { method: "post" },
-                      );
-                    }}
-                  >
-                    Charge now
-                  </Button>
+
 
                   {contract?.status === "ACTIVE" && cycle.skipped && (
                     <Button

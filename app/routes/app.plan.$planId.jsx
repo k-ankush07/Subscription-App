@@ -49,20 +49,20 @@ export const action = async ({ request }) => {
           adjustmentType: sp.discountType,
           adjustmentValue:
             sp.discountType === "PERCENTAGE"
-              ? { percentage: sp.discountValue }
-              : { fixedValue: sp.discountValue },
+              ? { percentage: Number(sp.discountValue) }
+              : { fixedValue: Number(sp.discountValue) },
         },
       });
 
       if (sp.changeDiscountAfterOrders && sp.afterOrders) {
         pricingPolicies.push({
           recurring: {
-            afterCycle: sp.afterOrders,
+            afterCycle: Number(sp.afterOrders),
             adjustmentType: sp.afterDiscountType ?? "PERCENTAGE",
             adjustmentValue:
               (sp.afterDiscountType ?? "PERCENTAGE") === "PERCENTAGE"
-                ? { percentage: sp.afterDiscountValue ?? 0 }
-                : { fixedValue: sp.afterDiscountValue ?? 0 },
+                ? { percentage: Number(sp.afterDiscountValue) ?? 0 }
+                : { fixedValue: Number(sp.afterDiscountValue) ?? 0 },
           },
         });
       }
