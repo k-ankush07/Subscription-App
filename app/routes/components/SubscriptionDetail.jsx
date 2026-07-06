@@ -46,18 +46,14 @@ function formateDate(date) {
 }
 
 export default function SubscriptionDetail() {
-  const { contract, upcomingCycles, internalNotes, customerNotes } =
-    useLoaderData();
-    console.log("nsnjds",contract)
-    console.log(
-  "UPCOMING CYCLES",
-  upcomingCycles?.map((c) => ({
-    cycleIndex: c.cycleIndex,
-    billingAttemptExpectedDate: c.billingAttemptExpectedDate,
-    status: c.status,
-    skipped: c.skipped,
-  })),
-);
+  const { contract, upcomingCycles, internalNotes, customerNotes } = useLoaderData();
+ console.log(
+     "CYCLE DISCOUNTS RAW",
+     contract.lines.edges.map((line) => ({
+       title: line.node.title,
+       cycleDiscounts: line.node.pricingPolicy?.cycleDiscounts,
+     })),
+   );
 //   console.log(" contract, upcomingCycles", contract, upcomingCycles);
   const [showInternalNotes, setShowInternalNotes] = useState(false);
   const [Internalnotes, setInternalNotes] = useState(internalNotes || "");
@@ -73,10 +69,9 @@ export default function SubscriptionDetail() {
 
   const lines = contract?.lines?.edges;
   const currencyCode = lines?.[0]?.node?.currentPrice?.currencyCode;
-  const firstUpcomingCycle = upcomingCycles?.[0] || null;
+  console.log("cycleDiscounts", lines?.[0]?.node?.pricingPolicy?.cycleDiscounts);
   const nextCycleIndex = upcomingCycles?.[0]?.cycleIndex ?? null;
   const nextCycleDate = upcomingCycles?.[0]?.billingAttemptExpectedDate ?? null;
-  const isFirstUpcomingSkipped = firstUpcomingCycle?.skipped === true;
   const shipingChargesAmount =
     contract?.orders?.edges[0]?.node?.totalShippingPriceSet?.shopMoney?.amount;
   const shippingTitle = contract?.orders?.edges[0]?.node?.shippingLine?.title;
@@ -162,11 +157,6 @@ export default function SubscriptionDetail() {
           <div>
             <b>Next Order</b>
             <p>{formateDate(nextCycleDate)}</p>
-            {contract?.status === "ACTIVE" && !isFirstUpcomingSkipped ? (
-              <></>
-            ) : (
-              ""
-            )}{" "}
             <br />
             {(contract?.billingPolicy?.minCycles != null ||
               contract?.billingPolicy?.maxCycles != null) && (

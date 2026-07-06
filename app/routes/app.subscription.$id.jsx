@@ -3,7 +3,6 @@ import SubscriptionDetail from "./components/SubscriptionDetail";
 
 const API = import.meta.env.VITE_API_URL;
 const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
-
 export async function loader({ request, params }) {
   const { admin } = await authenticate.admin(request);
 
@@ -76,7 +75,7 @@ export async function loader({ request, params }) {
             }
           }
         }
-        orders(first: 10,reverse: true) {
+        orders(first: 10) {
           edges {
             node {
               id
@@ -189,13 +188,13 @@ export async function loader({ request, params }) {
   let upcomingCycles = allCycles.filter(
     (cycle) =>
       cycle.billingAttemptExpectedDate &&
-      new Date(cycle.billingAttemptExpectedDate) >= now,
+      new Date(cycle.billingAttemptExpectedDate) > now,
   );
 
   if (maxCycles != null) {
     upcomingCycles = upcomingCycles.filter(
       (cycle) =>
-        typeof cycle.cycleIndex === "number" && cycle.cycleIndex <= maxCycles,
+        typeof cycle.cycleIndex === "number" && cycle.cycleIndex == maxCycles,
     );
   }
   try {
@@ -235,7 +234,6 @@ export async function loader({ request, params }) {
   }
   return { contract, upcomingCycles, internalNotes, customerNotes };
 }
-
 export async function action({ request, params }) {
   const formData = await request.formData();
   const type = formData.get("type");
@@ -249,8 +247,7 @@ export async function action({ request, params }) {
     type === "cancel" ||
     type === "resume" ||
     type === "skip" ||
-    type === "unskip" ||
-    type === "charge"
+    type === "unskip" 
   ) {
     if (type === "pause") {
       const res = await admin.graphql(
