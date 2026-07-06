@@ -491,7 +491,6 @@ export async function action({ request, params }) {
     if (type === "billingAttempt") {
       const rawCycleIndex = formData.get("cycleIndex");
       const cycleIndex = rawCycleIndex ? parseInt(rawCycleIndex, 10) : null;
-      console.log("fjfffkdnfkjkfj",cycleIndex)
 
       if (rawCycleIndex && Number.isNaN(cycleIndex)) {
         return {
@@ -515,8 +514,6 @@ export async function action({ request, params }) {
           index: cycleIndex,
         };
       }
-
-  console.log("dfffbfbfb", billingAttemptInput);
       const res = await admin.graphql(
         `
         mutation CreateSubscriptionBillingAttempt(
@@ -553,7 +550,6 @@ export async function action({ request, params }) {
 
       const data = await res.json();
       const payload = data?.data?.subscriptionBillingAttemptCreate;
-      console.log("nfbf",payload)
 
       if (!payload || payload.userErrors?.length) {
         console.error("Billing attempt failed", payload?.userErrors);

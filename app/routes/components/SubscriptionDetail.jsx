@@ -11,7 +11,6 @@ import {
 
 function getCurrentComputedPrice(item, currentCycleIndex) {
   const discounts = item?.node?.pricingPolicy?.cycleDiscounts || [];
-  console.log("discount",discounts)
   if (discounts.length === 0) {
     return parseFloat(item?.node?.currentPrice?.amount || 0);
   }
@@ -23,7 +22,9 @@ function getCurrentComputedPrice(item, currentCycleIndex) {
     return parseFloat(item?.node?.currentPrice?.amount || 0);
   }
 
-  return parseFloat(applicable.computedPrice?.amount ?? item?.node?.currentPrice?.amount ?? 0);
+  return parseFloat(
+    applicable.computedPrice?.amount ?? item?.node?.currentPrice?.amount ?? 0,
+  );
 }
 
 function getCardImage(brand) {
@@ -47,16 +48,10 @@ function formateDate(date) {
 }
 
 export default function SubscriptionDetail() {
-  const { contract, upcomingCycles, internalNotes, customerNotes } = useLoaderData();
-  console.log("log",upcomingCycles)
- console.log(
-     "CYCLE DISCOUNTS RAW",
-     contract.lines.edges.map((line) => ({
-       title: line.node.title,
-       cycleDiscounts: line.node.pricingPolicy?.cycleDiscounts,
-     })),
-   );
-//   console.log(" contract, upcomingCycles", contract, upcomingCycles);
+  const { contract, upcomingCycles, internalNotes, customerNotes } =
+    useLoaderData();
+
+  //   console.log(" contract, upcomingCycles", contract, upcomingCycles);
   const [showInternalNotes, setShowInternalNotes] = useState(false);
   const [Internalnotes, setInternalNotes] = useState(internalNotes || "");
   const [showCustomerNotes, setshowCustomerNotes] = useState(false);
@@ -71,7 +66,6 @@ export default function SubscriptionDetail() {
 
   const lines = contract?.lines?.edges;
   const currencyCode = lines?.[0]?.node?.currentPrice?.currencyCode;
-  console.log("cycleDiscounts", lines?.[0]?.node?.pricingPolicy?.cycleDiscounts);
   const nextCycleIndex = upcomingCycles?.[0]?.cycleIndex ?? null;
   const nextCycleDate = upcomingCycles?.[0]?.billingAttemptExpectedDate ?? null;
   const shipingChargesAmount =
@@ -240,12 +234,12 @@ export default function SubscriptionDetail() {
               const Total = parseFloat(price * quantity);
               const cycleDiscounts =
                 item?.node?.pricingPolicy?.cycleDiscounts || [];
-                console.log("summary line", {
-  title: item?.node?.title,
-  nextCycleIndex,
-  appliedPrice: price,
-  cycleDiscounts: item?.node?.pricingPolicy?.cycleDiscounts,
-});
+              console.log("summary line", {
+                title: item?.node?.title,
+                nextCycleIndex,
+                appliedPrice: price,
+                cycleDiscounts: item?.node?.pricingPolicy?.cycleDiscounts,
+              });
 
               return (
                 <Card key={index}>
@@ -340,22 +334,22 @@ export default function SubscriptionDetail() {
                       Skip
                     </Button>
                   )}
- {contract?.status === "ACTIVE" && !cycle.skipped && (
-            <Button
-              primary
-              onClick={() => {
-                fetcher.submit(
-                  {
-                    type: "billingAttempt",
-                    cycleIndex: String(cycle.cycleIndex),
-                  },
-                  { method: "post" },
-                );
-              }}
-            >
-              Charge now
-            </Button>
-          )}
+                  {contract?.status === "ACTIVE" && !cycle.skipped && (
+                    <Button
+                      primary
+                      onClick={() => {
+                        fetcher.submit(
+                          {
+                            type: "billingAttempt",
+                            cycleIndex: String(cycle.cycleIndex),
+                          },
+                          { method: "post" },
+                        );
+                      }}
+                    >
+                      Charge now
+                    </Button>
+                  )}
 
                   {contract?.status === "ACTIVE" && cycle.skipped && (
                     <Button
