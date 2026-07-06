@@ -103,18 +103,6 @@ function Subscriptions() {
               <tbody>
                 {[...contracts].reverse().map((item) => {
                   const lines = item.lines?.edges?.map((e) => e.node) ?? [];
-
-                  const currencySymbols = {
-                    INR: "₹",
-                    USD: "$",
-                    EUR: "€",
-                    GBP: "£",
-                    JPY: "¥",
-                    CAD: "CA$",
-                    AUD: "A$",
-                  };
-
-                  // Sabhi lines ka total nikalo
                   const total = lines.reduce((sum, line) => {
                     return (
                       sum +
@@ -124,7 +112,6 @@ function Subscriptions() {
                   }, 0);
 
                   const currencyCode = lines[0]?.currentPrice?.currencyCode;
-                  const symbol = currencySymbols[currencyCode] ?? currencyCode ?? "";
 
                   const productLabel =
                     lines.length === 1
@@ -150,7 +137,7 @@ function Subscriptions() {
                         }</td> */}
                       <td>{productLabel}</td>
                       <td>
-                        {symbol} {total.toFixed(2)}
+                        {currencyCode} {total.toFixed(2)}
                       </td>
                       <td>
                         Every {item.deliveryPolicy?.intervalCount}{" "}
