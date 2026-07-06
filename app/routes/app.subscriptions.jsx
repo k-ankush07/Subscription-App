@@ -2,7 +2,7 @@ import { Page, Card ,EmptyState} from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
 import React from "react";
 import { useLoaderData, useNavigate } from "react-router";
-
+import {currencySymbol} from "./utils/formatMoney.js"
 export async function loader({ request }) {
   const { admin } = await authenticate.admin(request);
 
@@ -112,6 +112,7 @@ function Subscriptions() {
                   }, 0);
 
                   const currencyCode = lines[0]?.currentPrice?.currencyCode;
+                  
 
                   const productLabel =
                     lines.length === 1
@@ -137,7 +138,7 @@ function Subscriptions() {
                         }</td> */}
                       <td>{productLabel}</td>
                       <td>
-                        {currencyCode} {total.toFixed(2)}
+                        {currencySymbol(currencyCode)} {total.toFixed(2)}
                       </td>
                       <td>
                         Every {item.deliveryPolicy?.intervalCount}{" "}
