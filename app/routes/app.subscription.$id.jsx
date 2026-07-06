@@ -1,6 +1,6 @@
 import { authenticate } from "../shopify.server";
 import SubscriptionDetail from "./components/SubscriptionDetail";
-
+import crypto from "crypto";
 const API = import.meta.env.VITE_API_URL;
 const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
 export async function loader({ request, params }) {
@@ -247,7 +247,8 @@ export async function action({ request, params }) {
     type === "cancel" ||
     type === "resume" ||
     type === "skip" ||
-    type === "unskip" 
+    type === "unskip" ||
+    type === "billingAttempt"
   ) {
     if (type === "pause") {
       const res = await admin.graphql(
@@ -485,6 +486,89 @@ export async function action({ request, params }) {
       return {
         success: true,
         unskippedCycleIndex: payload.billingCycle.cycleIndex,
+      };
+    }
+    if (type === "billingAttempt") {
+      const rawCycleIndex = formData.get("cycleIndex");
+      const cycleIndex = rawCycleIndex ? parseInt(rawCycleIndex, 10) : null;
+      console.log("fjfffkdnfkjkfj",cycleIndex)
+
+      if (rawCycleIndex && Number.isNaN(cycleIndex)) {
+        return {
+          success: false,
+          error: "Invalid billing cycle index for billing attempt",
+        };
+      }
+
+      // generate idempotency key (must be unique per attempt)
+      const idempotencyKey = crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random()}`;
+
+      // Build SubscriptionBillingAttemptInput
+      const billingAttemptInput = {
+        idempotencyKey,
+      };
+
+      if (cycleIndex != null) {
+        billingAttemptInput.billingCycleSelector = {
+          index: cycleIndex,
+        };
+      }
+
+  console.log("dfffbfbfb", billingAttemptInput);
+      const res = await admin.graphql(
+        `
+        mutation CreateSubscriptionBillingAttempt(
+          $subscriptionContractId: ID!
+          $billingAttemptInput: SubscriptionBillingAttemptInput!
+        ) {
+          subscriptionBillingAttemptCreate(
+            subscriptionContractId: $subscriptionContractId
+            subscriptionBillingAttemptInput: $billingAttemptInput
+          ) {
+            subscriptionBillingAttempt {
+              id
+              createdAt
+              completedAt
+              subscriptionContract {
+                id
+              }
+            }
+            userErrors {
+              field
+              message
+              code
+            }
+          }
+        }
+        `,
+        {
+          variables: {
+            subscriptionContractId: contractId,
+            billingAttemptInput,
+          },
+        },
+      );
+
+      const data = await res.json();
+      const payload = data?.data?.subscriptionBillingAttemptCreate;
+      console.log("nfbf",payload)
+
+      if (!payload || payload.userErrors?.length) {
+        console.error("Billing attempt failed", payload?.userErrors);
+        return {
+          success: false,
+          error:
+            payload?.userErrors?.map((e) => e.message).join(", ") ||
+            "Billing attempt failed",
+        };
+      }
+
+      const { subscriptionBillingAttempt } = payload;
+      return {
+        success: true,
+        billingAttemptId: subscriptionBillingAttempt.id,
       };
     }
   }

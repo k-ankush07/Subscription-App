@@ -11,6 +11,7 @@ import {
 
 function getCurrentComputedPrice(item, currentCycleIndex) {
   const discounts = item?.node?.pricingPolicy?.cycleDiscounts || [];
+  console.log("discount",discounts)
   if (discounts.length === 0) {
     return parseFloat(item?.node?.currentPrice?.amount || 0);
   }
@@ -47,6 +48,7 @@ function formateDate(date) {
 
 export default function SubscriptionDetail() {
   const { contract, upcomingCycles, internalNotes, customerNotes } = useLoaderData();
+  console.log("log",upcomingCycles)
  console.log(
      "CYCLE DISCOUNTS RAW",
      contract.lines.edges.map((line) => ({
@@ -238,6 +240,12 @@ export default function SubscriptionDetail() {
               const Total = parseFloat(price * quantity);
               const cycleDiscounts =
                 item?.node?.pricingPolicy?.cycleDiscounts || [];
+                console.log("summary line", {
+  title: item?.node?.title,
+  nextCycleIndex,
+  appliedPrice: price,
+  cycleDiscounts: item?.node?.pricingPolicy?.cycleDiscounts,
+});
 
               return (
                 <Card key={index}>
@@ -332,7 +340,22 @@ export default function SubscriptionDetail() {
                       Skip
                     </Button>
                   )}
-
+ {contract?.status === "ACTIVE" && !cycle.skipped && (
+            <Button
+              primary
+              onClick={() => {
+                fetcher.submit(
+                  {
+                    type: "billingAttempt",
+                    cycleIndex: String(cycle.cycleIndex),
+                  },
+                  { method: "post" },
+                );
+              }}
+            >
+              Charge now
+            </Button>
+          )}
 
                   {contract?.status === "ACTIVE" && cycle.skipped && (
                     <Button
