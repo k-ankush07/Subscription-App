@@ -57,10 +57,9 @@ const buildPricingPolicies = (sp) => {
     return pricingPolicies;
   }
 
-  //  1) Required fixed policy: base discount (e.g., 10% off)
   pricingPolicies.push({
     fixed: {
-      adjustmentType: sp.discountType, // "PERCENTAGE" or "FIXED_AMOUNT"
+      adjustmentType: sp.discountType, 
       adjustmentValue:
         sp.discountType === "PERCENTAGE"
           ? { percentage: Number(sp.discountValue) }
@@ -68,11 +67,10 @@ const buildPricingPolicies = (sp) => {
     },
   });
 
-  //  2) Optional recurring override: change discount after N orders
   if (sp.changeDiscountAfterOrders && sp.afterOrders != null) {
     pricingPolicies.push({
       recurring: {
-        afterCycle: Number(sp.afterOrders), // e.g. 1 -> "first 1 order" ke baad
+        afterCycle: Number(sp.afterOrders), 
         adjustmentType: sp.afterDiscountType ?? "PERCENTAGE",
         adjustmentValue:
           (sp.afterDiscountType ?? "PERCENTAGE") === "PERCENTAGE"
