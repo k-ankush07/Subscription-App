@@ -336,22 +336,7 @@ const shippingTitle = latestOrder?.shippingLine?.title || "";
                       Skip
                     </Button>
                   )}
-                  {contract?.status === "ACTIVE" && !cycle.skipped && (
-                    <Button
-                      primary
-                      onClick={() => {
-                        fetcher.submit(
-                          {
-                            type: "billingAttempt",
-                            cycleIndex: String(cycle.cycleIndex),
-                          },
-                          { method: "post" },
-                        );
-                      }}
-                    >
-                      Charge now
-                    </Button>
-                  )}
+
 
                   {contract?.status === "ACTIVE" && cycle.skipped && (
                     <Button
