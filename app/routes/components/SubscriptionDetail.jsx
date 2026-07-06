@@ -66,8 +66,14 @@ export default function SubscriptionDetail() {
 
   const lines = contract?.lines?.edges;
   const currencyCode = lines?.[0]?.node?.currentPrice?.currencyCode;
+    const nextUpcomingCycle =
+  upcomingCycles?.find((cycle) => !cycle.skipped) ?? null;
   const nextCycleIndex = upcomingCycles?.[0]?.cycleIndex ?? null;
-  const nextCycleDate = upcomingCycles?.[0]?.billingAttemptExpectedDate ?? null;
+  // const nextCycleDate = upcomingCycles?.[0]?.billingAttemptExpectedDate ?? null;
+  const nextCycleDate =
+  nextUpcomingCycle?.billingAttemptExpectedDate ?? null;
+
+  console.log("dbhjfjfbjs",nextUpcomingCycle)
 const orderEdges = contract?.orders?.edges || [];
 const latestOrder = orderEdges.length > 0 ? orderEdges[orderEdges.length - 1].node : null;
 const shipingChargesAmount =
