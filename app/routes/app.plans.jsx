@@ -14,7 +14,6 @@ export const loader = async ({ request }) => {
       "x-api-key": SECRET_KEY,
     }
   });
-
   const data = await response.json();
   return Response.json({ plans: data.success ? data.data : [] });
 };
@@ -285,12 +284,6 @@ function Plans() {
                       planDelete(item.planId);
                     }}
                   >
-                    {/* Delete ho raha hai to loading dikhao */}
-                    {/* {fetcher.state !== "idle" ? (
-                      "..."
-                    ) : (
-                      <Icon source={DeleteIcon} tone="base" />
-                    )} */}
                     {deletingId === item.planId && fetcher.state !== "idle" ? (
                       "..."
                     ) : (
