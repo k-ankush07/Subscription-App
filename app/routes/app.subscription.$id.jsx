@@ -249,7 +249,7 @@ export async function action({ request, params }) {
     type === "cancel" ||
     type === "resume" ||
     type === "skip" ||
-    type === "unskip"
+    type === "unskip" ||
   ) {
     if (type === "pause") {
       const res = await admin.graphql(

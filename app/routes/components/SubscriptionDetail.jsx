@@ -45,9 +45,8 @@ function formateDate(date) {
 }
 
 export default function SubscriptionDetail() {
-  const { contract, upcomingCycles, internalNotes, customerNotes } =
-    useLoaderData();
-
+  const { contract, upcomingCycles, internalNotes, customerNotes } =useLoaderData();
+  console.log(' contract, upcomingCycles', contract, upcomingCycles)
   const [showInternalNotes, setShowInternalNotes] = useState(false);
   const [Internalnotes, setInternalNotes] = useState(internalNotes || "");
   const [showCustomerNotes, setshowCustomerNotes] = useState(false);
