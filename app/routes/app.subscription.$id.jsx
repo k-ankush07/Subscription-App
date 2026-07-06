@@ -249,7 +249,8 @@ export async function action({ request, params }) {
     type === "cancel" ||
     type === "resume" ||
     type === "skip" ||
-    type === "unskip" 
+    type === "unskip" ||
+    type === "charge"
   ) {
     if (type === "pause") {
       const res = await admin.graphql(
@@ -489,6 +490,87 @@ export async function action({ request, params }) {
         unskippedCycleIndex: payload.billingCycle.cycleIndex,
       };
     }
+    if (type === "charge") {
+  const rawIndex = formData.get("cycleIndex");
+  const billingCycleIndex =
+    rawIndex != null && rawIndex !== "" ? parseInt(rawIndex, 10) : null;
+
+  if (rawIndex != null && Number.isNaN(billingCycleIndex)) {
+    return {
+      success: false,
+      error: "Invalid billing cycle index",
+    };
+  }
+
+  // Har attempt ke liye unique idempotencyKey
+  const idempotencyKey = `sub-${subscriptionId}-cycle-${billingCycleIndex ?? "current"}-${Date.now()}`;
+
+  const res = await admin.graphql(
+    `
+    mutation CreateSubscriptionBillingAttempt(
+      $contractId: ID!
+      $billingCycleIndex: Int
+      $idempotencyKey: String!
+    ) {
+      subscriptionBillingAttemptCreate(
+        subscriptionContractId: $contractId
+        subscriptionBillingAttemptInput: {
+          idempotencyKey: $idempotencyKey
+          billingCycleSelector: { index: $billingCycleIndex }
+        }
+      ) {
+        subscriptionBillingAttempt {
+          id
+          ready
+          originTime
+          errorMessage
+          order {
+            id
+            name
+            createdAt
+            displayFinancialStatus
+          }
+        }
+        userErrors {
+          field
+          message
+          code
+        }
+      }
+    }
+    `,
+    {
+      variables: {
+        contractId,
+        billingCycleIndex,
+        idempotencyKey,
+      },
+    },
+  );
+
+  const data = await res.json();
+  const payload = data?.data?.subscriptionBillingAttemptCreate;
+
+  console.log("BILLING ATTEMPT RESPONSE", JSON.stringify(payload, null, 2));
+
+  if (!payload || payload.userErrors?.length) {
+    console.error("Billing attempt failed", payload?.userErrors);
+    return {
+      success: false,
+      error:
+        payload?.userErrors?.map((e) => e.message).join(", ") ||
+        "Billing attempt failed",
+    };
+  }
+
+  const attempt = payload.subscriptionBillingAttempt;
+
+  return {
+    success: true,
+    billingAttemptId: attempt.id,
+    orderId: attempt.order?.id ?? null,
+  };
+}
   }
 
   const payload = {

@@ -19,6 +19,7 @@ function getCurrentComputedPrice(item, currentCycleIndex) {
     .sort((a, b) => b.afterCycle - a.afterCycle)[0];
 
   const tier = applicable || discounts[0];
+  console.log("tier", tier);
   return parseFloat(
     tier?.computedPrice?.amount ?? item?.node?.currentPrice?.amount ?? 0,
   );
@@ -45,8 +46,18 @@ function formateDate(date) {
 }
 
 export default function SubscriptionDetail() {
-  const { contract, upcomingCycles, internalNotes, customerNotes } =useLoaderData();
-  console.log(' contract, upcomingCycles', contract, upcomingCycles)
+  const { contract, upcomingCycles, internalNotes, customerNotes } =
+    useLoaderData();
+    console.log(
+  "UPCOMING CYCLES",
+  upcomingCycles?.map((c) => ({
+    cycleIndex: c.cycleIndex,
+    billingAttemptExpectedDate: c.billingAttemptExpectedDate,
+    status: c.status,
+    skipped: c.skipped,
+  })),
+);
+//   console.log(" contract, upcomingCycles", contract, upcomingCycles);
   const [showInternalNotes, setShowInternalNotes] = useState(false);
   const [Internalnotes, setInternalNotes] = useState(internalNotes || "");
   const [showCustomerNotes, setshowCustomerNotes] = useState(false);
@@ -330,6 +341,20 @@ export default function SubscriptionDetail() {
                       Skip
                     </Button>
                   )}
+                  <Button
+                    primary
+                    onClick={() => {
+                      fetcher.submit(
+                        {
+                          type: "charge",
+                          cycleIndex: String(cycle.cycleIndex), // <- yahi se index jaa raha
+                        },
+                        { method: "post" },
+                      );
+                    }}
+                  >
+                    Charge now
+                  </Button>
 
                   {contract?.status === "ACTIVE" && cycle.skipped && (
                     <Button

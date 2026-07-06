@@ -20,37 +20,70 @@ export const action = async ({ request }) => {
   }
 
   //  Har plan ke liye pricingPolicies build karo
-  const buildPricingPolicies = (sp) => {
-    const pricingPolicies = [];
+  // const buildPricingPolicies = (sp) => {
+  //   const pricingPolicies = [];
 
-    if (sp.giveSubscriptionDiscount) {
-      pricingPolicies.push({
-        fixed: {
-          adjustmentType: sp.discountType,
-          adjustmentValue:
-            sp.discountType === "PERCENTAGE"
-              ? { percentage: sp.discountValue }
-              : { fixedValue: sp.discountValue },
-        },
-      });
+  //   if (sp.giveSubscriptionDiscount) {
+  //     pricingPolicies.push({
+  //       fixed: {
+  //         adjustmentType: sp.discountType,
+  //         adjustmentValue:
+  //           sp.discountType === "PERCENTAGE"
+  //             ? { percentage: sp.discountValue }
+  //             : { fixedValue: sp.discountValue },
+  //       },
+  //     });
 
-      if (sp.changeDiscountAfterOrders && sp.afterOrders) {
-        pricingPolicies.push({
-          recurring: {
-            afterCycle: sp.afterOrders,
-            adjustmentType: sp.afterDiscountType ?? "PERCENTAGE",
-            adjustmentValue:
-              (sp.afterDiscountType ?? "PERCENTAGE") === "PERCENTAGE"
-                ? { percentage: sp.afterDiscountValue ?? 0 }
-                : { fixedValue: sp.afterDiscountValue ?? 0 },
-          },
-        });
-      }
-    }
+  //     if (sp.changeDiscountAfterOrders && sp.afterOrders) {
+  //       pricingPolicies.push({
+  //         recurring: {
+  //           afterCycle: sp.afterOrders,
+  //           adjustmentType: sp.afterDiscountType ?? "PERCENTAGE",
+  //           adjustmentValue:
+  //             (sp.afterDiscountType ?? "PERCENTAGE") === "PERCENTAGE"
+  //               ? { percentage: sp.afterDiscountValue ?? 0 }
+  //               : { fixedValue: sp.afterDiscountValue ?? 0 },
+  //         },
+  //       });
+  //     }
+  //   }
 
+  //   return pricingPolicies;
+  // };
+const buildPricingPolicies = (sp) => {
+  const pricingPolicies = [];
+
+  if (!sp.giveSubscriptionDiscount) {
     return pricingPolicies;
-  };
+  }
 
+  //  1) Required fixed policy: base discount (e.g., 10% off)
+  pricingPolicies.push({
+    fixed: {
+      adjustmentType: sp.discountType, // "PERCENTAGE" or "FIXED_AMOUNT"
+      adjustmentValue:
+        sp.discountType === "PERCENTAGE"
+          ? { percentage: Number(sp.discountValue) }
+          : { fixedValue: Number(sp.discountValue) },
+    },
+  });
+
+  //  2) Optional recurring override: change discount after N orders
+  if (sp.changeDiscountAfterOrders && sp.afterOrders != null) {
+    pricingPolicies.push({
+      recurring: {
+        afterCycle: Number(sp.afterOrders), // e.g. 1 -> "first 1 order" ke baad
+        adjustmentType: sp.afterDiscountType ?? "PERCENTAGE",
+        adjustmentValue:
+          (sp.afterDiscountType ?? "PERCENTAGE") === "PERCENTAGE"
+            ? { percentage: Number(sp.afterDiscountValue ?? 0) }
+            : { fixedValue: Number(sp.afterDiscountValue ?? 0) },
+      },
+    });
+  }
+
+  return pricingPolicies;
+};
   //  Saare plans ka sellingPlansToCreate array banao
   const sellingPlansToCreate = sellingPlans.map((sp) => {
     const pricingPolicies = buildPricingPolicies(sp);
