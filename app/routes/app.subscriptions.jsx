@@ -36,6 +36,25 @@ export async function loader({ request }) {
               quantity
               sellingPlanName
               sellingPlanId
+              pricingPolicy {
+                cycleDiscounts {
+                  afterCycle
+                  adjustmentType
+                  adjustmentValue {
+                    ... on SellingPlanPricingPolicyPercentageValue {
+                      percentage
+                    }
+                    ... on MoneyV2 {
+                      amount
+                      currencyCode
+                    }
+                  }
+                  computedPrice {
+                    amount
+                    currencyCode
+                  }
+                }
+              }
 
               currentPrice {
                 amount
@@ -57,6 +76,7 @@ export async function loader({ request }) {
 
 function Subscriptions() {
   const { contracts } = useLoaderData();
+  console.log("cjjdfjds",contracts)
   const navigate= useNavigate()
   const formatDate = (date) => {
     return new Date(date).toLocaleDateString("en-US", {
@@ -70,6 +90,7 @@ function Subscriptions() {
     console.log("print id ", id);
     navigate(`/app/subscription/${id}`)
   };
+  
   return (
     <>
       <Page title="Subscriptions">

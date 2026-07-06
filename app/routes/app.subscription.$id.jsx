@@ -187,13 +187,13 @@ export async function loader({ request, params }) {
   let upcomingCycles = allCycles.filter(
     (cycle) =>
       cycle.billingAttemptExpectedDate &&
-      new Date(cycle.billingAttemptExpectedDate) > now,
+      new Date(cycle.billingAttemptExpectedDate) >= now,
   );
 
   if (maxCycles != null) {
     upcomingCycles = upcomingCycles.filter(
       (cycle) =>
-        typeof cycle.cycleIndex === "number" && cycle.cycleIndex == maxCycles,
+        typeof cycle.cycleIndex === "number" && cycle.cycleIndex <= maxCycles,
     );
   }
   try {
