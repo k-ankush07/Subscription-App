@@ -51,7 +51,7 @@ export default function SubscriptionDetail() {
   const { contract, upcomingCycles, internalNotes, customerNotes } =
     useLoaderData();
 
-  //   console.log(" contract, upcomingCycles", contract, upcomingCycles);
+    console.log(" contract, upcomingCycles", contract);
   const [showInternalNotes, setShowInternalNotes] = useState(false);
   const [Internalnotes, setInternalNotes] = useState(internalNotes || "");
   const [showCustomerNotes, setshowCustomerNotes] = useState(false);
@@ -68,9 +68,11 @@ export default function SubscriptionDetail() {
   const currencyCode = lines?.[0]?.node?.currentPrice?.currencyCode;
   const nextCycleIndex = upcomingCycles?.[0]?.cycleIndex ?? null;
   const nextCycleDate = upcomingCycles?.[0]?.billingAttemptExpectedDate ?? null;
-  const shipingChargesAmount =
-    contract?.orders?.edges[0]?.node?.totalShippingPriceSet?.shopMoney?.amount;
-  const shippingTitle = contract?.orders?.edges[0]?.node?.shippingLine?.title;
+const orderEdges = contract?.orders?.edges || [];
+const latestOrder = orderEdges.length > 0 ? orderEdges[orderEdges.length - 1].node : null;
+const shipingChargesAmount =
+  latestOrder?.totalShippingPriceSet?.shopMoney?.amount || 0;
+const shippingTitle = latestOrder?.shippingLine?.title || "";
 
   const navigate = useNavigate();
   const backButton = () => {
@@ -235,7 +237,7 @@ export default function SubscriptionDetail() {
               const cycleDiscounts =
                 item?.node?.pricingPolicy?.cycleDiscounts || [];
               console.log("summary line", {
-                title: item?.node?.title,
+                title: `${item?.node?.title} - ${item?.node?.variantTitle}`,
                 nextCycleIndex,
                 appliedPrice: price,
                 cycleDiscounts: item?.node?.pricingPolicy?.cycleDiscounts,
