@@ -487,19 +487,19 @@ export async function action({ request, params }) {
         unskippedCycleIndex: payload.billingCycle.cycleIndex,
       };
     }
-  if (type === "edit_date") {
-    const cycleIndex = parseInt(formData.get("cycleIndex"), 10);
-    const newDate = formData.get("newDate");
+    if (type === "edit_date") {
+      const cycleIndex = parseInt(formData.get("cycleIndex"), 10);
+      const newDate = formData.get("newDate");
 
-    if (Number.isNaN(cycleIndex) || !newDate) {
-      return {
-        success: false,
-        error: "Invalid cycle index or date",
-      };
-    }
+      if (Number.isNaN(cycleIndex) || !newDate) {
+        return {
+          success: false,
+          error: "Invalid cycle index or date",
+        };
+      }
 
-    const res = await admin.graphql(
-      `
+      const res = await admin.graphql(
+        `
       mutation SubscriptionBillingCycleChangeDate(
         $contractId: ID!
         $index: Int!
@@ -524,34 +524,34 @@ export async function action({ request, params }) {
         }
       }
       `,
-      {
-        variables: {
-          contractId,
-          index: cycleIndex,
-          newDate, 
+        {
+          variables: {
+            contractId,
+            index: cycleIndex,
+            newDate,
+          },
         },
-      },
-    );
+      );
 
-    const data = await res.json();
-    const payload = data?.data?.subscriptionBillingCycleScheduleEdit;
+      const data = await res.json();
+      const payload = data?.data?.subscriptionBillingCycleScheduleEdit;
 
-    if (!payload || payload.userErrors?.length) {
-  console.error("Edit date failed", payload?.userErrors);
-  return {
-    success: false,
-    error:
-      payload?.userErrors?.map((e) => e.message).join(", ") ||
-      "Date update failed",
-  };
-}
+      if (!payload || payload.userErrors?.length) {
+        console.error("Edit date failed", payload?.userErrors);
+        return {
+          success: false,
+          error:
+            payload?.userErrors?.map((e) => e.message).join(", ") ||
+            "Date update failed",
+        };
+      }
 
-    return {
-      success: true,
-      updatedCycleIndex: payload.billingCycle.cycleIndex,
-      newBillingDate: payload.billingCycle.billingAttemptExpectedDate,
-    };
-  }
+      return {
+        success: true,
+        updatedCycleIndex: payload.billingCycle.cycleIndex,
+        newBillingDate: payload.billingCycle.billingAttemptExpectedDate,
+      };
+    }
   }
 
   const payload = {

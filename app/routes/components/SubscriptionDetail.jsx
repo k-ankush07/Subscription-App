@@ -74,6 +74,8 @@ export default function SubscriptionDetail() {
   const nextCycleIndex = upcomingCycles?.[0]?.cycleIndex ?? null;
   // const nextCycleDate = upcomingCycles?.[0]?.billingAttemptExpectedDate ?? null;
   const nextCycleDate = nextUpcomingCycle?.billingAttemptExpectedDate ?? null;
+const minDate = getTodayDateInputValue();
+const maxDate = nextCycleDate ? toDateInputValue(nextCycleDate) : null;
 
   const orderEdges = contract?.orders?.edges || [];
   const latestOrder =
@@ -124,7 +126,18 @@ export default function SubscriptionDetail() {
     if (!confirmed) return;
     fetcher.submit({ type: "cancel" }, { method: "post" });
   };
+// helpers upar add kar lo (SubscriptionDetail component ke andar ya bahar)
+  function toDateInputValue(date) {
+    const d = new Date(date);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
 
+  function getTodayDateInputValue() {
+    return toDateInputValue(new Date());
+  }
   return (
     <>
       <Page backAction={{ onAction: backButton }} title={`${id}`}>
@@ -308,7 +321,7 @@ export default function SubscriptionDetail() {
             {grandTotal + parseFloat(shipingChargesAmount)}{" "}
           </p>
         </Card>
-        {/* {contract?.status !== "CANCELLED" && (
+        {contract?.status !== "CANCELLED" && (
           <Card>
             <b>Upcoming orders</b>
             {upcomingCycles?.map((cycle, index) => (
@@ -368,139 +381,7 @@ export default function SubscriptionDetail() {
               </div>
             ))}
           </Card>
-        )} */}
-         <Card>
-    <b>Upcoming orders</b>
-    {upcomingCycles?.map((cycle, index) => {
-      const isEditing = editingCycleIndex === cycle.cycleIndex;
-
-      // YAHAN define karo min/max – map ke callback ke andar
-      const minDate = cycle.cycleStartAt
-        ? new Date(cycle.cycleStartAt).toISOString().split("T")[0]
-        : undefined;
-      const maxDate = cycle.cycleEndAt
-        ? new Date(cycle.cycleEndAt).toISOString().split("T")[0]
-        : undefined;
-        console.log("min,",minDate,"max,",maxDate)
-      return (
-        <div
-          key={cycle.cycleIndex ?? index}
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            marginTop: "8px",
-          }}
-        >
-          <p>
-            {formateDate(cycle.billingAttemptExpectedDate)}{" "}
-            {cycle.skipped && <span>(Skipped)</span>}
-          </p>
-
-          <div
-            style={{ display: "flex", gap: "12px", alignItems: "center" }}
-          >
-            {/* Normal (non-edit) state */}
-            {contract?.status === "ACTIVE" && !cycle.skipped && !isEditing && (
-              <>
-                <Button
-                  onClick={() => {
-                    setEditingCycleIndex(cycle.cycleIndex);
-
-                    // Default value: current billing date ko YYYY-MM-DD bana ke set karo
-                    const current = new Date(
-                      cycle.billingAttemptExpectedDate,
-                    )
-                      .toISOString()
-                      .split("T")[0];
-                    setEditingDate(current);
-                  }}
-                >
-                  Edit date
-                </Button>
-
-                <Button
-                  plain
-                  onClick={() => {
-                    fetcher.submit(
-                      {
-                        type: "skip",
-                        cycleIndex: String(cycle.cycleIndex),
-                      },
-                      { method: "post" },
-                    );
-                  }}
-                >
-                  Skip
-                </Button>
-              </>
-            )}
-
-            {contract?.status === "ACTIVE" && cycle.skipped && !isEditing && (
-              <Button
-                plain
-                onClick={() => {
-                  fetcher.submit(
-                    {
-                      type: "unskip",
-                      cycleIndex: String(cycle.cycleIndex),
-                    },
-                    { method: "post" },
-                  );
-                }}
-              >
-                Resume
-              </Button>
-            )}
-
-            {/* EDIT MODE */}
-            {isEditing && (
-              <>
-                <input
-                  type="date"
-                  value={editingDate}
-                  min={minDate}
-                  max={maxDate}
-                  onChange={(e) => setEditingDate(e.target.value)}
-                />
-
-                <Button
-                  onClick={() => {
-                    if (!editingDate) return;
-                    const isoDate = new Date(
-                      editingDate
-                    ).toISOString();
-                    console.log("submit",isoDate)
-                    fetcher.submit(
-                      {
-                        type: "edit_date",
-                        cycleIndex: String(cycle.cycleIndex),
-                        newDate: isoDate,
-                      },
-                      { method: "post" },
-                    );
-
-                    setEditingCycleIndex(null);
-                    setEditingDate("");
-                  }}
-                >
-                  Save
-                </Button>
-
-                <Button
-                  onClick={() => {
-                    setEditingCycleIndex(null);
-                    setEditingDate("");
-                  }}
-                >
-                  Cancel
-                </Button>
-              </>
-            )}
-          </div>
-        </div>
-      );
-    })}
-  </Card>
+        )}
 
         <div>
           <b>Internal Notes</b>
