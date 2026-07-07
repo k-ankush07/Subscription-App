@@ -34,7 +34,6 @@ function getCurrentComputedPrice(item, currentCycleIndex) {
 
   // Agar koi discount nahi hai, to basePrice use karo.
   if (discounts.length === 0) {
-    // Agar basePrice nahi mil raha kisi reason se, tab currentPrice se fallback
     return basePriceAmount || parseFloat(item?.node?.currentPrice?.amount || 0);
   }
 
