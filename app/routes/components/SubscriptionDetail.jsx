@@ -278,9 +278,7 @@ export default function SubscriptionDetail() {
                               {
                                 type: "removeLineDiscount",
                                 lineId: item?.node?.id,
-                                basePrice: String(
-                                  item?.node?.pricingPolicy?.basePrice?.amount || 0,
-                                ),
+                                basePrice: item?.node?.pricingPolicy?.basePrice?.amount || 0,
                               },
                               { method: "post" },
                             );
@@ -344,7 +342,7 @@ export default function SubscriptionDetail() {
                         fetcher.submit(
                           {
                             type: "skip",
-                            cycleIndex: String(cycle.cycleIndex),
+                            cycleIndex: cycle.cycleIndex,
                           },
                           { method: "post" },
                         );
@@ -361,7 +359,7 @@ export default function SubscriptionDetail() {
                         fetcher.submit(
                           {
                             type: "unskip",
-                            cycleIndex: String(cycle.cycleIndex),
+                            cycleIndex: cycle.cycleIndex,
                           },
                           { method: "post" },
                         );
