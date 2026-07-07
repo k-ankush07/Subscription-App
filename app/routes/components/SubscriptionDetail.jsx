@@ -1,9 +1,7 @@
-import { Banner, Button, Card, Page,Icon } from "@shopify/polaris";
+import { Banner, Button, Card, Page, Icon } from "@shopify/polaris";
 import React, { useEffect, useState } from "react";
 import { currencySymbol } from "../utils/formatMoney.js";
-import {
-  DeleteIcon
-} from '@shopify/polaris-icons';
+import { DeleteIcon } from "@shopify/polaris-icons";
 import {
   Link,
   useNavigate,
@@ -59,6 +57,8 @@ export default function SubscriptionDetail() {
   const [Internalnotes, setInternalNotes] = useState(internalNotes || "");
   const [showCustomerNotes, setshowCustomerNotes] = useState(false);
   const [CustomerNotes, setCustomerNotes] = useState(customerNotes || "");
+  const [editingCycleIndex, setEditingCycleIndex] = useState(null);
+  const [editingDate, setEditingDate] = useState("");
   const { id } = useParams();
   const fetcher = useFetcher();
 
@@ -75,7 +75,6 @@ export default function SubscriptionDetail() {
   // const nextCycleDate = upcomingCycles?.[0]?.billingAttemptExpectedDate ?? null;
   const nextCycleDate = nextUpcomingCycle?.billingAttemptExpectedDate ?? null;
 
-  console.log("dbhjfjfbjs", nextUpcomingCycle);
   const orderEdges = contract?.orders?.edges || [];
   const latestOrder =
     orderEdges.length > 0 ? orderEdges[orderEdges.length - 1].node : null;
@@ -281,7 +280,7 @@ export default function SubscriptionDetail() {
                         {cycleDiscounts.length === 1
                           ? `${cycleDiscounts[0]?.adjustmentValue?.percentage ? `${cycleDiscounts[0]?.adjustmentValue?.percentage}% for all orders ` : `₹${cycleDiscounts[0]?.adjustmentValue?.amount} for  all orders`}`
                           : `${cycleDiscounts[0]?.adjustmentValue?.percentage ? `${cycleDiscounts[0]?.adjustmentValue?.percentage}%` : `₹${cycleDiscounts[0]?.adjustmentValue?.amount}`} off for the first ${cycleDiscounts[1]?.afterCycle || 1} order, then ${cycleDiscounts[1]?.adjustmentValue?.percentage ? `${cycleDiscounts[1]?.adjustmentValue?.percentage}%` : `₹${cycleDiscounts[1]?.adjustmentValue?.amount}`} off`}
-                        <Icon  source={DeleteIcon} tone="base" />
+                        <Icon source={DeleteIcon} tone="base" />
                       </span>
                     </p>
                   )}
@@ -309,10 +308,11 @@ export default function SubscriptionDetail() {
             {grandTotal + parseFloat(shipingChargesAmount)}{" "}
           </p>
         </Card>
-        {contract?.status !== "CANCELLED" && (
+        {/* {contract?.status !== "CANCELLED" && (
           <Card>
             <b>Upcoming orders</b>
             {upcomingCycles?.map((cycle, index) => (
+              
               <div
                 key={cycle.cycleIndex ?? index}
                 style={{
@@ -329,7 +329,8 @@ export default function SubscriptionDetail() {
                 <div
                   style={{ display: "flex", gap: "30px", alignItems: "center" }}
                 >
-                  {!cycle.skipped && <Button>Edit</Button>}
+                  {!cycle.skipped && <Button >Edit</Button>}
+                  
                   {contract?.status === "ACTIVE" && !cycle.skipped && (
                     <Button
                       plain
@@ -367,7 +368,139 @@ export default function SubscriptionDetail() {
               </div>
             ))}
           </Card>
-        )}
+        )} */}
+         <Card>
+    <b>Upcoming orders</b>
+    {upcomingCycles?.map((cycle, index) => {
+      const isEditing = editingCycleIndex === cycle.cycleIndex;
+
+      // YAHAN define karo min/max – map ke callback ke andar
+      const minDate = cycle.cycleStartAt
+        ? new Date(cycle.cycleStartAt).toISOString().split("T")[0]
+        : undefined;
+      const maxDate = cycle.cycleEndAt
+        ? new Date(cycle.cycleEndAt).toISOString().split("T")[0]
+        : undefined;
+        console.log("min,",minDate,"max,",maxDate)
+      return (
+        <div
+          key={cycle.cycleIndex ?? index}
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            marginTop: "8px",
+          }}
+        >
+          <p>
+            {formateDate(cycle.billingAttemptExpectedDate)}{" "}
+            {cycle.skipped && <span>(Skipped)</span>}
+          </p>
+
+          <div
+            style={{ display: "flex", gap: "12px", alignItems: "center" }}
+          >
+            {/* Normal (non-edit) state */}
+            {contract?.status === "ACTIVE" && !cycle.skipped && !isEditing && (
+              <>
+                <Button
+                  onClick={() => {
+                    setEditingCycleIndex(cycle.cycleIndex);
+
+                    // Default value: current billing date ko YYYY-MM-DD bana ke set karo
+                    const current = new Date(
+                      cycle.billingAttemptExpectedDate,
+                    )
+                      .toISOString()
+                      .split("T")[0];
+                    setEditingDate(current);
+                  }}
+                >
+                  Edit date
+                </Button>
+
+                <Button
+                  plain
+                  onClick={() => {
+                    fetcher.submit(
+                      {
+                        type: "skip",
+                        cycleIndex: String(cycle.cycleIndex),
+                      },
+                      { method: "post" },
+                    );
+                  }}
+                >
+                  Skip
+                </Button>
+              </>
+            )}
+
+            {contract?.status === "ACTIVE" && cycle.skipped && !isEditing && (
+              <Button
+                plain
+                onClick={() => {
+                  fetcher.submit(
+                    {
+                      type: "unskip",
+                      cycleIndex: String(cycle.cycleIndex),
+                    },
+                    { method: "post" },
+                  );
+                }}
+              >
+                Resume
+              </Button>
+            )}
+
+            {/* EDIT MODE */}
+            {isEditing && (
+              <>
+                <input
+                  type="date"
+                  value={editingDate}
+                  min={minDate}
+                  max={maxDate}
+                  onChange={(e) => setEditingDate(e.target.value)}
+                />
+
+                <Button
+                  onClick={() => {
+                    if (!editingDate) return;
+                    const isoDate = new Date(
+                      editingDate
+                    ).toISOString();
+                    console.log("submit",isoDate)
+                    fetcher.submit(
+                      {
+                        type: "edit_date",
+                        cycleIndex: String(cycle.cycleIndex),
+                        newDate: isoDate,
+                      },
+                      { method: "post" },
+                    );
+
+                    setEditingCycleIndex(null);
+                    setEditingDate("");
+                  }}
+                >
+                  Save
+                </Button>
+
+                <Button
+                  onClick={() => {
+                    setEditingCycleIndex(null);
+                    setEditingDate("");
+                  }}
+                >
+                  Cancel
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+      );
+    })}
+  </Card>
 
         <div>
           <b>Internal Notes</b>
