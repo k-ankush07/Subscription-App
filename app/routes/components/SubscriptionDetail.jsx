@@ -10,21 +10,48 @@ import {
   useLoaderData,
 } from "react-router";
 
+// function getCurrentComputedPrice(item, currentCycleIndex) {
+//   const discounts = item?.node?.pricingPolicy?.cycleDiscounts || [];
+//   if (discounts.length === 0) {
+//     return parseFloat(item?.node?.currentPrice?.amount || 0);
+//   }
+//   const applicable = discounts
+//     .filter((d) => d.afterCycle <= currentCycleIndex)
+//     .sort((a, b) => b.afterCycle - a.afterCycle)[0];
+
+//   if (!applicable) {
+//     return parseFloat(item?.node?.currentPrice?.amount || 0);
+//   }
+
+//   return parseFloat(
+//     applicable.computedPrice?.amount ?? item?.node?.currentPrice?.amount ?? 0,
+//   );
+// }
 function getCurrentComputedPrice(item, currentCycleIndex) {
   const discounts = item?.node?.pricingPolicy?.cycleDiscounts || [];
+  const basePriceAmount =
+    parseFloat(item?.node?.pricingPolicy?.basePrice?.amount ?? 0);
+
+  // Agar koi discount nahi hai, to basePrice use karo.
   if (discounts.length === 0) {
-    return parseFloat(item?.node?.currentPrice?.amount || 0);
+    // Agar basePrice nahi mil raha kisi reason se, tab currentPrice se fallback
+    return basePriceAmount || parseFloat(item?.node?.currentPrice?.amount || 0);
   }
+
   const applicable = discounts
     .filter((d) => d.afterCycle <= currentCycleIndex)
     .sort((a, b) => b.afterCycle - a.afterCycle)[0];
 
   if (!applicable) {
-    return parseFloat(item?.node?.currentPrice?.amount || 0);
+    // Yaha bhi basePrice pe fallback
+    return basePriceAmount || parseFloat(item?.node?.currentPrice?.amount || 0);
   }
 
   return parseFloat(
-    applicable.computedPrice?.amount ?? item?.node?.currentPrice?.amount ?? 0,
+    applicable.computedPrice?.amount ??
+      basePriceAmount ??
+      item?.node?.currentPrice?.amount ??
+      0,
   );
 }
 
@@ -74,8 +101,6 @@ export default function SubscriptionDetail() {
   const nextCycleIndex = upcomingCycles?.[0]?.cycleIndex ?? null;
   // const nextCycleDate = upcomingCycles?.[0]?.billingAttemptExpectedDate ?? null;
   const nextCycleDate = nextUpcomingCycle?.billingAttemptExpectedDate ?? null;
-const minDate = getTodayDateInputValue();
-const maxDate = nextCycleDate ? toDateInputValue(nextCycleDate) : null;
 
   const orderEdges = contract?.orders?.edges || [];
   const latestOrder =
@@ -126,18 +151,7 @@ const maxDate = nextCycleDate ? toDateInputValue(nextCycleDate) : null;
     if (!confirmed) return;
     fetcher.submit({ type: "cancel" }, { method: "post" });
   };
-// helpers upar add kar lo (SubscriptionDetail component ke andar ya bahar)
-  function toDateInputValue(date) {
-    const d = new Date(date);
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
-  }
 
-  function getTodayDateInputValue() {
-    return toDateInputValue(new Date());
-  }
   return (
     <>
       <Page backAction={{ onAction: backButton }} title={`${id}`}>
