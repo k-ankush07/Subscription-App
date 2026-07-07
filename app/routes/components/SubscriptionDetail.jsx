@@ -1,6 +1,9 @@
-import { Banner, Button, Card, Page } from "@shopify/polaris";
+import { Banner, Button, Card, Page,Icon } from "@shopify/polaris";
 import React, { useEffect, useState } from "react";
 import { currencySymbol } from "../utils/formatMoney.js";
+import {
+  DeleteIcon
+} from '@shopify/polaris-icons';
 import {
   Link,
   useNavigate,
@@ -51,7 +54,7 @@ export default function SubscriptionDetail() {
   const { contract, upcomingCycles, internalNotes, customerNotes } =
     useLoaderData();
 
-    console.log(" contract, upcomingCycles", contract ,upcomingCycles);
+  console.log(" contract, upcomingCycles", contract, upcomingCycles);
   const [showInternalNotes, setShowInternalNotes] = useState(false);
   const [Internalnotes, setInternalNotes] = useState(internalNotes || "");
   const [showCustomerNotes, setshowCustomerNotes] = useState(false);
@@ -66,19 +69,19 @@ export default function SubscriptionDetail() {
 
   const lines = contract?.lines?.edges;
   const currencyCode = lines?.[0]?.node?.currentPrice?.currencyCode;
-    const nextUpcomingCycle =
-  upcomingCycles?.find((cycle) => !cycle.skipped) ?? null;
+  const nextUpcomingCycle =
+    upcomingCycles?.find((cycle) => !cycle.skipped) ?? null;
   const nextCycleIndex = upcomingCycles?.[0]?.cycleIndex ?? null;
   // const nextCycleDate = upcomingCycles?.[0]?.billingAttemptExpectedDate ?? null;
-  const nextCycleDate =
-  nextUpcomingCycle?.billingAttemptExpectedDate ?? null;
+  const nextCycleDate = nextUpcomingCycle?.billingAttemptExpectedDate ?? null;
 
-  console.log("dbhjfjfbjs",nextUpcomingCycle)
-const orderEdges = contract?.orders?.edges || [];
-const latestOrder = orderEdges.length > 0 ? orderEdges[orderEdges.length - 1].node : null;
-const shipingChargesAmount =
-  latestOrder?.totalShippingPriceSet?.shopMoney?.amount || 0;
-const shippingTitle = latestOrder?.shippingLine?.title || "";
+  console.log("dbhjfjfbjs", nextUpcomingCycle);
+  const orderEdges = contract?.orders?.edges || [];
+  const latestOrder =
+    orderEdges.length > 0 ? orderEdges[orderEdges.length - 1].node : null;
+  const shipingChargesAmount =
+    latestOrder?.totalShippingPriceSet?.shopMoney?.amount || 0;
+  const shippingTitle = latestOrder?.shippingLine?.title || "";
 
   const navigate = useNavigate();
   const backButton = () => {
@@ -278,6 +281,7 @@ const shippingTitle = latestOrder?.shippingLine?.title || "";
                         {cycleDiscounts.length === 1
                           ? `${cycleDiscounts[0]?.adjustmentValue?.percentage ? `${cycleDiscounts[0]?.adjustmentValue?.percentage}% for all orders ` : `₹${cycleDiscounts[0]?.adjustmentValue?.amount} for  all orders`}`
                           : `${cycleDiscounts[0]?.adjustmentValue?.percentage ? `${cycleDiscounts[0]?.adjustmentValue?.percentage}%` : `₹${cycleDiscounts[0]?.adjustmentValue?.amount}`} off for the first ${cycleDiscounts[1]?.afterCycle || 1} order, then ${cycleDiscounts[1]?.adjustmentValue?.percentage ? `${cycleDiscounts[1]?.adjustmentValue?.percentage}%` : `₹${cycleDiscounts[1]?.adjustmentValue?.amount}`} off`}
+                        <Icon  source={DeleteIcon} tone="base" />
                       </span>
                     </p>
                   )}
@@ -342,7 +346,6 @@ const shippingTitle = latestOrder?.shippingLine?.title || "";
                       Skip
                     </Button>
                   )}
-
 
                   {contract?.status === "ACTIVE" && cycle.skipped && (
                     <Button
