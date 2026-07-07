@@ -252,5 +252,4 @@ https://admin.shopify.com/store/deepk-store/products/8937317761244
 link prodcut redirect.
 
 
-add curreny sign based on currencycode in thi prodcut amount, substotal, toatl, shipping charges at susbction single page 
-and also the al subscription page 
+
