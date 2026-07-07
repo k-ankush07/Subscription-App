@@ -162,7 +162,7 @@ export async function loader({ request, params }) {
               sourceContract {
         id
       }
-            status:BILLED
+            status
           }
         }
       }
@@ -651,6 +651,58 @@ export async function action({ request, params }) {
 
   return { success: true };
      } 
+     if (type === "billNow") {
+  // Generate a unique idempotency key; you can use any strategy you like
+  const idempotencyKey = `contract-${subscriptionId}-${Date.now()}`;
+
+  const res = await admin.graphql(
+    `
+    mutation SubscriptionBillingAttemptForContract(
+      $contractId: ID!
+      $idempotencyKey: String!
+    ) {
+      subscriptionBillingAttemptCreate(
+        subscriptionContractId: $contractId
+        subscriptionBillingAttemptInput: { idempotencyKey: $idempotencyKey }
+      ) {
+        subscriptionBillingAttempt {
+          id
+        }
+        userErrors {
+          field
+          message
+          code
+        }
+      }
+    }
+    `,
+    {
+      variables: {
+        contractId,
+        idempotencyKey,
+      },
+    },
+  );
+
+  const json = await res.json();
+  const payload = json?.data?.subscriptionBillingAttemptCreate;
+
+  if (!payload || payload.userErrors?.length) {
+    console.error("Billing attempt failed", payload?.userErrors);
+    return {
+      success: false,
+      error:
+        payload?.userErrors?.map((e) => e.message).join(", ") ||
+        "Billing attempt failed",
+    };
+  }
+
+  return {
+    success: true,
+    billingAttemptId: payload.subscriptionBillingAttempt.id,
+    billingState: payload.subscriptionBillingAttempt.state?.__typename,
+  };
+}
   }
 
   const payload = {

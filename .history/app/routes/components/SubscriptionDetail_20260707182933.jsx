@@ -243,7 +243,7 @@ export default function SubscriptionDetail() {
               const quantity = item?.node?.quantity;
               const Total = parseFloat(price * quantity);
               const cycleDiscounts = item?.node?.pricingPolicy?.cycleDiscounts || [];
-                console.log("summary line", {
+ console.log("summary line", {
                 title: `${item?.node?.title} - ${item?.node?.variantTitle}`,
                 nextCycleIndex,
                 appliedPrice: price,

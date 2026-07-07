@@ -76,7 +76,6 @@ export async function loader({ request }) {
 
 function Subscriptions() {
   const { contracts } = useLoaderData();
-  console.log("cjjdfjds", contracts);
   const navigate = useNavigate();
   const formatDate = (date) => {
     return new Date(date).toLocaleDateString("en-US", {
