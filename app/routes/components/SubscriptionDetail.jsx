@@ -241,12 +241,6 @@ export default function SubscriptionDetail() {
               const Total = parseFloat(price * quantity);
               const cycleDiscounts =
                 item?.node?.pricingPolicy?.cycleDiscounts || [];
-              console.log("summary line", {
-                title: `${item?.node?.title} - ${item?.node?.variantTitle}`,
-                nextCycleIndex,
-                appliedPrice: price,
-                cycleDiscounts: item?.node?.pricingPolicy?.cycleDiscounts,
-              });
 
               return (
                 <Card key={index}>
@@ -277,7 +271,7 @@ export default function SubscriptionDetail() {
                         {cycleDiscounts.length === 1
                           ? `${cycleDiscounts[0]?.adjustmentValue?.percentage ? `${cycleDiscounts[0]?.adjustmentValue?.percentage}% for all orders ` : `₹${cycleDiscounts[0]?.adjustmentValue?.amount} for  all orders`}`
                           : `${cycleDiscounts[0]?.adjustmentValue?.percentage ? `${cycleDiscounts[0]?.adjustmentValue?.percentage}%` : `₹${cycleDiscounts[0]?.adjustmentValue?.amount}`} off for the first ${cycleDiscounts[1]?.afterCycle || 1} order, then ${cycleDiscounts[1]?.adjustmentValue?.percentage ? `${cycleDiscounts[1]?.adjustmentValue?.percentage}%` : `₹${cycleDiscounts[1]?.adjustmentValue?.amount}`} off`}
-                        <Icon source={DeleteIcon} tone="base" />
+                        {/* <Icon source={DeleteIcon} tone="base" /> */}
                       </span>
                     </p>
                   )}
