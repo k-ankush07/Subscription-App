@@ -75,15 +75,12 @@ function formateDate(date) {
 }
 
 export default function SubscriptionDetail() {
-  const { contract, upcomingCycles, internalNotes, customerNotes } =
-    useLoaderData();
-    const [localLines, setLocalLines] = useState(contract?.lines?.edges || []);
+  const { contract, upcomingCycles, internalNotes, customerNotes } = useLoaderData();
+  const [localLines, setLocalLines] = useState(contract?.lines?.edges || []);
   const [showInternalNotes, setShowInternalNotes] = useState(false);
   const [Internalnotes, setInternalNotes] = useState(internalNotes || "");
   const [showCustomerNotes, setshowCustomerNotes] = useState(false);
   const [CustomerNotes, setCustomerNotes] = useState(customerNotes || "");
-  const [editingCycleIndex, setEditingCycleIndex] = useState(null);
-  const [editingDate, setEditingDate] = useState("");
   const { id } = useParams();
   const fetcher = useFetcher();
 
