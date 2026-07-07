@@ -493,7 +493,7 @@ export async function action({ request, params }) {
     }
     if (type === "removeLineDiscount") {
   const lineId = formData.get("lineId");
-  const basePrice = formData.get("basePrice"); // String, e.g. "19.99"
+  const basePrice = formData.get("basePrice"); 
 
   if (!lineId || !basePrice) {
     return {
@@ -540,8 +540,6 @@ export async function action({ request, params }) {
 
   const draftId = draftPayload.draft.id;
 
-  // 2) Update the line pricing policy: remove discounts, set base price
-   // 2) Update the line pricing policy: remove discounts, set base price
   const updateRes = await admin.graphql(
     `
     mutation UpdateSubscriptionLinePricingPolicy(
@@ -617,7 +615,6 @@ export async function action({ request, params }) {
     };
   }
 
-  // 3) Commit the draft so changes apply to the contract
   const commitRes = await admin.graphql(
     `
     mutation CommitSubscriptionDraft($draftId: ID!) {
