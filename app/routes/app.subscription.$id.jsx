@@ -162,7 +162,7 @@ export async function loader({ request, params }) {
               sourceContract {
         id
       }
-            status
+            status:BILLED
           }
         }
       }
@@ -251,7 +251,8 @@ export async function action({ request, params }) {
     type === "resume" ||
     type === "skip" ||
     type === "unskip" ||
-    type === "removeLineDiscount"
+    type === "removeLineDiscount"||
+    type === "billNow"
   ) {
     if (type === "pause") {
       const res = await admin.graphql(
