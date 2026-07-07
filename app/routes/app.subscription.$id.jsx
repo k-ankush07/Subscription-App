@@ -490,6 +490,7 @@ export async function action({ request, params }) {
         unskippedCycleIndex: payload.billingCycle.cycleIndex,
       };
     }
+    
   }
 
   const payload = {
