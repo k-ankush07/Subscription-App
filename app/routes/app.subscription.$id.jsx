@@ -557,7 +557,7 @@ export async function action({ request, params }) {
               {
                 afterCycle: 0
                 adjustmentType: PRICE
-                adjustmentValue: { fixedValue: 0 }
+                adjustmentValue: { fixedValue: $basePrice }
                 computedPrice: $basePrice
               }
             ]
