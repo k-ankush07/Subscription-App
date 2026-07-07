@@ -10,49 +10,24 @@ import {
   useLoaderData,
 } from "react-router";
 
-// function getCurrentComputedPrice(item, currentCycleIndex) {
-//   const discounts = item?.node?.pricingPolicy?.cycleDiscounts || [];
-//   if (discounts.length === 0) {
-//     return parseFloat(item?.node?.currentPrice?.amount || 0);
-//   }
-//   const applicable = discounts
-//     .filter((d) => d.afterCycle <= currentCycleIndex)
-//     .sort((a, b) => b.afterCycle - a.afterCycle)[0];
-
-//   if (!applicable) {
-//     return parseFloat(item?.node?.currentPrice?.amount || 0);
-//   }
-
-//   return parseFloat(
-//     applicable.computedPrice?.amount ?? item?.node?.currentPrice?.amount ?? 0,
-//   );
-// }
 function getCurrentComputedPrice(item, currentCycleIndex) {
   const discounts = item?.node?.pricingPolicy?.cycleDiscounts || [];
-  const basePriceAmount =
-    parseFloat(item?.node?.pricingPolicy?.basePrice?.amount ?? 0);
-
-  // Agar koi discount nahi hai, to basePrice use karo.
   if (discounts.length === 0) {
-    return basePriceAmount || parseFloat(item?.node?.currentPrice?.amount || 0);
+    return parseFloat(item?.node?.currentPrice?.amount || 0);
   }
-
   const applicable = discounts
     .filter((d) => d.afterCycle <= currentCycleIndex)
     .sort((a, b) => b.afterCycle - a.afterCycle)[0];
 
   if (!applicable) {
-    // Yaha bhi basePrice pe fallback
-    return basePriceAmount || parseFloat(item?.node?.currentPrice?.amount || 0);
+    return parseFloat(item?.node?.currentPrice?.amount || 0);
   }
 
   return parseFloat(
-    applicable.computedPrice?.amount ??
-      basePriceAmount ??
-      item?.node?.currentPrice?.amount ??
-      0,
+    applicable.computedPrice?.amount ?? item?.node?.currentPrice?.amount ?? 0,
   );
 }
+
 
 function getCardImage(brand) {
   const brandMap = {
@@ -87,17 +62,12 @@ export default function SubscriptionDetail() {
   
   const lines =  localLines;
   const currencyCode = lines?.[0]?.node?.currentPrice?.currencyCode;
-  const nextUpcomingCycle =
-    upcomingCycles?.find((cycle) => !cycle.skipped) ?? null;
+  const nextUpcomingCycle = upcomingCycles?.find((cycle) => !cycle.skipped) ?? null;
   const nextCycleIndex = upcomingCycles?.[0]?.cycleIndex ?? null;
-  // const nextCycleDate = upcomingCycles?.[0]?.billingAttemptExpectedDate ?? null;
   const nextCycleDate = nextUpcomingCycle?.billingAttemptExpectedDate ?? null;
-
   const orderEdges = contract?.orders?.edges || [];
-  const latestOrder =
-    orderEdges.length > 0 ? orderEdges[orderEdges.length - 1].node : null;
-  const shipingChargesAmount =
-    latestOrder?.totalShippingPriceSet?.shopMoney?.amount || 0;
+  const latestOrder = orderEdges.length > 0 ? orderEdges[orderEdges.length - 1].node : null;
+  const shipingChargesAmount = latestOrder?.totalShippingPriceSet?.shopMoney?.amount || 0;
   const shippingTitle = latestOrder?.shippingLine?.title || "";
 
 

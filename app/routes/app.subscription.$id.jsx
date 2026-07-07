@@ -10,7 +10,7 @@ export async function loader({ request, params }) {
 
   const startDate = new Date().toISOString();
   const endDateObj = new Date();
-  endDateObj.setMonth(endDateObj.getMonth() + 12);
+  endDateObj.setMonth(endDateObj.getMonth() + 20);
   const endDate = endDateObj.toISOString();
 
   const graphqlResponse = await admin.graphql(
@@ -197,7 +197,7 @@ export async function loader({ request, params }) {
   if (maxCycles != null) {
     upcomingCycles = upcomingCycles.filter(
       (cycle) =>
-        typeof cycle.cycleIndex === "number" && cycle.cycleIndex <= maxCycles,
+        typeof cycle.cycleIndex === "number" && cycle.cycleIndex <= maxCycles -1,
     );
   }
   try {
