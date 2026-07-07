@@ -28,7 +28,6 @@ function getCurrentComputedPrice(item, currentCycleIndex) {
   );
 }
 
-
 function getCardImage(brand) {
   const brandMap = {
     visa: "https://subscriptions-assets.kachingappz.app/payment-method-icons/visa.svg",
@@ -50,7 +49,9 @@ function formateDate(date) {
 }
 
 export default function SubscriptionDetail() {
-  const { contract, upcomingCycles, internalNotes, customerNotes } = useLoaderData();
+  const { contract, upcomingCycles, internalNotes, customerNotes } =
+    useLoaderData();
+    console.log("upcoming",contract)
   const [localLines, setLocalLines] = useState(contract?.lines?.edges || []);
   const [showInternalNotes, setShowInternalNotes] = useState(false);
   const [Internalnotes, setInternalNotes] = useState(internalNotes || "");
@@ -59,17 +60,18 @@ export default function SubscriptionDetail() {
   const { id } = useParams();
   const fetcher = useFetcher();
 
-  
-  const lines =  localLines;
+  const lines = localLines;
   const currencyCode = lines?.[0]?.node?.currentPrice?.currencyCode;
-  const nextUpcomingCycle = upcomingCycles?.find((cycle) => !cycle.skipped) ?? null;
+  const nextUpcomingCycle =
+    upcomingCycles?.find((cycle) => !cycle.skipped) ?? null;
   const nextCycleIndex = upcomingCycles?.[0]?.cycleIndex ?? null;
   const nextCycleDate = nextUpcomingCycle?.billingAttemptExpectedDate ?? null;
   const orderEdges = contract?.orders?.edges || [];
-  const latestOrder = orderEdges.length > 0 ? orderEdges[orderEdges.length - 1].node : null;
-  const shipingChargesAmount = latestOrder?.totalShippingPriceSet?.shopMoney?.amount || 0;
+  const latestOrder =
+    orderEdges.length > 0 ? orderEdges[orderEdges.length - 1].node : null;
+  const shipingChargesAmount =
+    latestOrder?.totalShippingPriceSet?.shopMoney?.amount || 0;
   const shippingTitle = latestOrder?.shippingLine?.title || "";
-
 
   useEffect(() => {
     setInternalNotes(internalNotes || "");
@@ -272,6 +274,22 @@ export default function SubscriptionDetail() {
                           ? `${cycleDiscounts[0]?.adjustmentValue?.percentage ? `${cycleDiscounts[0]?.adjustmentValue?.percentage}% for all orders ` : `₹${cycleDiscounts[0]?.adjustmentValue?.amount} for  all orders`}`
                           : `${cycleDiscounts[0]?.adjustmentValue?.percentage ? `${cycleDiscounts[0]?.adjustmentValue?.percentage}%` : `₹${cycleDiscounts[0]?.adjustmentValue?.amount}`} off for the first ${cycleDiscounts[1]?.afterCycle || 1} order, then ${cycleDiscounts[1]?.adjustmentValue?.percentage ? `${cycleDiscounts[1]?.adjustmentValue?.percentage}%` : `₹${cycleDiscounts[1]?.adjustmentValue?.amount}`} off`}
                         {/* <Icon source={DeleteIcon} tone="base" /> */}
+                        <Button
+                          onClick={() => {
+                            fetcher.submit(
+                              {
+                                type: "removeLineDiscount",
+                                lineId: item?.node?.id,
+                                basePrice: String(
+                                  item?.node?.pricingPolicy?.basePrice?.amount || 0,
+                                ),
+                              },
+                              { method: "post" },
+                            );
+                          }}
+                        >
+                          Remove discount
+                        </Button>
                       </span>
                     </p>
                   )}
@@ -303,7 +321,6 @@ export default function SubscriptionDetail() {
           <Card>
             <b>Upcoming orders</b>
             {upcomingCycles?.map((cycle, index) => (
-              
               <div
                 key={cycle.cycleIndex ?? index}
                 style={{
@@ -320,8 +337,8 @@ export default function SubscriptionDetail() {
                 <div
                   style={{ display: "flex", gap: "30px", alignItems: "center" }}
                 >
-                  {!cycle.skipped && <Button >Edit</Button>}
-                  
+                  {!cycle.skipped && <Button>Edit</Button>}
+
                   {contract?.status === "ACTIVE" && !cycle.skipped && (
                     <Button
                       plain

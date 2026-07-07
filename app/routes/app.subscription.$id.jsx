@@ -250,7 +250,8 @@ export async function action({ request, params }) {
     type === "cancel" ||
     type === "resume" ||
     type === "skip" ||
-    type === "unskip" 
+    type === "unskip" ||
+    type === "removeLineDiscount"
   ) {
     if (type === "pause") {
       const res = await admin.graphql(
@@ -490,7 +491,168 @@ export async function action({ request, params }) {
         unskippedCycleIndex: payload.billingCycle.cycleIndex,
       };
     }
-    
+    if (type === "removeLineDiscount") {
+  const lineId = formData.get("lineId");
+  const basePrice = formData.get("basePrice"); // String, e.g. "19.99"
+
+  if (!lineId || !basePrice) {
+    return {
+      success: false,
+      error: "Missing lineId or basePrice",
+    };
+  }
+
+  const { admin } = await authenticate.admin(request);
+  const contractId = `gid://shopify/SubscriptionContract/${subscriptionId}`;
+
+  // 1) Create or fetch draft for this contract
+  const draftRes = await admin.graphql(
+    `
+    mutation CreateSubscriptionDraftForPricingUpdate($contractId: ID!) {
+      subscriptionContractUpdate(contractId: $contractId) {
+        draft {
+          id
+        }
+        userErrors {
+          field
+          message
+          code
+        }
+      }
+    }
+    `,
+    { variables: { contractId } },
+  );
+
+  const draftJson = await draftRes.json();
+  const draftPayload =
+    draftJson?.data?.subscriptionContractUpdate;
+
+  if (!draftPayload || draftPayload.userErrors?.length) {
+    console.error("Create draft failed", draftPayload?.userErrors);
+    return {
+      success: false,
+      error:
+        draftPayload?.userErrors?.map((e) => e.message).join(", ") ||
+        "Unable to create subscription draft",
+    };
+  }
+
+  const draftId = draftPayload.draft.id;
+
+  // 2) Update the line pricing policy: remove discounts, set base price
+   // 2) Update the line pricing policy: remove discounts, set base price
+  const updateRes = await admin.graphql(
+    `
+    mutation UpdateSubscriptionLinePricingPolicy(
+      $draftId: ID!
+      $lineId: ID!
+      $basePrice: Decimal!
+    ) {
+      subscriptionDraftLineUpdate(
+        draftId: $draftId
+        lineId: $lineId
+        input: {
+          pricingPolicy: {
+            basePrice: $basePrice
+            cycleDiscounts: [
+              {
+                afterCycle: 0
+                adjustmentType: PRICE
+                adjustmentValue: { fixedValue: $basePrice }
+                computedPrice: $basePrice
+              }
+            ]
+          }
+        }
+      ) {
+        draft {
+          id
+        }
+        lineUpdated {
+          id
+          pricingPolicy {
+            basePrice {
+              amount
+              currencyCode
+            }
+            cycleDiscounts {
+              afterCycle
+              adjustmentType
+              computedPrice {
+                amount
+                currencyCode
+              }
+            }
+          }
+        }
+        userErrors {
+          field
+          message
+          code
+        }
+      }
+    }
+    `,
+    {
+      variables: {
+        draftId,
+        lineId,
+        basePrice,
+      },
+    },
+  );
+
+  const updateJson = await updateRes.json();
+  const updatePayload =
+    updateJson?.data?.subscriptionDraftLineUpdate;
+
+  if (!updatePayload || updatePayload.userErrors?.length) {
+    console.error("Update line pricing failed", updatePayload?.userErrors);
+    return {
+      success: false,
+      error:
+        updatePayload?.userErrors?.map((e) => e.message).join(", ") ||
+        "Unable to update line pricing",
+    };
+  }
+
+  // 3) Commit the draft so changes apply to the contract
+  const commitRes = await admin.graphql(
+    `
+    mutation CommitSubscriptionDraft($draftId: ID!) {
+      subscriptionDraftCommit(draftId: $draftId) {
+        contract {
+          id
+          status
+        }
+        userErrors {
+          field
+          message
+          code
+        }
+      }
+    }
+    `,
+    { variables: { draftId } },
+  );
+
+  const commitJson = await commitRes.json();
+  const commitPayload =
+    commitJson?.data?.subscriptionDraftCommit;
+
+  if (!commitPayload || commitPayload.userErrors?.length) {
+    console.error("Commit draft failed", commitPayload?.userErrors);
+    return {
+      success: false,
+      error:
+        commitPayload?.userErrors?.map((e) => e.message).join(", ") ||
+        "Unable to commit subscription draft",
+    };
+  }
+
+  return { success: true };
+     } 
   }
 
   const payload = {
