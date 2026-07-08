@@ -3,6 +3,7 @@ import Template from "./components/Template";
 import { useLoaderData } from "react-router";
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
+  console.log("shopi id ",session.shop)
   return Response.json({ shop: session.shop });
 };
 
