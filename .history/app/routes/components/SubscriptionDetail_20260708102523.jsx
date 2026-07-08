@@ -279,6 +279,20 @@ export default function SubscriptionDetail() {
                         {cycleDiscounts.length === 1
                           ? `${cycleDiscounts[0]?.adjustmentValue?.percentage ? `${cycleDiscounts[0]?.adjustmentValue?.percentage}% for all orders ` : `₹${cycleDiscounts[0]?.adjustmentValue?.amount} for  all orders`}`
                           : `${cycleDiscounts[0]?.adjustmentValue?.percentage ? `${cycleDiscounts[0]?.adjustmentValue?.percentage}%` : `₹${cycleDiscounts[0]?.adjustmentValue?.amount}`} off for the first ${cycleDiscounts[1]?.afterCycle || 1} order, then ${cycleDiscounts[1]?.adjustmentValue?.percentage ? `${cycleDiscounts[1]?.adjustmentValue?.percentage}%` : `₹${cycleDiscounts[1]?.adjustmentValue?.amount}`} off`}
+                        <Button
+                          onClick={() => {
+                            fetcher.submit(
+                              {
+                                type: "removeLineDiscount",
+                                lineId: item?.node?.id,
+                                basePrice: item?.node?.pricingPolicy?.basePrice?.amount || 0,
+                              },
+                              { method: "post" },
+                            );
+                          }}
+                        >
+                          Remove discount
+                        </Button>
                       </span>
                     </p>
                   )}
@@ -323,7 +337,18 @@ export default function SubscriptionDetail() {
                   {cycle.skipped && <span>(Skipped)</span>}
                 </p>
 
-
+{contract?.status === "ACTIVE" && (
+  <Button
+    onClick={() => {
+      fetcher.submit(
+        { type: "billNow" },
+        { method: "post" },
+      );
+    }}
+  >
+    Charge Now / Generate Order
+  </Button>
+)}
                 <div
                   style={{ display: "flex", gap: "30px", alignItems: "center" }}
                 >
