@@ -53,7 +53,34 @@ export const action = async ({ request }) => {
 
     return pricingPolicies;
   };
-
+ const buildExtraSettings = (sp) => ({
+    shippingDiscount: sp.giveShippingDiscount
+      ? {
+          enabled: true,
+          value: Number(sp.shippingDiscountValue) || 0,
+          afterOrders: Number(sp.shippingAfterOrders) || 1,
+          type: sp.shippingDiscountType ?? "PRICE",
+        }
+      : { enabled: false },
+    quantityChange: sp.changeQuantityAfterOrders
+      ? {
+          enabled: true,
+          newQuantity: Number(sp.quantityAfterOrdersValue) || 1,
+          afterOrders: Number(sp.quantityAfterOrders) || 1,
+          products: sp.quantityProducts ?? [],
+        }
+      : { enabled: false },
+    removeFreeProduct: sp.RemoveFreeProdcut
+      ? {
+          enabled: true,
+          afterOrders: Number(sp.removeFreeProductValue) || 1,
+          products: sp.freeProducts ?? [],
+        }
+      : { enabled: false },
+    automation: sp.Automation
+      ? { enabled: true, cycles: sp.automationCycles ?? [] }
+      : { enabled: false },
+  });
 
   //  Saare plans ka sellingPlansToCreate array banao
   const sellingPlansToCreate = sellingPlans.map((sp) => {

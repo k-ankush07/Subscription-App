@@ -19,6 +19,13 @@ function SellingPlan({
 }) {
   const shopify = useAppBridge();
   const allowedIds = selectedProducts.map((p) => p.id);
+
+  //  Kisi ek plan ko index se update karne ka helper
+  // const updatePlan = (index, updates) => {
+  //   setSellingPlans((prev) =>
+  //     prev.map((plan, i) => (i === index ? { ...plan, ...updates } : plan)),
+  //   );
+  // };
   const updatePlan = (index, updates) => {
   setSellingPlans((prev) => {
     const updated = prev.map((plan, i) =>
@@ -71,7 +78,6 @@ function SellingPlan({
     },
   });
 
-   console.log("seleted ",selected)
   if (!selected || selected.length === 0) return;
 
   // Sirf selected variants store karo (IDs ke saath objects)
@@ -82,9 +88,9 @@ function SellingPlan({
     variants: (p.variants || []).map((v) => ({
       variantsId: v.id,
       variantsTitle: v.title,
-    }
-  )),
+    })),
   }));
+
   if (target === "quantity") {
     updatePlan(index, {
       quantityProducts: pickedIds,
@@ -359,7 +365,7 @@ function SellingPlan({
             )}
 
             {/* AUTOMATION — setSellingPlan wrapper jo index-aware hai */}
-            {/* <Automation
+            <Automation
               sellingPlan={plan}
               setSellingPlan={(updater) => {
                 if (typeof updater === "function") {
@@ -370,7 +376,7 @@ function SellingPlan({
                   updatePlan(index, updater);
                 }
               }}
-            /> */}
+            />
 
             {/* SETTINGS */}
             <h2>Settings</h2>

@@ -49,7 +49,7 @@ function SellingPlan({
 
   const currentProducts =
     target === "quantity"
-      ? currentPlan.quantityProductObjects || []
+      ? currentPlan.quantityProducts || []
       : currentPlan.freeProductObjects || [];
 
   // selectionIds mein variant info bhi do
@@ -85,9 +85,11 @@ function SellingPlan({
     }
   )),
   }));
+  console.log("hbdfbd",pickedObjects)
+
   if (target === "quantity") {
     updatePlan(index, {
-      quantityProducts: pickedIds,
+      quantityProducts: pickedObjects,
       quantityProductObjects: pickedObjects, // variant info save karo
     });
   } else {

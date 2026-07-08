@@ -40,13 +40,12 @@ const defaultPlan = {
   shippingAfterOrders: 1,
   shippingDiscountType: "PRICE",
   changeQuantityAfterOrders: false,
+  quantityAfterOrdersValue: 1,
   quantityAfterOrders: 1,
   quantityProducts: [],
   RemoveFreeProdcut: false,
   removeFreeProductValue: 1,
   freeProducts: [],
-   Automation: false,
-  automationCycles: [],
   MinimumQuanitity: false,
   MinimumQuanitityValue: 1,
 
@@ -147,7 +146,6 @@ function Template({ shop, editPlandData, dublicateData }) {
   //  Edit / Duplicate data load — sellingPlans array mein set karo
   useEffect(() => {
     const data = editPlandData || dublicateData;
-    console.log("data ,data",data)
     if (!data) return;
 
     setPlanName(data.planName || "");

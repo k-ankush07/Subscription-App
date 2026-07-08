@@ -82,9 +82,9 @@ function SellingPlan({
     variants: (p.variants || []).map((v) => ({
       variantsId: v.id,
       variantsTitle: v.title,
-    }
-  )),
+    })),
   }));
+
   if (target === "quantity") {
     updatePlan(index, {
       quantityProducts: pickedIds,

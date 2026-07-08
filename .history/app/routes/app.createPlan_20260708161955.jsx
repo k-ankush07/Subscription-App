@@ -1,8 +1,7 @@
 import { authenticate } from "../shopify.server";
 import Template from "./components/Template";
 import { useLoaderData } from "react-router";
-const EXTRA_SETTINGS_NAMESPACE = "subscription_app";
-const metaKeyForGroup = (groupId) => `group_${groupId.split("/").pop()}`;
+
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
   console.log("shopi id ",session.shop)
@@ -53,7 +52,29 @@ export const action = async ({ request }) => {
 
     return pricingPolicies;
   };
-
+  const buildExtraSettings = (sp) => ({
+    shippingDiscount: {
+      enabled: sp.giveShippingDiscount ?? false,
+      value: Number(sp.shippingDiscountValue) || 0,
+      afterOrders: Number(sp.shippingAfterOrders) || 1,
+      type: sp.shippingDiscountType ?? "PRICE",
+    },
+    quantityChange: {
+      enabled: sp.changeQuantityAfterOrders ?? false,
+      newQuantity: Number(sp.quantityAfterOrdersValue) || 1,
+      afterOrders: Number(sp.quantityAfterOrders) || 1,
+      products: sp.quantityProducts ?? [],
+    },
+    removeFreeProduct: {
+      enabled: sp.RemoveFreeProdcut ?? false,
+      afterOrders: Number(sp.removeFreeProductValue) || 1,
+      products: sp.freeProducts ?? [],
+    },
+    automation: {
+      enabled: sp.Automation ?? false,
+      cycles: sp.automationCycles ?? [],
+    },
+  });
 
   //  Saare plans ka sellingPlansToCreate array banao
   const sellingPlansToCreate = sellingPlans.map((sp) => {
@@ -81,6 +102,14 @@ export const action = async ({ request }) => {
       },
 
       ...(pricingPolicies.length > 0 ? { pricingPolicies } : {}),
+       metafields: [
+        {
+          namespace: "subscription_app",
+          key: "extra_settings",
+          type: "json",
+          value: JSON.stringify(extraSettings),
+        },
+      ],
     };
   });
 
@@ -212,7 +241,58 @@ export const action = async ({ request }) => {
       (edge) => edge.node.id
     );
     
+      // ---- Extra settings ko shop-level metafield me save karo ----
+  let metafieldWarning = null;
+  try {
+    const shopRes = await admin.graphql(`{ shop { id } }`);
+    const shopData = await shopRes.json();
+    const shopId = shopData.data?.shop?.id;
 
+    // har selling plan ki apni extra settings, plan id ke against map ki hui
+    const extraSettingsByPlan = {};
+    sellingPlans.forEach((sp, index) => {
+      const planId = shopifySellingPlanIds[index];
+      if (planId) {
+        extraSettingsByPlan[planId] = buildExtraSettings(sp);
+      }
+    });
+
+    const metaRes = await admin.graphql(
+      `
+      mutation metafieldsSet($metafields: [MetafieldsSetInput!]!) {
+        metafieldsSet(metafields: $metafields) {
+          metafields { id key value }
+          userErrors { field message }
+        }
+      }
+    `,
+      {
+        variables: {
+          metafields: [
+            {
+              ownerId: shopId,
+              namespace: EXTRA_SETTINGS_NAMESPACE,
+              key: metaKeyForGroup(shopifyGroupId),
+              type: "json",
+              value: JSON.stringify(extraSettingsByPlan),
+            },
+          ],
+        },
+      }
+    );
+
+    const metaData = await metaRes.json();
+    const metaUserErrors = metaData.data?.metafieldsSet?.userErrors;
+    if (metaUserErrors?.length > 0) {
+      console.log("Metafield userErrors:", metaUserErrors);
+      metafieldWarning = metaUserErrors[0].message;
+    }
+  } catch (err) {
+    // Plan already ban chuka hai — sirf extra settings save na hone se
+    // poori request fail mat karo
+    console.log("Metafield save error:", err);
+    metafieldWarning = "extra settings could not be saved";
+  }
   
   return Response.json({
     success: true,

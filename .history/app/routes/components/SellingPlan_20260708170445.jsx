@@ -85,10 +85,11 @@ function SellingPlan({
     }
   )),
   }));
+  console.log("hbdfbd",pickedObjects)
+
   if (target === "quantity") {
     updatePlan(index, {
-      quantityProducts: pickedIds,
-      quantityProductObjects: pickedObjects, // variant info save karo
+      quantityProducts: [pickedIds,pickedObjects]// variant info save karo
     });
   } else {
     updatePlan(index, {

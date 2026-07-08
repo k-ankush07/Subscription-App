@@ -77,14 +77,18 @@ function SellingPlan({
   // Sirf selected variants store karo (IDs ke saath objects)
   const pickedIds = selected.map((p) => p.id);
   const pickedObjects = selected.map((p) => ({
+    
     id: p.id,
     title: p.title,
     variants: (p.variants || []).map((v) => ({
+      
       variantsId: v.id,
       variantsTitle: v.title,
     }
+  console.log("fnjf")
   )),
   }));
+
   if (target === "quantity") {
     updatePlan(index, {
       quantityProducts: pickedIds,

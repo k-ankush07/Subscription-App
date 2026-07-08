@@ -85,6 +85,8 @@ function SellingPlan({
     }
   )),
   }));
+  console.log("hbdfbd",pickedObjects)
+
   if (target === "quantity") {
     updatePlan(index, {
       quantityProducts: pickedIds,

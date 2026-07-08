@@ -40,6 +40,7 @@ const defaultPlan = {
   shippingAfterOrders: 1,
   shippingDiscountType: "PRICE",
   changeQuantityAfterOrders: false,
+  quantityAfterOrdersValue: 1,
   quantityAfterOrders: 1,
   quantityProducts: [],
   RemoveFreeProdcut: false,

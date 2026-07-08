@@ -1,8 +1,7 @@
 import { authenticate } from "../shopify.server";
 import Template from "./components/Template";
 import { useLoaderData } from "react-router";
-const EXTRA_SETTINGS_NAMESPACE = "subscription_app";
-const metaKeyForGroup = (groupId) => `group_${groupId.split("/").pop()}`;
+
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
   console.log("shopi id ",session.shop)
@@ -54,7 +53,6 @@ export const action = async ({ request }) => {
     return pricingPolicies;
   };
 
-
   //  Saare plans ka sellingPlansToCreate array banao
   const sellingPlansToCreate = sellingPlans.map((sp) => {
     const pricingPolicies = buildPricingPolicies(sp);
@@ -81,6 +79,14 @@ export const action = async ({ request }) => {
       },
 
       ...(pricingPolicies.length > 0 ? { pricingPolicies } : {}),
+       metafields: [
+        {
+          namespace: "subscription_app",
+          key: "extra_settings",
+          type: "json",
+          value: JSON.stringify(extraSettings),
+        },
+      ],
     };
   });
 
@@ -212,7 +218,6 @@ export const action = async ({ request }) => {
       (edge) => edge.node.id
     );
     
-
   
   return Response.json({
     success: true,

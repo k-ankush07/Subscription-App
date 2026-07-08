@@ -1,19 +1,17 @@
 import { authenticate } from "../shopify.server";
 import Template from "./components/Template";
 import { useLoaderData } from "react-router";
-const EXTRA_SETTINGS_NAMESPACE = "subscription_app";
-const metaKeyForGroup = (groupId) => `group_${groupId.split("/").pop()}`;
+
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
-  console.log("shopi id ",session.shop)
   return Response.json({ shop: session.shop });
 };
 
 export const action = async ({ request }) => {
   const { admin } = await authenticate.admin(request);
   const payload = await request.json();
-  
-
+  const 
+  console.log("body:", payload);
 
   //  sellingPlans array — pehle plan ya poora array
   const sellingPlans = payload.sellingPlans || [];
@@ -53,7 +51,6 @@ export const action = async ({ request }) => {
 
     return pricingPolicies;
   };
-
 
   //  Saare plans ka sellingPlansToCreate array banao
   const sellingPlansToCreate = sellingPlans.map((sp) => {
@@ -211,8 +208,6 @@ export const action = async ({ request }) => {
     fetchData.data.sellingPlanGroup.sellingPlans.edges.map(
       (edge) => edge.node.id
     );
-    
-
   
   return Response.json({
     success: true,

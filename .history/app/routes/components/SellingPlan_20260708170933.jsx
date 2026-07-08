@@ -49,8 +49,8 @@ function SellingPlan({
 
   const currentProducts =
     target === "quantity"
-      ? currentPlan.quantityProductObjects || []
-      : currentPlan.freeProductObjects || [];
+      ? currentPlan.quantityProducts || []
+      : currentPlan.freeProducts || [];
 
   // selectionIds mein variant info bhi do
   const selectionIds = currentIds.map((productId) => {
@@ -85,15 +85,15 @@ function SellingPlan({
     }
   )),
   }));
+  console.log("hbdfbd",pickedObjects)
+
   if (target === "quantity") {
     updatePlan(index, {
-      quantityProducts: pickedIds,
-      quantityProductObjects: pickedObjects, // variant info save karo
+      quantityProducts: pickedObjects, // variant info save karo
     });
   } else {
     updatePlan(index, {
-      freeProducts: pickedIds,
-      freeProductObjects: pickedObjects, // variant info save karo
+      freeProducts: pickedObjects, // variant info save karo
     });
   }
 };

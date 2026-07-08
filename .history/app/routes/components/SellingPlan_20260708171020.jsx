@@ -85,6 +85,7 @@ function SellingPlan({
     }
   )),
   }));
+
   if (target === "quantity") {
     updatePlan(index, {
       quantityProducts: pickedIds,

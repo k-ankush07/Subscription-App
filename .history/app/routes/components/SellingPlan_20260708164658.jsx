@@ -19,6 +19,13 @@ function SellingPlan({
 }) {
   const shopify = useAppBridge();
   const allowedIds = selectedProducts.map((p) => p.id);
+
+  //  Kisi ek plan ko index se update karne ka helper
+  // const updatePlan = (index, updates) => {
+  //   setSellingPlans((prev) =>
+  //     prev.map((plan, i) => (i === index ? { ...plan, ...updates } : plan)),
+  //   );
+  // };
   const updatePlan = (index, updates) => {
   setSellingPlans((prev) => {
     const updated = prev.map((plan, i) =>
@@ -66,12 +73,10 @@ function SellingPlan({
     multiple: true,
     selectionIds,
     filter: {
-      variants: true,
       query: allowedIds.map((id) => `id:${id.split("/").pop()}`).join(" OR "),
     },
   });
 
-   console.log("seleted ",selected)
   if (!selected || selected.length === 0) return;
 
   // Sirf selected variants store karo (IDs ke saath objects)
@@ -82,9 +87,9 @@ function SellingPlan({
     variants: (p.variants || []).map((v) => ({
       variantsId: v.id,
       variantsTitle: v.title,
-    }
-  )),
+    })),
   }));
+
   if (target === "quantity") {
     updatePlan(index, {
       quantityProducts: pickedIds,

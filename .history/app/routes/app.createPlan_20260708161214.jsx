@@ -1,8 +1,7 @@
 import { authenticate } from "../shopify.server";
 import Template from "./components/Template";
 import { useLoaderData } from "react-router";
-const EXTRA_SETTINGS_NAMESPACE = "subscription_app";
-const metaKeyForGroup = (groupId) => `group_${groupId.split("/").pop()}`;
+
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
   console.log("shopi id ",session.shop)
@@ -53,7 +52,6 @@ export const action = async ({ request }) => {
 
     return pricingPolicies;
   };
-
 
   //  Saare plans ka sellingPlansToCreate array banao
   const sellingPlansToCreate = sellingPlans.map((sp) => {
@@ -211,8 +209,29 @@ export const action = async ({ request }) => {
     fetchData.data.sellingPlanGroup.sellingPlans.edges.map(
       (edge) => edge.node.id
     );
-    
-
+    const buildExtraSettings = (sp) => ({
+    shippingDiscount: {
+      enabled: sp.giveShippingDiscount ?? false,
+      value: Number(sp.shippingDiscountValue) || 0,
+      afterOrders: Number(sp.shippingAfterOrders) || 1,
+      type: sp.shippingDiscountType ?? "PRICE",
+    },
+    quantityChange: {
+      enabled: sp.changeQuantityAfterOrders ?? false,
+      newQuantity: Number(sp.quantityAfterOrdersValue) || 1,
+      afterOrders: Number(sp.quantityAfterOrders) || 1,
+      products: sp.quantityProducts ?? [],
+    },
+    removeFreeProduct: {
+      enabled: sp.RemoveFreeProdcut ?? false,
+      afterOrders: Number(sp.removeFreeProductValue) || 1,
+      products: sp.freeProducts ?? [],
+    },
+    automation: {
+      enabled: sp.Automation ?? false,
+      cycles: sp.automationCycles ?? [],
+    },
+  });
   
   return Response.json({
     success: true,
