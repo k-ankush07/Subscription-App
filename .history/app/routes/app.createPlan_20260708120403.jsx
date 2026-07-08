@@ -207,7 +207,62 @@ export const action = async ({ request }) => {
     fetchData.data.sellingPlanGroup.sellingPlans.edges.map(
       (edge) => edge.node.id
     );
-  
+   const fullConfigToStore = {
+    ...payload,
+    sellingPlansToCreate,
+    shopifyGroupId,
+    shopifySellingPlanIds,
+  };
+  const metafieldSetRes = await admin.graphql(
+    `
+      mutation MetafieldsSetForSellingPlan(
+        $metafields: [MetafieldsSetInput!]!
+      ) {
+        metafieldsSet(metafields: $metafields) {
+          metafields {
+            id
+            namespace
+            key
+            type
+            value
+            createdAt
+            updatedAt
+          }
+          userErrors {
+            field
+            message
+            code
+          }
+        }
+      }
+    `,
+    {
+      variables: {
+        metafields: [
+          {
+            ownerId: shopifyGroupId,      // attach to SellingPlanGroup
+            namespace: "selling_plan",    // choose your namespace
+            key: "group_config",          // key for "sara data"
+            type: "json",
+            value: JSON.stringify(fullConfigToStore),
+          },
+        ],
+      },
+    }
+  );
+
+  const metafieldSetData = await metafieldSetRes.json();
+  console.log("metafiled",)
+  const metafieldErrors = metafieldSetData.data.metafieldsSet.userErrors;
+
+  if (metafieldErrors?.length > 0) {
+    console.log("Metafield userErrors:", metafieldErrors);
+  } else {
+    console.log(
+      "Metafield saved:",
+      metafieldSetData.data.metafieldsSet.metafields
+    );
+  }
   return Response.json({
     success: true,
     shopifyGroupId,

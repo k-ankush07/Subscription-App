@@ -113,6 +113,35 @@ export const action = async ({ request }) => {
       error: userErrors.map((e) => e.message).join(", "),
     });
   }
+  //meta fileds 
+  // CreatePlan.jsx action ke andar, sellingPlanGroupCreate success hone ke baad
+    await admin.graphql(`
+      mutation metafieldsSet($metafields: [MetafieldsSetInput!]!) {
+        metafieldsSet(metafields: $metafields) {
+          metafields { id }
+          userErrors { field message }
+        }
+      }
+    `, {
+      variables: {
+        metafields: [{
+          ownerId: shopifyGroupId,
+          namespace: "subscription_app",
+          key: "shipping_discount_config",
+          type: "json",
+          value: JSON.stringify(
+            sellingPlans
+              .filter(sp => sp.giveShippingDiscount)
+              .map(sp => ({
+                shopifySellingPlanId: sp.shopifySellingPlanId,
+                shippingDiscountValue: sp.shippingDiscountValue,
+                shippingAfterOrders: sp.shippingAfterOrders,
+                shippingDiscountType: sp.shippingDiscountType, // PERCENTAGE | FIXED_AMOUNT | PRICE
+              }))
+          ),
+        }],
+      },
+    });
 
   const shopifyGroupId =
     createData.data.sellingPlanGroupCreate.sellingPlanGroup.id;
@@ -201,20 +230,23 @@ export const action = async ({ request }) => {
   `,
     { variables: { id: shopifyGroupId, first: sellingPlans.length } }
   );
+
   const fetchData = await fetchRes.json();
+
   //  Saari IDs array mein — har plan ki apni ID
   const shopifySellingPlanIds =
     fetchData.data.sellingPlanGroup.sellingPlans.edges.map(
       (edge) => edge.node.id
     );
-  
+
+  console.log("Shopify Selling Plan IDs:", shopifySellingPlanIds);
+
   return Response.json({
     success: true,
     shopifyGroupId,
     shopifySellingPlanIds,  
     ...payload,
   });
-  
 };
 
 function CreatePlan() {

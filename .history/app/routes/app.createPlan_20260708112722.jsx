@@ -207,7 +207,9 @@ export const action = async ({ request }) => {
     fetchData.data.sellingPlanGroup.sellingPlans.edges.map(
       (edge) => edge.node.id
     );
-  
+    
+
+
   return Response.json({
     success: true,
     shopifyGroupId,

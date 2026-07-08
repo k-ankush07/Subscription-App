@@ -202,12 +202,14 @@ export const action = async ({ request }) => {
     { variables: { id: shopifyGroupId, first: sellingPlans.length } }
   );
   const fetchData = await fetchRes.json();
+
   //  Saari IDs array mein — har plan ki apni ID
   const shopifySellingPlanIds =
     fetchData.data.sellingPlanGroup.sellingPlans.edges.map(
       (edge) => edge.node.id
     );
-  
+
+
   return Response.json({
     success: true,
     shopifyGroupId,

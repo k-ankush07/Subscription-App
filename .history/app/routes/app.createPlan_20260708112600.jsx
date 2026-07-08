@@ -201,20 +201,70 @@ export const action = async ({ request }) => {
   `,
     { variables: { id: shopifyGroupId, first: sellingPlans.length } }
   );
+
   const fetchData = await fetchRes.json();
+
   //  Saari IDs array mein — har plan ki apni ID
   const shopifySellingPlanIds =
     fetchData.data.sellingPlanGroup.sellingPlans.edges.map(
       (edge) => edge.node.id
     );
-  
+    
+const metafieldSetRes = await admin.graphql(
+      `
+  mutation metafieldsSet($metafields: [MetafieldsSetInput!]!) {
+    metafieldsSet(metafields: $metafields) {
+      metafields {
+        id
+        namespace
+        key
+        type
+        value
+        createdAt
+        updatedAt
+      }
+      userErrors {
+        field
+        message
+      }
+    }
+  }
+  `,
+      {
+        variables: {
+          metafields: [
+            {
+              ownerId: shopId,
+              namespace: "selling_plan",
+              key: `plan_${numericId}`,
+              type: "json",
+              value: JSON.stringify({
+                ...planPayload,
+                planId: numericId,
+                shopifyGroupId,
+              }),
+            },
+          ],
+        },
+      },
+    );
+    const metafieldSetData = await metafieldSetRes.json();
+    const metafieldErrors = metafieldSetData.data.metafieldsSet.userErrors;
+    if (metafieldErrors?.length > 0) {
+      console.log("Metafield userErrors:", metafieldErrors);
+    }
+    return json({ success: true, shopifyGroupId, planId: numericId });
+  } catch (error) {
+    console.error("Action error:", error.message);
+    return json({ success: false, error: error.message });
+  }
+
   return Response.json({
     success: true,
     shopifyGroupId,
     shopifySellingPlanIds,  
     ...payload,
   });
-  
 };
 
 function CreatePlan() {
