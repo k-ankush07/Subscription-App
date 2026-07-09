@@ -345,6 +345,7 @@ export default function SubscriptionDetail() {
                       Skip
                     </Button>
                   )}
+
                   {contract?.status === "ACTIVE" && cycle.skipped && (
                     <Button
                       plain

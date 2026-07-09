@@ -345,6 +345,25 @@ export default function SubscriptionDetail() {
                       Skip
                     </Button>
                   )}
+  <Button
+    primary
+    onClick={() => {
+      const confirmed = confirm(
+        `Charge this subscription for billing cycle #${cycle.cycleIndex}?`,
+      );
+      if (!confirmed) return;
+
+      fetcher.submit(
+        {
+          type: "charge",
+          cycleIndex: cycle.cycleIndex,
+        },
+        { method: "post" },
+      );
+    }}
+  >
+    Charge now
+  </Button>
                   {contract?.status === "ACTIVE" && cycle.skipped && (
                     <Button
                       plain

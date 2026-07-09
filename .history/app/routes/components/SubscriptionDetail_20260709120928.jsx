@@ -50,7 +50,7 @@ function formateDate(date) {
 
 export default function SubscriptionDetail() {
   const { contract, upcomingCycles, internalNotes, customerNotes } = useLoaderData();
-    console.log("upcoming",contract)
+    // console.log("upcoming",contract)
   const [localLines, setLocalLines] = useState(contract?.lines?.edges || []);
   const [showInternalNotes, setShowInternalNotes] = useState(false);
   const [Internalnotes, setInternalNotes] = useState(internalNotes || "");
@@ -345,6 +345,25 @@ export default function SubscriptionDetail() {
                       Skip
                     </Button>
                   )}
+  <Button
+    primary
+    onClick={() => {
+      const confirmed = confirm(
+        `Charge this subscription for billing cycle #${cycle.cycleIndex}?`,
+      );
+      if (!confirmed) return;
+
+      fetcher.submit(
+        {
+          type: "charge",
+          cycleIndex: cycle.cycleIndex,
+        },
+        { method: "post" },
+      );
+    }}
+  >
+    Charge now
+  </Button>
                   {contract?.status === "ACTIVE" && cycle.skipped && (
                     <Button
                       plain
