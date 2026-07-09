@@ -150,6 +150,7 @@ export const action = async ({ request }) => {
       error: addProductsErrors[0].message,
     });
   }
+
   //  Variants attach 
   const allVariantIds = payload.products.flatMap((p) =>
     p.variants.map((v) => v.variantsId)

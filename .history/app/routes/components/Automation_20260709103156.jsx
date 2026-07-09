@@ -911,6 +911,9 @@ useEffect(() => {
         productId: item.productId,
         productName: item.productTitle,
         imageUrl: item.imageUrl,
+        variantId,
+        variantName: item.variantTitles?.[vi] || "",
+        imageUrl: item.variantImages?.[vi] || item.imageUrl || "",
       });
     } else if (actionType === "remove-variant") {
       const selection = await pickProducts({

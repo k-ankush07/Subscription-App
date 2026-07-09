@@ -677,35 +677,21 @@ function Automation({ sellingPlan, setSellingPlan }) {
       .catch(() => null);
 
   const [cycles, setCycles] = useState(() => {
-  if (!sellingPlan.automationCycles?.length) return [];
-  return sellingPlan.automationCycles.map((cycle) => ({
-    ...cycle,
-    actions: (cycle.actions || []).map((action) => ({ ...action })),
-  }));
-});
-
-const [showMainDropdown, setShowMainDropdown] = useState(false);
-
-//  NEW: edit/duplicate data async aata hai — mount ke baad bhi jab
-//  sellingPlan.automationCycles change ho to cycles ko re-sync karo.
-//  deep-compare kiya hai taake "sync cycles up" wale effect ke sath infinite loop na bane.
-useEffect(() => {
-  const incoming = sellingPlan.automationCycles || [];
-  if (JSON.stringify(incoming) !== JSON.stringify(cycles)) {
-    setCycles(
-      incoming.map((cycle) => ({
-        ...cycle,
-        actions: (cycle.actions || []).map((action) => ({ ...action })),
+    if (!sellingPlan.automationCycles?.length) return [];
+    return sellingPlan.automationCycles.map((cycle) => ({
+      ...cycle,
+      actions: (cycle.actions || []).map((action) => ({
+        ...action,
       })),
-    );
-  }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [sellingPlan.automationCycles]);
+    }));
+  });
 
-// Sync cycles up to parent
-useEffect(() => {
-  setSellingPlan((prev) => ({ ...prev, automationCycles: cycles }));
-}, [cycles]);
+  const [showMainDropdown, setShowMainDropdown] = useState(false);
+
+  // Sync cycles up to parent
+  useEffect(() => {
+    setSellingPlan((prev) => ({ ...prev, automationCycles: cycles }));
+  }, [cycles]);
 
   //  Cycle / action helpers
   const addToCycle = (cycleId, action) =>
@@ -911,6 +897,9 @@ useEffect(() => {
         productId: item.productId,
         productName: item.productTitle,
         imageUrl: item.imageUrl,
+        variantId,
+        variantName: item.variantTitles?.[vi] || "",
+        imageUrl: item.variantImages?.[vi] || item.imageUrl || "",
       });
     } else if (actionType === "remove-variant") {
       const selection = await pickProducts({
