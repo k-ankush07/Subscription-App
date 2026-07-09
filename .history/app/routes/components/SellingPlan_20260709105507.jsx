@@ -360,7 +360,7 @@ const handleOpenPicker = async (target, index) => {
                 }
               }}
             /> */}
-            <br/>
+
             {/* SETTINGS */}
             <h2>Settings</h2>
 

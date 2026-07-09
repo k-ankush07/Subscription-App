@@ -360,7 +360,7 @@ const handleOpenPicker = async (target, index) => {
                 }
               }}
             /> */}
-            <br/>
+
             {/* SETTINGS */}
             <h2>Settings</h2>
 
@@ -399,7 +399,7 @@ const handleOpenPicker = async (target, index) => {
                 </Button>
               </>
             )}
-            <br/>
+
             {/* Remove Free Products */}
             <Checkbox
               label="Remove free products from subscription after specific number of orders"

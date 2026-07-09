@@ -39,7 +39,65 @@ function SellingPlan({
     setSellingPlans((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // Resource picker 
+  // Resource picker — index aware
+//   const handleOpenPicker = async (target, index) => {
+//   const currentPlan = sellingPlans[index];
+//   const currentIds =
+//     target === "quantity"
+//       ? currentPlan.quantityProducts || []
+//       : currentPlan.freeProducts || [];
+
+//   const currentProducts =
+//     target === "quantity"
+//       ? currentPlan.quantityProductObjects || []
+//       : currentPlan.freeProductObjects || [];
+
+//   // selectionIds mein variant info bhi do
+//   const selectionIds = currentIds.map((productId) => {
+//     const productObj = currentProducts.find((p) => p.id === productId);
+//     return {
+//       id: productId,
+//       variants: productObj?.variants?.map((v) => ({ id: v.variantsId })) || [],
+//     };
+//   });
+
+//   const selected = await shopify.resourcePicker({
+//     type: "product",
+//     multiple: true,
+//     selectionIds,
+//     filter: {
+//       variants: true,
+//       query: allowedIds.map((id) => `id:${id.split("/").pop()}`).join(" OR "),
+//     },
+//   });
+
+//    console.log("seleted ",selected)
+//   if (!selected || selected.length === 0) return;
+
+//   // Sirf selected variants store karo (IDs ke saath objects)
+//   const pickedIds = selected.map((p) => p.id);
+//   const pickedObjects = selected.map((p) => ({
+//     id: p.id,
+//     title: p.title,
+//     variants: (p.variants || []).map((v) => ({
+//       variantsId: v.id,
+//       variantsTitle: v.title,
+//     }
+//   )),
+//   }));
+//   if (target === "quantity") {
+//     updatePlan(index, {
+//       quantityProducts: pickedIds,
+//       quantityProductObjects: pickedObjects, // variant info save karo
+//     });
+//   } else {
+//     updatePlan(index, {
+//       freeProducts: pickedIds,
+//       freeProductObjects: pickedObjects, // variant info save karo
+//     });
+//   }
+// };
+// Resource picker — index aware
 const handleOpenPicker = async (target, index) => {
   const currentPlan = sellingPlans[index];
 
@@ -344,8 +402,8 @@ const handleOpenPicker = async (target, index) => {
                 />
               </>
             )}
-            {
-              selectedProducts.length!==0 ? <><div>
+
+           <div>
 
              {/* AUTOMATION — setSellingPlan wrapper jo index-aware hai */}
             {/* <Automation
@@ -360,7 +418,7 @@ const handleOpenPicker = async (target, index) => {
                 }
               }}
             /> */}
-            <br/>
+
             {/* SETTINGS */}
             <h2>Settings</h2>
 
@@ -399,7 +457,7 @@ const handleOpenPicker = async (target, index) => {
                 </Button>
               </>
             )}
-            <br/>
+
             {/* Remove Free Products */}
             <Checkbox
               label="Remove free products from subscription after specific number of orders"
@@ -424,7 +482,7 @@ const handleOpenPicker = async (target, index) => {
                 </Button>
               </>
             )}
-            <br/>
+
             {/* Minimum Quantity */}
             <Checkbox
               label="Set minimum quantity for this plan"
@@ -442,10 +500,7 @@ const handleOpenPicker = async (target, index) => {
                 }
               />
             )}
-           </div></> 
-           : <></>
-            }
-           
+           </div>
           </FormLayout>
         </Card>
       ))}

@@ -348,7 +348,7 @@ const handleOpenPicker = async (target, index) => {
               selectedProducts.length!==0 ? <><div>
 
              {/* AUTOMATION — setSellingPlan wrapper jo index-aware hai */}
-            {/* <Automation
+            <Automation
               sellingPlan={plan}
               setSellingPlan={(updater) => {
                 if (typeof updater === "function") {
@@ -359,7 +359,7 @@ const handleOpenPicker = async (target, index) => {
                   updatePlan(index, updater);
                 }
               }}
-            /> */}
+            />
             <br/>
             {/* SETTINGS */}
             <h2>Settings</h2>
