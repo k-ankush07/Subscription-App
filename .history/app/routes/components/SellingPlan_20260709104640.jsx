@@ -97,51 +97,6 @@ function SellingPlan({
 //     });
 //   }
 // };
-// Resource picker — index aware
-const handleOpenPicker = async (target, index) => {
-  const currentPlan = sellingPlans[index];
-
-  // ab quantityProducts / freeProducts khud hi full objects (id, title, variants) store karte hain
-  const currentProducts =
-    target === "quantity"
-      ? currentPlan.quantityProducts || []
-      : currentPlan.freeProducts || [];
-
-  // selectionIds mein variant info bhi do
-  const selectionIds = currentProducts.map((productObj) => ({
-    id: productObj.id,
-    variants: (productObj.variants || []).map((v) => ({ id: v.variantsId })),
-  }));
-
-  const selected = await shopify.resourcePicker({
-    type: "product",
-    multiple: true,
-    selectionIds,
-    filter: {
-      variants: true,
-      query: allowedIds.map((id) => `id:${id.split("/").pop()}`).join(" OR "),
-    },
-  });
-
-  console.log("selected ", selected);
-  if (!selected || selected.length === 0) return;
-
-  // Poora object store karo (id + title + variants) — alag IDs/objects array ki zaroorat nahi
-  const pickedObjects = selected.map((p) => ({
-    id: p.id,
-    title: p.title,
-    variants: (p.variants || []).map((v) => ({
-      variantsId: v.id,
-      variantsTitle: v.title,
-    })),
-  }));
-
-  if (target === "quantity") {
-    updatePlan(index, { quantityProducts: pickedObjects });
-  } else {
-    updatePlan(index, { freeProducts: pickedObjects });
-  }
-};
 
   const duplicatePlan = (index) => {
     setSellingPlans((prev) => {

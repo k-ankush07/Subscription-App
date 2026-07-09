@@ -40,78 +40,26 @@ function SellingPlan({
   };
 
   // Resource picker — index aware
-//   const handleOpenPicker = async (target, index) => {
-//   const currentPlan = sellingPlans[index];
-//   const currentIds =
-//     target === "quantity"
-//       ? currentPlan.quantityProducts || []
-//       : currentPlan.freeProducts || [];
-
-//   const currentProducts =
-//     target === "quantity"
-//       ? currentPlan.quantityProductObjects || []
-//       : currentPlan.freeProductObjects || [];
-
-//   // selectionIds mein variant info bhi do
-//   const selectionIds = currentIds.map((productId) => {
-//     const productObj = currentProducts.find((p) => p.id === productId);
-//     return {
-//       id: productId,
-//       variants: productObj?.variants?.map((v) => ({ id: v.variantsId })) || [],
-//     };
-//   });
-
-//   const selected = await shopify.resourcePicker({
-//     type: "product",
-//     multiple: true,
-//     selectionIds,
-//     filter: {
-//       variants: true,
-//       query: allowedIds.map((id) => `id:${id.split("/").pop()}`).join(" OR "),
-//     },
-//   });
-
-//    console.log("seleted ",selected)
-//   if (!selected || selected.length === 0) return;
-
-//   // Sirf selected variants store karo (IDs ke saath objects)
-//   const pickedIds = selected.map((p) => p.id);
-//   const pickedObjects = selected.map((p) => ({
-//     id: p.id,
-//     title: p.title,
-//     variants: (p.variants || []).map((v) => ({
-//       variantsId: v.id,
-//       variantsTitle: v.title,
-//     }
-//   )),
-//   }));
-//   if (target === "quantity") {
-//     updatePlan(index, {
-//       quantityProducts: pickedIds,
-//       quantityProductObjects: pickedObjects, // variant info save karo
-//     });
-//   } else {
-//     updatePlan(index, {
-//       freeProducts: pickedIds,
-//       freeProductObjects: pickedObjects, // variant info save karo
-//     });
-//   }
-// };
-// Resource picker — index aware
-const handleOpenPicker = async (target, index) => {
+  const handleOpenPicker = async (target, index) => {
   const currentPlan = sellingPlans[index];
-
-  // ab quantityProducts / freeProducts khud hi full objects (id, title, variants) store karte hain
-  const currentProducts =
+  const currentIds =
     target === "quantity"
       ? currentPlan.quantityProducts || []
       : currentPlan.freeProducts || [];
 
+  const currentProducts =
+    target === "quantity"
+      ? currentPlan.quantityProductObjects || []
+      : currentPlan.freeProductObjects || [];
+
   // selectionIds mein variant info bhi do
-  const selectionIds = currentProducts.map((productObj) => ({
-    id: productObj.id,
-    variants: (productObj.variants || []).map((v) => ({ id: v.variantsId })),
-  }));
+  const selectionIds = currentIds.map((productId) => {
+    const productObj = currentProducts.find((p) => p.id === productId);
+    return {
+      id: productId,
+      variants: productObj?.variants?.map((v) => ({ id: v.variantsId })) || [],
+    };
+  });
 
   const selected = await shopify.resourcePicker({
     type: "product",
@@ -123,23 +71,30 @@ const handleOpenPicker = async (target, index) => {
     },
   });
 
-  console.log("selected ", selected);
+   console.log("seleted ",selected)
   if (!selected || selected.length === 0) return;
 
-  // Poora object store karo (id + title + variants) — alag IDs/objects array ki zaroorat nahi
+  // Sirf selected variants store karo (IDs ke saath objects)
+  const pickedIds = selected.map((p) => p.id);
   const pickedObjects = selected.map((p) => ({
     id: p.id,
     title: p.title,
     variants: (p.variants || []).map((v) => ({
       variantsId: v.id,
       variantsTitle: v.title,
-    })),
+    }
+  )),
   }));
-
   if (target === "quantity") {
-    updatePlan(index, { quantityProducts: pickedObjects });
+    updatePlan(index, {
+      quantityProducts: pickedIds,
+      quantityProductObjects: pickedObjects, // variant info save karo
+    });
   } else {
-    updatePlan(index, { freeProducts: pickedObjects });
+    updatePlan(index, {
+      freeProducts: pickedIds,
+      freeProductObjects: pickedObjects, // variant info save karo
+    });
   }
 };
 
