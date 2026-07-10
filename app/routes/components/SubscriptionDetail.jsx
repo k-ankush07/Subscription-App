@@ -16,7 +16,7 @@ function getCurrentComputedPrice(item, currentCycleIndex) {
     return parseFloat(item?.node?.currentPrice?.amount || 0);
   }
   const applicable = discounts
-    .filter((d) => d.afterCycle < currentCycleIndex)
+    .filter((d) => d.afterCycle <= currentCycleIndex)
     .sort((a, b) => b.afterCycle - a.afterCycle)[0];
 
   if (!applicable) {
