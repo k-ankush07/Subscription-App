@@ -18,7 +18,7 @@ export const loader = async ({ request }) => {
   const data = await response.json();
   return Response.json({ plans: data.success ? data.data : [] });
 };
-// jfgsgfgfffgjfgffeerreteqewqewqe
+// jfgsgfgfffgjfgffeerrete
 // export const loader = async ({ request }) => {
 //   const { admin, session } = await authenticate.admin(request);
 //   const shop = session.shop;
