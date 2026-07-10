@@ -251,8 +251,7 @@ export async function action({ request, params }) {
     type === "resume" ||
     type === "skip" ||
     type === "unskip" ||
-    type === "removeLineDiscount" ||
-    type === "chargeNow"
+    type === "removeLineDiscount" 
   ) {
     if (type === "pause") {
       const res = await admin.graphql(
@@ -492,70 +491,7 @@ export async function action({ request, params }) {
         unskippedCycleIndex: payload.billingCycle.cycleIndex,
       };
     }
-    if (type === "chargeNow") {
-      const cycleIndex = parseInt(formData.get("cycleIndex"), 10);
 
-      if (Number.isNaN(cycleIndex)) {
-        return {
-          success: false,
-          error: "Invalid billing cycle index",
-        };
-      }
-
-      const res = await admin.graphql(
-        `
-        mutation SubscriptionBillingCycleCharge(
-          $subscriptionContractId: ID!
-          $billingCycleSelector: SubscriptionBillingCycleSelector!
-        ) {
-          subscriptionBillingCycleCharge(
-            subscriptionContractId: $subscriptionContractId
-            billingCycleSelector: $billingCycleSelector
-          ) {
-            subscriptionBillingAttempt {
-              id
-              ready
-              subscriptionContract {
-                id
-              }
-            }
-            userErrors {
-              field
-              message
-              code
-            }
-          }
-        }
-        `,
-        {
-          variables: {
-            subscriptionContractId: contractId,
-            billingCycleSelector: {
-              index: cycleIndex,
-            },
-          },
-        },
-      );
-
-      const data = await res.json();
-      const payload = data?.data?.subscriptionBillingCycleCharge;
-
-      if (!payload || payload.userErrors?.length) {
-        console.error("Charge now failed", payload?.userErrors);
-        return {
-          success: false,
-          error:
-            payload?.userErrors?.map((e) => e.message).join(", ") ||
-            "Charge now failed",
-        };
-      }
-
-      return {
-        success: true,
-        chargedCycleIndex: cycleIndex,
-        billingAttemptId: payload.subscriptionBillingAttempt?.id,
-      };
-    }
   }
 
   const payload = {

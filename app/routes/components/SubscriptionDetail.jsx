@@ -16,7 +16,7 @@ function getCurrentComputedPrice(item, currentCycleIndex) {
     return parseFloat(item?.node?.currentPrice?.amount || 0);
   }
   const applicable = discounts
-    .filter((d) => d.afterCycle <= currentCycleIndex)
+    .filter((d) => d.afterCycle < currentCycleIndex)
     .sort((a, b) => b.afterCycle - a.afterCycle)[0];
 
   if (!applicable) {
@@ -323,29 +323,6 @@ const nextCycleIndex = nextUpcomingCycle?.cycleIndex ?? null;
                   {cycle.skipped && <span>(Skipped)</span>}
                 </p>
 
-                {contract?.status === "ACTIVE" && !cycle.skipped && (
-  <Button
-    plain
-    onClick={() => {
-      if (
-        !confirm(
-          "Charge the customer now for this upcoming order? This cannot be undone.",
-        )
-      ) {
-        return;
-      }
-      fetcher.submit(
-        {
-          type: "chargeNow",
-          cycleIndex: cycle.cycleIndex,
-        },
-        { method: "post" },
-      );
-    }}
-  >
-    Charge Now
-  </Button>
-)}
                 <div
                   style={{ display: "flex", gap: "30px", alignItems: "center" }}
                 >
