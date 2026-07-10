@@ -141,7 +141,6 @@ async function processShopBillingCycles(admin, shop) {
 }
 
 async function getActiveContracts(admin) {
-  // Paginates through all ACTIVE subscription contracts for this shop.
   const contracts = [];
   let cursor = null;
   let hasNextPage = true;
@@ -150,7 +149,7 @@ async function getActiveContracts(admin) {
     const response = await admin.graphql(
       `
       query ActiveContracts($cursor: String) {
-        subscriptionContracts(first: 100, query: "status:ACTIVE") {
+        subscriptionContracts(first: 100, after: $cursor, query: "status:ACTIVE") {
           edges {
             cursor
             node { id }
