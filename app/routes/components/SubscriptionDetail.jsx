@@ -147,8 +147,6 @@ const nextCycleIndex = nextUpcomingCycle?.cycleIndex ?? null;
   return (
     <>
       <Page backAction={{ onAction: backButton }} title={`${id}`}>
-
-        <h2>hello</h2>
         {contract?.status === "CANCELLED" && (
           <Banner
             title="This subscription has been cancelled."
