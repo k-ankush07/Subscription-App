@@ -383,7 +383,7 @@ function computePriceForCycle(pricingPolicy, cycleIndex) {
   for (const tier of pricingPolicy.cycleDiscounts) {
     const afterCycle = Number(tier.afterCycle);
     if (cycleIndex > afterCycle) {
-      if (!bestTier || afterCycle > Number(bestTier.afterCycle)) {
+      if (!bestTier || afterCycle >= Number(bestTier.afterCycle)) {
         bestTier = tier;
       }
     }

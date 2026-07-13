@@ -565,8 +565,6 @@ export async function action({ request, params }) {
     orderName: attempt.order?.name ?? null,
   };
 }
-
-
   }
 
   const payload = {
