@@ -191,7 +191,7 @@ export const action = async ({ request }) => {
 
   return Response.json({ success: true });
 };
-// bdjsfjjhbjhds
+// bdjsfjjhbjh
 
 function Plans() {
   const { plans } = useLoaderData();
