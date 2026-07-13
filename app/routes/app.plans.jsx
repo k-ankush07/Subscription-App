@@ -191,7 +191,7 @@ export const action = async ({ request }) => {
 
   return Response.json({ success: true });
 };
-// bdjsfjjhbjhdsbhjbdsfiuuytuiyiytifyutuytutiuitii78io78
+// bdjsfjjhbjhdsbhjbdsfiuuytuiyiy
 function Plans() {
   const { plans } = useLoaderData();
   const navigate = useNavigate();
