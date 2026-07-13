@@ -1,7 +1,6 @@
 import { Banner, Button, Card, Page, Icon } from "@shopify/polaris";
 import React, { useEffect, useState } from "react";
 import { currencySymbol } from "../utils/formatMoney.js";
-import { DeleteIcon } from "@shopify/polaris-icons";
 import {
   Link,
   useNavigate,
