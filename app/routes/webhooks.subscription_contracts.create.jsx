@@ -4,7 +4,7 @@ import { getContractPreview } from "../lib/billing-preview.server";
 export const action = async ({ request }) => {
   const { shop, topic, payload, admin } = await authenticate.webhook(request);
 
-  console.log(`[webhook] ${topic} for ${shop}`);
+  console.log(`[webhook] ${topic} for ${shop} for the paylaod  ${payload}`);
 
   const contractId = payload?.admin_graphql_api_id || payload?.id;
   console.log("New subscription contract created:", { contractId });

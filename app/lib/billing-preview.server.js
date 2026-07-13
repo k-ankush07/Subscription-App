@@ -1,48 +1,327 @@
+// const EXTRA_SETTINGS_NAMESPACE = "subscription_app";
+// function metaKeyForGroup(groupId) {
+//   const numericId = groupId.split("/").pop();
+//   return `extra_settings_${numericId}`;
+// }
+
+
+// function collectActionsForCycle(settings, cycleIndex) {
+//   const actions = [];
+//   if (!settings) return actions;
+
+//   cycleIndex = Number(cycleIndex);
+
+//   // Shipping Discount
+//   if (
+//     settings.giveShippingDiscount &&
+//      cycleIndex  >= Number(settings.shippingAfterOrders) 
+//   ) {
+//     actions.push({
+//       type: "SHIPPING_DISCOUNT",
+//       discountType: settings.shippingDiscountType,
+//       value: settings.shippingDiscountValue,
+//       after: settings.shippingAfterOrders,
+//     });
+//   }
+
+//   // Quantity Change
+//   if (
+//     settings.changeQuantityAfterOrders &&
+//       cycleIndex >= Number(settings.quantityAfterOrders)
+//   ) {
+//     actions.push({
+//       type: "QUANTITY_CHANGE",
+//       value: settings.quantityAfterOrdersValue,
+//       products: settings.quantityProducts ?? [],
+//       after: settings.quantityAfterOrders,
+//     });
+//   }
+
+//   // Remove Free Product
+//   if (
+//     settings.RemoveFreeProdcut &&
+//     cycleIndex >= Number(settings.removeFreeProductValue) 
+//   ) {
+//     actions.push({
+//       type: "REMOVE_FREE_PRODUCT",
+//       products: settings.freeProducts ?? [],
+//       after: settings.removeFreeProductValue,
+//     });
+//   }
+
+//   // Automation
+//  // Automation
+// if (settings.Automation && Array.isArray(settings.automationCycles)) {
+//   for (const auto of settings.automationCycles) {
+//     if ( cycleIndex >= Number(auto.orders)) {
+//       for (const action of auto.actions ?? []) {
+//         actions.push({
+//           ...action,
+//           after: auto.orders,
+//         });
+//       }
+//     }
+//   }
+// }
+
+//   // Minimum Quantity
+//   if (settings.MinimumQuanitity) {
+//     actions.push({
+//       type: "MINIMUM_QUANTITY",
+//       value: settings.MinimumQuanitityValue,
+//     });
+//   }
+
+//   return actions;
+// }
+
+// async function getContractPreview(admin, contractId) {
+//   const contractRes = await admin.graphql(
+//     `
+//     query getContract($id: ID!) {
+//       subscriptionContract(id: $id) {
+//         id
+//         status
+//         nextBillingDate
+//         customer { id displayName }
+//         lines(first: 5) {
+//           edges { node { id title quantity sellingPlanId currentPrice { amount currencyCode } } }
+//         }
+//       }
+//     }
+//   `,
+//     { variables: { id: contractId } },
+//   );
+//   const contractData = await contractRes.json();
+//   const contract = contractData.data?.subscriptionContract;
+
+//   if (!contract) {
+//     console.log(`[preview] Contract not found: ${contractId}`);
+//     return null;
+//   }
+
+//   const sellingPlanId = contract.lines.edges[0]?.node?.sellingPlanId;
+
+
+// let groupId = null;
+// let groupName = null;
+// let extraSettings = null;
+
+// if (sellingPlanId) {
+//   const groupsRes = await admin.graphql(`
+//     query {
+//       sellingPlanGroups(first: 50) {
+//         edges {
+//           node {
+//             id
+//             name
+
+//             sellingPlans(first: 20) {
+//               edges {
+//                 node {
+//                   id
+
+//                   extraSettingsMetafield: metafield(
+//                     namespace: "subscription_app"
+//                     key: "extra_settings"
+//                   ) {
+//                     value
+//                   }
+//                 }
+//               }
+//             }
+//           }
+//         }
+//       }
+//     }
+//   `);
+
+//   const groupsData = await groupsRes.json();
+
+//   for (const { node: group } of groupsData.data.sellingPlanGroups.edges) {
+
+//     const plan = group.sellingPlans.edges.find(
+//       ({ node }) => node.id === sellingPlanId
+//     );
+
+//     if (!plan) continue;
+
+//     groupId = group.id;
+//     groupName = group.name;
+
+//     const raw = plan.node.extraSettingsMetafield?.value;
+
+//     if (raw) {
+//       extraSettings = JSON.parse(raw);
+//     }
+
+//     break;
+//   }
+// }
+
+
+//   // let cycleIndex = null;
+//   // let nextBillingDate = contract.nextBillingDate;
+
+//   // if (contract.nextBillingDate) {
+//   //   const cycleRes = await admin.graphql(
+//   //     `
+//   //     query getCycleByDate($contractId: ID!, $date: DateTime!) {
+//   //       subscriptionBillingCycle(
+//   //         billingCycleInput: { contractId: $contractId, selector: { date: $date } }
+//   //       ) {
+//   //         cycleIndex
+//   //         billingAttemptExpectedDate
+//   //         skipped
+//   //       }
+//   //     }
+//   //   `,
+//   //     { variables: { contractId, date: contract.nextBillingDate } },
+//   //   );
+
+//   //   const cycleData = await cycleRes.json();
+//   //   console.log("cndjfjdsfbjdsbjhdf",cycleData)
+//   //   const cycle = cycleData.data?.subscriptionBillingCycle;
+//   //   if (cycle) {
+//   //     cycleIndex = cycle.cycleIndex;
+//   //     nextBillingDate = cycle.billingAttemptExpectedDate || nextBillingDate;
+//   //   }
+//   // }
+//   let cycleIndex = null;
+// let nextBillingDate = contract.nextBillingDate;
+// let cycleStatus = null;
+
+// if (contract.nextBillingDate) {
+//   // Step 1: date se starting cycleIndex nikaalo
+//   const cycleRes = await admin.graphql(
+//     `
+//     query getCycleByDate($contractId: ID!, $date: DateTime!) {
+//       subscriptionBillingCycle(
+//         billingCycleInput: { contractId: $contractId, selector: { date: $date } }
+//       ) {
+//         cycleIndex
+//         billingAttemptExpectedDate
+//         status
+//         skipped
+//       }
+//     }
+//     `,
+//     { variables: { contractId, date: contract.nextBillingDate } },
+//   );
+
+//   let cycleData = await cycleRes.json();
+//   let cycle = cycleData.data?.subscriptionBillingCycle;
+
+//   if (cycle) {
+//     cycleIndex = cycle.cycleIndex;
+//     nextBillingDate = cycle.billingAttemptExpectedDate || nextBillingDate;
+//     cycleStatus = cycle.status;
+
+//     // Step 2: agar ye cycle already BILLED hai, to aage badhte jao jab tak UNBILLED na mile
+//     let safetyCounter = 0; // infinite loop se bachne ke liye
+//     while (cycleStatus === "BILLED" && safetyCounter < 20) {
+//       cycleIndex += 1;
+//       safetyCounter += 1;
+
+//       const nextCycleRes = await admin.graphql(
+//         `
+//         query getCycleByIndex($contractId: ID!, $index: Int!) {
+//           subscriptionBillingCycle(
+//             billingCycleInput: { contractId: $contractId, selector: { index: $index } }
+//           ) {
+//             cycleIndex
+//             billingAttemptExpectedDate
+//             status
+//             skipped
+//           }
+//         }
+//         `,
+//         { variables: { contractId, index: cycleIndex } },
+//       );
+
+//       const nextCycleData = await nextCycleRes.json();
+//       const nextCycle = nextCycleData.data?.subscriptionBillingCycle;
+
+//       if (!nextCycle) break; // aur cycles hi nahi bache (contract khatam ho gaya)
+
+//       cycleIndex = nextCycle.cycleIndex;
+//       nextBillingDate = nextCycle.billingAttemptExpectedDate || nextBillingDate;
+//       cycleStatus = nextCycle.status;
+//     }
+//   }
+// }
+
+//   const actionsForNextCycle =
+//     cycleIndex != null ? collectActionsForCycle(extraSettings, cycleIndex) : [];
+
+
+//   const preview = {
+//     contractId: contract.id,
+//     status: contract.status,
+//     customer: contract.customer,
+//     lineItem: {
+//         id: contract.lines.edges[0]?.node?.id,
+//       title: contract.lines.edges[0]?.node?.title,
+//       quantity: contract.lines.edges[0]?.node?.quantity,
+//       price: contract.lines.edges[0]?.node?.currentPrice,
+//     },
+//     planGroup: { id: groupId, name: groupName },
+//     nextOrder: {
+//       cycleIndex,
+//       expectedDate: nextBillingDate,
+//       willApply:
+//         actionsForNextCycle.length > 0
+//           ? actionsForNextCycle
+//           : "No automatic changes configured for this cycle",
+//     },
+//     allExtraSettings: extraSettings,
+//   };
+
+//   console.log("─────────────────────────────────────────────");
+//   console.log(`📦 Contract: ${preview.contractId}`);
+//   console.log(`   Status: ${preview.status}`);
+//   console.log(
+//     `   Customer: ${preview.customer?.displayName || preview.customer?.id || "unknown"}`,
+//   );
+//   console.log(
+//     `   Product: ${preview.lineItem.title} (qty ${preview.lineItem.quantity}, ${preview.lineItem.price?.amount} ${preview.lineItem.price?.currencyCode})`,
+//   );
+//   console.log(
+//     `   Plan: ${preview.planGroup.name || "unknown"} (${preview.planGroup.id || "no group matched"})`,
+//   );
+//   console.log(`   Next order date: ${preview.nextOrder.expectedDate}`);
+//   console.log(`   Next order cycle #: ${preview.nextOrder.cycleIndex}`);
+//   console.log(`   Will apply on next order:`, preview.nextOrder.willApply);
+//   console.log("─────────────────────────────────────────────");
+
+//   return preview;
+// }
+
+// export {
+//   getContractPreview,
+//   collectActionsForCycle,
+//   metaKeyForGroup,
+//   EXTRA_SETTINGS_NAMESPACE,
+// };
+
+
+
+
+
 const EXTRA_SETTINGS_NAMESPACE = "subscription_app";
 function metaKeyForGroup(groupId) {
   const numericId = groupId.split("/").pop();
   return `extra_settings_${numericId}`;
 }
 
-// function collectActionsForCycle(settings, cycleIndex) {
-//   const actions = [];
-//   console.log("setting", settings, "index", cycleIndex);
-//   if (!settings) return actions;
-
-//   if (
-//     settings.shippingDiscount?.enabled &&
-//     settings.shippingDiscount.after === cycleIndex
-//   ) {
-//     actions.push({ ...settings.shippingDiscount, type: "SHIPPING_DISCOUNT" });
-//   }
-//   if (
-//     settings.quantityChange?.enabled &&
-//     settings.quantityChange.after === cycleIndex
-//   ) {
-//     actions.push({ ...settings.quantityChange, type: "QUANTITY_CHANGE" });
-//   }
-//   for (const auto of settings.automaticActions || []) {
-//     if (auto.afterCycle === cycleIndex) {
-//       actions.push({ ...auto, type: auto.type });
-//     }
-//   }
-//   return actions;
-// }
 function collectActionsForCycle(settings, cycleIndex) {
   const actions = [];
-
-//   console.log("settings:", settings);
-//   console.log("cycleIndex:", cycleIndex);
-
   if (!settings) return actions;
 
   cycleIndex = Number(cycleIndex);
 
   // Shipping Discount
-  if (
-    settings.giveShippingDiscount &&
-    Number(settings.shippingAfterOrders) === cycleIndex
-  ) {
+  if (settings.giveShippingDiscount && cycleIndex >= Number(settings.shippingAfterOrders)) {
     actions.push({
       type: "SHIPPING_DISCOUNT",
       discountType: settings.shippingDiscountType,
@@ -52,10 +331,7 @@ function collectActionsForCycle(settings, cycleIndex) {
   }
 
   // Quantity Change
-  if (
-    settings.changeQuantityAfterOrders &&
-    Number(settings.quantityAfterOrders) === cycleIndex
-  ) {
+  if (settings.changeQuantityAfterOrders && cycleIndex >= Number(settings.quantityAfterOrders)) {
     actions.push({
       type: "QUANTITY_CHANGE",
       value: settings.quantityAfterOrdersValue,
@@ -65,10 +341,7 @@ function collectActionsForCycle(settings, cycleIndex) {
   }
 
   // Remove Free Product
-  if (
-    settings.RemoveFreeProdcut &&
-    Number(settings.removeFreeProductValue) === cycleIndex
-  ) {
+  if (settings.RemoveFreeProdcut && cycleIndex >= Number(settings.removeFreeProductValue)) {
     actions.push({
       type: "REMOVE_FREE_PRODUCT",
       products: settings.freeProducts ?? [],
@@ -77,19 +350,15 @@ function collectActionsForCycle(settings, cycleIndex) {
   }
 
   // Automation
- // Automation
-if (settings.Automation && Array.isArray(settings.automationCycles)) {
-  for (const auto of settings.automationCycles) {
-    if (Number(auto.orders) === cycleIndex) {
-      for (const action of auto.actions ?? []) {
-        actions.push({
-          ...action,
-          after: auto.orders,
-        });
+  if (settings.Automation && Array.isArray(settings.automationCycles)) {
+    for (const auto of settings.automationCycles) {
+      if (cycleIndex >= Number(auto.orders)) {
+        for (const action of auto.actions ?? []) {
+          actions.push({ ...action, after: auto.orders });
+        }
       }
     }
   }
-}
 
   // Minimum Quantity
   if (settings.MinimumQuanitity) {
@@ -102,6 +371,27 @@ if (settings.Automation && Array.isArray(settings.automationCycles)) {
   return actions;
 }
 
+
+function computePriceForCycle(pricingPolicy, cycleIndex) {
+  if (!pricingPolicy?.cycleDiscounts?.length) {
+    return pricingPolicy?.basePrice ?? null;
+  }
+
+  cycleIndex = Number(cycleIndex);
+  console.log("police",pricingPolicy)
+  let bestTier = null;
+  for (const tier of pricingPolicy.cycleDiscounts) {
+    const afterCycle = Number(tier.afterCycle);
+    if (cycleIndex > afterCycle) {
+      if (!bestTier || afterCycle > Number(bestTier.afterCycle)) {
+        bestTier = tier;
+      }
+    }
+  }
+
+  return bestTier ? bestTier.computedPrice : pricingPolicy.basePrice;
+}
+
 async function getContractPreview(admin, contractId) {
   const contractRes = await admin.graphql(
     `
@@ -112,7 +402,32 @@ async function getContractPreview(admin, contractId) {
         nextBillingDate
         customer { id displayName }
         lines(first: 5) {
-          edges { node { id title quantity sellingPlanId currentPrice { amount currencyCode } } }
+          edges {
+            node {
+              id
+              title
+              quantity
+              sellingPlanId
+              currentPrice { amount currencyCode }
+              pricingPolicy {
+                basePrice { amount currencyCode }
+                cycleDiscounts {
+                  afterCycle
+                  adjustmentType
+                  adjustmentValue {
+                    ... on SellingPlanPricingPolicyPercentageValue {
+                      percentage
+                    }
+                    ... on MoneyV2 {
+                      amount
+                      currencyCode
+                    }
+                  }
+                  computedPrice { amount currencyCode }
+                }
+              }
+            }
+          }
         }
       }
     }
@@ -127,53 +442,33 @@ async function getContractPreview(admin, contractId) {
     return null;
   }
 
-  const sellingPlanId = contract.lines.edges[0]?.node?.sellingPlanId;
+  const firstLine = contract.lines.edges[0]?.node;
+  const sellingPlanId = firstLine?.sellingPlanId;
 
-//   let groupId = null;
-//   let groupName = null;
-//   if (sellingPlanId) {
-//     const groupsRes = await admin.graphql(`
-//       query {
-//         sellingPlanGroups(first: 50) {
-//           edges { node { id name sellingPlans(first: 20) { edges { node { id } } } } }
-//         }
-//       }
-//     `);
-//     const groupsData = await groupsRes.json();
-//     const groups = groupsData.data.sellingPlanGroups.edges.map((e) => e.node);
-//     for (const group of groups) {
-//       if (
-//         group.sellingPlans.edges.some(({ node }) => node.id === sellingPlanId)
-//       ) {
-//         groupId = group.id;
-//         groupName = group.name;
-//         break;
-//       }
-//     }
-//   }
-let groupId = null;
-let groupName = null;
-let extraSettings = null;
+  let groupId = null;
+  let groupName = null;
+  let extraSettings = null;
 
-if (sellingPlanId) {
-  const groupsRes = await admin.graphql(`
-    query {
-      sellingPlanGroups(first: 50) {
-        edges {
-          node {
-            id
-            name
+  if (sellingPlanId) {
+    const groupsRes = await admin.graphql(`
+      query {
+        sellingPlanGroups(first: 50) {
+          edges {
+            node {
+              id
+              name
 
-            sellingPlans(first: 20) {
-              edges {
-                node {
-                  id
+              sellingPlans(first: 20) {
+                edges {
+                  node {
+                    id
 
-                  extraSettingsMetafield: metafield(
-                    namespace: "subscription_app"
-                    key: "extra_settings"
-                  ) {
-                    value
+                    extraSettingsMetafield: metafield(
+                      namespace: "subscription_app"
+                      key: "extra_settings"
+                    ) {
+                      value
+                    }
                   }
                 }
               }
@@ -181,56 +476,33 @@ if (sellingPlanId) {
           }
         }
       }
+    `);
+
+    const groupsData = await groupsRes.json();
+
+    for (const { node: group } of groupsData.data.sellingPlanGroups.edges) {
+      const plan = group.sellingPlans.edges.find(
+        ({ node }) => node.id === sellingPlanId
+      );
+
+      if (!plan) continue;
+
+      groupId = group.id;
+      groupName = group.name;
+
+      const raw = plan.node.extraSettingsMetafield?.value;
+
+      if (raw) {
+        extraSettings = JSON.parse(raw);
+      }
+
+      break;
     }
-  `);
-
-  const groupsData = await groupsRes.json();
-
-  for (const { node: group } of groupsData.data.sellingPlanGroups.edges) {
-
-    const plan = group.sellingPlans.edges.find(
-      ({ node }) => node.id === sellingPlanId
-    );
-
-    if (!plan) continue;
-
-    groupId = group.id;
-    groupName = group.name;
-
-    const raw = plan.node.extraSettingsMetafield?.value;
-
-    if (raw) {
-      extraSettings = JSON.parse(raw);
-    }
-
-    break;
   }
-}
-
-//   let extraSettings = null;
-//   if (groupId) {
-//     const metaRes = await admin.graphql(`
-//       query {
-//         shop {
-//           metafield(namespace: "${EXTRA_SETTINGS_NAMESPACE}", key: "${metaKeyForGroup(groupId)}") {
-//             value
-//           }
-//         }
-//       }
-//     `);
-//     const metaData = await metaRes.json();
-//     const raw = metaData.data?.shop?.metafield?.value;
-//     if (raw) {
-//       try {
-//         extraSettings = JSON.parse(raw);
-//       } catch {
-//         extraSettings = null;
-//       }
-//     }
-//   }
 
   let cycleIndex = null;
   let nextBillingDate = contract.nextBillingDate;
+  let cycleStatus = null;
 
   if (contract.nextBillingDate) {
     const cycleRes = await admin.graphql(
@@ -241,39 +513,93 @@ if (sellingPlanId) {
         ) {
           cycleIndex
           billingAttemptExpectedDate
+          status
           skipped
         }
       }
-    `,
+      `,
       { variables: { contractId, date: contract.nextBillingDate } },
     );
 
-    const cycleData = await cycleRes.json();
-    const cycle = cycleData.data?.subscriptionBillingCycle;
+    let cycleData = await cycleRes.json();
+    let cycle = cycleData.data?.subscriptionBillingCycle;
+
     if (cycle) {
       cycleIndex = cycle.cycleIndex;
       nextBillingDate = cycle.billingAttemptExpectedDate || nextBillingDate;
+      cycleStatus = cycle.status;
+
+      let safetyCounter = 0;
+      while (cycleStatus === "BILLED" && safetyCounter < 20) {
+        cycleIndex += 1;
+        safetyCounter += 1;
+
+        const nextCycleRes = await admin.graphql(
+          `
+          query getCycleByIndex($contractId: ID!, $index: Int!) {
+            subscriptionBillingCycle(
+              billingCycleInput: { contractId: $contractId, selector: { index: $index } }
+            ) {
+              cycleIndex
+              billingAttemptExpectedDate
+              status
+              skipped
+            }
+          }
+          `,
+          { variables: { contractId, index: cycleIndex } },
+        );
+
+        const nextCycleData = await nextCycleRes.json();
+        const nextCycle = nextCycleData.data?.subscriptionBillingCycle;
+
+        if (!nextCycle) break;
+
+        cycleIndex = nextCycle.cycleIndex;
+        nextBillingDate = nextCycle.billingAttemptExpectedDate || nextBillingDate;
+        cycleStatus = nextCycle.status;
+      }
     }
   }
 
   const actionsForNextCycle =
     cycleIndex != null ? collectActionsForCycle(extraSettings, cycleIndex) : [];
 
+  // ── Work out the actual next-order price + quantity + total ──
+  const calculatedPricePerUnit =
+    cycleIndex != null ? computePriceForCycle(firstLine?.pricingPolicy, cycleIndex) : null;
+
+    console.log("fhdjhbjbvjdfvj",calculatedPricePerUnit)
+  const quantityAction = Array.isArray(actionsForNextCycle)
+    ? actionsForNextCycle.find((a) => a.type === "QUANTITY_CHANGE")
+    : null;
+  const calculatedQuantity = quantityAction ? Number(quantityAction.value) : firstLine?.quantity;
+
+  const calculatedItemTotal =
+    calculatedPricePerUnit && calculatedQuantity != null
+      ? {
+          amount: (Number(calculatedPricePerUnit.amount) * calculatedQuantity).toFixed(2),
+          currencyCode: calculatedPricePerUnit.currencyCode,
+        }
+      : null;
 
   const preview = {
     contractId: contract.id,
     status: contract.status,
     customer: contract.customer,
     lineItem: {
-        id: contract.lines.edges[0]?.node?.id,
-      title: contract.lines.edges[0]?.node?.title,
-      quantity: contract.lines.edges[0]?.node?.quantity,
-      price: contract.lines.edges[0]?.node?.currentPrice,
+      id: firstLine?.id,
+      title: firstLine?.title,
+      quantity: firstLine?.quantity,
+      price: firstLine?.currentPrice,
     },
     planGroup: { id: groupId, name: groupName },
     nextOrder: {
       cycleIndex,
       expectedDate: nextBillingDate,
+      calculatedPricePerUnit,
+      calculatedQuantity,
+      calculatedItemTotal,
       willApply:
         actionsForNextCycle.length > 0
           ? actionsForNextCycle
@@ -296,6 +622,13 @@ if (sellingPlanId) {
   );
   console.log(`   Next order date: ${preview.nextOrder.expectedDate}`);
   console.log(`   Next order cycle #: ${preview.nextOrder.cycleIndex}`);
+  console.log(
+    `   Next order calculated price/unit: ${preview.nextOrder.calculatedPricePerUnit?.amount} ${preview.nextOrder.calculatedPricePerUnit?.currencyCode}`,
+  );
+  console.log(`   Next order calculated quantity: ${preview.nextOrder.calculatedQuantity}`);
+  console.log(
+    `   Next order calculated total: ${preview.nextOrder.calculatedItemTotal?.amount} ${preview.nextOrder.calculatedItemTotal?.currencyCode}`,
+  );
   console.log(`   Will apply on next order:`, preview.nextOrder.willApply);
   console.log("─────────────────────────────────────────────");
 
@@ -305,6 +638,7 @@ if (sellingPlanId) {
 export {
   getContractPreview,
   collectActionsForCycle,
+  computePriceForCycle,
   metaKeyForGroup,
   EXTRA_SETTINGS_NAMESPACE,
 };
