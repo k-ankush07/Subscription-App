@@ -735,7 +735,7 @@ export const action = async ({ request }) => {
 
   const url = new URL(request.url);
   const shopOverride = url.searchParams.get("shop");
-// sdsfdfergergoioio[[]]iuiuopiiouitjoyuolyiyuiyyutyertfhytyhhggergggergregrthgh
+// sdsfdfergergoioio[[]]iuiuopiiouitjoyuolyiyuiyyutyertfhytyhhgger
   try {
     let shops = await getShopsWithOfflineTokens();
     if (shopOverride) {
