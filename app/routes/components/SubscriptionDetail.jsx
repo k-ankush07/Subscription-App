@@ -10,7 +10,6 @@ import {
 } from "react-router";
 
 function getCurrentComputedPrice(item, currentCycleIndex) {
-  console.log("djbsdjjh",currentCycleIndex)
   const discounts = item?.node?.pricingPolicy?.cycleDiscounts || [];
   if (discounts.length === 0) {
     return parseFloat(item?.node?.currentPrice?.amount || 0);
@@ -18,7 +17,6 @@ function getCurrentComputedPrice(item, currentCycleIndex) {
   const applicable = discounts
     .filter((d) => d.afterCycle <= currentCycleIndex)
     .sort((a, b) => b.afterCycle - a.afterCycle)[0];
-    console.log("djkfjfdgj",applicable)
 
   if (!applicable) {
     return parseFloat(item?.node?.currentPrice?.amount || 0);
@@ -50,8 +48,8 @@ function formateDate(date) {
 }
 
 export default function SubscriptionDetail() {
-  const { contract, upcomingCycles, internalNotes, customerNotes,preview } = useLoaderData();
-    console.log("upcoming",upcomingCycles, "contract",contract ,"pre",preview)
+  const { contract, upcomingCycles, internalNotes, customerNotes } = useLoaderData();
+    console.log("upcoming",upcomingCycles, "contract",contract )
   const [localLines, setLocalLines] = useState(contract?.lines?.edges || []);
   const [showInternalNotes, setShowInternalNotes] = useState(false);
   const [Internalnotes, setInternalNotes] = useState(internalNotes || "");

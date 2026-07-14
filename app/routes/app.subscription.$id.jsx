@@ -200,7 +200,6 @@ export async function loader({ request, params }) {
         typeof cycle.cycleIndex === "number" && cycle.cycleIndex <= maxCycles -1,
     );
   }
-  let preview = null;
   try {
      const res= await fetch(`${API}/api/subscription`, {
       method: "POST",
@@ -236,7 +235,7 @@ export async function loader({ request, params }) {
   } catch (err) {
     console.error("Backend fetch notes failed:", err);
   }
-  return { contract, upcomingCycles, internalNotes, customerNotes ,preview };
+  return { contract, upcomingCycles, internalNotes, customerNotes  };
 }
 export async function action({ request, params }) {
   const formData = await request.formData();
