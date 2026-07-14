@@ -306,8 +306,7 @@ export async function action({ request, params }) {
     type === "resume" ||
     type === "skip" ||
     type === "unskip" ||
-    type === "removeLineDiscount" ||
-    type === "chargeNow"
+    type === "removeLineDiscount" 
   ) {
     if (type === "pause") {
       const res = await admin.graphql(
@@ -547,78 +546,7 @@ export async function action({ request, params }) {
         unskippedCycleIndex: payload.billingCycle.cycleIndex,
       };
     }
-    if (type === "chargeNow") {
-      const cycleIndexRaw = formData.get("cycleIndex");
-      const cycleIndex = cycleIndexRaw ? parseInt(cycleIndexRaw, 10) : null;
 
-      if (cycleIndex == null || Number.isNaN(cycleIndex)) {
-        return {
-          success: false,
-          error: "Invalid billing cycle index for charge",
-        };
-      }
-
-      const res = await admin.graphql(
-        `
-    mutation ChargeSubscriptionNow(
-      $subscriptionContractId: ID!
-      $billingCycleIndex: Int!
-    ) {
-      subscriptionBillingCycleCharge(
-        subscriptionContractId: $subscriptionContractId
-        billingCycleSelector: { index: $billingCycleIndex }
-      ) {
-        subscriptionBillingAttempt {
-          id
-          ready
-          errorMessage
-          order {
-            id
-            name
-          }
-        }
-        userErrors {
-          field
-          message
-          code
-        }
-      }
-    }
-    `,
-        {
-          variables: {
-            subscriptionContractId: contractId,
-            billingCycleIndex: cycleIndex,
-          },
-        },
-      );
-
-      const data = await res.json();
-      const payload = data?.data?.subscriptionBillingCycleCharge;
-
-      if (!payload || payload.userErrors?.length) {
-        console.error("Charge now failed", payload?.userErrors);
-        return {
-          success: false,
-          error:
-            payload?.userErrors?.map((e) => e.message).join(", ") ||
-            "Charge failed",
-        };
-      }
-
-      const attempt = payload.subscriptionBillingAttempt;
-
-      // you can use these in the UI if you want
-      return {
-        success: true,
-        billingAttemptId: attempt.id,
-        // deprecated but available on your version:
-        ready: attempt.ready,
-        errorMessage: attempt.errorMessage,
-        orderId: attempt.order?.id ?? null,
-        orderName: attempt.order?.name ?? null,
-      };
-    }
   }
 
   const payload = {

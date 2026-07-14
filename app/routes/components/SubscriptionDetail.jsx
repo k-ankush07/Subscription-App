@@ -121,26 +121,7 @@ const nextCycleIndex = nextUpcomingCycle?.cycleIndex ?? null;
     if (!confirmed) return;
     fetcher.submit({ type: "cancel" }, { method: "post" });
   };
-  const handleChargeNow = () => {
-  if (nextCycleIndex == null) {
-    alert("No upcoming billing cycle available to charge.");
-    return;
-  }
 
-  // Optional: confirmation dialog
-  const confirmed = confirm(
-    `Charge the customer now for billing cycle #${nextCycleIndex}?`,
-  );
-  if (!confirmed) return;
-
-  fetcher.submit(
-    {
-      type: "chargeNow",
-      cycleIndex: nextCycleIndex,
-    },
-    { method: "post" },
-  );
-};
 
   return (
     <>
@@ -175,11 +156,6 @@ const nextCycleIndex = nextUpcomingCycle?.cycleIndex ?? null;
         ) : (
           ""
         )}
-                {contract?.status === "ACTIVE" && nextCycleIndex != null && (
-      <Button onClick={handleChargeNow} primary>
-        Charge now
-      </Button>
-    )}
 
         {contract?.status !== "CANCELLED" && (
           <div>
