@@ -2,6 +2,39 @@ import { authenticate } from "../shopify.server";
 import SubscriptionDetail from "./components/SubscriptionDetail";
 const API = import.meta.env.VITE_API_URL;
 const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
+
+
+
+async function getSellingPlanExtraSettings(admin, sellingPlanId) {
+  const res = await admin.graphql(
+    `
+    query GetSellingPlanExtraSettings($sellingPlanId: ID!) {
+      node(id: $sellingPlanId) {
+        ... on SellingPlan {
+          id
+          metafield(namespace: "subscription_app", key: "extra_settings") {
+            value
+          }
+        }
+      }
+    }
+    `,
+    { variables: { sellingPlanId } },
+  );
+
+  const json = await res.json();
+  const mf = json.data?.node?.metafield;
+
+  if (!mf?.value) return null;
+
+  try {
+    return JSON.parse(mf.value);
+  } catch (e) {
+    console.error("Invalid extra_settings JSON metafield", e);
+    return null;
+  }
+}
+
 export async function loader({ request, params }) {
   const { admin } = await authenticate.admin(request);
 
@@ -109,6 +142,8 @@ export async function loader({ request, params }) {
               productId
               variantId
               sku
+              sellingPlanId     
+              sellingPlanName
               currentPrice {
                 amount
                 currencyCode
@@ -186,6 +221,24 @@ export async function loader({ request, params }) {
   const contract = data.data.subscriptionContract;
   const allCycles =
     data.data.subscriptionBillingCycles?.edges?.map((edge) => edge.node) || [];
+
+ // Contract lines list
+const lines = contract.lines?.edges?.map((e) => e.node) || [];
+
+// Unique sellingPlanIds collect karo
+const sellingPlanIds = [
+  ...new Set(
+    lines
+      .map((line) => line.sellingPlanId)
+      .filter(Boolean),
+  ),
+];
+const extraSettingsBySellingPlanId = {};
+
+for (const spId of sellingPlanIds) {
+  const extra = await getSellingPlanExtraSettings(admin, spId);
+  extraSettingsBySellingPlanId[spId] = extra;
+}
   const maxCycles = contract?.billingPolicy?.maxCycles ?? null;
   const now = new Date();
   let upcomingCycles = allCycles.filter(
@@ -197,11 +250,12 @@ export async function loader({ request, params }) {
   if (maxCycles != null) {
     upcomingCycles = upcomingCycles.filter(
       (cycle) =>
-        typeof cycle.cycleIndex === "number" && cycle.cycleIndex <= maxCycles -1,
+        typeof cycle.cycleIndex === "number" &&
+        cycle.cycleIndex <= maxCycles - 1,
     );
   }
   try {
-     const res= await fetch(`${API}/api/subscription`, {
+    const res = await fetch(`${API}/api/subscription`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -212,6 +266,7 @@ export async function loader({ request, params }) {
         contractId,
         contract,
         upcomingCycles,
+        extraSettingsBySellingPlanId
       }),
     });
   } catch (err) {
@@ -235,7 +290,7 @@ export async function loader({ request, params }) {
   } catch (err) {
     console.error("Backend fetch notes failed:", err);
   }
-  return { contract, upcomingCycles, internalNotes, customerNotes  };
+  return { contract, upcomingCycles, internalNotes, customerNotes ,extraSettingsBySellingPlanId};
 }
 export async function action({ request, params }) {
   const formData = await request.formData();
@@ -493,18 +548,18 @@ export async function action({ request, params }) {
       };
     }
     if (type === "chargeNow") {
-  const cycleIndexRaw = formData.get("cycleIndex");
-  const cycleIndex = cycleIndexRaw ? parseInt(cycleIndexRaw, 10) : null;
+      const cycleIndexRaw = formData.get("cycleIndex");
+      const cycleIndex = cycleIndexRaw ? parseInt(cycleIndexRaw, 10) : null;
 
-  if (cycleIndex == null || Number.isNaN(cycleIndex)) {
-    return {
-      success: false,
-      error: "Invalid billing cycle index for charge",
-    };
-  }
+      if (cycleIndex == null || Number.isNaN(cycleIndex)) {
+        return {
+          success: false,
+          error: "Invalid billing cycle index for charge",
+        };
+      }
 
-  const res = await admin.graphql(
-    `
+      const res = await admin.graphql(
+        `
     mutation ChargeSubscriptionNow(
       $subscriptionContractId: ID!
       $billingCycleIndex: Int!
@@ -530,40 +585,40 @@ export async function action({ request, params }) {
       }
     }
     `,
-    {
-      variables: {
-        subscriptionContractId: contractId,
-        billingCycleIndex: cycleIndex,
-      },
-    },
-  );
+        {
+          variables: {
+            subscriptionContractId: contractId,
+            billingCycleIndex: cycleIndex,
+          },
+        },
+      );
 
-  const data = await res.json();
-  const payload = data?.data?.subscriptionBillingCycleCharge;
+      const data = await res.json();
+      const payload = data?.data?.subscriptionBillingCycleCharge;
 
-  if (!payload || payload.userErrors?.length) {
-    console.error("Charge now failed", payload?.userErrors);
-    return {
-      success: false,
-      error:
-        payload?.userErrors?.map((e) => e.message).join(", ") ||
-        "Charge failed",
-    };
-  }
+      if (!payload || payload.userErrors?.length) {
+        console.error("Charge now failed", payload?.userErrors);
+        return {
+          success: false,
+          error:
+            payload?.userErrors?.map((e) => e.message).join(", ") ||
+            "Charge failed",
+        };
+      }
 
-  const attempt = payload.subscriptionBillingAttempt;
+      const attempt = payload.subscriptionBillingAttempt;
 
-  // you can use these in the UI if you want
-  return {
-    success: true,
-    billingAttemptId: attempt.id,
-    // deprecated but available on your version:
-    ready: attempt.ready,
-    errorMessage: attempt.errorMessage,
-    orderId: attempt.order?.id ?? null,
-    orderName: attempt.order?.name ?? null,
-  };
-}
+      // you can use these in the UI if you want
+      return {
+        success: true,
+        billingAttemptId: attempt.id,
+        // deprecated but available on your version:
+        ready: attempt.ready,
+        errorMessage: attempt.errorMessage,
+        orderId: attempt.order?.id ?? null,
+        orderName: attempt.order?.name ?? null,
+      };
+    }
   }
 
   const payload = {

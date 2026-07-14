@@ -1,3 +1,4 @@
+
 // import { unauthenticated } from "../shopify.server";
 // import prisma from "../db.server";
 
@@ -29,7 +30,6 @@
 
 //   const url = new URL(request.url);
 //   const shopOverride = url.searchParams.get("shop");
-//   console.log("dbjsdbjbsjd",shopOverride)
 
 //   try {
 //     let shops = await getShopsWithOfflineTokens();
@@ -71,7 +71,6 @@
 //   });
 // }
 
-
 // async function getShopsWithOfflineTokens() {
 //   const sessions = await prisma.session.findMany({
 //     where: { isOnline: false },
@@ -80,7 +79,6 @@
 //   });
 //   return sessions.map((s) => s.shop);
 // }
-
 
 // async function loadPlanGroupsAndSettings(admin) {
 //   const res = await admin.graphql(`
@@ -135,11 +133,8 @@
 //   }
 // }
 
-
 // const PROCESSED_CYCLES_KEY = "processed_billing_cycles";
-
 // const CHARGED_CYCLES_KEY = "charged_billing_cycles";
-
 // const AUDIT_LOG_KEY = "audit_log";
 
 // async function appendAuditLog(admin, shopId, entry) {
@@ -253,7 +248,6 @@
 //   return addMarker(admin, shopId, CHARGED_CYCLES_KEY, chargedSet, marker);
 // }
 
-
 // async function processShop(admin) {
 //   const { shopId, sellingPlanIdToGroupId, metafieldsByKey } = await loadPlanGroupsAndSettings(admin);
 //   const processedCycles = await getProcessedCycles(admin, shopId);
@@ -282,6 +276,8 @@
 //   const skipped = [];
 
 //   for (const contract of contracts) {
+//     // Use "now" as the date selector — NOT contract.nextBillingDate, which
+//     // Shopify never auto-advances once a cycle bills.
 //     const nowIso = new Date().toISOString();
 //     const cycleRes = await admin.graphql(
 //       `
@@ -324,6 +320,7 @@
 //       });
 //       continue;
 //     }
+
 //     const sellingPlanId = contract.lines.edges[0]?.node?.sellingPlanId;
 //     const groupId = sellingPlanId ? sellingPlanIdToGroupId.get(sellingPlanId) : null;
 //     const settings = groupId ? getExtraSettingsForGroup(metafieldsByKey, groupId) : null;
@@ -357,10 +354,10 @@
 //           reason: "error during draft apply — cycle NOT charged, will retry next run",
 //           error: String(err?.message || err),
 //         });
-
 //         continue;
 //       }
 //     }
+
 //     const chargeMarker = `${contract.id}:${cycleIndex}`;
 //     if (chargedCycles.has(chargeMarker)) {
 //       skipped.push({ contractId: contract.id, cycleIndex, reason: "already charged" });
@@ -435,27 +432,65 @@
 
 //   return { contractsChecked: contracts.length, edited, charged, skipped };
 // }
+
+
 // function collectActionsForCycle(settings, cycleIndex) {
 //   const actions = [];
 //   if (!settings) return actions;
 
+//   cycleIndex = Number(cycleIndex);
 
-//   if (settings.shippingDiscount?.enabled && cycleIndex >= settings.shippingDiscount.after) {
-//     actions.push({ ...settings.shippingDiscount, type: "SHIPPING_DISCOUNT" });
+//   // Shipping Discount
+//   if (settings.giveShippingDiscount && cycleIndex >= Number(settings.shippingAfterOrders)) {
+//     actions.push({
+//       type: "SHIPPING_DISCOUNT",
+//       discountType: settings.shippingDiscountType,
+//       value: settings.shippingDiscountValue,
+//       after: settings.shippingAfterOrders,
+//     });
 //   }
 
-//   if (settings.quantityChange?.enabled && cycleIndex >= settings.quantityChange.after) {
-//     actions.push({ ...settings.quantityChange, type: "QUANTITY_CHANGE" });
+//   // Quantity Change
+//   if (settings.changeQuantityAfterOrders && cycleIndex >= Number(settings.quantityAfterOrders)) {
+//     actions.push({
+//       type: "QUANTITY_CHANGE",
+//       value: settings.quantityAfterOrdersValue,
+//       products: settings.quantityProducts ?? [],
+//       after: settings.quantityAfterOrders,
+//     });
 //   }
 
-//   for (const auto of settings.automaticActions || []) {
-//     if (cycleIndex >= auto.afterCycle) {
-//       actions.push({ ...auto, type: auto.type });
+//   // Remove Free Product
+//   if (settings.RemoveFreeProdcut && cycleIndex >= Number(settings.removeFreeProductValue)) {
+//     actions.push({
+//       type: "REMOVE_FREE_PRODUCT",
+//       products: settings.freeProducts ?? [],
+//       after: settings.removeFreeProductValue,
+//     });
+//   }
+
+//   // Automation
+//   if (settings.Automation && Array.isArray(settings.automationCycles)) {
+//     for (const auto of settings.automationCycles) {
+//       if (cycleIndex >= Number(auto.orders)) {
+//         for (const action of auto.actions ?? []) {
+//           actions.push({ ...action, after: auto.orders });
+//         }
+//       }
 //     }
+//   }
+
+//   // Minimum Quantity
+//   if (settings.MinimumQuanitity) {
+//     actions.push({
+//       type: "MINIMUM_QUANTITY",
+//       value: settings.MinimumQuanitityValue,
+//     });
 //   }
 
 //   return actions;
 // }
+
 // async function applyActionsToCycle(admin, contractId, cycleIndex, actions) {
 //   // 1. Open the draft for this specific billing cycle.
 //   const editRes = await admin.graphql(
@@ -538,6 +573,7 @@
 //         throw new Error(`${action.type} failed: ${errors[0].message}`);
 //       }
 //     }
+
 //     if (action.type === "SHIPPING_DISCOUNT") {
 //       const res = await admin.graphql(
 //         `
@@ -582,6 +618,27 @@
 //         throw new Error(`${action.type} failed: ${errors[0].message}`);
 //       }
 //     }
+//     if (action.type === "REMOVE_FREE_PRODUCT") {
+//       if (!lineId) {
+//         throw new Error("REMOVE_FREE_PRODUCT failed: no line found on draft to remove");
+//       }
+//       const res = await admin.graphql(
+//         `
+//         mutation removeFreeLine($draftId: ID!, $lineId: ID!) {
+//           subscriptionDraftLineRemove(draftId: $draftId, lineId: $lineId) {
+//             userErrors { field message }
+//           }
+//         }
+//       `,
+//         { variables: { draftId, lineId } },
+//       );
+
+//       const data = await res.json();
+//       const errors = data.data?.subscriptionDraftLineRemove?.userErrors;
+//       if (errors?.length) {
+//         throw new Error(`REMOVE_FREE_PRODUCT failed: ${errors[0].message}`);
+//       }
+//     }
 
 //     // ── ADD_PRODUCT ──
 //     if (action.type === "ADD_PRODUCT") {
@@ -608,16 +665,35 @@
 //   }
 
 //   // 2. Commit.
+//   // const commitRes = await admin.graphql(
+//   //   `
+//   //   mutation commitCycleDraft($draftId: ID!) {
+//   //     subscriptionBillingCycleContractDraftCommit(draftId: $draftId) {
+//   //       userErrors { field message }
+//   //     }
+//   //   }
+//   // `,
+//   //   { variables: { draftId } },
+//   // );
+
 //   const commitRes = await admin.graphql(
-//     `
-//     mutation commitCycleDraft($draftId: ID!) {
-//       subscriptionBillingCycleContractDraftCommit(draftId: $draftId) {
-//         userErrors { field message }
-//       }
+//   `
+//   mutation commitCycleDraft($draftId: ID!, $billingCycleInput: SubscriptionBillingCycleInput!) {
+//     subscriptionBillingCycleContractDraftCommit(
+//       draftId: $draftId
+//       billingCycleInput: $billingCycleInput
+//     ) {
+//       userErrors { field message }
 //     }
-//   `,
-//     { variables: { draftId } },
-//   );
+//   }
+// `,
+//   {
+//     variables: {
+//       draftId,
+//       billingCycleInput: { contractId, selector: { index: cycleIndex } },
+//     },
+//   },
+// );
 
 //   const commitData = await commitRes.json();
 //   const commitErrors = commitData.data?.subscriptionBillingCycleContractDraftCommit?.userErrors;
@@ -625,8 +701,11 @@
 //     throw new Error(`subscriptionBillingCycleContractDraftCommit failed: ${commitErrors[0].message}`);
 //   }
 // }
+
+
 import { unauthenticated } from "../shopify.server";
 import prisma from "../db.server";
+import { collectActionsForCycle, applyActionsToCycle } from "../lib/billing-preview.server";
 
 const EXTRA_SETTINGS_NAMESPACE = "subscription_app";
 
@@ -659,7 +738,6 @@ export const action = async ({ request }) => {
 
   try {
     let shops = await getShopsWithOfflineTokens();
-
     if (shopOverride) {
       if (!shops.includes(shopOverride)) {
         return json(
@@ -1057,254 +1135,4 @@ async function processShop(admin) {
   }
 
   return { contractsChecked: contracts.length, edited, charged, skipped };
-}
-
-
-function collectActionsForCycle(settings, cycleIndex) {
-  const actions = [];
-  if (!settings) return actions;
-
-  cycleIndex = Number(cycleIndex);
-
-  // Shipping Discount
-  if (settings.giveShippingDiscount && cycleIndex >= Number(settings.shippingAfterOrders)) {
-    actions.push({
-      type: "SHIPPING_DISCOUNT",
-      discountType: settings.shippingDiscountType,
-      value: settings.shippingDiscountValue,
-      after: settings.shippingAfterOrders,
-    });
-  }
-
-  // Quantity Change
-  if (settings.changeQuantityAfterOrders && cycleIndex >= Number(settings.quantityAfterOrders)) {
-    actions.push({
-      type: "QUANTITY_CHANGE",
-      value: settings.quantityAfterOrdersValue,
-      products: settings.quantityProducts ?? [],
-      after: settings.quantityAfterOrders,
-    });
-  }
-
-  // Remove Free Product
-  if (settings.RemoveFreeProdcut && cycleIndex >= Number(settings.removeFreeProductValue)) {
-    actions.push({
-      type: "REMOVE_FREE_PRODUCT",
-      products: settings.freeProducts ?? [],
-      after: settings.removeFreeProductValue,
-    });
-  }
-
-  // Automation
-  if (settings.Automation && Array.isArray(settings.automationCycles)) {
-    for (const auto of settings.automationCycles) {
-      if (cycleIndex >= Number(auto.orders)) {
-        for (const action of auto.actions ?? []) {
-          actions.push({ ...action, after: auto.orders });
-        }
-      }
-    }
-  }
-
-  // Minimum Quantity
-  if (settings.MinimumQuanitity) {
-    actions.push({
-      type: "MINIMUM_QUANTITY",
-      value: settings.MinimumQuanitityValue,
-    });
-  }
-
-  return actions;
-}
-
-async function applyActionsToCycle(admin, contractId, cycleIndex, actions) {
-  // 1. Open the draft for this specific billing cycle.
-  const editRes = await admin.graphql(
-    `
-    mutation openCycleDraft($contractId: ID!, $index: Int!) {
-      subscriptionBillingCycleContractEdit(
-        billingCycleInput: { contractId: $contractId, selector: { index: $index } }
-      ) {
-        draft {
-          id
-          lines(first: 10) {
-            edges { node { id } }
-          }
-        }
-        userErrors { field message }
-      }
-    }
-  `,
-    { variables: { contractId, index: cycleIndex } },
-  );
-
-  const editData = await editRes.json();
-  const payload = editData.data?.subscriptionBillingCycleContractEdit;
-  if (payload?.userErrors?.length) {
-    throw new Error(`subscriptionBillingCycleContractEdit failed: ${payload.userErrors[0].message}`);
-  }
-  if (!payload?.draft) {
-    throw new Error("subscriptionBillingCycleContractEdit returned no draft");
-  }
-
-  const draftId = payload.draft.id;
-  const lineId = payload.draft.lines.edges[0]?.node?.id;
-
-  for (const action of actions) {
-    // ── QUANTITY_CHANGE ──
-    if (action.type === "QUANTITY_CHANGE") {
-      if (!lineId) {
-        throw new Error("QUANTITY_CHANGE failed: no line found on draft to update");
-      }
-      const res = await admin.graphql(
-        `
-        mutation updateLineQty($draftId: ID!, $lineId: ID!, $qty: Int!) {
-          subscriptionDraftLineUpdate(draftId: $draftId, lineId: $lineId, input: { quantity: $qty }) {
-            userErrors { field message }
-          }
-        }
-      `,
-        { variables: { draftId, lineId, qty: action.value } },
-      );
-
-      const data = await res.json();
-      const errors = data.data?.subscriptionDraftLineUpdate?.userErrors;
-      if (errors?.length) {
-        throw new Error(`QUANTITY_CHANGE failed: ${errors[0].message}`);
-      }
-    }
-
-    // ── PRODUCT_SWAP / VARIANT_SWAP ──
-    if (action.type === "PRODUCT_SWAP" || action.type === "VARIANT_SWAP") {
-      if (!lineId) {
-        throw new Error(`${action.type} failed: no line found on draft to update`);
-      }
-      if (!action.variantId) {
-        throw new Error(`${action.type} failed: no variantId configured for this action`);
-      }
-      const res = await admin.graphql(
-        `
-        mutation swapLine($draftId: ID!, $lineId: ID!, $variantId: ID!) {
-          subscriptionDraftLineUpdate(draftId: $draftId, lineId: $lineId, input: { productVariantId: $variantId }) {
-            userErrors { field message }
-          }
-        }
-      `,
-        { variables: { draftId, lineId, variantId: action.variantId } },
-      );
-
-      const data = await res.json();
-      const errors = data.data?.subscriptionDraftLineUpdate?.userErrors;
-      if (errors?.length) {
-        throw new Error(`${action.type} failed: ${errors[0].message}`);
-      }
-    }
-
-    if (action.type === "SHIPPING_DISCOUNT") {
-      const res = await admin.graphql(
-        `
-        mutation addShippingDiscount($draftId: ID!) {
-          subscriptionDraftFreeShippingDiscountAdd(
-            draftId: $draftId
-            input: { title: "Auto shipping discount" }
-          ) {
-            userErrors { field message }
-          }
-        }
-      `,
-        { variables: { draftId } },
-      );
-
-      const data = await res.json();
-      const errors = data.data?.subscriptionDraftFreeShippingDiscountAdd?.userErrors;
-      if (errors?.length) {
-        throw new Error(`SHIPPING_DISCOUNT failed: ${errors[0].message}`);
-      }
-    }
-
-    // ── REMOVE_PRODUCT / REMOVE_VARIANT ──
-    if (action.type === "REMOVE_PRODUCT" || action.type === "REMOVE_VARIANT") {
-      if (!lineId) {
-        throw new Error(`${action.type} failed: no line found on draft to remove`);
-      }
-      const res = await admin.graphql(
-        `
-        mutation removeLine($draftId: ID!, $lineId: ID!) {
-          subscriptionDraftLineRemove(draftId: $draftId, lineId: $lineId) {
-            userErrors { field message }
-          }
-        }
-      `,
-        { variables: { draftId, lineId } },
-      );
-
-      const data = await res.json();
-      const errors = data.data?.subscriptionDraftLineRemove?.userErrors;
-      if (errors?.length) {
-        throw new Error(`${action.type} failed: ${errors[0].message}`);
-      }
-    }
-    if (action.type === "REMOVE_FREE_PRODUCT") {
-      if (!lineId) {
-        throw new Error("REMOVE_FREE_PRODUCT failed: no line found on draft to remove");
-      }
-      const res = await admin.graphql(
-        `
-        mutation removeFreeLine($draftId: ID!, $lineId: ID!) {
-          subscriptionDraftLineRemove(draftId: $draftId, lineId: $lineId) {
-            userErrors { field message }
-          }
-        }
-      `,
-        { variables: { draftId, lineId } },
-      );
-
-      const data = await res.json();
-      const errors = data.data?.subscriptionDraftLineRemove?.userErrors;
-      if (errors?.length) {
-        throw new Error(`REMOVE_FREE_PRODUCT failed: ${errors[0].message}`);
-      }
-    }
-
-    // ── ADD_PRODUCT ──
-    if (action.type === "ADD_PRODUCT") {
-      if (!action.variantId) {
-        throw new Error("ADD_PRODUCT failed: no variantId configured for this action");
-      }
-      const res = await admin.graphql(
-        `
-        mutation addLine($draftId: ID!, $variantId: ID!, $qty: Int!) {
-          subscriptionDraftLineAdd(draftId: $draftId, input: { productVariantId: $variantId, quantity: $qty }) {
-            userErrors { field message }
-          }
-        }
-      `,
-        { variables: { draftId, variantId: action.variantId, qty: 1 } },
-      );
-
-      const data = await res.json();
-      const errors = data.data?.subscriptionDraftLineAdd?.userErrors;
-      if (errors?.length) {
-        throw new Error(`ADD_PRODUCT failed: ${errors[0].message}`);
-      }
-    }
-  }
-
-  // 2. Commit.
-  const commitRes = await admin.graphql(
-    `
-    mutation commitCycleDraft($draftId: ID!) {
-      subscriptionBillingCycleContractDraftCommit(draftId: $draftId) {
-        userErrors { field message }
-      }
-    }
-  `,
-    { variables: { draftId } },
-  );
-
-  const commitData = await commitRes.json();F
-  const commitErrors = commitData.data?.subscriptionBillingCycleContractDraftCommit?.userErrors;
-  if (commitErrors?.length) {
-    throw new Error(`subscriptionBillingCycleContractDraftCommit failed: ${commitErrors[0].message}`);
-  }
 }

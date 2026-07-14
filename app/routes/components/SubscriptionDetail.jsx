@@ -15,7 +15,7 @@ function getCurrentComputedPrice(item, currentCycleIndex) {
     return parseFloat(item?.node?.currentPrice?.amount || 0);
   }
   const applicable = discounts
-    .filter((d) => d.afterCycle <= currentCycleIndex)
+    .filter((d) => d.afterCycle < currentCycleIndex)
     .sort((a, b) => b.afterCycle - a.afterCycle)[0];
 
   if (!applicable) {
@@ -48,8 +48,8 @@ function formateDate(date) {
 }
 
 export default function SubscriptionDetail() {
-  const { contract, upcomingCycles, internalNotes, customerNotes } = useLoaderData();
-    console.log("upcoming",upcomingCycles, "contract",contract )
+  const { contract, upcomingCycles, internalNotes, customerNotes ,extraSettingsBySellingPlanId} = useLoaderData();
+    console.log("upcoming",upcomingCycles, "contract",contract ,"extra setting ",extraSettingsBySellingPlanId)
   const [localLines, setLocalLines] = useState(contract?.lines?.edges || []);
   const [showInternalNotes, setShowInternalNotes] = useState(false);
   const [Internalnotes, setInternalNotes] = useState(internalNotes || "");

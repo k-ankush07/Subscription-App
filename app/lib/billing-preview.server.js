@@ -4,7 +4,6 @@
 //   return `extra_settings_${numericId}`;
 // }
 
-
 // function collectActionsForCycle(settings, cycleIndex) {
 //   const actions = [];
 //   if (!settings) return actions;
@@ -12,10 +11,7 @@
 //   cycleIndex = Number(cycleIndex);
 
 //   // Shipping Discount
-//   if (
-//     settings.giveShippingDiscount &&
-//      cycleIndex  >= Number(settings.shippingAfterOrders) 
-//   ) {
+//   if (settings.giveShippingDiscount && cycleIndex >= Number(settings.shippingAfterOrders)) {
 //     actions.push({
 //       type: "SHIPPING_DISCOUNT",
 //       discountType: settings.shippingDiscountType,
@@ -25,10 +21,7 @@
 //   }
 
 //   // Quantity Change
-//   if (
-//     settings.changeQuantityAfterOrders &&
-//       cycleIndex >= Number(settings.quantityAfterOrders)
-//   ) {
+//   if (settings.changeQuantityAfterOrders && cycleIndex >= Number(settings.quantityAfterOrders)) {
 //     actions.push({
 //       type: "QUANTITY_CHANGE",
 //       value: settings.quantityAfterOrdersValue,
@@ -38,10 +31,7 @@
 //   }
 
 //   // Remove Free Product
-//   if (
-//     settings.RemoveFreeProdcut &&
-//     cycleIndex >= Number(settings.removeFreeProductValue) 
-//   ) {
+//   if (settings.RemoveFreeProdcut && cycleIndex >= Number(settings.removeFreeProductValue)) {
 //     actions.push({
 //       type: "REMOVE_FREE_PRODUCT",
 //       products: settings.freeProducts ?? [],
@@ -50,19 +40,15 @@
 //   }
 
 //   // Automation
-//  // Automation
-// if (settings.Automation && Array.isArray(settings.automationCycles)) {
-//   for (const auto of settings.automationCycles) {
-//     if ( cycleIndex >= Number(auto.orders)) {
-//       for (const action of auto.actions ?? []) {
-//         actions.push({
-//           ...action,
-//           after: auto.orders,
-//         });
+//   if (settings.Automation && Array.isArray(settings.automationCycles)) {
+//     for (const auto of settings.automationCycles) {
+//       if (cycleIndex >= Number(auto.orders)) {
+//         for (const action of auto.actions ?? []) {
+//           actions.push({ ...action, after: auto.orders });
+//         }
 //       }
 //     }
 //   }
-// }
 
 //   // Minimum Quantity
 //   if (settings.MinimumQuanitity) {
@@ -75,6 +61,26 @@
 //   return actions;
 // }
 
+
+// function computePriceForCycle(pricingPolicy, cycleIndex) {
+//   if (!pricingPolicy?.cycleDiscounts?.length) {
+//     return pricingPolicy?.basePrice ?? null;
+//   }
+
+//   cycleIndex = Number(cycleIndex);
+//   let bestTier = null;
+//   for (const tier of pricingPolicy.cycleDiscounts) {
+//     const afterCycle = Number(tier.afterCycle);
+//     if (cycleIndex > afterCycle) {
+//       if (!bestTier || afterCycle >= Number(bestTier.afterCycle)) {
+//         bestTier = tier;
+//       }
+//     }
+//   }
+
+//   return bestTier ? bestTier.computedPrice : pricingPolicy.basePrice;
+// }
+
 // async function getContractPreview(admin, contractId) {
 //   const contractRes = await admin.graphql(
 //     `
@@ -85,7 +91,32 @@
 //         nextBillingDate
 //         customer { id displayName }
 //         lines(first: 5) {
-//           edges { node { id title quantity sellingPlanId currentPrice { amount currencyCode } } }
+//           edges {
+//             node {
+//               id
+//               title
+//               quantity
+//               sellingPlanId
+//               currentPrice { amount currencyCode }
+//               pricingPolicy {
+//                 basePrice { amount currencyCode }
+//                 cycleDiscounts {
+//                   afterCycle
+//                   adjustmentType
+//                   adjustmentValue {
+//                     ... on SellingPlanPricingPolicyPercentageValue {
+//                       percentage
+//                     }
+//                     ... on MoneyV2 {
+//                       amount
+//                       currencyCode
+//                     }
+//                   }
+//                   computedPrice { amount currencyCode }
+//                 }
+//               }
+//             }
+//           }
 //         }
 //       }
 //     }
@@ -100,32 +131,33 @@
 //     return null;
 //   }
 
-//   const sellingPlanId = contract.lines.edges[0]?.node?.sellingPlanId;
+//   const firstLine = contract.lines.edges[0]?.node;
+//   const sellingPlanId = firstLine?.sellingPlanId;
 
+//   let groupId = null;
+//   let groupName = null;
+//   let extraSettings = null;
 
-// let groupId = null;
-// let groupName = null;
-// let extraSettings = null;
+//   if (sellingPlanId) {
+//     const groupsRes = await admin.graphql(`
+//       query {
+//         sellingPlanGroups(first: 50) {
+//           edges {
+//             node {
+//               id
+//               name
 
-// if (sellingPlanId) {
-//   const groupsRes = await admin.graphql(`
-//     query {
-//       sellingPlanGroups(first: 50) {
-//         edges {
-//           node {
-//             id
-//             name
+//               sellingPlans(first: 20) {
+//                 edges {
+//                   node {
+//                     id
 
-//             sellingPlans(first: 20) {
-//               edges {
-//                 node {
-//                   id
-
-//                   extraSettingsMetafield: metafield(
-//                     namespace: "subscription_app"
-//                     key: "extra_settings"
-//                   ) {
-//                     value
+//                     extraSettingsMetafield: metafield(
+//                       namespace: "subscription_app"
+//                       key: "extra_settings"
+//                     ) {
+//                       value
+//                     }
 //                   }
 //                 }
 //               }
@@ -133,142 +165,130 @@
 //           }
 //         }
 //       }
-//     }
-//   `);
+//     `);
 
-//   const groupsData = await groupsRes.json();
+//     const groupsData = await groupsRes.json();
 
-//   for (const { node: group } of groupsData.data.sellingPlanGroups.edges) {
-
-//     const plan = group.sellingPlans.edges.find(
-//       ({ node }) => node.id === sellingPlanId
-//     );
-
-//     if (!plan) continue;
-
-//     groupId = group.id;
-//     groupName = group.name;
-
-//     const raw = plan.node.extraSettingsMetafield?.value;
-
-//     if (raw) {
-//       extraSettings = JSON.parse(raw);
-//     }
-
-//     break;
-//   }
-// }
-
-
-//   // let cycleIndex = null;
-//   // let nextBillingDate = contract.nextBillingDate;
-
-//   // if (contract.nextBillingDate) {
-//   //   const cycleRes = await admin.graphql(
-//   //     `
-//   //     query getCycleByDate($contractId: ID!, $date: DateTime!) {
-//   //       subscriptionBillingCycle(
-//   //         billingCycleInput: { contractId: $contractId, selector: { date: $date } }
-//   //       ) {
-//   //         cycleIndex
-//   //         billingAttemptExpectedDate
-//   //         skipped
-//   //       }
-//   //     }
-//   //   `,
-//   //     { variables: { contractId, date: contract.nextBillingDate } },
-//   //   );
-
-//   //   const cycleData = await cycleRes.json();
-//   //   console.log("cndjfjdsfbjdsbjhdf",cycleData)
-//   //   const cycle = cycleData.data?.subscriptionBillingCycle;
-//   //   if (cycle) {
-//   //     cycleIndex = cycle.cycleIndex;
-//   //     nextBillingDate = cycle.billingAttemptExpectedDate || nextBillingDate;
-//   //   }
-//   // }
-//   let cycleIndex = null;
-// let nextBillingDate = contract.nextBillingDate;
-// let cycleStatus = null;
-
-// if (contract.nextBillingDate) {
-//   // Step 1: date se starting cycleIndex nikaalo
-//   const cycleRes = await admin.graphql(
-//     `
-//     query getCycleByDate($contractId: ID!, $date: DateTime!) {
-//       subscriptionBillingCycle(
-//         billingCycleInput: { contractId: $contractId, selector: { date: $date } }
-//       ) {
-//         cycleIndex
-//         billingAttemptExpectedDate
-//         status
-//         skipped
-//       }
-//     }
-//     `,
-//     { variables: { contractId, date: contract.nextBillingDate } },
-//   );
-
-//   let cycleData = await cycleRes.json();
-//   let cycle = cycleData.data?.subscriptionBillingCycle;
-
-//   if (cycle) {
-//     cycleIndex = cycle.cycleIndex;
-//     nextBillingDate = cycle.billingAttemptExpectedDate || nextBillingDate;
-//     cycleStatus = cycle.status;
-
-//     // Step 2: agar ye cycle already BILLED hai, to aage badhte jao jab tak UNBILLED na mile
-//     let safetyCounter = 0; // infinite loop se bachne ke liye
-//     while (cycleStatus === "BILLED" && safetyCounter < 20) {
-//       cycleIndex += 1;
-//       safetyCounter += 1;
-
-//       const nextCycleRes = await admin.graphql(
-//         `
-//         query getCycleByIndex($contractId: ID!, $index: Int!) {
-//           subscriptionBillingCycle(
-//             billingCycleInput: { contractId: $contractId, selector: { index: $index } }
-//           ) {
-//             cycleIndex
-//             billingAttemptExpectedDate
-//             status
-//             skipped
-//           }
-//         }
-//         `,
-//         { variables: { contractId, index: cycleIndex } },
+//     for (const { node: group } of groupsData.data.sellingPlanGroups.edges) {
+//       const plan = group.sellingPlans.edges.find(
+//         ({ node }) => node.id === sellingPlanId
 //       );
 
-//       const nextCycleData = await nextCycleRes.json();
-//       const nextCycle = nextCycleData.data?.subscriptionBillingCycle;
+//       if (!plan) continue;
 
-//       if (!nextCycle) break; // aur cycles hi nahi bache (contract khatam ho gaya)
+//       groupId = group.id;
+//       groupName = group.name;
 
-//       cycleIndex = nextCycle.cycleIndex;
-//       nextBillingDate = nextCycle.billingAttemptExpectedDate || nextBillingDate;
-//       cycleStatus = nextCycle.status;
+//       const raw = plan.node.extraSettingsMetafield?.value;
+
+//       if (raw) {
+//         extraSettings = JSON.parse(raw);
+//       }
+
+//       break;
 //     }
 //   }
-// }
+
+//   let cycleIndex = null;
+//   let nextBillingDate = contract.nextBillingDate;
+//   let cycleStatus = null;
+
+//   if (contract.nextBillingDate) {
+//     const cycleRes = await admin.graphql(
+//       `
+//       query getCycleByDate($contractId: ID!, $date: DateTime!) {
+//         subscriptionBillingCycle(
+//           billingCycleInput: { contractId: $contractId, selector: { date: $date } }
+//         ) {
+//           cycleIndex
+//           billingAttemptExpectedDate
+//           status
+//           skipped
+//         }
+//       }
+//       `,
+//       { variables: { contractId, date: contract.nextBillingDate } },
+//     );
+
+//     let cycleData = await cycleRes.json();
+//     let cycle = cycleData.data?.subscriptionBillingCycle;
+
+//     if (cycle) {
+//       cycleIndex = cycle.cycleIndex;
+//       nextBillingDate = cycle.billingAttemptExpectedDate || nextBillingDate;
+//       cycleStatus = cycle.status;
+
+//       let safetyCounter = 0;
+//       while (cycleStatus === "BILLED" && safetyCounter < 20) {
+//         cycleIndex += 1;
+//         safetyCounter += 1;
+
+//         const nextCycleRes = await admin.graphql(
+//           `
+//           query getCycleByIndex($contractId: ID!, $index: Int!) {
+//             subscriptionBillingCycle(
+//               billingCycleInput: { contractId: $contractId, selector: { index: $index } }
+//             ) {
+//               cycleIndex
+//               billingAttemptExpectedDate
+//               status
+//               skipped
+//             }
+//           }
+//           `,
+//           { variables: { contractId, index: cycleIndex } },
+//         );
+
+//         const nextCycleData = await nextCycleRes.json();
+//         const nextCycle = nextCycleData.data?.subscriptionBillingCycle;
+
+//         if (!nextCycle) break;
+
+//         cycleIndex = nextCycle.cycleIndex;
+//         nextBillingDate = nextCycle.billingAttemptExpectedDate || nextBillingDate;
+//         cycleStatus = nextCycle.status;
+//       }
+//     }
+//   }
 
 //   const actionsForNextCycle =
 //     cycleIndex != null ? collectActionsForCycle(extraSettings, cycleIndex) : [];
 
+//   // ── Work out the actual next-order price + quantity + total ──
+//   const calculatedPricePerUnit =
+//     cycleIndex != null ? computePriceForCycle(firstLine?.pricingPolicy, cycleIndex) : null;
+
+//     console.log("fhdjhbjbvjdfvj",calculatedPricePerUnit)
+//   const quantityAction = Array.isArray(actionsForNextCycle)
+//     ? actionsForNextCycle.find((a) => a.type === "QUANTITY_CHANGE")
+//     : null;
+//   const calculatedQuantity = quantityAction ? Number(quantityAction.value) : firstLine?.quantity;
+
+//   const calculatedItemTotal =
+//     calculatedPricePerUnit && calculatedQuantity != null
+//       ? {
+//           amount: (Number(calculatedPricePerUnit.amount) * calculatedQuantity).toFixed(2),
+//           currencyCode: calculatedPricePerUnit.currencyCode,
+//         }
+//       : null;
 
 //   const preview = {
 //     contractId: contract.id,
 //     status: contract.status,
 //     customer: contract.customer,
 //     lineItem: {
-//         id: contract.lines.edges[0]?.node?.id,
-//       title: contract.lines.edges[0]?.node?.title,
-//       quantity: contract.lines.edges[0]?.node?.quantity,
-//       price: contract.lines.edges[0]?.node?.currentPrice,
+//       id: firstLine?.id,
+//       title: firstLine?.title,
+//       quantity: firstLine?.quantity,
+//       price: firstLine?.currentPrice,
 //     },
 //     planGroup: { id: groupId, name: groupName },
 //     nextOrder: {
 //       cycleIndex,
 //       expectedDate: nextBillingDate,
+//       calculatedPricePerUnit,
+//       calculatedQuantity,
+//       calculatedItemTotal,
 //       willApply:
 //         actionsForNextCycle.length > 0
 //           ? actionsForNextCycle
@@ -291,6 +311,13 @@
 //   );
 //   console.log(`   Next order date: ${preview.nextOrder.expectedDate}`);
 //   console.log(`   Next order cycle #: ${preview.nextOrder.cycleIndex}`);
+//   console.log(
+//     `   Next order calculated price/unit: ${preview.nextOrder.calculatedPricePerUnit?.amount} ${preview.nextOrder.calculatedPricePerUnit?.currencyCode}`,
+//   );
+//   console.log(`   Next order calculated quantity: ${preview.nextOrder.calculatedQuantity}`);
+//   console.log(
+//     `   Next order calculated total: ${preview.nextOrder.calculatedItemTotal?.amount} ${preview.nextOrder.calculatedItemTotal?.currencyCode}`,
+//   );
 //   console.log(`   Will apply on next order:`, preview.nextOrder.willApply);
 //   console.log("─────────────────────────────────────────────");
 
@@ -300,6 +327,7 @@
 // export {
 //   getContractPreview,
 //   collectActionsForCycle,
+//   computePriceForCycle,
 //   metaKeyForGroup,
 //   EXTRA_SETTINGS_NAMESPACE,
 // };
@@ -307,12 +335,13 @@
 
 
 
-
 const EXTRA_SETTINGS_NAMESPACE = "subscription_app";
+
 function metaKeyForGroup(groupId) {
   const numericId = groupId.split("/").pop();
   return `extra_settings_${numericId}`;
 }
+
 
 function collectActionsForCycle(settings, cycleIndex) {
   const actions = [];
@@ -320,8 +349,11 @@ function collectActionsForCycle(settings, cycleIndex) {
 
   cycleIndex = Number(cycleIndex);
 
-  // Shipping Discount
-  if (settings.giveShippingDiscount && cycleIndex >= Number(settings.shippingAfterOrders)) {
+  // 1. Shipping Discount — "after N orders"
+  if (
+    settings.giveShippingDiscount &&
+    cycleIndex >= Number(settings.shippingAfterOrders)
+  ) {
     actions.push({
       type: "SHIPPING_DISCOUNT",
       discountType: settings.shippingDiscountType,
@@ -330,8 +362,11 @@ function collectActionsForCycle(settings, cycleIndex) {
     });
   }
 
-  // Quantity Change
-  if (settings.changeQuantityAfterOrders && cycleIndex >= Number(settings.quantityAfterOrders)) {
+  // 2. Quantity Change — "change quantity to X after N orders"
+  if (
+    settings.changeQuantityAfterOrders &&
+    cycleIndex >= Number(settings.quantityAfterOrders)
+  ) {
     actions.push({
       type: "QUANTITY_CHANGE",
       value: settings.quantityAfterOrdersValue,
@@ -340,8 +375,23 @@ function collectActionsForCycle(settings, cycleIndex) {
     });
   }
 
-  // Remove Free Product
-  if (settings.RemoveFreeProdcut && cycleIndex >= Number(settings.removeFreeProductValue)) {
+  // 3. Product Swap — "swap to variant X after N orders"
+  if (
+    settings.productSwapEnabled &&
+    cycleIndex >= Number(settings.productSwapAfterOrders)
+  ) {
+    actions.push({
+      type: "VARIANT_SWAP",
+      variantId: settings.productSwapVariantId,
+      after: settings.productSwapAfterOrders,
+    });
+  }
+
+  // 4. Remove Free Product — "after N orders"
+  if (
+    settings.RemoveFreeProdcut &&
+    cycleIndex >= Number(settings.removeFreeProductValue)
+  ) {
     actions.push({
       type: "REMOVE_FREE_PRODUCT",
       products: settings.freeProducts ?? [],
@@ -349,7 +399,7 @@ function collectActionsForCycle(settings, cycleIndex) {
     });
   }
 
-  // Automation
+  // 5. Custom automation list — merchant ke defined arbitrary cycles
   if (settings.Automation && Array.isArray(settings.automationCycles)) {
     for (const auto of settings.automationCycles) {
       if (cycleIndex >= Number(auto.orders)) {
@@ -360,7 +410,7 @@ function collectActionsForCycle(settings, cycleIndex) {
     }
   }
 
-  // Minimum Quantity
+  // 6. Minimum quantity floor (always active if enabled)
   if (settings.MinimumQuanitity) {
     actions.push({
       type: "MINIMUM_QUANTITY",
@@ -371,14 +421,12 @@ function collectActionsForCycle(settings, cycleIndex) {
   return actions;
 }
 
-
 function computePriceForCycle(pricingPolicy, cycleIndex) {
   if (!pricingPolicy?.cycleDiscounts?.length) {
     return pricingPolicy?.basePrice ?? null;
   }
 
   cycleIndex = Number(cycleIndex);
-  console.log("police",pricingPolicy)
   let bestTier = null;
   for (const tier of pricingPolicy.cycleDiscounts) {
     const afterCycle = Number(tier.afterCycle);
@@ -390,6 +438,191 @@ function computePriceForCycle(pricingPolicy, cycleIndex) {
   }
 
   return bestTier ? bestTier.computedPrice : pricingPolicy.basePrice;
+}
+
+// ─────────────────────────────────────────────
+// Actually applies the collected actions to a specific billing cycle
+// via a draft-edit + commit. This is what makes the auto-generated
+// order reflect swapped product / new quantity / discount etc.
+// ─────────────────────────────────────────────
+async function applyActionsToCycle(admin, contractId, cycleIndex, actions) {
+  // 1. Open the draft for this specific billing cycle.
+  const editRes = await admin.graphql(
+    `
+    mutation openCycleDraft($contractId: ID!, $index: Int!) {
+      subscriptionBillingCycleContractEdit(
+        billingCycleInput: { contractId: $contractId, selector: { index: $index } }
+      ) {
+        draft {
+          id
+          lines(first: 10) {
+            edges { node { id quantity } }
+          }
+        }
+        userErrors { field message }
+      }
+    }
+    `,
+    { variables: { contractId, index: cycleIndex } },
+  );
+
+  const editData = await editRes.json();
+  const payload = editData.data?.subscriptionBillingCycleContractEdit;
+  if (payload?.userErrors?.length) {
+    throw new Error(`subscriptionBillingCycleContractEdit failed: ${payload.userErrors[0].message}`);
+  }
+  if (!payload?.draft) {
+    throw new Error("subscriptionBillingCycleContractEdit returned no draft");
+  }
+
+  const draftId = payload.draft.id;
+  const lineId = payload.draft.lines.edges[0]?.node?.id;
+  const currentQty = payload.draft.lines.edges[0]?.node?.quantity ?? 1;
+
+  for (const action of actions) {
+    // ── QUANTITY_CHANGE ──
+    if (action.type === "QUANTITY_CHANGE") {
+      if (!lineId) throw new Error("QUANTITY_CHANGE failed: no line found on draft");
+      const res = await admin.graphql(
+        `
+        mutation updateLineQty($draftId: ID!, $lineId: ID!, $qty: Int!) {
+          subscriptionDraftLineUpdate(draftId: $draftId, lineId: $lineId, input: { quantity: $qty }) {
+            userErrors { field message }
+          }
+        }
+        `,
+        { variables: { draftId, lineId, qty: Number(action.value) } },
+      );
+      const data = await res.json();
+      const errors = data.data?.subscriptionDraftLineUpdate?.userErrors;
+      if (errors?.length) throw new Error(`QUANTITY_CHANGE failed: ${errors[0].message}`);
+    }
+
+    // ── MINIMUM_QUANTITY (floor, only bump up if below) ──
+    if (action.type === "MINIMUM_QUANTITY") {
+      const minQty = Number(action.value);
+      if (lineId && currentQty < minQty) {
+        const res = await admin.graphql(
+          `
+          mutation enforceMinQty($draftId: ID!, $lineId: ID!, $qty: Int!) {
+            subscriptionDraftLineUpdate(draftId: $draftId, lineId: $lineId, input: { quantity: $qty }) {
+              userErrors { field message }
+            }
+          }
+          `,
+          { variables: { draftId, lineId, qty: minQty } },
+        );
+        const data = await res.json();
+        const errors = data.data?.subscriptionDraftLineUpdate?.userErrors;
+        if (errors?.length) throw new Error(`MINIMUM_QUANTITY failed: ${errors[0].message}`);
+      }
+    }
+
+    // ── PRODUCT_SWAP / VARIANT_SWAP ──
+    if (action.type === "PRODUCT_SWAP" || action.type === "VARIANT_SWAP") {
+      if (!lineId) throw new Error(`${action.type} failed: no line found on draft`);
+      if (!action.variantId) throw new Error(`${action.type} failed: no variantId configured`);
+      const res = await admin.graphql(
+        `
+        mutation swapLine($draftId: ID!, $lineId: ID!, $variantId: ID!) {
+          subscriptionDraftLineUpdate(draftId: $draftId, lineId: $lineId, input: { productVariantId: $variantId }) {
+            userErrors { field message }
+          }
+        }
+        `,
+        { variables: { draftId, lineId, variantId: action.variantId } },
+      );
+      const data = await res.json();
+      const errors = data.data?.subscriptionDraftLineUpdate?.userErrors;
+      if (errors?.length) throw new Error(`${action.type} failed: ${errors[0].message}`);
+    }
+
+    // ── SHIPPING_DISCOUNT ──
+    if (action.type === "SHIPPING_DISCOUNT") {
+      const res = await admin.graphql(
+        `
+        mutation addShippingDiscount($draftId: ID!) {
+          subscriptionDraftFreeShippingDiscountAdd(
+            draftId: $draftId
+            input: { title: "Auto shipping discount" }
+          ) {
+            userErrors { field message }
+          }
+        }
+        `,
+        { variables: { draftId } },
+      );
+      const data = await res.json();
+      const errors = data.data?.subscriptionDraftFreeShippingDiscountAdd?.userErrors;
+      if (errors?.length) throw new Error(`SHIPPING_DISCOUNT failed: ${errors[0].message}`);
+    }
+
+    // ── REMOVE_PRODUCT / REMOVE_VARIANT / REMOVE_FREE_PRODUCT ──
+    if (
+      action.type === "REMOVE_PRODUCT" ||
+      action.type === "REMOVE_VARIANT" ||
+      action.type === "REMOVE_FREE_PRODUCT"
+    ) {
+      if (!lineId) throw new Error(`${action.type} failed: no line found on draft`);
+      const res = await admin.graphql(
+        `
+        mutation removeLine($draftId: ID!, $lineId: ID!) {
+          subscriptionDraftLineRemove(draftId: $draftId, lineId: $lineId) {
+            userErrors { field message }
+          }
+        }
+        `,
+        { variables: { draftId, lineId } },
+      );
+      const data = await res.json();
+      const errors = data.data?.subscriptionDraftLineRemove?.userErrors;
+      if (errors?.length) throw new Error(`${action.type} failed: ${errors[0].message}`);
+    }
+
+    // ── ADD_PRODUCT ──
+    if (action.type === "ADD_PRODUCT") {
+      if (!action.variantId) throw new Error("ADD_PRODUCT failed: no variantId configured");
+      const res = await admin.graphql(
+        `
+        mutation addLine($draftId: ID!, $variantId: ID!, $qty: Int!) {
+          subscriptionDraftLineAdd(draftId: $draftId, input: { productVariantId: $variantId, quantity: $qty }) {
+            userErrors { field message }
+          }
+        }
+        `,
+        { variables: { draftId, variantId: action.variantId, qty: Number(action.quantity) || 1 } },
+      );
+      const data = await res.json();
+      const errors = data.data?.subscriptionDraftLineAdd?.userErrors;
+      if (errors?.length) throw new Error(`ADD_PRODUCT failed: ${errors[0].message}`);
+    }
+  }
+
+  // 2. Commit — ye committed draft hi actual auto-generated order banata hai
+  const commitRes = await admin.graphql(
+    `
+    mutation commitCycleDraft($draftId: ID!, $billingCycleInput: SubscriptionBillingCycleInput!) {
+      subscriptionBillingCycleContractDraftCommit(
+        draftId: $draftId
+        billingCycleInput: $billingCycleInput
+      ) {
+        userErrors { field message }
+      }
+    }
+    `,
+    {
+      variables: {
+        draftId,
+        billingCycleInput: { contractId, selector: { index: cycleIndex } },
+      },
+    },
+  );
+
+  const commitData = await commitRes.json();
+  const commitErrors = commitData.data?.subscriptionBillingCycleContractDraftCommit?.userErrors;
+  if (commitErrors?.length) {
+    throw new Error(`subscriptionBillingCycleContractDraftCommit failed: ${commitErrors[0].message}`);
+  }
 }
 
 async function getContractPreview(admin, contractId) {
@@ -415,13 +648,8 @@ async function getContractPreview(admin, contractId) {
                   afterCycle
                   adjustmentType
                   adjustmentValue {
-                    ... on SellingPlanPricingPolicyPercentageValue {
-                      percentage
-                    }
-                    ... on MoneyV2 {
-                      amount
-                      currencyCode
-                    }
+                    ... on SellingPlanPricingPolicyPercentageValue { percentage }
+                    ... on MoneyV2 { amount currencyCode }
                   }
                   computedPrice { amount currencyCode }
                 }
@@ -431,7 +659,7 @@ async function getContractPreview(admin, contractId) {
         }
       }
     }
-  `,
+    `,
     { variables: { id: contractId } },
   );
   const contractData = await contractRes.json();
@@ -457,16 +685,11 @@ async function getContractPreview(admin, contractId) {
             node {
               id
               name
-
               sellingPlans(first: 20) {
                 edges {
                   node {
                     id
-
-                    extraSettingsMetafield: metafield(
-                      namespace: "subscription_app"
-                      key: "extra_settings"
-                    ) {
+                    extraSettingsMetafield: metafield(namespace: "subscription_app", key: "extra_settings") {
                       value
                     }
                   }
@@ -481,21 +704,20 @@ async function getContractPreview(admin, contractId) {
     const groupsData = await groupsRes.json();
 
     for (const { node: group } of groupsData.data.sellingPlanGroups.edges) {
-      const plan = group.sellingPlans.edges.find(
-        ({ node }) => node.id === sellingPlanId
-      );
-
+      const plan = group.sellingPlans.edges.find(({ node }) => node.id === sellingPlanId);
       if (!plan) continue;
 
       groupId = group.id;
       groupName = group.name;
 
       const raw = plan.node.extraSettingsMetafield?.value;
-
       if (raw) {
-        extraSettings = JSON.parse(raw);
+        try {
+          extraSettings = JSON.parse(raw);
+        } catch {
+          extraSettings = null;
+        }
       }
-
       break;
     }
   }
@@ -508,9 +730,7 @@ async function getContractPreview(admin, contractId) {
     const cycleRes = await admin.graphql(
       `
       query getCycleByDate($contractId: ID!, $date: DateTime!) {
-        subscriptionBillingCycle(
-          billingCycleInput: { contractId: $contractId, selector: { date: $date } }
-        ) {
+        subscriptionBillingCycle(billingCycleInput: { contractId: $contractId, selector: { date: $date } }) {
           cycleIndex
           billingAttemptExpectedDate
           status
@@ -537,9 +757,7 @@ async function getContractPreview(admin, contractId) {
         const nextCycleRes = await admin.graphql(
           `
           query getCycleByIndex($contractId: ID!, $index: Int!) {
-            subscriptionBillingCycle(
-              billingCycleInput: { contractId: $contractId, selector: { index: $index } }
-            ) {
+            subscriptionBillingCycle(billingCycleInput: { contractId: $contractId, selector: { index: $index } }) {
               cycleIndex
               billingAttemptExpectedDate
               status
@@ -552,7 +770,6 @@ async function getContractPreview(admin, contractId) {
 
         const nextCycleData = await nextCycleRes.json();
         const nextCycle = nextCycleData.data?.subscriptionBillingCycle;
-
         if (!nextCycle) break;
 
         cycleIndex = nextCycle.cycleIndex;
@@ -565,11 +782,9 @@ async function getContractPreview(admin, contractId) {
   const actionsForNextCycle =
     cycleIndex != null ? collectActionsForCycle(extraSettings, cycleIndex) : [];
 
-  // ── Work out the actual next-order price + quantity + total ──
   const calculatedPricePerUnit =
     cycleIndex != null ? computePriceForCycle(firstLine?.pricingPolicy, cycleIndex) : null;
 
-    console.log("fhdjhbjbvjdfvj",calculatedPricePerUnit)
   const quantityAction = Array.isArray(actionsForNextCycle)
     ? actionsForNextCycle.find((a) => a.type === "QUANTITY_CHANGE")
     : null;
@@ -638,6 +853,7 @@ async function getContractPreview(admin, contractId) {
 export {
   getContractPreview,
   collectActionsForCycle,
+  applyActionsToCycle,
   computePriceForCycle,
   metaKeyForGroup,
   EXTRA_SETTINGS_NAMESPACE,
