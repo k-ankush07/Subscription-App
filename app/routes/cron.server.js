@@ -42,7 +42,7 @@ export function startBillingCycleCron() {
   }
   globalThis.__billingCronStarted = true;
 
-  cron.schedule("*/2 * * * *", async () => {
+  cron.schedule("*/5 * * * *", async () => {
     console.log("[cron] Running process-billing-cycles...");
     try {
       const res = await fetch(`${process.env.SHOPIFY_APP_URL}/api/process-billing-cycles`, {
