@@ -41,7 +41,7 @@ export function startBillingCycleCron() {
     return;
   }
   globalThis.__billingCronStarted = true;
-
+// 
   cron.schedule("*/5 * * * *", async () => {
     console.log("[cron] Running process-billing-cycles...");
     try {
