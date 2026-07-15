@@ -11,12 +11,10 @@ function collectActionsForCycle(settings, cycleIndex) {
 
   cycleIndex = Number(cycleIndex);
 
-  // 1. Shipping Discount — "after N orders" (fires starting the order AFTER
-  // N have completed, i.e. cycleIndex > N — same semantics as Shopify's own
-  // native pricing-policy afterCycle field)
+ 
   if (
     settings.giveShippingDiscount &&
-    cycleIndex > Number(settings.shippingAfterOrders)
+    cycleIndex >= Number(settings.shippingAfterOrders)
   ) {
     actions.push({
       type: "SHIPPING_DISCOUNT",
@@ -29,7 +27,7 @@ function collectActionsForCycle(settings, cycleIndex) {
   // 2. Quantity Change — "change quantity to X after N orders"
   if (
     settings.changeQuantityAfterOrders &&
-    cycleIndex > Number(settings.quantityAfterOrders)
+    cycleIndex >= Number(settings.quantityAfterOrders)
   ) {
     actions.push({
       type: "QUANTITY_CHANGE",
@@ -42,7 +40,7 @@ function collectActionsForCycle(settings, cycleIndex) {
   // 3. Product Swap — "swap to variant X after N orders"
   if (
     settings.productSwapEnabled &&
-    cycleIndex > Number(settings.productSwapAfterOrders)
+    cycleIndex >= Number(settings.productSwapAfterOrders)
   ) {
     actions.push({
       type: "VARIANT_SWAP",
@@ -54,7 +52,7 @@ function collectActionsForCycle(settings, cycleIndex) {
   // 4. Remove Free Product — "after N orders"
   if (
     settings.RemoveFreeProdcut &&
-    cycleIndex > Number(settings.removeFreeProductValue)
+    cycleIndex >= Number(settings.removeFreeProductValue)
   ) {
     actions.push({
       type: "REMOVE_FREE_PRODUCT",
@@ -66,7 +64,7 @@ function collectActionsForCycle(settings, cycleIndex) {
   // 5. Custom automation list — merchant ke defined arbitrary cycles
   if (settings.Automation && Array.isArray(settings.automationCycles)) {
     for (const auto of settings.automationCycles) {
-      if (cycleIndex > Number(auto.orders)) {
+      if (cycleIndex >= Number(auto.orders)) {
         for (const action of auto.actions ?? []) {
           actions.push({ ...action, after: auto.orders });
         }
@@ -91,24 +89,18 @@ function computePriceForCycle(pricingPolicy, cycleIndex) {
   }
 
   cycleIndex = Number(cycleIndex);
-  let bestTier = null;
-  for (const tier of pricingPolicy.cycleDiscounts) {
-    const afterCycle = Number(tier.afterCycle);
-    if (cycleIndex > afterCycle) {
-      if (!bestTier || afterCycle >= Number(bestTier.afterCycle)) {
-        bestTier = tier;
-      }
-    }
-  }
+  const applicableTiers = pricingPolicy.cycleDiscounts
+    .map((tier) => ({
+      ...tier,
+      afterCycle: Number(tier.afterCycle),
+    }))
+    .filter((tier) => cycleIndex >= tier.afterCycle)
+    .sort((a, b) => a.afterCycle - b.afterCycle);
 
+  const bestTier = applicableTiers[applicableTiers.length - 1] ?? null;
   return bestTier ? bestTier.computedPrice : pricingPolicy.basePrice;
 }
 
-// ─────────────────────────────────────────────
-// Actually applies the collected actions to a specific billing cycle
-// via a draft-edit + commit. This is what makes the auto-generated
-// order reflect swapped product / new quantity / discount etc.
-// ─────────────────────────────────────────────
 async function applyActionsToCycle(admin, contractId, cycleIndex, actions) {
   // 1. Open the draft for this specific billing cycle.
   const editRes = await admin.graphql(
@@ -119,7 +111,7 @@ async function applyActionsToCycle(admin, contractId, cycleIndex, actions) {
       ) {
         draft {
           id
-          lines(first: 10) {
+          lines(first: 50) {
             edges { node { id quantity } }
           }
         }
@@ -143,6 +135,40 @@ async function applyActionsToCycle(admin, contractId, cycleIndex, actions) {
   const lineId = payload.draft.lines.edges[0]?.node?.id;
   const currentQty = payload.draft.lines.edges[0]?.node?.quantity ?? 1;
 
+// 👇 YE DEBUG QUERY YAHAN ADD KARO
+const draftCheckRes = await admin.graphql(
+  `
+  query($id: ID!) {
+    subscriptionDraft(id: $id) {
+      id
+      lines(first: 5) {
+        edges {
+          node {
+            id
+            quantity
+            currentPrice {
+              amount
+              currencyCode
+            }
+          }
+        }
+      }
+    }
+  }
+  `,
+  {
+    variables: {
+      id: draftId,
+    },
+  },
+);
+
+const draftCheckData = await draftCheckRes.json();
+
+console.log(
+  "Draft Before Update:",
+  JSON.stringify(draftCheckData, null, 2)
+);
   for (const action of actions) {
     // ── QUANTITY_CHANGE ──
     if (action.type === "QUANTITY_CHANGE") {

@@ -132,7 +132,7 @@ export async function loader({ request, params }) {
             }
           }
         }
-        lines(first: 10) {
+        lines(first: 50) {
           edges {
             node {
               id
@@ -179,7 +179,7 @@ export async function loader({ request, params }) {
         }
       }
       subscriptionBillingCycles(
-        first: 250
+        first:20
         contractId: $contractId
         billingCyclesDateRangeSelector: {
           startDate: $startDate
@@ -292,6 +292,46 @@ for (const spId of sellingPlanIds) {
   }
   return { contract, upcomingCycles, internalNotes, customerNotes ,extraSettingsBySellingPlanId};
 }
+
+const RESCHEDULE_MUTATION = `
+  mutation SubscriptionBillingCycleScheduleEdit(
+    $billingCycleInput: SubscriptionBillingCycleInput!
+    $input: SubscriptionBillingCycleScheduleEditInput!
+  ) {
+    subscriptionBillingCycleScheduleEdit(
+      billingCycleInput: $billingCycleInput
+      input: $input
+    ) {
+      billingCycle {
+        cycleIndex
+        billingAttemptExpectedDate
+      }
+      userErrors {
+        field
+        message
+        code
+      }
+    }
+  }
+`;
+
+async function rescheduleSingleCycle(admin, contractId, cycleIndex, isoDate) {
+  const res = await admin.graphql(RESCHEDULE_MUTATION, {
+    variables: {
+      billingCycleInput: {
+        contractId,
+        selector: { index: cycleIndex },
+      },
+      input: {
+        billingDate: isoDate,
+        reason: "MERCHANT_INITIATED",
+      },
+    },
+  });
+  const data = await res.json();
+  return data?.data?.subscriptionBillingCycleScheduleEdit;
+}
+
 export async function action({ request, params }) {
   const formData = await request.formData();
   const type = formData.get("type");
@@ -546,71 +586,34 @@ export async function action({ request, params }) {
         unskippedCycleIndex: payload.billingCycle.cycleIndex,
       };
     }
-if (type === "reschedule") {
-  const cycleIndex = parseInt(formData.get("cycleIndex"), 10);
-  const newDate = formData.get("newDate"); // e.g. "2026-08-15" from <input type="date">
+    if (type === "reschedule") {
+      const cycleIndex = parseInt(formData.get("cycleIndex"), 10);
+      const newDate = formData.get("newDate"); 
+      const originalDate = formData.get("originalDate"); 
 
-  if (Number.isNaN(cycleIndex) || !newDate) {
-    return { success: false, error: "Invalid cycle index or date" };
-  }
-
-  const isoDate = new Date(newDate).toISOString();
-
-  const res = await admin.graphql(
-    `
-    mutation SubscriptionBillingCycleScheduleEdit(
-      $billingCycleInput: SubscriptionBillingCycleInput!
-      $input: SubscriptionBillingCycleScheduleEditInput!
-    ) {
-      subscriptionBillingCycleScheduleEdit(
-        billingCycleInput: $billingCycleInput
-        input: $input
-      ) {
-        billingCycle {
-          cycleIndex
-          billingAttemptExpectedDate
-        }
-        userErrors {
-          field
-          message
-          code
-        }
+      if (Number.isNaN(cycleIndex) || !newDate) {
+        return { success: false, error: "Invalid cycle index or date" };
       }
+
+      const isoDate = new Date(newDate).toISOString();
+      const payload = await rescheduleSingleCycle(admin, contractId, cycleIndex, isoDate);
+
+      if (!payload || payload.userErrors?.length) {
+        console.error("Reschedule failed", payload?.userErrors);
+        return {
+          success: false,
+          error:
+            payload?.userErrors?.map((e) => e.message).join(", ") ||
+            "Reschedule failed",
+        };
+      }
+
+      return {
+        success: true,
+        rescheduledCycleIndex: payload.billingCycle.cycleIndex,
+        newDate: payload.billingCycle.billingAttemptExpectedDate,
+      };
     }
-    `,
-    {
-      variables: {
-        billingCycleInput: {
-          contractId,
-          selector: { index: cycleIndex },
-        },
-        input: {
-          billingDate: isoDate,
-          reason: "MERCHANT_INITIATED",
-        },
-      },
-    },
-  );
-
-  const data = await res.json();
-  const payload = data?.data?.subscriptionBillingCycleScheduleEdit;
-
-  if (!payload || payload.userErrors?.length) {
-    console.error("Reschedule failed", payload?.userErrors);
-    return {
-      success: false,
-      error:
-        payload?.userErrors?.map((e) => e.message).join(", ") ||
-        "Reschedule failed",
-    };
-  }
-
-  return {
-    success: true,
-    rescheduledCycleIndex: payload.billingCycle.cycleIndex,
-    newDate: payload.billingCycle.billingAttemptExpectedDate,
-  };
-}
   }
 
   const payload = {

@@ -1,7 +1,6 @@
 import cron from "node-cron";
 
 export function startBillingCycleCron() {
-  // globalThis persists across HMR reloads (dev) and module re-imports
   if (globalThis.__billingCronStarted) {
     console.log("[cron] Already started, skipping duplicate init.");
     return;

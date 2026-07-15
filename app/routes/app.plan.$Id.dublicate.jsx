@@ -48,10 +48,10 @@ export const action = async ({ request }) => {
         },
       });
 
-      if (sp.changeDiscountAfterOrders && sp.afterOrders) {
+      if (sp.changeDiscountAfterOrders && sp.afterOrders != null) {
         pricingPolicies.push({
           recurring: {
-            afterCycle: Number(sp.afterOrders),
+            afterCycle: Math.max(0, Number(sp.afterOrders) - 1),
             adjustmentType: sp.afterDiscountType ?? "PERCENTAGE",
             adjustmentValue:
               (sp.afterDiscountType ?? "PERCENTAGE") === "PERCENTAGE"

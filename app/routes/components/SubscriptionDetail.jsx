@@ -1,4 +1,4 @@
-import { Banner, Button, Card, Page, Icon } from "@shopify/polaris";
+import { Banner, Button, Card, Page, Icon, Checkbox } from "@shopify/polaris";
 import React, { useEffect, useState } from "react";
 import { currencySymbol } from "../utils/formatMoney.js";
 import {
@@ -15,7 +15,7 @@ function getCurrentComputedPrice(item, currentCycleIndex) {
     return parseFloat(item?.node?.currentPrice?.amount || 0);
   }
   const applicable = discounts
-    .filter((d) => d.afterCycle < currentCycleIndex)
+    .filter((d) => d.afterCycle <= currentCycleIndex)
     .sort((a, b) => b.afterCycle - a.afterCycle)[0];
 
   if (!applicable) {
@@ -69,7 +69,8 @@ export default function SubscriptionDetail() {
   const [showCustomerNotes, setshowCustomerNotes] = useState(false);
   const [CustomerNotes, setCustomerNotes] = useState(customerNotes || "");
   const [editingCycleIndex, setEditingCycleIndex] = useState(null);
-const [editDate, setEditDate] = useState("");
+  const [editDate, setEditDate] = useState("");
+  const [visibleCyclesCount, setVisibleCyclesCount] = useState(5);
   const { id } = useParams();
   const fetcher = useFetcher();
 
@@ -136,15 +137,31 @@ const [editDate, setEditDate] = useState("");
     if (!confirmed) return;
     fetcher.submit({ type: "cancel" }, { method: "post" });
   };
-const handleReschedule = (cycleIndex) => {
-  if (!editDate) return;
-  fetcher.submit(
-    { type: "reschedule", cycleIndex, newDate: editDate },
-    { method: "post" },
-  );
-  setEditingCycleIndex(null);
-  setEditDate("");
-};
+
+
+  const handleReschedule = (cycle) => {
+    if (!editDate) {
+      return;
+    }
+    fetcher.submit(
+      {
+        type: "reschedule",
+        cycleIndex: cycle.cycleIndex,
+        newDate: editDate,
+        originalDate: cycle.billingAttemptExpectedDate,
+      },
+      { method: "post" },
+    );
+    setEditingCycleIndex(null);
+    setEditDate("");
+  };
+
+ 
+
+  useEffect(() => {
+  setLocalLines(contract?.lines?.edges || []);
+  setVisibleCyclesCount(5); // naya contract load hone par wapas 5 pe reset
+}, [contract]);
   return (
     <>
       <Page backAction={{ onAction: backButton }} title={`${id}`}>
@@ -330,13 +347,14 @@ const handleReschedule = (cycleIndex) => {
         {contract?.status !== "CANCELLED" && (
           <Card>
             <b>Upcoming orders</b>
-            {upcomingCycles?.map((cycle, index) => (
+          {upcomingCycles?.slice(0, visibleCyclesCount).map((cycle, index) => (
               <div
                 key={cycle.cycleIndex ?? index}
                 style={{
                   display: "flex",
                   justifyContent: "space-between",
                   marginTop: "8px",
+                  flexWrap: "wrap",
                 }}
               >
                 <p>
@@ -345,37 +363,48 @@ const handleReschedule = (cycleIndex) => {
                 </p>
 
                 <div
-                  style={{ display: "flex", gap: "30px", alignItems: "center" }}
+                  style={{ display: "flex", gap: "16px", alignItems: "center" }}
                 >
-                  {/* {!cycle.skipped && <Button>Edit</Button>} */}
-
-                  {!cycle.skipped && (
-  editingCycleIndex === cycle.cycleIndex ? (
-    <>
-      <input
-        type="date"
-        value={editDate}
-        onChange={(e) => setEditDate(e.target.value)}
-      />
-      <Button onClick={() => handleReschedule(cycle.cycleIndex)}>
-        Save
-      </Button>
-      <Button
-        plain
-        onClick={() => {
-          setEditingCycleIndex(null);
-          setEditDate("");
-        }}
-      >
-        Cancel
-      </Button>
-    </>
-  ) : (
-    <Button onClick={() => setEditingCycleIndex(cycle.cycleIndex)}>
-      Edit
-    </Button>
-  )
-)}
+                  {!cycle.skipped &&
+                    (editingCycleIndex === cycle.cycleIndex ? (
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: "12px",
+                          alignItems: "center",
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <input
+                          type="date"
+                          value={editDate}
+                          min={new Date().toISOString().split("T")[0]}
+                          onChange={(e) => setEditDate(e.target.value)}
+                        />
+                        <Button onClick={() => handleReschedule(cycle)} loading={fetcher.state !== "idle"} disabled={fetcher.state !== "idle"}>
+                          {fetcher.state !== "idle" ? "Saving…" : "Save"}
+                        </Button>
+                        <Button
+                          plain
+                          disabled={fetcher.state !== "idle"}
+                          onClick={() => {
+                            setEditingCycleIndex(null);
+                            setEditDate("");
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        onClick={() => {
+                          setEditingCycleIndex(cycle.cycleIndex);
+                          setEditDate("");
+                        }}
+                      >
+                        Edit
+                      </Button>
+                    ))}
 
                   {contract?.status === "ACTIVE" && !cycle.skipped && (
                     <Button
@@ -410,8 +439,20 @@ const handleReschedule = (cycleIndex) => {
                     </Button>
                   )}
                 </div>
+                
               </div>
+              
             ))}
+            {upcomingCycles?.length > visibleCyclesCount && (
+  <div style={{ display: "flex", justifyContent: "center", marginTop: "12px" }}>
+    <Button
+      onClick={() => setVisibleCyclesCount((count) => count + 5)}
+      plain
+    >
+      View more
+    </Button>
+  </div>
+)}
           </Card>
         )}
 
@@ -428,7 +469,6 @@ const handleReschedule = (cycleIndex) => {
               ></textarea>
               <Button
                 onClick={() => {
-                  localStorage.removeItem("notes data");
                   setShowInternalNotes(false);
                 }}
               >
@@ -451,7 +491,6 @@ const handleReschedule = (cycleIndex) => {
               ></textarea>
               <Button
                 onClick={() => {
-                  localStorage.removeItem("customer data");
                   setshowCustomerNotes(false);
                 }}
               >
