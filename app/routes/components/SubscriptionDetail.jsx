@@ -48,13 +48,28 @@ function formateDate(date) {
 }
 
 export default function SubscriptionDetail() {
-  const { contract, upcomingCycles, internalNotes, customerNotes ,extraSettingsBySellingPlanId} = useLoaderData();
-    console.log("upcoming",upcomingCycles, "contract",contract ,"extra setting ",extraSettingsBySellingPlanId)
+  const {
+    contract,
+    upcomingCycles,
+    internalNotes,
+    customerNotes,
+    extraSettingsBySellingPlanId,
+  } = useLoaderData();
+  console.log(
+    "upcoming",
+    upcomingCycles,
+    "contract",
+    contract,
+    "extra setting ",
+    extraSettingsBySellingPlanId,
+  );
   const [localLines, setLocalLines] = useState(contract?.lines?.edges || []);
   const [showInternalNotes, setShowInternalNotes] = useState(false);
   const [Internalnotes, setInternalNotes] = useState(internalNotes || "");
   const [showCustomerNotes, setshowCustomerNotes] = useState(false);
   const [CustomerNotes, setCustomerNotes] = useState(customerNotes || "");
+  const [editingCycleIndex, setEditingCycleIndex] = useState(null);
+const [editDate, setEditDate] = useState("");
   const { id } = useParams();
   const fetcher = useFetcher();
 
@@ -62,7 +77,7 @@ export default function SubscriptionDetail() {
   const currencyCode = lines?.[0]?.node?.currentPrice?.currencyCode;
   const nextUpcomingCycle =
     upcomingCycles?.find((cycle) => !cycle.skipped) ?? null;
-const nextCycleIndex = nextUpcomingCycle?.cycleIndex ?? null;
+  const nextCycleIndex = nextUpcomingCycle?.cycleIndex ?? null;
   const nextCycleDate = nextUpcomingCycle?.billingAttemptExpectedDate ?? null;
   const orderEdges = contract?.orders?.edges || [];
   const latestOrder =
@@ -121,8 +136,15 @@ const nextCycleIndex = nextUpcomingCycle?.cycleIndex ?? null;
     if (!confirmed) return;
     fetcher.submit({ type: "cancel" }, { method: "post" });
   };
-
-
+const handleReschedule = (cycleIndex) => {
+  if (!editDate) return;
+  fetcher.submit(
+    { type: "reschedule", cycleIndex, newDate: editDate },
+    { method: "post" },
+  );
+  setEditingCycleIndex(null);
+  setEditDate("");
+};
   return (
     <>
       <Page backAction={{ onAction: backButton }} title={`${id}`}>
@@ -174,7 +196,6 @@ const nextCycleIndex = nextUpcomingCycle?.cycleIndex ?? null;
                 )}
               </>
             )}
-     
           </div>
         )}
 
@@ -241,8 +262,9 @@ const nextCycleIndex = nextUpcomingCycle?.cycleIndex ?? null;
               const price = getCurrentComputedPrice(item, nextCycleIndex ?? 0);
               const quantity = item?.node?.quantity;
               const Total = parseFloat(price * quantity);
-              const cycleDiscounts = item?.node?.pricingPolicy?.cycleDiscounts || [];
-                console.log("summary line", {
+              const cycleDiscounts =
+                item?.node?.pricingPolicy?.cycleDiscounts || [];
+              console.log("summary line", {
                 title: `${item?.node?.title} - ${item?.node?.variantTitle}`,
                 nextCycleIndex,
                 appliedPrice: price,
@@ -325,7 +347,35 @@ const nextCycleIndex = nextUpcomingCycle?.cycleIndex ?? null;
                 <div
                   style={{ display: "flex", gap: "30px", alignItems: "center" }}
                 >
-                  {!cycle.skipped && <Button>Edit</Button>}
+                  {/* {!cycle.skipped && <Button>Edit</Button>} */}
+
+                  {!cycle.skipped && (
+  editingCycleIndex === cycle.cycleIndex ? (
+    <>
+      <input
+        type="date"
+        value={editDate}
+        onChange={(e) => setEditDate(e.target.value)}
+      />
+      <Button onClick={() => handleReschedule(cycle.cycleIndex)}>
+        Save
+      </Button>
+      <Button
+        plain
+        onClick={() => {
+          setEditingCycleIndex(null);
+          setEditDate("");
+        }}
+      >
+        Cancel
+      </Button>
+    </>
+  ) : (
+    <Button onClick={() => setEditingCycleIndex(cycle.cycleIndex)}>
+      Edit
+    </Button>
+  )
+)}
 
                   {contract?.status === "ACTIVE" && !cycle.skipped && (
                     <Button
@@ -360,14 +410,10 @@ const nextCycleIndex = nextUpcomingCycle?.cycleIndex ?? null;
                     </Button>
                   )}
                 </div>
-
               </div>
-              
             ))}
-
           </Card>
         )}
-        
 
         <div>
           <b>Internal Notes</b>

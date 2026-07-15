@@ -8,8 +8,11 @@ export const loader = async ({ request }) => {
   let contractId = url.searchParams.get("contractId");
   if (!contractId) {
     return new Response(
-      JSON.stringify({ error: "Pass ?contractId=gid://shopify/SubscriptionContract/123 (or just the numeric id)" }),
-      { status: 400, headers: { "Content-Type": "application/json" } }
+      JSON.stringify({
+        error:
+          "Pass ?contractId=gid://shopify/SubscriptionContract/123 (or just the numeric id)",
+      }),
+      { status: 400, headers: { "Content-Type": "application/json" } },
     );
   }
 
@@ -27,7 +30,8 @@ export const loader = async ({ request }) => {
     let cycleCommittedState = null;
     if (preview.nextOrder?.cycleIndex != null) {
       try {
-        const cycleRes = await admin.graphql(`
+        const cycleRes = await admin.graphql(
+          `
           query getCycleDetails($contractId: ID!, $index: Int!) {
             subscriptionBillingCycle(
               billingCycleInput: { contractId: $contractId, selector: { index: $index } }
@@ -39,13 +43,18 @@ export const loader = async ({ request }) => {
               status
             }
           }
-        `, { variables: { contractId, index: preview.nextOrder.cycleIndex } });
+        `,
+          { variables: { contractId, index: preview.nextOrder.cycleIndex } },
+        );
 
         const cycleData = await cycleRes.json();
         if (cycleData.errors) {
-          cycleCommittedState = { error: cycleData.errors[0]?.message || "unknown GraphQL error" };
+          cycleCommittedState = {
+            error: cycleData.errors[0]?.message || "unknown GraphQL error",
+          };
         } else {
-          cycleCommittedState = cycleData.data?.subscriptionBillingCycle || null;
+          cycleCommittedState =
+            cycleData.data?.subscriptionBillingCycle || null;
         }
       } catch (err) {
         cycleCommittedState = { error: String(err?.message || err) };
@@ -53,34 +62,51 @@ export const loader = async ({ request }) => {
     }
     let billingAttempts = null;
     try {
-      const attemptsRes = await admin.graphql(`
+      const attemptsRes = await admin.graphql(
+        `
         query getBillingAttempts($contractId: ID!) {
           subscriptionContract(id: $contractId) {
-            billingAttempts(first: 10, reverse: true) {
+          
+            billingAttempts(first: 100, reverse: true) {
               edges {
                 node {
                   id
                   ready
                   errorMessage
                   errorCode
+                  
                   order {
                     id
-                    name
+                        name
+              lineItems(first: 100) {
+                edges {
+                  node {
+                    title
+                    quantity
+                    originalUnitPriceSet { shopMoney { amount currencyCode } }
+                    discountedUnitPriceSet { shopMoney { amount currencyCode } }
                   }
+                }
+              }
+            }
                 }
               }
             }
           }
         }
-      `, { variables: { contractId } });
+      `,
+        { variables: { contractId } },
+      );
 
       const attemptsData = await attemptsRes.json();
       if (attemptsData.errors) {
-        billingAttempts = { error: attemptsData.errors[0]?.message || "unknown GraphQL error" };
+        billingAttempts = {
+          error: attemptsData.errors[0]?.message || "unknown GraphQL error",
+        };
       } else {
-        billingAttempts = (attemptsData.data?.subscriptionContract?.billingAttempts?.edges || []).map(
-          (e) => e.node
-        );
+        billingAttempts = (
+          attemptsData.data?.subscriptionContract?.billingAttempts?.edges || []
+        ).map((e) => e.node);
       }
     } catch (err) {
       billingAttempts = { error: String(err?.message || err) };
@@ -88,7 +114,8 @@ export const loader = async ({ request }) => {
 
     let billingPolicy = null;
     try {
-      const policyRes = await admin.graphql(`
+      const policyRes = await admin.graphql(
+        `
         query getBillingPolicy($contractId: ID!) {
           subscriptionContract(id: $contractId) {
             billingPolicy {
@@ -101,11 +128,15 @@ export const loader = async ({ request }) => {
             }
           }
         }
-      `, { variables: { contractId } });
+      `,
+        { variables: { contractId } },
+      );
 
       const policyData = await policyRes.json();
       if (policyData.errors) {
-        billingPolicy = { error: policyData.errors[0]?.message || "unknown GraphQL error" };
+        billingPolicy = {
+          error: policyData.errors[0]?.message || "unknown GraphQL error",
+        };
       } else {
         const bp = policyData.data?.subscriptionContract?.billingPolicy || null;
         billingPolicy = bp
@@ -124,17 +155,24 @@ export const loader = async ({ request }) => {
     }
 
     return new Response(
-      JSON.stringify({ ...preview, cycleCommittedState, billingAttempts, billingPolicy }, null, 2),
+      JSON.stringify(
+        { ...preview, cycleCommittedState, billingAttempts, billingPolicy },
+        null,
+        2,
+      ),
       {
         status: 200,
         headers: { "Content-Type": "application/json" },
-      }
+      },
     );
   } catch (err) {
     console.error("[contract-preview] failed:", err);
-    return new Response(JSON.stringify({ error: String(err?.message || err) }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ error: String(err?.message || err) }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
   }
 };

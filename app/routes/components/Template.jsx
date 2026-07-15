@@ -147,7 +147,6 @@ function Template({ shop, editPlandData, dublicateData }) {
   //  Edit / Duplicate data load — sellingPlans array mein set karo
   useEffect(() => {
     const data = editPlandData || dublicateData;
-    console.log("data ,data",data)
     if (!data) return;
 
     setPlanName(data.planName || "");

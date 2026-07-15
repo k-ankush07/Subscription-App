@@ -1,340 +1,3 @@
-// const EXTRA_SETTINGS_NAMESPACE = "subscription_app";
-// function metaKeyForGroup(groupId) {
-//   const numericId = groupId.split("/").pop();
-//   return `extra_settings_${numericId}`;
-// }
-
-// function collectActionsForCycle(settings, cycleIndex) {
-//   const actions = [];
-//   if (!settings) return actions;
-
-//   cycleIndex = Number(cycleIndex);
-
-//   // Shipping Discount
-//   if (settings.giveShippingDiscount && cycleIndex >= Number(settings.shippingAfterOrders)) {
-//     actions.push({
-//       type: "SHIPPING_DISCOUNT",
-//       discountType: settings.shippingDiscountType,
-//       value: settings.shippingDiscountValue,
-//       after: settings.shippingAfterOrders,
-//     });
-//   }
-
-//   // Quantity Change
-//   if (settings.changeQuantityAfterOrders && cycleIndex >= Number(settings.quantityAfterOrders)) {
-//     actions.push({
-//       type: "QUANTITY_CHANGE",
-//       value: settings.quantityAfterOrdersValue,
-//       products: settings.quantityProducts ?? [],
-//       after: settings.quantityAfterOrders,
-//     });
-//   }
-
-//   // Remove Free Product
-//   if (settings.RemoveFreeProdcut && cycleIndex >= Number(settings.removeFreeProductValue)) {
-//     actions.push({
-//       type: "REMOVE_FREE_PRODUCT",
-//       products: settings.freeProducts ?? [],
-//       after: settings.removeFreeProductValue,
-//     });
-//   }
-
-//   // Automation
-//   if (settings.Automation && Array.isArray(settings.automationCycles)) {
-//     for (const auto of settings.automationCycles) {
-//       if (cycleIndex >= Number(auto.orders)) {
-//         for (const action of auto.actions ?? []) {
-//           actions.push({ ...action, after: auto.orders });
-//         }
-//       }
-//     }
-//   }
-
-//   // Minimum Quantity
-//   if (settings.MinimumQuanitity) {
-//     actions.push({
-//       type: "MINIMUM_QUANTITY",
-//       value: settings.MinimumQuanitityValue,
-//     });
-//   }
-
-//   return actions;
-// }
-
-
-// function computePriceForCycle(pricingPolicy, cycleIndex) {
-//   if (!pricingPolicy?.cycleDiscounts?.length) {
-//     return pricingPolicy?.basePrice ?? null;
-//   }
-
-//   cycleIndex = Number(cycleIndex);
-//   let bestTier = null;
-//   for (const tier of pricingPolicy.cycleDiscounts) {
-//     const afterCycle = Number(tier.afterCycle);
-//     if (cycleIndex > afterCycle) {
-//       if (!bestTier || afterCycle >= Number(bestTier.afterCycle)) {
-//         bestTier = tier;
-//       }
-//     }
-//   }
-
-//   return bestTier ? bestTier.computedPrice : pricingPolicy.basePrice;
-// }
-
-// async function getContractPreview(admin, contractId) {
-//   const contractRes = await admin.graphql(
-//     `
-//     query getContract($id: ID!) {
-//       subscriptionContract(id: $id) {
-//         id
-//         status
-//         nextBillingDate
-//         customer { id displayName }
-//         lines(first: 5) {
-//           edges {
-//             node {
-//               id
-//               title
-//               quantity
-//               sellingPlanId
-//               currentPrice { amount currencyCode }
-//               pricingPolicy {
-//                 basePrice { amount currencyCode }
-//                 cycleDiscounts {
-//                   afterCycle
-//                   adjustmentType
-//                   adjustmentValue {
-//                     ... on SellingPlanPricingPolicyPercentageValue {
-//                       percentage
-//                     }
-//                     ... on MoneyV2 {
-//                       amount
-//                       currencyCode
-//                     }
-//                   }
-//                   computedPrice { amount currencyCode }
-//                 }
-//               }
-//             }
-//           }
-//         }
-//       }
-//     }
-//   `,
-//     { variables: { id: contractId } },
-//   );
-//   const contractData = await contractRes.json();
-//   const contract = contractData.data?.subscriptionContract;
-
-//   if (!contract) {
-//     console.log(`[preview] Contract not found: ${contractId}`);
-//     return null;
-//   }
-
-//   const firstLine = contract.lines.edges[0]?.node;
-//   const sellingPlanId = firstLine?.sellingPlanId;
-
-//   let groupId = null;
-//   let groupName = null;
-//   let extraSettings = null;
-
-//   if (sellingPlanId) {
-//     const groupsRes = await admin.graphql(`
-//       query {
-//         sellingPlanGroups(first: 50) {
-//           edges {
-//             node {
-//               id
-//               name
-
-//               sellingPlans(first: 20) {
-//                 edges {
-//                   node {
-//                     id
-
-//                     extraSettingsMetafield: metafield(
-//                       namespace: "subscription_app"
-//                       key: "extra_settings"
-//                     ) {
-//                       value
-//                     }
-//                   }
-//                 }
-//               }
-//             }
-//           }
-//         }
-//       }
-//     `);
-
-//     const groupsData = await groupsRes.json();
-
-//     for (const { node: group } of groupsData.data.sellingPlanGroups.edges) {
-//       const plan = group.sellingPlans.edges.find(
-//         ({ node }) => node.id === sellingPlanId
-//       );
-
-//       if (!plan) continue;
-
-//       groupId = group.id;
-//       groupName = group.name;
-
-//       const raw = plan.node.extraSettingsMetafield?.value;
-
-//       if (raw) {
-//         extraSettings = JSON.parse(raw);
-//       }
-
-//       break;
-//     }
-//   }
-
-//   let cycleIndex = null;
-//   let nextBillingDate = contract.nextBillingDate;
-//   let cycleStatus = null;
-
-//   if (contract.nextBillingDate) {
-//     const cycleRes = await admin.graphql(
-//       `
-//       query getCycleByDate($contractId: ID!, $date: DateTime!) {
-//         subscriptionBillingCycle(
-//           billingCycleInput: { contractId: $contractId, selector: { date: $date } }
-//         ) {
-//           cycleIndex
-//           billingAttemptExpectedDate
-//           status
-//           skipped
-//         }
-//       }
-//       `,
-//       { variables: { contractId, date: contract.nextBillingDate } },
-//     );
-
-//     let cycleData = await cycleRes.json();
-//     let cycle = cycleData.data?.subscriptionBillingCycle;
-
-//     if (cycle) {
-//       cycleIndex = cycle.cycleIndex;
-//       nextBillingDate = cycle.billingAttemptExpectedDate || nextBillingDate;
-//       cycleStatus = cycle.status;
-
-//       let safetyCounter = 0;
-//       while (cycleStatus === "BILLED" && safetyCounter < 20) {
-//         cycleIndex += 1;
-//         safetyCounter += 1;
-
-//         const nextCycleRes = await admin.graphql(
-//           `
-//           query getCycleByIndex($contractId: ID!, $index: Int!) {
-//             subscriptionBillingCycle(
-//               billingCycleInput: { contractId: $contractId, selector: { index: $index } }
-//             ) {
-//               cycleIndex
-//               billingAttemptExpectedDate
-//               status
-//               skipped
-//             }
-//           }
-//           `,
-//           { variables: { contractId, index: cycleIndex } },
-//         );
-
-//         const nextCycleData = await nextCycleRes.json();
-//         const nextCycle = nextCycleData.data?.subscriptionBillingCycle;
-
-//         if (!nextCycle) break;
-
-//         cycleIndex = nextCycle.cycleIndex;
-//         nextBillingDate = nextCycle.billingAttemptExpectedDate || nextBillingDate;
-//         cycleStatus = nextCycle.status;
-//       }
-//     }
-//   }
-
-//   const actionsForNextCycle =
-//     cycleIndex != null ? collectActionsForCycle(extraSettings, cycleIndex) : [];
-
-//   // ── Work out the actual next-order price + quantity + total ──
-//   const calculatedPricePerUnit =
-//     cycleIndex != null ? computePriceForCycle(firstLine?.pricingPolicy, cycleIndex) : null;
-
-//     console.log("fhdjhbjbvjdfvj",calculatedPricePerUnit)
-//   const quantityAction = Array.isArray(actionsForNextCycle)
-//     ? actionsForNextCycle.find((a) => a.type === "QUANTITY_CHANGE")
-//     : null;
-//   const calculatedQuantity = quantityAction ? Number(quantityAction.value) : firstLine?.quantity;
-
-//   const calculatedItemTotal =
-//     calculatedPricePerUnit && calculatedQuantity != null
-//       ? {
-//           amount: (Number(calculatedPricePerUnit.amount) * calculatedQuantity).toFixed(2),
-//           currencyCode: calculatedPricePerUnit.currencyCode,
-//         }
-//       : null;
-
-//   const preview = {
-//     contractId: contract.id,
-//     status: contract.status,
-//     customer: contract.customer,
-//     lineItem: {
-//       id: firstLine?.id,
-//       title: firstLine?.title,
-//       quantity: firstLine?.quantity,
-//       price: firstLine?.currentPrice,
-//     },
-//     planGroup: { id: groupId, name: groupName },
-//     nextOrder: {
-//       cycleIndex,
-//       expectedDate: nextBillingDate,
-//       calculatedPricePerUnit,
-//       calculatedQuantity,
-//       calculatedItemTotal,
-//       willApply:
-//         actionsForNextCycle.length > 0
-//           ? actionsForNextCycle
-//           : "No automatic changes configured for this cycle",
-//     },
-//     allExtraSettings: extraSettings,
-//   };
-
-//   console.log("─────────────────────────────────────────────");
-//   console.log(`📦 Contract: ${preview.contractId}`);
-//   console.log(`   Status: ${preview.status}`);
-//   console.log(
-//     `   Customer: ${preview.customer?.displayName || preview.customer?.id || "unknown"}`,
-//   );
-//   console.log(
-//     `   Product: ${preview.lineItem.title} (qty ${preview.lineItem.quantity}, ${preview.lineItem.price?.amount} ${preview.lineItem.price?.currencyCode})`,
-//   );
-//   console.log(
-//     `   Plan: ${preview.planGroup.name || "unknown"} (${preview.planGroup.id || "no group matched"})`,
-//   );
-//   console.log(`   Next order date: ${preview.nextOrder.expectedDate}`);
-//   console.log(`   Next order cycle #: ${preview.nextOrder.cycleIndex}`);
-//   console.log(
-//     `   Next order calculated price/unit: ${preview.nextOrder.calculatedPricePerUnit?.amount} ${preview.nextOrder.calculatedPricePerUnit?.currencyCode}`,
-//   );
-//   console.log(`   Next order calculated quantity: ${preview.nextOrder.calculatedQuantity}`);
-//   console.log(
-//     `   Next order calculated total: ${preview.nextOrder.calculatedItemTotal?.amount} ${preview.nextOrder.calculatedItemTotal?.currencyCode}`,
-//   );
-//   console.log(`   Will apply on next order:`, preview.nextOrder.willApply);
-//   console.log("─────────────────────────────────────────────");
-
-//   return preview;
-// }
-
-// export {
-//   getContractPreview,
-//   collectActionsForCycle,
-//   computePriceForCycle,
-//   metaKeyForGroup,
-//   EXTRA_SETTINGS_NAMESPACE,
-// };
-
-
-
-
 const EXTRA_SETTINGS_NAMESPACE = "subscription_app";
 
 function metaKeyForGroup(groupId) {
@@ -342,17 +5,18 @@ function metaKeyForGroup(groupId) {
   return `extra_settings_${numericId}`;
 }
 
-
 function collectActionsForCycle(settings, cycleIndex) {
   const actions = [];
   if (!settings) return actions;
 
   cycleIndex = Number(cycleIndex);
 
-  // 1. Shipping Discount — "after N orders"
+  // 1. Shipping Discount — "after N orders" (fires starting the order AFTER
+  // N have completed, i.e. cycleIndex > N — same semantics as Shopify's own
+  // native pricing-policy afterCycle field)
   if (
     settings.giveShippingDiscount &&
-    cycleIndex >= Number(settings.shippingAfterOrders)
+    cycleIndex > Number(settings.shippingAfterOrders)
   ) {
     actions.push({
       type: "SHIPPING_DISCOUNT",
@@ -365,7 +29,7 @@ function collectActionsForCycle(settings, cycleIndex) {
   // 2. Quantity Change — "change quantity to X after N orders"
   if (
     settings.changeQuantityAfterOrders &&
-    cycleIndex >= Number(settings.quantityAfterOrders)
+    cycleIndex > Number(settings.quantityAfterOrders)
   ) {
     actions.push({
       type: "QUANTITY_CHANGE",
@@ -378,7 +42,7 @@ function collectActionsForCycle(settings, cycleIndex) {
   // 3. Product Swap — "swap to variant X after N orders"
   if (
     settings.productSwapEnabled &&
-    cycleIndex >= Number(settings.productSwapAfterOrders)
+    cycleIndex > Number(settings.productSwapAfterOrders)
   ) {
     actions.push({
       type: "VARIANT_SWAP",
@@ -390,7 +54,7 @@ function collectActionsForCycle(settings, cycleIndex) {
   // 4. Remove Free Product — "after N orders"
   if (
     settings.RemoveFreeProdcut &&
-    cycleIndex >= Number(settings.removeFreeProductValue)
+    cycleIndex > Number(settings.removeFreeProductValue)
   ) {
     actions.push({
       type: "REMOVE_FREE_PRODUCT",
@@ -402,7 +66,7 @@ function collectActionsForCycle(settings, cycleIndex) {
   // 5. Custom automation list — merchant ke defined arbitrary cycles
   if (settings.Automation && Array.isArray(settings.automationCycles)) {
     for (const auto of settings.automationCycles) {
-      if (cycleIndex >= Number(auto.orders)) {
+      if (cycleIndex > Number(auto.orders)) {
         for (const action of auto.actions ?? []) {
           actions.push({ ...action, after: auto.orders });
         }
@@ -598,27 +262,24 @@ async function applyActionsToCycle(admin, contractId, cycleIndex, actions) {
     }
   }
 
-  // 2. Commit — ye committed draft hi actual auto-generated order banata hai
   const commitRes = await admin.graphql(
     `
-    mutation commitCycleDraft($draftId: ID!, $billingCycleInput: SubscriptionBillingCycleInput!) {
-      subscriptionBillingCycleContractDraftCommit(
-        draftId: $draftId
-        billingCycleInput: $billingCycleInput
-      ) {
+    mutation commitCycleDraft($draftId: ID!) {
+      subscriptionBillingCycleContractDraftCommit(draftId: $draftId) {
+        contract {
+          id
+        }
         userErrors { field message }
       }
     }
     `,
-    {
-      variables: {
-        draftId,
-        billingCycleInput: { contractId, selector: { index: cycleIndex } },
-      },
-    },
+    { variables: { draftId } },
   );
 
   const commitData = await commitRes.json();
+  if (commitData.errors) {
+    throw new Error(`subscriptionBillingCycleContractDraftCommit failed: ${commitData.errors[0]?.message}`);
+  }
   const commitErrors = commitData.data?.subscriptionBillingCycleContractDraftCommit?.userErrors;
   if (commitErrors?.length) {
     throw new Error(`subscriptionBillingCycleContractDraftCommit failed: ${commitErrors[0].message}`);
@@ -633,7 +294,13 @@ async function getContractPreview(admin, contractId) {
         id
         status
         nextBillingDate
-        customer { id displayName }
+        customer {
+         id 
+         displayName
+         defaultEmailAddress{
+          emailAddress
+          }
+          }
         lines(first: 5) {
           edges {
             node {
@@ -807,6 +474,7 @@ async function getContractPreview(admin, contractId) {
       title: firstLine?.title,
       quantity: firstLine?.quantity,
       price: firstLine?.currentPrice,
+      pricingPolicyDebug: firstLine?.pricingPolicy ?? null,
     },
     planGroup: { id: groupId, name: groupName },
     nextOrder: {

@@ -305,7 +305,8 @@ export async function action({ request, params }) {
     type === "cancel" ||
     type === "resume" ||
     type === "skip" ||
-    type === "unskip" 
+    type === "unskip" ||
+    type === "reschedule"   
   ) {
     if (type === "pause") {
       const res = await admin.graphql(
@@ -545,7 +546,71 @@ export async function action({ request, params }) {
         unskippedCycleIndex: payload.billingCycle.cycleIndex,
       };
     }
+if (type === "reschedule") {
+  const cycleIndex = parseInt(formData.get("cycleIndex"), 10);
+  const newDate = formData.get("newDate"); // e.g. "2026-08-15" from <input type="date">
 
+  if (Number.isNaN(cycleIndex) || !newDate) {
+    return { success: false, error: "Invalid cycle index or date" };
+  }
+
+  const isoDate = new Date(newDate).toISOString();
+
+  const res = await admin.graphql(
+    `
+    mutation SubscriptionBillingCycleScheduleEdit(
+      $billingCycleInput: SubscriptionBillingCycleInput!
+      $input: SubscriptionBillingCycleScheduleEditInput!
+    ) {
+      subscriptionBillingCycleScheduleEdit(
+        billingCycleInput: $billingCycleInput
+        input: $input
+      ) {
+        billingCycle {
+          cycleIndex
+          billingAttemptExpectedDate
+        }
+        userErrors {
+          field
+          message
+          code
+        }
+      }
+    }
+    `,
+    {
+      variables: {
+        billingCycleInput: {
+          contractId,
+          selector: { index: cycleIndex },
+        },
+        input: {
+          billingDate: isoDate,
+          reason: "MERCHANT_INITIATED",
+        },
+      },
+    },
+  );
+
+  const data = await res.json();
+  const payload = data?.data?.subscriptionBillingCycleScheduleEdit;
+
+  if (!payload || payload.userErrors?.length) {
+    console.error("Reschedule failed", payload?.userErrors);
+    return {
+      success: false,
+      error:
+        payload?.userErrors?.map((e) => e.message).join(", ") ||
+        "Reschedule failed",
+    };
+  }
+
+  return {
+    success: true,
+    rescheduledCycleIndex: payload.billingCycle.cycleIndex,
+    newDate: payload.billingCycle.billingAttemptExpectedDate,
+  };
+}
   }
 
   const payload = {
