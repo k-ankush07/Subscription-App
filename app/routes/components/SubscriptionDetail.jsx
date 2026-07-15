@@ -235,7 +235,7 @@ const nextCycleIndex = nextUpcomingCycle?.cycleIndex ?? null;
 
         <div>
           <b> Subscription details</b>
-          <Link to="">Edit</Link>
+          {/* <Link to="">Edit</Link> */}
           <div>
             {lines.map((item, index) => {
               const price = getCurrentComputedPrice(item, nextCycleIndex ?? 0);
