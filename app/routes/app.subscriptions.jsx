@@ -136,7 +136,7 @@ function Subscriptions() {
                     <th>Customer Email</th>
                     <th>Created</th>
                     <th>Updated</th>
-                    {/* <th>Next Order Date</th> */}
+                    <th>Next Order Date</th>
                     <th>Product</th>
                     <th>Price</th>
                     <th>Delivery Frequency</th>
@@ -176,9 +176,9 @@ function Subscriptions() {
                         </td>
                         <td>{formatDate(item.createdAt)}</td>
                         <td>{formatDate(item.updatedAt)}</td>
-                        {/* <td>{
+                        <td>{
                         item.status !=="CANCELLED" ? formatDate(item.nextBillingDate) :""
-                        }</td> */}
+                        }</td>
                         <td>{productLabel}</td>
                         <td>
                           {currencySymbol(currencyCode)} {total.toFixed(2)}

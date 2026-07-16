@@ -55,14 +55,11 @@ export default function SubscriptionDetail() {
     customerNotes,
     extraSettingsBySellingPlanId,
   } = useLoaderData();
-  // console.log(
-  //   "upcoming",
-  //   upcomingCycles,
-  //   "contract",
-  //   contract,
-  //   "extra setting ",
-  //   extraSettingsBySellingPlanId,
-  // );
+  console.log(
+  
+    "contract",
+    contract,
+  );
   const [localLines, setLocalLines] = useState(contract?.lines?.edges || []);
   const [showInternalNotes, setShowInternalNotes] = useState(false);
   const [Internalnotes, setInternalNotes] = useState(internalNotes || "");
@@ -303,9 +300,9 @@ export default function SubscriptionDetail() {
                   </p>
                   <p>
                     {" "}
-                    {`${currencySymbol(currencyCode)} ${price} X ${quantity} = ${currencySymbol(currencyCode)} ${Total}`}
+                    {/* {`${currencySymbol(currencyCode)} ${price} X ${quantity} = ${currencySymbol(currencyCode)} ${Total}`} */}
                   </p>
-                  {cycleDiscounts.length > 0 && (
+                  {/* {cycleDiscounts.length > 0 && (
                     <p>
                       <span>
                         {cycleDiscounts.length === 1
@@ -313,7 +310,7 @@ export default function SubscriptionDetail() {
                           : `${cycleDiscounts[0]?.adjustmentValue?.percentage ? `${cycleDiscounts[0]?.adjustmentValue?.percentage}%` : `₹${cycleDiscounts[0]?.adjustmentValue?.amount}`} off for the first ${cycleDiscounts[1]?.afterCycle || 1} order, then ${cycleDiscounts[1]?.adjustmentValue?.percentage ? `${cycleDiscounts[1]?.adjustmentValue?.percentage}%` : `₹${cycleDiscounts[1]?.adjustmentValue?.amount}`} off`}
                       </span>
                     </p>
-                  )}
+                  )} */}
                   <p>
                     <b>{`Delivery: Every ${contract?.deliveryPolicy?.intervalCount} ${contract?.deliveryPolicy?.interval} `}</b>
                     <b>{`Billing: every ${contract?.billingPolicy?.intervalCount} ${contract?.billingPolicy?.interval}`}</b>
