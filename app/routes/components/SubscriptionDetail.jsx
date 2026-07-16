@@ -55,11 +55,7 @@ export default function SubscriptionDetail() {
     customerNotes,
     extraSettingsBySellingPlanId,
   } = useLoaderData();
-  console.log(
-  
-    "contract",
-    contract,
-  );
+  console.log("contract", contract,extraSettingsBySellingPlanId);
   const [localLines, setLocalLines] = useState(contract?.lines?.edges || []);
   const [showInternalNotes, setShowInternalNotes] = useState(false);
   const [Internalnotes, setInternalNotes] = useState(internalNotes || "");
@@ -135,7 +131,6 @@ export default function SubscriptionDetail() {
     fetcher.submit({ type: "cancel" }, { method: "post" });
   };
 
-
   const handleReschedule = (cycle) => {
     if (!editDate) {
       return;
@@ -153,12 +148,10 @@ export default function SubscriptionDetail() {
     setEditDate("");
   };
 
- 
-
   useEffect(() => {
-  setLocalLines(contract?.lines?.edges || []);
-  setVisibleCyclesCount(5); // naya contract load hone par wapas 5 pe reset
-}, [contract]);
+    setLocalLines(contract?.lines?.edges || []);
+    setVisibleCyclesCount(5); // naya contract load hone par wapas 5 pe reset
+  }, [contract]);
   return (
     <>
       <Page backAction={{ onAction: backButton }} title={`${id}`}>
@@ -192,12 +185,31 @@ export default function SubscriptionDetail() {
         ) : (
           ""
         )}
-
+        {nextCycleIndex != null && (
+          <Button
+            onClick={() => {
+              const confirmed = confirm(
+                `Charge this customer now for cycle #${nextCycleIndex}? This will place an order immediately.`,
+              );
+              if (!confirmed) return;
+              fetcher.submit(
+                { type: "charge_now", cycleIndex: nextCycleIndex },
+                { method: "post" },
+              );
+            }}
+            loading={fetcher.state !== "idle"}
+            disabled={fetcher.state !== "idle"}
+            tone="success"
+          >
+            Charge Now
+          </Button>
+        )}
         {contract?.status !== "CANCELLED" && (
           <div>
             <b>Next Order</b>
             <p>{formateDate(nextCycleDate)}</p>
             <br />
+
             {(contract?.billingPolicy?.minCycles != null ||
               contract?.billingPolicy?.maxCycles != null) && (
               <>
@@ -338,112 +350,126 @@ export default function SubscriptionDetail() {
         {contract?.status !== "CANCELLED" && (
           <Card>
             <b>Upcoming orders</b>
-          {upcomingCycles?.slice(0, visibleCyclesCount).map((cycle, index) => (
-              <div
-                key={cycle.cycleIndex ?? index}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  marginTop: "8px",
-                  flexWrap: "wrap",
-                }}
-              >
-                <p>
-                  {formateDate(cycle.billingAttemptExpectedDate)}{" "}
-                  {cycle.skipped && <span>(Skipped)</span>}
-                </p>
-
+            {upcomingCycles
+              ?.slice(0, visibleCyclesCount)
+              .map((cycle, index) => (
                 <div
-                  style={{ display: "flex", gap: "16px", alignItems: "center" }}
+                  key={cycle.cycleIndex ?? index}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    marginTop: "8px",
+                    flexWrap: "wrap",
+                  }}
                 >
-                  {!cycle.skipped &&
-                    (editingCycleIndex === cycle.cycleIndex ? (
-                      <div
-                        style={{
-                          display: "flex",
-                          gap: "12px",
-                          alignItems: "center",
-                          flexWrap: "wrap",
-                        }}
-                      >
-                        <input
-                          type="date"
-                          value={editDate}
-                          min={new Date().toISOString().split("T")[0]}
-                          onChange={(e) => setEditDate(e.target.value)}
-                        />
-                        <Button onClick={() => handleReschedule(cycle)} loading={fetcher.state !== "idle"} disabled={fetcher.state !== "idle"}>
-                          {fetcher.state !== "idle" ? "Saving…" : "Save"}
-                        </Button>
+                  <p>
+                    {formateDate(cycle.billingAttemptExpectedDate)}{" "}
+                    {cycle.skipped && <span>(Skipped)</span>}
+                  </p>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "16px",
+                      alignItems: "center",
+                    }}
+                  >
+                    {!cycle.skipped &&
+                      (editingCycleIndex === cycle.cycleIndex ? (
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: "12px",
+                            alignItems: "center",
+                            flexWrap: "wrap",
+                          }}
+                        >
+                          <input
+                            type="date"
+                            value={editDate}
+                            min={new Date().toISOString().split("T")[0]}
+                            onChange={(e) => setEditDate(e.target.value)}
+                          />
+                          <Button
+                            onClick={() => handleReschedule(cycle)}
+                            loading={fetcher.state !== "idle"}
+                            disabled={fetcher.state !== "idle"}
+                          >
+                            {fetcher.state !== "idle" ? "Saving…" : "Save"}
+                          </Button>
+                          <Button
+                            plain
+                            disabled={fetcher.state !== "idle"}
+                            onClick={() => {
+                              setEditingCycleIndex(null);
+                              setEditDate("");
+                            }}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      ) : (
                         <Button
-                          plain
-                          disabled={fetcher.state !== "idle"}
                           onClick={() => {
-                            setEditingCycleIndex(null);
+                            setEditingCycleIndex(cycle.cycleIndex);
                             setEditDate("");
                           }}
                         >
-                          Cancel
+                          Edit
                         </Button>
-                      </div>
-                    ) : (
+                      ))}
+
+                    {contract?.status === "ACTIVE" && !cycle.skipped && (
                       <Button
+                        plain
                         onClick={() => {
-                          setEditingCycleIndex(cycle.cycleIndex);
-                          setEditDate("");
+                          fetcher.submit(
+                            {
+                              type: "skip",
+                              cycleIndex: cycle.cycleIndex,
+                            },
+                            { method: "post" },
+                          );
                         }}
                       >
-                        Edit
+                        Skip
                       </Button>
-                    ))}
-
-                  {contract?.status === "ACTIVE" && !cycle.skipped && (
-                    <Button
-                      plain
-                      onClick={() => {
-                        fetcher.submit(
-                          {
-                            type: "skip",
-                            cycleIndex: cycle.cycleIndex,
-                          },
-                          { method: "post" },
-                        );
-                      }}
-                    >
-                      Skip
-                    </Button>
-                  )}
-                  {contract?.status === "ACTIVE" && cycle.skipped && (
-                    <Button
-                      plain
-                      onClick={() => {
-                        fetcher.submit(
-                          {
-                            type: "unskip",
-                            cycleIndex: cycle.cycleIndex,
-                          },
-                          { method: "post" },
-                        );
-                      }}
-                    >
-                      Resume
-                    </Button>
-                  )}
+                    )}
+                    {contract?.status === "ACTIVE" && cycle.skipped && (
+                      <Button
+                        plain
+                        onClick={() => {
+                          fetcher.submit(
+                            {
+                              type: "unskip",
+                              cycleIndex: cycle.cycleIndex,
+                            },
+                            { method: "post" },
+                          );
+                        }}
+                      >
+                        Resume
+                      </Button>
+                    )}
+                  </div>
                 </div>
-                
-              </div>
-              
-            ))}
+              ))}
             {upcomingCycles?.length > visibleCyclesCount && (
-  <div style={{ display: "flex", justifyContent: "center", marginTop: "12px" }}>
-    <Button
-      onClick={() => setVisibleCyclesCount((count) => count + 5)}
-      plain
-    >
-      View more
-    </Button>
-  </div>
-)}
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "center",
+                  marginTop: "12px",
+                }}
+              >
+                <Button
+                  onClick={() => setVisibleCyclesCount((count) => count + 5)}
+                  plain
+                >
+                  View more
+                </Button>
+              </div>
+            )}
           </Card>
         )}
 

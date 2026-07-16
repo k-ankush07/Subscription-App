@@ -1,3 +1,4 @@
+
 const EXTRA_SETTINGS_NAMESPACE = "subscription_app";
 function metaKeyForGroup(groupId) {
   const numericId = groupId.split("/").pop();
@@ -54,6 +55,28 @@ function normalizeAutomationAction(action, afterOrders) {
   }
 
   return { ...action, after: afterOrders };
+}
+
+
+const ACTION_ORDER = [
+  "QUANTITY_CHANGE",
+  "MINIMUM_QUANTITY",
+  "REMOVE_PRODUCT",
+  "REMOVE_VARIANT",
+  "REMOVE_FREE_PRODUCT",
+  "ADD_PRODUCT",
+  "SHIPPING_DISCOUNT",
+  "VARIANT_SWAP",
+  "PRODUCT_SWAP",
+  "DISCOUNT_CHANGE", // must stay last
+];
+
+function sortActionsForApply(actions) {
+  return [...actions].sort((a, b) => {
+    const ai = ACTION_ORDER.indexOf(a.type);
+    const bi = ACTION_ORDER.indexOf(b.type);
+    return (ai === -1 ? ACTION_ORDER.length : ai) - (bi === -1 ? ACTION_ORDER.length : bi);
+  });
 }
 
 function collectActionsForCycle(settings, cycleIndex) {
@@ -163,11 +186,7 @@ function computePriceForCycle(pricingPolicy, cycleIndex) {
   return bestTier ? bestTier.computedPrice : pricingPolicy.basePrice;
 }
 
-// ── Helper: find the applicable native (Shopify) cycleDiscounts tier for
-// this cycleIndex, returned as the raw tier object (not the computedPrice,
-// since that computedPrice was calculated against the ORIGINAL product's
-// base price — we need the tier's adjustment rule to re-apply against a
-// possibly-different (post-swap) base price).
+
 function getDiscountTierForCycle(pricingPolicy, cycleIndex) {
   if (!pricingPolicy?.cycleDiscounts?.length) return null;
   cycleIndex = Number(cycleIndex);
@@ -178,8 +197,6 @@ function getDiscountTierForCycle(pricingPolicy, cycleIndex) {
   return applicable[applicable.length - 1] ?? null;
 }
 
-// ── Helper: apply a native cycleDiscounts tier's adjustment to an
-// arbitrary base price (used to re-derive the correct price after a swap).
 function applyDiscountTierToPrice(basePrice, tier) {
   const base = Number(basePrice);
   if (!tier) return base;
@@ -191,9 +208,7 @@ function applyDiscountTierToPrice(basePrice, tier) {
   return Math.max(0, base - amt);
 }
 
-// ── Helper: fetch a variant's own current price from Shopify. Used after
-// a swap so discount math is applied to the NEW product's price, not the
-// old (source) product's price.
+
 async function fetchVariantPrice(admin, variantId) {
   if (!variantId) return null;
   const res = await admin.graphql(
@@ -212,11 +227,6 @@ async function fetchVariantPrice(admin, variantId) {
   return price != null ? Number(price) : null;
 }
 
-// ── Helper: figure out the "effective base price" to run discount math
-// against for this cycle. If a VARIANT_SWAP / PRODUCT_SWAP is among the
-// actions for this cycle, the effective base is the NEW (swapped-to)
-// variant's own price. Otherwise it's the configured/fallback base price
-// of the original subscription line.
 async function getEffectiveBasePrice(admin, actions, fallbackBasePrice) {
   const swap = actions?.find(
     (a) => a.type === "VARIANT_SWAP" || a.type === "PRODUCT_SWAP",
@@ -278,7 +288,7 @@ async function applyActionsToCycle(
   cycleIndex,
   actions,
   basePriceAmount = null,
-  pricingPolicy = null, // FIX: needed to re-apply native cycleDiscounts tiers post-swap
+  pricingPolicy = null, // needed to re-apply native cycleDiscounts tiers post-swap
 ) {
   // 1. Open the draft for this specific billing cycle.
   const editRes = await admin.graphql(
@@ -347,16 +357,15 @@ async function applyActionsToCycle(
     JSON.stringify(draftCheckData, null, 2)
   );
 
-  // FIX: if this cycle includes a swap, resolve the "effective base price"
-  // (the NEW product's own price) ONCE up front, before running through
-  // the actions loop. DISCOUNT_CHANGE (and the swap's own price update)
-  // both use this — so ordering of actions in the array no longer matters.
   const effectiveBasePrice = await getEffectiveBasePrice(admin, actions, basePriceAmount);
   const discountTierForCycle = getDiscountTierForCycle(pricingPolicy, cycleIndex);
 
+  const hasCustomDiscountChange = actions.some((a) => a.type === "DISCOUNT_CHANGE");
+  const orderedActions = sortActionsForApply(actions);
+
   const skippedActionsLog = [];
 
-  for (const action of actions) {
+  for (const action of orderedActions) {
     // ── QUANTITY_CHANGE ──
     if (action.type === "QUANTITY_CHANGE") {
       const targetLine = resolveLineForAction(draftLines, action);
@@ -396,54 +405,13 @@ async function applyActionsToCycle(
       }
     }
 
-    // ── DISCOUNT_CHANGE ──
-    if (action.type === "DISCOUNT_CHANGE") {
-      if (!lineId) throw new Error("DISCOUNT_CHANGE failed: no line found on draft");
-
-      // FIX: use effectiveBasePrice (new product's price if a swap is
-      // also happening this cycle) instead of always using the original
-      // line's basePriceAmount.
-      const basePrice = effectiveBasePrice;
-
-      let newPrice = basePrice;
-      if (action.adjustmentType === "PERCENTAGE") {
-        newPrice = basePrice - (basePrice * Number(action.adjustmentValue)) / 100;
-      } else {
-        newPrice = basePrice - Number(action.adjustmentValue);
-      }
-      newPrice = Math.max(0, newPrice).toFixed(2);
-
-      const res = await admin.graphql(
-        `
-        mutation updateLinePrice($draftId: ID!, $lineId: ID!, $price: Decimal!) {
-          subscriptionDraftLineUpdate(draftId: $draftId, lineId: $lineId, input: { currentPrice: $price }) {
-            userErrors { field message }
-          }
-        }
-        `,
-        { variables: { draftId, lineId, price: newPrice } },
-      );
-      const data = await res.json();
-      const errors = data.data?.subscriptionDraftLineUpdate?.userErrors;
-      if (errors?.length) throw new Error(`DISCOUNT_CHANGE failed: ${errors[0].message}`);
-    }
-
     // ── PRODUCT_SWAP / VARIANT_SWAP ──
     if (action.type === "PRODUCT_SWAP" || action.type === "VARIANT_SWAP") {
       const targetLine = resolveLineForAction(draftLines, action);
       if (!targetLine) throw new Error(`${action.type} failed: no line found on draft`);
       if (!action.variantId) throw new Error(`${action.type} failed: no variantId configured`);
-
-      // FIX: recalculate price against the NEW variant's own price + this
-      // cycle's applicable native discount tier — instead of silently
-      // keeping whatever price was on the line before the swap (which
-      // belonged to the OLD/source product).
-      // If a DISCOUNT_CHANGE action is also present in this cycle, that
-      // block (above/below, order doesn't matter) will overwrite this
-      // with its own calculation using the same effectiveBasePrice — so
-      // there's no conflict, just a harmless double-write in that case.
       let recalculatedPrice = null;
-      if (effectiveBasePrice != null) {
+      if (!hasCustomDiscountChange && effectiveBasePrice != null) {
         recalculatedPrice = applyDiscountTierToPrice(effectiveBasePrice, discountTierForCycle).toFixed(2);
       }
 
@@ -473,15 +441,36 @@ async function applyActionsToCycle(
       }
     }
 
+    // ── DISCOUNT_CHANGE ── (always runs last — see sortActionsForApply)
+    if (action.type === "DISCOUNT_CHANGE") {
+      if (!lineId) throw new Error("DISCOUNT_CHANGE failed: no line found on draft");
+      const basePrice = effectiveBasePrice;
+
+      let newPrice = basePrice;
+      if (action.adjustmentType === "PERCENTAGE") {
+        newPrice = basePrice - (basePrice * Number(action.adjustmentValue)) / 100;
+      } else {
+        newPrice = basePrice - Number(action.adjustmentValue);
+      }
+      newPrice = Math.max(0, newPrice).toFixed(2);
+
+      const res = await admin.graphql(
+        `
+        mutation updateLinePrice($draftId: ID!, $lineId: ID!, $price: Decimal!) {
+          subscriptionDraftLineUpdate(draftId: $draftId, lineId: $lineId, input: { currentPrice: $price }) {
+            userErrors { field message }
+          }
+        }
+        `,
+        { variables: { draftId, lineId, price: newPrice } },
+      );
+      const data = await res.json();
+      const errors = data.data?.subscriptionDraftLineUpdate?.userErrors;
+      if (errors?.length) throw new Error(`DISCOUNT_CHANGE failed: ${errors[0].message}`);
+    }
+
     // ── SHIPPING_DISCOUNT ──
     if (action.type === "SHIPPING_DISCOUNT") {
-      // IMPORTANT PLATFORM LIMITATION: Shopify's subscription draft API only
-      // exposes `subscriptionDraftFreeShippingDiscountAdd`, whose input type
-      // (SubscriptionFreeShippingDiscountInput) has ONLY `title` and
-      // `recurringCycleLimit` fields — there is no percentage/amount field.
-      // There is currently no Admin API mutation that applies a *partial*
-      // (e.g. 30%) shipping discount to a subscription contract; only 100%
-      // free shipping is supported.
       const configuredValue = Number(action.value);
       const isFullFreeShipping =
         action.discountType === "PERCENTAGE"
@@ -745,12 +734,6 @@ async function getContractPreview(admin, contractId) {
 
   let calculatedPricePerUnit =
     cycleIndex != null ? computePriceForCycle(firstLine?.pricingPolicy, cycleIndex) : null;
-
-  // FIX: if a swap is happening THIS cycle, the "effective base price" for
-  // all further price math (native cycleDiscounts tier AND custom
-  // DISCOUNT_CHANGE action) must be the NEW product's own price — not the
-  // original line's basePrice. Without this, both native tiers and custom
-  // discount actions were being computed against the wrong (old) product.
   const swapAction = Array.isArray(actionsForNextCycle)
     ? actionsForNextCycle.find((a) => a.type === "VARIANT_SWAP" || a.type === "PRODUCT_SWAP")
     : null;
@@ -761,9 +744,6 @@ async function getContractPreview(admin, contractId) {
     const newVariantPrice = await fetchVariantPrice(admin, swapAction.variantId);
     if (newVariantPrice != null) {
       effectiveBase = newVariantPrice;
-
-      // Re-derive calculatedPricePerUnit using the native cycleDiscounts
-      // tier (if any) applied to the NEW product's price.
       const tier = getDiscountTierForCycle(firstLine?.pricingPolicy, cycleIndex);
       calculatedPricePerUnit = {
         amount: applyDiscountTierToPrice(effectiveBase, tier).toFixed(2),
@@ -784,8 +764,6 @@ async function getContractPreview(admin, contractId) {
     : null;
 
   if (discountAction) {
-    // FIX: use effectiveBase (post-swap price if applicable) instead of
-    // always reading firstLine.pricingPolicy.basePrice.amount.
     const base = effectiveBase;
 
     let discounted = base;
@@ -829,8 +807,6 @@ async function getContractPreview(admin, contractId) {
     }
   }
 
-  // FIX: surface the "only first destination applies" warning in the
-  // preview response too, not just in applyActionsToCycle's audit log.
   if (swapAction?.__multipleDestsIgnored) {
     swapAction.warning =
       "Multiple swap destinations/variants are configured for this cycle, but only the first will actually be applied. Remove the extras to avoid confusion.";
@@ -900,4 +876,5 @@ export {
   getEffectiveBasePrice,
   metaKeyForGroup,
   EXTRA_SETTINGS_NAMESPACE,
+  sortActionsForApply,
 };
