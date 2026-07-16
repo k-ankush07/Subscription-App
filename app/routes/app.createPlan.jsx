@@ -509,11 +509,8 @@ console.log(
     ...payload,
   });
 };
-
 function CreatePlan() {
   const { shop } = useLoaderData();
   return <Template shop={shop} />;
 }
-
 export default CreatePlan;
-
