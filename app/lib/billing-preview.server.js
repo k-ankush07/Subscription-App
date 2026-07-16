@@ -15,7 +15,7 @@ function normalizeAutomationAction(action, afterOrders) {
       0,
     );
     const multipleDestsIgnored = totalConfiguredVariants > 1 || allDests.length > 1;
-// sf
+
     if (multipleDestsIgnored) {
       console.warn(
         `[normalizeAutomationAction] VARIANT_SWAP: ${totalConfiguredVariants} destination variant(s) ` +
