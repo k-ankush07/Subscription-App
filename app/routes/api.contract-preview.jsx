@@ -41,6 +41,7 @@ export const loader = async ({ request }) => {
               skipped
               edited
               status
+              
             }
           }
         `,

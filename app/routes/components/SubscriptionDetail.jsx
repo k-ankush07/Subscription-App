@@ -55,14 +55,14 @@ export default function SubscriptionDetail() {
     customerNotes,
     extraSettingsBySellingPlanId,
   } = useLoaderData();
-  console.log(
-    "upcoming",
-    upcomingCycles,
-    "contract",
-    contract,
-    "extra setting ",
-    extraSettingsBySellingPlanId,
-  );
+  // console.log(
+  //   "upcoming",
+  //   upcomingCycles,
+  //   "contract",
+  //   contract,
+  //   "extra setting ",
+  //   extraSettingsBySellingPlanId,
+  // );
   const [localLines, setLocalLines] = useState(contract?.lines?.edges || []);
   const [showInternalNotes, setShowInternalNotes] = useState(false);
   const [Internalnotes, setInternalNotes] = useState(internalNotes || "");
@@ -281,12 +281,6 @@ export default function SubscriptionDetail() {
               const Total = parseFloat(price * quantity);
               const cycleDiscounts =
                 item?.node?.pricingPolicy?.cycleDiscounts || [];
-              console.log("summary line", {
-                title: `${item?.node?.title} - ${item?.node?.variantTitle}`,
-                nextCycleIndex,
-                appliedPrice: price,
-                cycleDiscounts: item?.node?.pricingPolicy?.cycleDiscounts,
-              });
 
               return (
                 <Card key={index}>

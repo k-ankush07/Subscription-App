@@ -54,18 +54,18 @@ export const action = async ({ request }) => {
         },
       });
 
-      if (sp.changeDiscountAfterOrders && sp.afterOrders) {
-        pricingPolicies.push({
-          recurring: {
-            afterCycle: Number(sp.afterOrders),
-            adjustmentType: sp.afterDiscountType ?? "PERCENTAGE",
-            adjustmentValue:
-              (sp.afterDiscountType ?? "PERCENTAGE") === "PERCENTAGE"
-                ? { percentage: Number(sp.afterDiscountValue) ?? 0 }
-                : { fixedValue: Number(sp.afterDiscountValue) ?? 0 },
-          },
-        });
-      }
+      // if (sp.changeDiscountAfterOrders && sp.afterOrders) {
+      //   pricingPolicies.push({
+      //     recurring: {
+      //       afterCycle: Number(sp.afterOrders),
+      //       adjustmentType: sp.afterDiscountType ?? "PERCENTAGE",
+      //       adjustmentValue:
+      //         (sp.afterDiscountType ?? "PERCENTAGE") === "PERCENTAGE"
+      //           ? { percentage: Number(sp.afterDiscountValue) ?? 0 }
+      //           : { fixedValue: Number(sp.afterDiscountValue) ?? 0 },
+      //     },
+      //   });
+      // }
     }
 
     return pricingPolicies;
@@ -73,6 +73,10 @@ export const action = async ({ request }) => {
 
   const buildMetafields = (sp) => {
   const extraSettings = {
+      changeDiscountAfterOrders: sp.changeDiscountAfterOrders ?? false,
+      afterOrders: sp.afterOrders ?? 1,
+      afterDiscountType: sp.afterDiscountType ?? "PERCENTAGE",
+      afterDiscountValue: sp.afterDiscountValue ?? 0,
     giveShippingDiscount: sp.giveShippingDiscount ?? false,
     shippingDiscountValue: sp.shippingDiscountValue ?? 0,
     shippingAfterOrders: sp.shippingAfterOrders ?? 1,

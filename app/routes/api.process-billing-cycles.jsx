@@ -74,6 +74,7 @@
 //   return sessions.map((s) => s.shop);
 // }
 
+
 // async function loadPlanGroupsAndSettings(admin) {
 //   const res = await admin.graphql(`
 //     query {
@@ -244,6 +245,133 @@
 //   return addMarker(admin, shopId, CHARGED_CYCLES_KEY, chargedSet, marker);
 // }
 
+// // ─────────────────────────────────────────────
+// // FIX: yeh function ab "date se cycle dhoondo" (getCycleByDate) nahi
+// // karta. Woh approach sirf "is exact date ke calendar-window me kaunsa
+// // cycle padta hai" batati thi — jo Shopify me time ke saath calendar
+// // ki tarah AAGE khisak jaata hai, chahe pichla cycle charge hua ho ya
+// // nahi. Isi wajah se jab cron kabhi miss ho jaata tha (server down,
+// // dev server band), overdue cycle hamesha ke liye "peeche chhoot"
+// // jaata tha — cron sirf "current calendar cycle" dekh ke use kabhi
+// // dobara try hi nahi karta tha.
+// //
+// // Ab hum saare cycles ki list nikaalte hain (subscriptionBillingCycles)
+// // aur unme se sabse PEHLA (lowest cycleIndex) cycle chunte hain jo:
+// //   - abhi tak skipped nahi hai
+// //   - BILLED nahi hai
+// //   - uska expected date already beet chuka hai (<= now)
+// // Isse missed/overdue cycles automatically agli cron run me pakde
+// // jaate hain aur permanently abandoned nahi hote.
+// // ─────────────────────────────────────────────
+// // FIX: Shopify's subscriptionBillingCycles date-range selector rejects
+// // overly wide ranges with "Billing cycle start date out of range." A
+// // 400-day lookback tripped this. We now use a much smaller window (90
+// // days is plenty to catch any realistically-missed cycles) AND clamp
+// // the start date so it never goes earlier than the contract's own
+// // createdAt — querying before a contract existed is meaningless and
+// // can also trigger this error on very new contracts.
+// const MAX_LOOKBACK_DAYS = 90;
+
+// async function findEarliestDueCycle(admin, contractId, now, contractCreatedAt) {
+//   const lookbackFloor = new Date(now.getTime() - MAX_LOOKBACK_DAYS * 24 * 60 * 60 * 1000);
+//   const createdAtDate = contractCreatedAt ? new Date(contractCreatedAt) : lookbackFloor;
+
+//   // Never start earlier than the contract was created, and never start
+//   // later than `now` (guards against clock skew / bad createdAt values).
+//   const effectiveStart =
+//     createdAtDate.getTime() > lookbackFloor.getTime() ? createdAtDate : lookbackFloor;
+//   const startDate = effectiveStart.getTime() < now.getTime() ? effectiveStart.toISOString() : now.toISOString();
+//   const endDate = now.toISOString();
+
+//   let cycles = [];
+//   try {
+//     const res = await admin.graphql(
+//       `
+//       query getDueCycles($contractId: ID!, $startDate: DateTime!, $endDate: DateTime!) {
+//         subscriptionBillingCycles(
+//           first: 50
+//           contractId: $contractId
+//           billingCyclesDateRangeSelector: { startDate: $startDate, endDate: $endDate }
+//         ) {
+//           edges {
+//             node {
+//               cycleIndex
+//               billingAttemptExpectedDate
+//               status
+//               skipped
+//             }
+//           }
+//         }
+//       }
+//       `,
+//       { variables: { contractId, startDate, endDate } },
+//     );
+
+//     const data = await res.json();
+//     if (data.errors) {
+//       throw new Error(data.errors[0]?.message || "unknown GraphQL error");
+//     }
+//     cycles = (data.data?.subscriptionBillingCycles?.edges || []).map((e) => e.node);
+//   } catch (err) {
+//     // If Shopify still rejects the range (e.g. contract createdAt somehow
+//     // out of range too), fall back to a minimal 7-day window ending now —
+//     // this at least catches the most common "cron missed by a few hours/
+//     // days" case instead of hard-failing the whole contract.
+//     console.error(`[findEarliestDueCycle] range query failed for ${contractId}, retrying with 7-day window:`, err);
+//     const fallbackStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+//     const res = await admin.graphql(
+//       `
+//       query getDueCyclesFallback($contractId: ID!, $startDate: DateTime!, $endDate: DateTime!) {
+//         subscriptionBillingCycles(
+//           first: 50
+//           contractId: $contractId
+//           billingCyclesDateRangeSelector: { startDate: $startDate, endDate: $endDate }
+//         ) {
+//           edges {
+//             node {
+//               cycleIndex
+//               billingAttemptExpectedDate
+//               status
+//               skipped
+//             }
+//           }
+//         }
+//       }
+//       `,
+//       { variables: { contractId, startDate: fallbackStart, endDate } },
+//     );
+//     const data = await res.json();
+//     if (data.errors) {
+//       throw new Error(data.errors[0]?.message || "unknown GraphQL error (fallback)");
+//     }
+//     cycles = (data.data?.subscriptionBillingCycles?.edges || []).map((e) => e.node);
+//   }
+
+//   const nowTime = now.getTime();
+//   const dueUnbilled = cycles.filter((c) => {
+//     if (c.skipped) return false;
+//     if (c.status === "BILLED") return false;
+//     if (!c.billingAttemptExpectedDate) return false;
+//     return new Date(c.billingAttemptExpectedDate).getTime() <= nowTime;
+//   });
+
+//   if (dueUnbilled.length > 0) {
+//     dueUnbilled.sort((a, b) => a.cycleIndex - b.cycleIndex);
+//     return { cycle: dueUnbilled[0], nextUpcoming: null };
+//   }
+
+//   // FIX: nothing is due yet — instead of returning a bare `null` (which gave
+//   // skip logs with no date info at all), find the soonest not-yet-due,
+//   // unskipped, unbilled cycle so we can report WHEN the next charge will
+//   // actually happen. This makes "no due cycle found" log entries useful
+//   // instead of a dead end.
+//   const notYetDue = cycles
+//     .filter((c) => !c.skipped && c.status !== "BILLED" && c.billingAttemptExpectedDate)
+//     .sort((a, b) => new Date(a.billingAttemptExpectedDate) - new Date(b.billingAttemptExpectedDate));
+
+//   return { cycle: null, nextUpcoming: notYetDue[0] || null };
+// }
+
 // async function processShop(admin) {
 //   const { shopId, sellingPlanIdToInfo } = await loadPlanGroupsAndSettings(admin);
 //   const processedCycles = await getProcessedCycles(admin, shopId);
@@ -255,8 +383,9 @@
 //         edges {
 //           node {
 //             id
+//             createdAt
 //             nextBillingDate
-//             lines(first: 5) {
+//             lines(first: 50) {
 //               edges { node { id sellingPlanId } }
 //             }
 //           }
@@ -272,50 +401,26 @@
 //   const skipped = [];
 
 //   for (const contract of contracts) {
-//     // Use "now" as the date selector — NOT contract.nextBillingDate, which
-//     // Shopify never auto-advances once a cycle bills.
-//     const nowIso = new Date().toISOString();
-//     const cycleRes = await admin.graphql(
-//       `
-//       query getCycleByDate($contractId: ID!, $date: DateTime!) {
-//         subscriptionBillingCycle(
-//           billingCycleInput: { contractId: $contractId, selector: { date: $date } }
-//         ) {
-//           cycleIndex
-//           billingAttemptExpectedDate
-//           skipped
-//         }
-//       }
-//     `,
-//       { variables: { contractId: contract.id, date: nowIso } },
-//     );
+//     const now = new Date();
 
-//     const cycleData = await cycleRes.json();
-//     const cycle = cycleData.data?.subscriptionBillingCycle;
+//     // FIX: pick the earliest UNBILLED, non-skipped, overdue cycle instead
+//     // of "whatever cycle the current calendar date falls into". This
+//     // catches up any cycle that was missed on a previous run.
+//     const { cycle, nextUpcoming } = await findEarliestDueCycle(admin, contract.id, now, contract.createdAt);
+
 //     if (!cycle) {
-//       skipped.push({ contractId: contract.id, reason: "no cycle found for current date" });
-//       continue;
-//     }
-
-//     if (cycle.skipped) {
-//       skipped.push({ contractId: contract.id, cycleIndex: cycle.cycleIndex, reason: "cycle marked skipped" });
+//       skipped.push({
+//         contractId: contract.id,
+//         reason: "no due cycle found (nothing overdue right now)",
+//         checkedAt: now.toISOString(),
+//         nextCycleIndex: nextUpcoming?.cycleIndex ?? null,
+//         nextExpectedDate: nextUpcoming?.billingAttemptExpectedDate ?? null,
+//       });
 //       continue;
 //     }
 
 //     const cycleIndex = cycle.cycleIndex;
 //     const editMarker = `${contract.id}:${cycleIndex}`;
-
-//     const expectedDate = cycle.billingAttemptExpectedDate ? new Date(cycle.billingAttemptExpectedDate) : null;
-//     const now = new Date();
-//     if (!expectedDate || expectedDate.getTime() > now.getTime()) {
-//       skipped.push({
-//         contractId: contract.id,
-//         cycleIndex,
-//         reason: "not due yet",
-//         expectedDate: cycle.billingAttemptExpectedDate || null,
-//       });
-//       continue;
-//     }
 
 //     // FIX: look up settings by sellingPlanId directly, from the selling-plan-level
 //     // metafield map, instead of the old (broken) shop-level groupId lookup.
@@ -359,7 +464,7 @@
 
 //     const chargeMarker = `${contract.id}:${cycleIndex}`;
 //     if (chargedCycles.has(chargeMarker)) {
-//       skipped.push({ contractId: contract.id, cycleIndex, reason: "already charged" });
+//       skipped.push({ contractId: contract.id, cycleIndex, reason: "already charged", checkedAt: now.toISOString() });
 //       continue;
 //     }
 
@@ -386,6 +491,7 @@
 
 //       const chargeData = await chargeRes.json();
 //       const chargePayload = chargeData.data?.subscriptionBillingCycleCharge;
+//       console.log("crtedhd",chargePayload)
 //       const chargeErrors = chargePayload?.userErrors;
 
 //       if (chargeErrors?.length) {
@@ -431,16 +537,6 @@
 
 //   return { contractsChecked: contracts.length, edited, charged, skipped };
 // }
-
-
-
-
-
-
-
-
-
-
 
 
 import { unauthenticated } from "../shopify.server";
@@ -518,7 +614,6 @@ async function getShopsWithOfflineTokens() {
   });
   return sessions.map((s) => s.shop);
 }
-
 
 async function loadPlanGroupsAndSettings(admin) {
   const res = await admin.graphql(`
@@ -831,7 +926,15 @@ async function processShop(admin) {
             createdAt
             nextBillingDate
             lines(first: 5) {
-              edges { node { id sellingPlanId } }
+              edges {
+                node {
+                  id
+                  sellingPlanId
+                  pricingPolicy {
+                    basePrice { amount currencyCode }
+                  }
+                }
+              }
             }
           }
         }
@@ -870,6 +973,7 @@ async function processShop(admin) {
     // FIX: look up settings by sellingPlanId directly, from the selling-plan-level
     // metafield map, instead of the old (broken) shop-level groupId lookup.
     const sellingPlanId = contract.lines.edges[0]?.node?.sellingPlanId;
+    const basePriceAmount = contract.lines.edges[0]?.node?.pricingPolicy?.basePrice?.amount ?? null;
     const planInfo = sellingPlanId ? sellingPlanIdToInfo.get(sellingPlanId) : null;
     const groupId = planInfo?.groupId ?? null;
     const settings = planInfo?.settings ?? null;
@@ -877,7 +981,7 @@ async function processShop(admin) {
 
     if (actionsForThisCycle.length > 0 && !processedCycles.has(editMarker)) {
       try {
-        await applyActionsToCycle(admin, contract.id, cycleIndex, actionsForThisCycle);
+        await applyActionsToCycle(admin, contract.id, cycleIndex, actionsForThisCycle, basePriceAmount);
         await markCycleProcessed(admin, shopId, processedCycles, editMarker);
         await appendAuditLog(admin, shopId, {
           contractId: contract.id,
@@ -936,7 +1040,6 @@ async function processShop(admin) {
 
       const chargeData = await chargeRes.json();
       const chargePayload = chargeData.data?.subscriptionBillingCycleCharge;
-      console.log("crtedhd",chargePayload)
       const chargeErrors = chargePayload?.userErrors;
 
       if (chargeErrors?.length) {
