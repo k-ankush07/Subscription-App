@@ -35,6 +35,7 @@ async function getSellingPlanExtraSettings(admin, sellingPlanId) {
   }
 }
 
+
 export async function loader({ request, params }) {
   const { admin } = await authenticate.admin(request);
 
@@ -332,6 +333,7 @@ async function rescheduleSingleCycle(admin, contractId, cycleIndex, isoDate) {
   return data?.data?.subscriptionBillingCycleScheduleEdit;
 }
 
+
 export async function action({ request, params }) {
   const formData = await request.formData();
   const type = formData.get("type");
@@ -346,7 +348,8 @@ export async function action({ request, params }) {
     type === "resume" ||
     type === "skip" ||
     type === "unskip" ||
-    type === "reschedule"   
+    type === "reschedule"  ||
+    type === "add_discount" 
   ) {
     if (type === "pause") {
       const res = await admin.graphql(

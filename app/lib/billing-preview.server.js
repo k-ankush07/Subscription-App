@@ -1,5 +1,4 @@
 const EXTRA_SETTINGS_NAMESPACE = "subscription_app";
-
 function metaKeyForGroup(groupId) {
   const numericId = groupId.split("/").pop();
   return `extra_settings_${numericId}`;
@@ -34,11 +33,6 @@ function normalizeAutomationAction(action, afterOrders) {
   }
 
   if (action.type === "remove") {
-    // From the UI, a "remove" action can be:
-    //  - a swap action that was switched to "Remove from subscription" via
-    //    the radio (has sourceProductId / sourceVariantId), OR
-    //  - a direct "Remove product" / "Remove specific variant" action
-    //    (has productId / variantId, with isVariant flag for the latter)
     const variantId = action.sourceVariantId || (action.isVariant ? action.variantId : null);
     const productId = action.sourceProductId || action.productId || null;
 
@@ -67,8 +61,6 @@ function collectActionsForCycle(settings, cycleIndex) {
   if (!settings) return actions;
 
   cycleIndex = Number(cycleIndex);
-
-  // 1. Subscription discount — "N orders ke baad discount change karo"
   if (
     settings.changeDiscountAfterOrders &&
     cycleIndex >= Number(settings.afterOrders)
