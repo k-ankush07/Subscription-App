@@ -177,7 +177,25 @@ export default function SubscriptionDetail() {
             )}
           </>
         )}
-
+ {nextCycleIndex != null && (
+          <Button
+            onClick={() => {
+              const confirmed = confirm(
+                `Charge this customer now for cycle #${nextCycleIndex}? This will place an order immediately.`,
+              );
+              if (!confirmed) return;
+              fetcher.submit(
+                { type: "charge_now", cycleIndex: nextCycleIndex },
+                { method: "post" },
+              );
+            }}
+            loading={fetcher.state !== "idle"}
+            disabled={fetcher.state !== "idle"}
+            tone="success"
+          >
+            Charge Now
+          </Button>
+        )}
         {contract?.status !== "CANCELLED" ? (
           <Button onClick={handleCancelSubscription}>
             Cancel Subscription

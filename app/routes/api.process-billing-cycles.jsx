@@ -4,7 +4,7 @@
 
 import { unauthenticated } from "../shopify.server";
 import prisma from "../db.server";
-import { collectActionsForCycle, applyActionsToCycle } from "../lib/billing-preview.server";
+import { collectActionsForCycle, applyActionsToCycle,getEffectiveContractSettings } from "../lib/billing-preview.server";
 
 const EXTRA_SETTINGS_NAMESPACE = "subscription_app";
 
@@ -522,10 +522,6 @@ async function processShop(admin) {
 
   for (const contract of contracts) {
     const now = new Date();
-
-    // FIX: pick the earliest UNBILLED, non-skipped, overdue cycle instead
-    // of "whatever cycle the current calendar date falls into". This
-    // catches up any cycle that was missed on a previous run.
     const { cycle, nextUpcoming } = await findEarliestDueCycle(admin, contract.id, now, contract.createdAt);
 
     if (!cycle) {
@@ -541,9 +537,6 @@ async function processShop(admin) {
 
     const cycleIndex = cycle.cycleIndex;
     const editMarker = `${contract.id}:${cycleIndex}`;
-
-    // FIX: look up settings by sellingPlanId directly, from the selling-plan-level
-    // metafield map, instead of the old (broken) shop-level groupId lookup.
     const sellingPlanId = contract.lines.edges[0]?.node?.sellingPlanId;
     const basePriceAmount = contract.lines.edges[0]?.node?.pricingPolicy?.basePrice?.amount ?? null;
     const pricingPolicy = contract.lines.edges[0]?.node?.pricingPolicy ?? null; // FIX: needed for swap price recalc

@@ -749,12 +749,12 @@ async function getContractPreview(admin, contractId) {
   if (sellingPlanId) {
     const groupsRes = await admin.graphql(`
       query {
-        sellingPlanGroups(first: 50) {
+        sellingPlanGroups(first: 100) {
           edges {
             node {
               id
               name
-              sellingPlans(first: 20) {
+              sellingPlans(first: 100) {
                 edges {
                   node {
                     id
@@ -771,6 +771,13 @@ async function getContractPreview(admin, contractId) {
     `);
 
     const groupsData = await groupsRes.json();
+ // 🔍 DEBUG — isse pata chalega exact mismatch kaha hai
+  console.log("Looking for sellingPlanId:", JSON.stringify(sellingPlanId));
+  const allPlanIds = groupsData.data.sellingPlanGroups.edges.flatMap(({ node: g }) =>
+    g.sellingPlans.edges.map((e) => e.node.id)
+  );
+  console.log("All plan IDs found in shop:", JSON.stringify(allPlanIds));
+  console.log("Total groups found:", groupsData.data.sellingPlanGroups.edges.length);
 
     for (const { node: group } of groupsData.data.sellingPlanGroups.edges) {
       const plan = group.sellingPlans.edges.find(({ node }) => node.id === sellingPlanId);
