@@ -3,6 +3,9 @@ function metaKeyForGroup(groupId) {
   const numericId = groupId.split("/").pop();
   return `extra_settings_${numericId}`;
 }
+
+
+
 function normalizeAutomationAction(action, afterOrders) {
   if (action.type === "swap") {
     const allDests = Array.isArray(action.dests) ? action.dests : [];
@@ -319,11 +322,6 @@ async function clearBillingCycleEdit(admin, contractId, cycleIndex) {
   };
 }
 
-// FIX: Finds the cycleIndex Shopify currently considers "edited"/blocking
-// for a contract, by checking the current + next couple of upcoming cycles.
-// Useful right before a cancel attempt when you don't already know which
-// cycleIndex is holding the lock (e.g. cancel initiated from outside the
-// cron flow, where you don't have cycleIndex handy).
 async function findBlockingBillingCycleIndex(admin, contractId, aroundDate = new Date()) {
   const res = await admin.graphql(
     `

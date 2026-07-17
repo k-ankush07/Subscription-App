@@ -177,7 +177,7 @@ export default function SubscriptionDetail() {
             )}
           </>
         )}
- {nextCycleIndex != null && (
+ {/* {nextCycleIndex != null && (
           <Button
             onClick={() => {
               const confirmed = confirm(
@@ -195,7 +195,7 @@ export default function SubscriptionDetail() {
           >
             Charge Now
           </Button>
-        )}
+        )} */}
         {contract?.status !== "CANCELLED" ? (
           <Button onClick={handleCancelSubscription}>
             Cancel Subscription
