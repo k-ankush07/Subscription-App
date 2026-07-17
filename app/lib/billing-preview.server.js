@@ -905,7 +905,7 @@ async function getContractPreview(admin, contractId) {
         firstLine?.currentPrice?.currencyCode,
     };
   }
-// jkddbvbfvbufdbvfdwewddqw3d
+// jkddbvbfvbufdbvfdwewddqw3dswdwd
   const quantityAction = Array.isArray(actionsForNextCycle)
     ? actionsForNextCycle.find((a) => a.type === "QUANTITY_CHANGE")
     : null;
