@@ -55,7 +55,7 @@ export default function SubscriptionDetail() {
     customerNotes,
     extraSettingsBySellingPlanId,
   } = useLoaderData();
-  console.log("contract", contract,extraSettingsBySellingPlanId);
+  console.log("contract", contract,extraSettingsBySellingPlanId, "upcoming orders",upcomingCycles);
   const [localLines, setLocalLines] = useState(contract?.lines?.edges || []);
   const [showInternalNotes, setShowInternalNotes] = useState(false);
   const [Internalnotes, setInternalNotes] = useState(internalNotes || "");
@@ -184,25 +184,6 @@ export default function SubscriptionDetail() {
           </Button>
         ) : (
           ""
-        )}
-        {nextCycleIndex != null && (
-          <Button
-            onClick={() => {
-              const confirmed = confirm(
-                `Charge this customer now for cycle #${nextCycleIndex}? This will place an order immediately.`,
-              );
-              if (!confirmed) return;
-              fetcher.submit(
-                { type: "charge_now", cycleIndex: nextCycleIndex },
-                { method: "post" },
-              );
-            }}
-            loading={fetcher.state !== "idle"}
-            disabled={fetcher.state !== "idle"}
-            tone="success"
-          >
-            Charge Now
-          </Button>
         )}
         {contract?.status !== "CANCELLED" && (
           <div>

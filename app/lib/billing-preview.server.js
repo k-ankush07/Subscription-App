@@ -352,10 +352,6 @@ async function applyActionsToCycle(
 
   const draftCheckData = await draftCheckRes.json();
 
-  console.log(
-    "Draft Before Update:",
-    JSON.stringify(draftCheckData, null, 2)
-  );
 
   const effectiveBasePrice = await getEffectiveBasePrice(admin, actions, basePriceAmount);
   const discountTierForCycle = getDiscountTierForCycle(pricingPolicy, cycleIndex);

@@ -435,7 +435,7 @@ async function processShop(admin) {
           cycleIndex,
           actionsForThisCycle,
           basePriceAmount,
-          pricingPolicy, // FIX: pass through so swap-triggered price recalculation works
+          pricingPolicy, 
         );
         await markCycleProcessed(admin, shopId, processedCycles, editMarker);
         await appendAuditLog(admin, shopId, {
@@ -546,3 +546,5 @@ async function processShop(admin) {
 
   return { contractsChecked: contracts.length, edited, charged, skipped };
 }
+
+
