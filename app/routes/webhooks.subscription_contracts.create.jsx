@@ -14,7 +14,6 @@ export const action = async ({ request }) => {
     console.log("[webhook] No contract id in payload — skipping preview.");
     return new Response(null, { status: 200 });
   }
-
   const normalizedContractId = String(contractId).startsWith("gid://")
     ? contractId
     : `gid://shopify/SubscriptionContract/${contractId}`;
