@@ -1,6 +1,4 @@
-
-
-import { Page, Card, EmptyState, Tabs } from "@shopify/polaris";
+import { Page, Card, EmptyState, Tabs, TextField } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
 import React, { useState, useCallback } from "react";
 import { useLoaderData, useNavigate, useSearchParams } from "react-router";
@@ -80,7 +78,7 @@ export async function loader({ request }) {
     }`,
     {
       variables: { query: queryFilter || null },
-    }
+    },
   );
 
   const data = await res.json();
@@ -95,7 +93,7 @@ function Subscriptions() {
   const { contracts, currentStatus } = useLoaderData();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-
+  const [searchValue, setSearchValue] = useState("");
   const formatDate = (date) => {
     return new Date(date).toLocaleDateString("en-US", {
       month: "long",
@@ -120,7 +118,7 @@ function Subscriptions() {
     return minComputed || basePrice;
   }
 
-  // --- Tabs setup ---
+  // Tabs
   const tabs = [
     { id: "all", content: "All", status: "ALL" },
     { id: "active", content: "Active", status: "ACTIVE" },
@@ -134,21 +132,40 @@ function Subscriptions() {
   const handleTabChange = useCallback(
     (selectedTabIndexValue) => {
       const newStatus = tabs[selectedTabIndexValue].status;
-      // URL update -> loader re-run hoga -> refresh pe bhi yehi status rahega
-      setSearchParams(
-        newStatus === "ALL" ? {} : { status: newStatus },
-        { replace: false }
-      );
+      // URL update  loader re-run hoga refresh pe bhi yehi status rahega
+      setSearchParams(newStatus === "ALL" ? {} : { status: newStatus }, {
+        replace: false,
+      });
     },
-    [setSearchParams]
+    [setSearchParams],
   );
 
+  const filteredContracts = contracts.filter((item) => {
+    const contractId = item.id.split("/").pop();
+     const email = item.customer?.email?.toLowerCase() || "";
+  const search = searchValue.trim().toLowerCase();
+  if (!search) return true;
+    return (
+      contractId.includes(search) ||
+    email.includes(search)
+    );
+  });
   return (
     <>
       <Page title="Subscriptions">
         <Card>
           <Tabs tabs={tabs} selected={selected} onSelect={handleTabChange} />
-          {contracts.length === 0 ? (
+          <div style={{ padding: "10px 0" }}>
+            <TextField
+              label="Search Contract ID"
+              labelHidden
+              placeholder="Search by Contract ID and Email Id"
+              value={searchValue}
+              onChange={setSearchValue}
+              autoComplete="off"
+            />
+          </div>
+          {filteredContracts.length === 0 ? (
             <EmptyState>
               <img src="https://subscriptions.kachingappz.app/images/empty-subscriptions-list-state.png" />
               <p>No Subscriptions</p>
@@ -170,7 +187,7 @@ function Subscriptions() {
                   </tr>
                 </thead>
                 <tbody>
-                  {[...contracts].reverse().map((item) => {
+                  {[...filteredContracts].reverse().map((item) => {
                     const lines = item.lines?.edges?.map((e) => e.node) ?? [];
                     const total = lines.reduce((sum, line) => {
                       const unitPrice = getLinePriceWithoutIndex(line);

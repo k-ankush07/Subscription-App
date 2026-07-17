@@ -280,15 +280,6 @@ function resolveLineForAction(draftLines, action) {
   );
   return draftLines[0];
 }
-
-// FIX: Deletes the schedule/contract edit on a billing cycle. Shopify keeps a
-// billing cycle "edited" (or holds an uncommitted draft against it) until the
-// cycle bills/skips, and while that's true, ALL contract-level mutations —
-// including subscriptionContractCancel — are rejected with:
-//   "Subscription contract cannot be updated if there is a current or
-//    upcoming billing cycle contract edit."
-// Call this to clear that state so the contract becomes mutable again.
-// Safe to call even if there's no edit present (returns null ids, no error).
 async function clearBillingCycleEdit(admin, contractId, cycleIndex) {
   if (cycleIndex == null) return { cleared: false, reason: "no cycleIndex provided" };
 
@@ -378,9 +369,8 @@ async function applyActionsToCycle(
   cycleIndex,
   actions,
   basePriceAmount = null,
-  pricingPolicy = null, // needed to re-apply native cycleDiscounts tiers post-swap
+  pricingPolicy = null, 
 ) {
-  // 1. Open the draft for this specific billing cycle.
   const editRes = await admin.graphql(
     `
     mutation openCycleDraft($contractId: ID!, $index: Int!) {
@@ -393,7 +383,7 @@ async function applyActionsToCycle(
             edges { node { id quantity productId variantId } }
           }
         }
-        userErrors { field message }
+        userErrors { field message  code }
       }
     }
     `,
@@ -403,6 +393,7 @@ async function applyActionsToCycle(
   const editData = await editRes.json();
   const payload = editData.data?.subscriptionBillingCycleContractEdit;
   if (payload?.userErrors?.length) {
+    console.error("FULL userErrors:", JSON.stringify(payload.userErrors));
     throw new Error(`subscriptionBillingCycleContractEdit failed: ${payload.userErrors[0].message}`);
   }
   if (!payload?.draft) {
