@@ -1,4 +1,3 @@
-
 const EXTRA_SETTINGS_NAMESPACE = "subscription_app";
 function metaKeyForGroup(groupId) {
   const numericId = groupId.split("/").pop();
@@ -282,6 +281,97 @@ function resolveLineForAction(draftLines, action) {
   return draftLines[0];
 }
 
+// FIX: Deletes the schedule/contract edit on a billing cycle. Shopify keeps a
+// billing cycle "edited" (or holds an uncommitted draft against it) until the
+// cycle bills/skips, and while that's true, ALL contract-level mutations —
+// including subscriptionContractCancel — are rejected with:
+//   "Subscription contract cannot be updated if there is a current or
+//    upcoming billing cycle contract edit."
+// Call this to clear that state so the contract becomes mutable again.
+// Safe to call even if there's no edit present (returns null ids, no error).
+async function clearBillingCycleEdit(admin, contractId, cycleIndex) {
+  if (cycleIndex == null) return { cleared: false, reason: "no cycleIndex provided" };
+
+  const res = await admin.graphql(
+    `
+    mutation clearCycleEdit($contractId: ID!, $index: Int!) {
+      subscriptionBillingCycleEditDelete(
+        billingCycleInput: { contractId: $contractId, selector: { index: $index } }
+      ) {
+        deletedSubscriptionBillingCycleEditContractId
+        deletedSubscriptionBillingCycleEditScheduleId
+        userErrors { field message }
+      }
+    }
+    `,
+    { variables: { contractId, index: cycleIndex } },
+  );
+
+  const data = await res.json();
+  if (data.errors) {
+    throw new Error(`subscriptionBillingCycleEditDelete failed: ${data.errors[0]?.message}`);
+  }
+
+  const payload = data.data?.subscriptionBillingCycleEditDelete;
+  const errors = payload?.userErrors;
+  if (errors?.length) {
+    throw new Error(`subscriptionBillingCycleEditDelete failed: ${errors[0].message}`);
+  }
+
+  return {
+    cleared: !!(
+      payload?.deletedSubscriptionBillingCycleEditContractId ||
+      payload?.deletedSubscriptionBillingCycleEditScheduleId
+    ),
+    contractEditId: payload?.deletedSubscriptionBillingCycleEditContractId ?? null,
+    scheduleEditId: payload?.deletedSubscriptionBillingCycleEditScheduleId ?? null,
+  };
+}
+
+// FIX: Finds the cycleIndex Shopify currently considers "edited"/blocking
+// for a contract, by checking the current + next couple of upcoming cycles.
+// Useful right before a cancel attempt when you don't already know which
+// cycleIndex is holding the lock (e.g. cancel initiated from outside the
+// cron flow, where you don't have cycleIndex handy).
+async function findBlockingBillingCycleIndex(admin, contractId, aroundDate = new Date()) {
+  const res = await admin.graphql(
+    `
+    query getCycleAround($contractId: ID!, $date: DateTime!) {
+      subscriptionBillingCycle(billingCycleInput: { contractId: $contractId, selector: { date: $date } }) {
+        cycleIndex
+        edited
+        status
+      }
+    }
+    `,
+    { variables: { contractId, date: aroundDate.toISOString() } },
+  );
+  const data = await res.json();
+  const cycle = data.data?.subscriptionBillingCycle;
+  if (!cycle) return null;
+
+  if (cycle.edited) return cycle.cycleIndex;
+
+  // Also check the immediately following cycle — "upcoming" edits count too.
+  const nextRes = await admin.graphql(
+    `
+    query getNextCycle($contractId: ID!, $index: Int!) {
+      subscriptionBillingCycle(billingCycleInput: { contractId: $contractId, selector: { index: $index } }) {
+        cycleIndex
+        edited
+        status
+      }
+    }
+    `,
+    { variables: { contractId, index: cycle.cycleIndex + 1 } },
+  );
+  const nextData = await nextRes.json();
+  const nextCycle = nextData.data?.subscriptionBillingCycle;
+  if (nextCycle?.edited) return nextCycle.cycleIndex;
+
+  return cycle.cycleIndex;
+}
+
 async function applyActionsToCycle(
   admin,
   contractId,
@@ -361,183 +451,208 @@ async function applyActionsToCycle(
 
   const skippedActionsLog = [];
 
-  for (const action of orderedActions) {
-    // ── QUANTITY_CHANGE ──
-    if (action.type === "QUANTITY_CHANGE") {
-      const targetLine = resolveLineForAction(draftLines, action);
-      if (!targetLine) throw new Error("QUANTITY_CHANGE failed: no line found on draft");
-      const res = await admin.graphql(
-        `
-        mutation updateLineQty($draftId: ID!, $lineId: ID!, $qty: Int!) {
-          subscriptionDraftLineUpdate(draftId: $draftId, lineId: $lineId, input: { quantity: $qty }) {
-            userErrors { field message }
-          }
-        }
-        `,
-        { variables: { draftId, lineId: targetLine.id, qty: Number(action.value) } },
-      );
-      const data = await res.json();
-      const errors = data.data?.subscriptionDraftLineUpdate?.userErrors;
-      if (errors?.length) throw new Error(`QUANTITY_CHANGE failed: ${errors[0].message}`);
-    }
-
-    // ── MINIMUM_QUANTITY (floor, only bump up if below) ──
-    if (action.type === "MINIMUM_QUANTITY") {
-      const minQty = Number(action.value);
-      if (lineId && currentQty < minQty) {
+  // FIX: the whole per-action loop is now wrapped in try/catch. Previously,
+  // if any single action's mutation threw, the function propagated the
+  // error immediately WITHOUT committing (or discarding) the draft opened
+  // above. That left an orphaned, uncommitted edit attached to this billing
+  // cycle, which then blocked every later contract-level mutation on this
+  // contract (including cancellation) with:
+  //   "Subscription contract cannot be updated if there is a current or
+  //    upcoming billing cycle contract edit."
+  // Now, on any failure we best-effort clean up the dangling edit via
+  // clearBillingCycleEdit before rethrowing, so the contract stays mutable.
+  try {
+    for (const action of orderedActions) {
+      // ── QUANTITY_CHANGE ──
+      if (action.type === "QUANTITY_CHANGE") {
+        const targetLine = resolveLineForAction(draftLines, action);
+        if (!targetLine) throw new Error("QUANTITY_CHANGE failed: no line found on draft");
         const res = await admin.graphql(
           `
-          mutation enforceMinQty($draftId: ID!, $lineId: ID!, $qty: Int!) {
+          mutation updateLineQty($draftId: ID!, $lineId: ID!, $qty: Int!) {
             subscriptionDraftLineUpdate(draftId: $draftId, lineId: $lineId, input: { quantity: $qty }) {
               userErrors { field message }
             }
           }
           `,
-          { variables: { draftId, lineId, qty: minQty } },
+          { variables: { draftId, lineId: targetLine.id, qty: Number(action.value) } },
         );
         const data = await res.json();
         const errors = data.data?.subscriptionDraftLineUpdate?.userErrors;
-        if (errors?.length) throw new Error(`MINIMUM_QUANTITY failed: ${errors[0].message}`);
-      }
-    }
-
-    // ── PRODUCT_SWAP / VARIANT_SWAP ──
-    if (action.type === "PRODUCT_SWAP" || action.type === "VARIANT_SWAP") {
-      const targetLine = resolveLineForAction(draftLines, action);
-      if (!targetLine) throw new Error(`${action.type} failed: no line found on draft`);
-      if (!action.variantId) throw new Error(`${action.type} failed: no variantId configured`);
-      let recalculatedPrice = null;
-      if (!hasCustomDiscountChange && effectiveBasePrice != null) {
-        recalculatedPrice = applyDiscountTierToPrice(effectiveBasePrice, discountTierForCycle).toFixed(2);
+        if (errors?.length) throw new Error(`QUANTITY_CHANGE failed: ${errors[0].message}`);
       }
 
-      const res = await admin.graphql(
-        `
-        mutation swapLine($draftId: ID!, $lineId: ID!, $variantId: ID!, $price: Decimal) {
-          subscriptionDraftLineUpdate(
-            draftId: $draftId
-            lineId: $lineId
-            input: { productVariantId: $variantId, currentPrice: $price }
-          ) {
-            userErrors { field message }
-          }
+      // ── MINIMUM_QUANTITY (floor, only bump up if below) ──
+      if (action.type === "MINIMUM_QUANTITY") {
+        const minQty = Number(action.value);
+        if (lineId && currentQty < minQty) {
+          const res = await admin.graphql(
+            `
+            mutation enforceMinQty($draftId: ID!, $lineId: ID!, $qty: Int!) {
+              subscriptionDraftLineUpdate(draftId: $draftId, lineId: $lineId, input: { quantity: $qty }) {
+                userErrors { field message }
+              }
+            }
+            `,
+            { variables: { draftId, lineId, qty: minQty } },
+          );
+          const data = await res.json();
+          const errors = data.data?.subscriptionDraftLineUpdate?.userErrors;
+          if (errors?.length) throw new Error(`MINIMUM_QUANTITY failed: ${errors[0].message}`);
         }
-        `,
-        { variables: { draftId, lineId: targetLine.id, variantId: action.variantId, price: recalculatedPrice } },
-      );
-      const data = await res.json();
-      const errors = data.data?.subscriptionDraftLineUpdate?.userErrors;
-      if (errors?.length) throw new Error(`${action.type} failed: ${errors[0].message}`);
-
-      if (action.__multipleDestsIgnored) {
-        skippedActionsLog.push({
-          type: action.type,
-          reason: "Multiple swap destinations/variants were configured; only the first was applied.",
-        });
       }
-    }
 
-    // ── DISCOUNT_CHANGE ── (always runs last — see sortActionsForApply)
-    if (action.type === "DISCOUNT_CHANGE") {
-      if (!lineId) throw new Error("DISCOUNT_CHANGE failed: no line found on draft");
-      const basePrice = effectiveBasePrice;
-
-      let newPrice = basePrice;
-      if (action.adjustmentType === "PERCENTAGE") {
-        newPrice = basePrice - (basePrice * Number(action.adjustmentValue)) / 100;
-      } else {
-        newPrice = basePrice - Number(action.adjustmentValue);
-      }
-      newPrice = Math.max(0, newPrice).toFixed(2);
-
-      const res = await admin.graphql(
-        `
-        mutation updateLinePrice($draftId: ID!, $lineId: ID!, $price: Decimal!) {
-          subscriptionDraftLineUpdate(draftId: $draftId, lineId: $lineId, input: { currentPrice: $price }) {
-            userErrors { field message }
-          }
+      // ── PRODUCT_SWAP / VARIANT_SWAP ──
+      if (action.type === "PRODUCT_SWAP" || action.type === "VARIANT_SWAP") {
+        const targetLine = resolveLineForAction(draftLines, action);
+        if (!targetLine) throw new Error(`${action.type} failed: no line found on draft`);
+        if (!action.variantId) throw new Error(`${action.type} failed: no variantId configured`);
+        let recalculatedPrice = null;
+        if (!hasCustomDiscountChange && effectiveBasePrice != null) {
+          recalculatedPrice = applyDiscountTierToPrice(effectiveBasePrice, discountTierForCycle).toFixed(2);
         }
-        `,
-        { variables: { draftId, lineId, price: newPrice } },
-      );
-      const data = await res.json();
-      const errors = data.data?.subscriptionDraftLineUpdate?.userErrors;
-      if (errors?.length) throw new Error(`DISCOUNT_CHANGE failed: ${errors[0].message}`);
-    }
 
-    // ── SHIPPING_DISCOUNT ──
-    if (action.type === "SHIPPING_DISCOUNT") {
-      const configuredValue = Number(action.value);
-      const isFullFreeShipping =
-        action.discountType === "PERCENTAGE"
-          ? configuredValue >= 100
-          : false; // fixed-amount shipping discounts aren't supported at all via this mutation
-
-      if (!isFullFreeShipping) {
-        console.warn(
-          `[applyActionsToCycle] SHIPPING_DISCOUNT skipped: configured value (${action.discountType} ${action.value}) is a partial shipping discount, ` +
-            `but Shopify's subscription API (subscriptionDraftFreeShippingDiscountAdd) only supports 100% free shipping. ` +
-            `Not applying free shipping to avoid over-discounting. This cycle's shipping was left unchanged.`,
-        );
-        action.__skippedReason = "Partial shipping discounts are not supported by Shopify's subscription API (100% free shipping only).";
-      } else {
         const res = await admin.graphql(
           `
-          mutation addShippingDiscount($draftId: ID!, $input: SubscriptionFreeShippingDiscountInput!) {
-            subscriptionDraftFreeShippingDiscountAdd(draftId: $draftId, input: $input) {
+          mutation swapLine($draftId: ID!, $lineId: ID!, $variantId: ID!, $price: Decimal) {
+            subscriptionDraftLineUpdate(
+              draftId: $draftId
+              lineId: $lineId
+              input: { productVariantId: $variantId, currentPrice: $price }
+            ) {
               userErrors { field message }
             }
           }
           `,
-          { variables: { draftId, input: { title: "Auto shipping discount" } } },
+          { variables: { draftId, lineId: targetLine.id, variantId: action.variantId, price: recalculatedPrice } },
         );
         const data = await res.json();
-        const errors = data.data?.subscriptionDraftFreeShippingDiscountAdd?.userErrors;
-        if (errors?.length) throw new Error(`SHIPPING_DISCOUNT failed: ${errors[0].message}`);
+        const errors = data.data?.subscriptionDraftLineUpdate?.userErrors;
+        if (errors?.length) throw new Error(`${action.type} failed: ${errors[0].message}`);
+
+        if (action.__multipleDestsIgnored) {
+          skippedActionsLog.push({
+            type: action.type,
+            reason: "Multiple swap destinations/variants were configured; only the first was applied.",
+          });
+        }
+      }
+
+      // ── DISCOUNT_CHANGE ── (always runs last — see sortActionsForApply)
+      if (action.type === "DISCOUNT_CHANGE") {
+        if (!lineId) throw new Error("DISCOUNT_CHANGE failed: no line found on draft");
+        const basePrice = effectiveBasePrice;
+
+        let newPrice = basePrice;
+        if (action.adjustmentType === "PERCENTAGE") {
+          newPrice = basePrice - (basePrice * Number(action.adjustmentValue)) / 100;
+        } else {
+          newPrice = basePrice - Number(action.adjustmentValue);
+        }
+        newPrice = Math.max(0, newPrice).toFixed(2);
+
+        const res = await admin.graphql(
+          `
+          mutation updateLinePrice($draftId: ID!, $lineId: ID!, $price: Decimal!) {
+            subscriptionDraftLineUpdate(draftId: $draftId, lineId: $lineId, input: { currentPrice: $price }) {
+              userErrors { field message }
+            }
+          }
+          `,
+          { variables: { draftId, lineId, price: newPrice } },
+        );
+        const data = await res.json();
+        const errors = data.data?.subscriptionDraftLineUpdate?.userErrors;
+        if (errors?.length) throw new Error(`DISCOUNT_CHANGE failed: ${errors[0].message}`);
+      }
+
+      // ── SHIPPING_DISCOUNT ──
+      if (action.type === "SHIPPING_DISCOUNT") {
+        const configuredValue = Number(action.value);
+        const isFullFreeShipping =
+          action.discountType === "PERCENTAGE"
+            ? configuredValue >= 100
+            : false; // fixed-amount shipping discounts aren't supported at all via this mutation
+
+        if (!isFullFreeShipping) {
+          console.warn(
+            `[applyActionsToCycle] SHIPPING_DISCOUNT skipped: configured value (${action.discountType} ${action.value}) is a partial shipping discount, ` +
+              `but Shopify's subscription API (subscriptionDraftFreeShippingDiscountAdd) only supports 100% free shipping. ` +
+              `Not applying free shipping to avoid over-discounting. This cycle's shipping was left unchanged.`,
+          );
+          action.__skippedReason = "Partial shipping discounts are not supported by Shopify's subscription API (100% free shipping only).";
+        } else {
+          const res = await admin.graphql(
+            `
+            mutation addShippingDiscount($draftId: ID!, $input: SubscriptionFreeShippingDiscountInput!) {
+              subscriptionDraftFreeShippingDiscountAdd(draftId: $draftId, input: $input) {
+                userErrors { field message }
+              }
+            }
+            `,
+            { variables: { draftId, input: { title: "Auto shipping discount" } } },
+          );
+          const data = await res.json();
+          const errors = data.data?.subscriptionDraftFreeShippingDiscountAdd?.userErrors;
+          if (errors?.length) throw new Error(`SHIPPING_DISCOUNT failed: ${errors[0].message}`);
+        }
+      }
+
+      // ── REMOVE_PRODUCT / REMOVE_VARIANT / REMOVE_FREE_PRODUCT ──
+      if (
+        action.type === "REMOVE_PRODUCT" ||
+        action.type === "REMOVE_VARIANT" ||
+        action.type === "REMOVE_FREE_PRODUCT"
+      ) {
+        const targetLine = resolveLineForAction(draftLines, action);
+        if (!targetLine) throw new Error(`${action.type} failed: no line found on draft`);
+        const res = await admin.graphql(
+          `
+          mutation removeLine($draftId: ID!, $lineId: ID!) {
+            subscriptionDraftLineRemove(draftId: $draftId, lineId: $lineId) {
+              userErrors { field message }
+            }
+          }
+          `,
+          { variables: { draftId, lineId: targetLine.id } },
+        );
+        const data = await res.json();
+        const errors = data.data?.subscriptionDraftLineRemove?.userErrors;
+        if (errors?.length) throw new Error(`${action.type} failed: ${errors[0].message}`);
+      }
+
+      // ── ADD_PRODUCT ──
+      if (action.type === "ADD_PRODUCT") {
+        if (!action.variantId) throw new Error("ADD_PRODUCT failed: no variantId configured");
+        const res = await admin.graphql(
+          `
+          mutation addLine($draftId: ID!, $variantId: ID!, $qty: Int!) {
+            subscriptionDraftLineAdd(draftId: $draftId, input: { productVariantId: $variantId, quantity: $qty }) {
+              userErrors { field message }
+            }
+          }
+          `,
+          { variables: { draftId, variantId: action.variantId, qty: Number(action.quantity) || 1 } },
+        );
+        const data = await res.json();
+        const errors = data.data?.subscriptionDraftLineAdd?.userErrors;
+        if (errors?.length) throw new Error(`ADD_PRODUCT failed: ${errors[0].message}`);
       }
     }
-
-    // ── REMOVE_PRODUCT / REMOVE_VARIANT / REMOVE_FREE_PRODUCT ──
-    if (
-      action.type === "REMOVE_PRODUCT" ||
-      action.type === "REMOVE_VARIANT" ||
-      action.type === "REMOVE_FREE_PRODUCT"
-    ) {
-      const targetLine = resolveLineForAction(draftLines, action);
-      if (!targetLine) throw new Error(`${action.type} failed: no line found on draft`);
-      const res = await admin.graphql(
-        `
-        mutation removeLine($draftId: ID!, $lineId: ID!) {
-          subscriptionDraftLineRemove(draftId: $draftId, lineId: $lineId) {
-            userErrors { field message }
-          }
-        }
-        `,
-        { variables: { draftId, lineId: targetLine.id } },
+  } catch (err) {
+    // Best-effort cleanup so this contract doesn't get stuck un-cancellable.
+    // Don't let a cleanup failure mask the original error.
+    try {
+      await clearBillingCycleEdit(admin, contractId, cycleIndex);
+    } catch (cleanupErr) {
+      console.error(
+        `[applyActionsToCycle] cleanup after failure also failed for ${contractId}:${cycleIndex}:`,
+        cleanupErr,
       );
-      const data = await res.json();
-      const errors = data.data?.subscriptionDraftLineRemove?.userErrors;
-      if (errors?.length) throw new Error(`${action.type} failed: ${errors[0].message}`);
     }
-
-    // ── ADD_PRODUCT ──
-    if (action.type === "ADD_PRODUCT") {
-      if (!action.variantId) throw new Error("ADD_PRODUCT failed: no variantId configured");
-      const res = await admin.graphql(
-        `
-        mutation addLine($draftId: ID!, $variantId: ID!, $qty: Int!) {
-          subscriptionDraftLineAdd(draftId: $draftId, input: { productVariantId: $variantId, quantity: $qty }) {
-            userErrors { field message }
-          }
-        }
-        `,
-        { variables: { draftId, variantId: action.variantId, qty: Number(action.quantity) || 1 } },
-      );
-      const data = await res.json();
-      const errors = data.data?.subscriptionDraftLineAdd?.userErrors;
-      if (errors?.length) throw new Error(`ADD_PRODUCT failed: ${errors[0].message}`);
-    }
+    throw err;
   }
+
   const commitRes = await admin.graphql(
     `
     mutation commitCycleDraft($draftId: ID!) {
@@ -551,10 +666,27 @@ async function applyActionsToCycle(
 
   const commitData = await commitRes.json();
   if (commitData.errors) {
+    // Commit itself failed at the transport/GraphQL level — same cleanup story.
+    try {
+      await clearBillingCycleEdit(admin, contractId, cycleIndex);
+    } catch (cleanupErr) {
+      console.error(
+        `[applyActionsToCycle] cleanup after commit failure also failed for ${contractId}:${cycleIndex}:`,
+        cleanupErr,
+      );
+    }
     throw new Error(`subscriptionBillingCycleContractDraftCommit failed: ${commitData.errors[0]?.message}`);
   }
   const commitErrors = commitData.data?.subscriptionBillingCycleContractDraftCommit?.userErrors;
   if (commitErrors?.length) {
+    try {
+      await clearBillingCycleEdit(admin, contractId, cycleIndex);
+    } catch (cleanupErr) {
+      console.error(
+        `[applyActionsToCycle] cleanup after commit userErrors also failed for ${contractId}:${cycleIndex}:`,
+        cleanupErr,
+      );
+    }
     throw new Error(`subscriptionBillingCycleContractDraftCommit failed: ${commitErrors[0].message}`);
   }
   return {
@@ -873,4 +1005,6 @@ export {
   metaKeyForGroup,
   EXTRA_SETTINGS_NAMESPACE,
   sortActionsForApply,
+  clearBillingCycleEdit,
+  findBlockingBillingCycleIndex,
 };
