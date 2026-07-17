@@ -249,7 +249,6 @@ for (const spId of sellingPlanIds) {
       new Date(cycle.billingAttemptExpectedDate) >= now &&
        cycle.status !== "BILLED",
   );
-
   if (maxCycles != null) {
     upcomingCycles = upcomingCycles.filter(
       (cycle) =>

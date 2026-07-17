@@ -1,5 +1,4 @@
 import cron from "node-cron";
-
 export function startBillingCycleCron() {
   if (globalThis.__billingCronStarted) {
     console.log("[cron] Already started, skipping duplicate init.");

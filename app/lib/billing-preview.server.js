@@ -962,8 +962,7 @@ async function getContractPreview(admin, contractId) {
     allExtraSettings: extraSettings,
   };
 
-  console.log("─────────────────────────────────────────────");
-  console.log(`📦 Contract: ${preview.contractId}`);
+  console.log(` Contract: ${preview.contractId}`);
   console.log(`   Status: ${preview.status}`);
   console.log(
     `   Customer: ${preview.customer?.displayName || preview.customer?.id || "unknown"}`,
@@ -984,7 +983,6 @@ async function getContractPreview(admin, contractId) {
     `   Next order calculated total: ${preview.nextOrder.calculatedItemTotal?.amount} ${preview.nextOrder.calculatedItemTotal?.currencyCode}`,
   );
   console.log(`   Will apply on next order:`, preview.nextOrder.willApply);
-  console.log("─────────────────────────────────────────────");
 
   return preview;
 }
