@@ -226,12 +226,6 @@ function collectActionsForCycle(settings, cycleIndex) {
       after: settings.shippingAfterOrders,
     });
   }
-
-  // 3. Quantity Change — "change quantity to X after N orders"
-  // FIXED — checkout/original subscription quantity kabhi use nahi honi
-  // chahiye. Agar merchant ne "change quantity" configure ki hai aur uska
-  // threshold pura ho gaya hai to wahi value use hogi; warna hamesha DEFAULT
-  // 1 quantity force hogi (checkout wali quantity, jaise 9, kabhi nahi).
   if (
     settings.changeQuantityAfterOrders &&
     cycleIndex >= Number(settings.quantityAfterOrders)
@@ -370,6 +364,59 @@ async function getEffectiveBasePrice(admin, actions, fallbackBasePrice) {
     );
   }
   return Number(fallbackBasePrice) || 0;
+}
+
+// NEW — DISCOUNT_CHANGE (merchant's "after N orders, apply X% off" automation)
+// ko kisi bhi base price par apply karne ka common helper.
+function applyCustomDiscountAction(basePrice, discountAction) {
+  const base = Number(basePrice);
+  if (!discountAction) return base;
+  let discounted = base;
+  if (discountAction.adjustmentType === "PERCENTAGE") {
+    discounted = base - (base * Number(discountAction.adjustmentValue)) / 100;
+  } else {
+    discounted = base - Number(discountAction.adjustmentValue);
+  }
+  return Math.max(0, discounted);
+}
+
+// NEW — ek hi jagah se ADD_PRODUCT (aur main-line) ki price nikalne ka logic.
+// Ye applyActionsToCycle ke ADD_PRODUCT block jaisa hi hisaab karta hai, taaki
+// preview aur actual applied price hamesha match karein.
+//
+// FIXED — pehle swap-generated lines (jaise ek swap ke multiple dests se
+// ADD_PRODUCT banti hain) sirf pricingPolicy ke fixed cycleDiscount tier se
+// calculate hoti thi — custom "after N orders, X% off" (DISCOUNT_CHANGE)
+// automation kabhi apply hi nahi hoti thi in par, kyunki DISCOUNT_CHANGE
+// sirf original/main line ki price update karta hai. Ab agar cycle ke liye
+// custom DISCOUNT_CHANGE configured hai, wahi use hoga (tier ki jagah) —
+// taaki har added product par bhi sahi discount lage.
+async function computeLinePrice(
+  admin,
+  { variantId, isSwapGenerated, discountEnabled, discountType, discountValue },
+  effectiveBasePrice,
+  discountTierForCycle,
+  customDiscountAction = null,
+) {
+  const variantPrice = await fetchVariantPrice(admin, variantId);
+  const basePriceForLine = variantPrice ?? effectiveBasePrice ?? 0;
+
+  if (isSwapGenerated) {
+    if (customDiscountAction) {
+      return applyCustomDiscountAction(basePriceForLine, customDiscountAction);
+    }
+    return applyDiscountTierToPrice(basePriceForLine, discountTierForCycle);
+  }
+
+  if (discountEnabled) {
+    const isPercentage = String(discountType).toLowerCase() === "percentage";
+    const discounted = isPercentage
+      ? basePriceForLine - (basePriceForLine * Number(discountValue || 0)) / 100
+      : basePriceForLine - Number(discountValue || 0);
+    return Math.max(0, discounted);
+  }
+
+  return basePriceForLine;
 }
 
 function resolveLineForAction(draftLines, action) {
@@ -743,58 +790,23 @@ async function applyActionsToCycle(
         if (!action.variantId) throw new Error("ADD_PRODUCT failed: no variantId configured");
         let addPrice = action.currentPrice ?? null;
 
-        // if (addPrice == null) {
-        //   const variantPrice = await fetchVariantPrice(admin, action.variantId);
-        //   const basePriceForNewLine = variantPrice ?? effectiveBasePrice ?? 0;
-
-        //   if (hasCustomDiscountChange && discountActionEntry) {
-        //     let discounted = basePriceForNewLine;
-        //     if (discountActionEntry.adjustmentType === "PERCENTAGE") {
-        //       discounted =
-        //         basePriceForNewLine -
-        //         (basePriceForNewLine * Number(discountActionEntry.adjustmentValue)) / 100;
-        //     } else {
-        //       discounted = basePriceForNewLine - Number(discountActionEntry.adjustmentValue);
-        //     }
-        //     addPrice = Math.max(0, discounted).toFixed(2);
-        //   } else {
-        //     addPrice = applyDiscountTierToPrice(basePriceForNewLine, discountTierForCycle).toFixed(2);
-        //   }
-        // }
         if (addPrice == null) {
-  const variantPrice = await fetchVariantPrice(admin, action.variantId);
-  const basePriceForNewLine = variantPrice ?? effectiveBasePrice ?? 0;
-
-  const isSwapGenerated =
-    !!action.destProductId || !!action.sourceProductId;
-
-  if (isSwapGenerated) {
-    addPrice = applyDiscountTierToPrice(
-      basePriceForNewLine,
-      discountTierForCycle,
-    ).toFixed(2);
-  } else if (action.discountEnabled) {
-    let discounted = basePriceForNewLine;
-
-    if (
-      String(action.discountType).toLowerCase() === "percentage"
-    ) {
-      discounted =
-        basePriceForNewLine -
-        (basePriceForNewLine *
-          Number(action.discountValue || 0)) /
-          100;
-    } else {
-      discounted =
-        basePriceForNewLine -
-        Number(action.discountValue || 0);
-    }
-
-    addPrice = Math.max(0, discounted).toFixed(2);
-  } else {
-    addPrice = basePriceForNewLine.toFixed(2);
-  }
-}
+          const isSwapGenerated = !!action.destProductId || !!action.sourceProductId;
+          const price = await computeLinePrice(
+            admin,
+            {
+              variantId: action.variantId,
+              isSwapGenerated,
+              discountEnabled: action.discountEnabled,
+              discountType: action.discountType,
+              discountValue: action.discountValue,
+            },
+            effectiveBasePrice,
+            discountTierForCycle,
+            hasCustomDiscountChange ? discountActionEntry : null,
+          );
+          addPrice = price.toFixed(2);
+        }
 
         const res = await admin.graphql(
           `
@@ -1133,6 +1145,74 @@ async function getContractPreview(admin, contractId) {
     }
   }
 
+  // NEW — har product ki alag price/qty/total nikalo: main line + har
+  // ADD_PRODUCT action. Ye wahi computeLinePrice logic use karta hai jo
+  // applyActionsToCycle mein actual order banate waqt use hota hai, taaki
+  // preview aur real order ki price hamesha match kare.
+  const currencyCode =
+    calculatedPricePerUnit?.currencyCode ??
+    firstLine?.pricingPolicy?.basePrice?.currencyCode ??
+    firstLine?.currentPrice?.currencyCode ??
+    "INR";
+
+  const lineItems = [];
+
+  if (calculatedPricePerUnit) {
+    lineItems.push({
+      title: swapAction?.variantId ? `${firstLine?.title} (swapped)` : firstLine?.title,
+      productId: swapAction?.dests?.length ? swapAction.dests[0]?.id ?? null : null,
+      variantId: swapAction?.variantId ?? null,
+      quantity: calculatedQuantity,
+      pricePerUnit: calculatedPricePerUnit,
+      itemTotal: calculatedItemTotal,
+    });
+  }
+
+  const addProductActions = Array.isArray(actionsForNextCycle)
+    ? actionsForNextCycle.filter((a) => a.type === "ADD_PRODUCT")
+    : [];
+
+  const discountTierForCycle = getDiscountTierForCycle(firstLine?.pricingPolicy, cycleIndex);
+
+  for (const action of addProductActions) {
+    const isSwapGenerated = !!action.destProductId || !!action.sourceProductId;
+    const qty = Number(action.quantity) || 1;
+
+    let pricePerUnit;
+    try {
+      pricePerUnit = await computeLinePrice(
+        admin,
+        {
+          variantId: action.variantId,
+          isSwapGenerated,
+          discountEnabled: action.discountEnabled,
+          discountType: action.discountType,
+          discountValue: action.discountValue,
+        },
+        effectiveBase,
+        discountTierForCycle,
+        discountAction, // NEW — custom "after N orders, X% off" bhi apply hoga swap-generated lines par
+      );
+    } catch (err) {
+      console.warn(`[preview] failed computing price for ADD_PRODUCT variant ${action.variantId}:`, err);
+      pricePerUnit = 0;
+    }
+
+    lineItems.push({
+      title: action.productName ?? action.variantName ?? "Added product",
+      productId: action.productId ?? action.destProductId ?? null,
+      variantId: action.variantId,
+      quantity: qty,
+      pricePerUnit: { amount: pricePerUnit.toFixed(2), currencyCode },
+      itemTotal: { amount: (pricePerUnit * qty).toFixed(2), currencyCode },
+    });
+  }
+
+  const calculatedOrderTotal = {
+    amount: lineItems.reduce((sum, li) => sum + Number(li.itemTotal.amount), 0).toFixed(2),
+    currencyCode,
+  };
+
   const preview = {
     contractId: contract.id,
     status: contract.status,
@@ -1149,9 +1229,11 @@ async function getContractPreview(admin, contractId) {
     nextOrder: {
       cycleIndex,
       expectedDate: nextBillingDate,
-      calculatedPricePerUnit,
+      calculatedPricePerUnit,      // backward-compat — main line ki price
       calculatedQuantity,
       calculatedItemTotal,
+      lineItems,                    // NEW — har product ki price/qty/total
+      calculatedOrderTotal,         // NEW — sabka total
       willApply: (() => {
         const visible = actionsForNextCycle.filter((a) => !a.__default);
         return visible.length > 0 ? visible : "No automatic changes configured for this cycle";
@@ -1181,6 +1263,10 @@ async function getContractPreview(admin, contractId) {
   console.log(
     `   Next order calculated total: ${preview.nextOrder.calculatedItemTotal?.amount} ${preview.nextOrder.calculatedItemTotal?.currencyCode}`,
   );
+  console.log(`   Next order line items:`, JSON.stringify(preview.nextOrder.lineItems));
+  console.log(
+    `   Next order calculated ORDER total: ${preview.nextOrder.calculatedOrderTotal?.amount} ${preview.nextOrder.calculatedOrderTotal?.currencyCode}`,
+  );
   console.log(`Will apply on next order:`, preview.nextOrder.willApply);
 
   return preview;
@@ -1195,6 +1281,7 @@ export {
   applyDiscountTierToPrice,
   fetchVariantPrice,
   getEffectiveBasePrice,
+  computeLinePrice,
   metaKeyForGroup,
   EXTRA_SETTINGS_NAMESPACE,
   sortActionsForApply,
