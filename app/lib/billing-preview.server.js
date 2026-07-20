@@ -1053,7 +1053,7 @@ async function getContractPreview(admin, contractId) {
       }
     }
   }
-
+// 
   const actionsForNextCycle =
     cycleIndex != null ? collectActionsForCycle(extraSettings, cycleIndex) : [];
 
