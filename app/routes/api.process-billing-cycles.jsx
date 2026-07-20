@@ -661,6 +661,5 @@ async function processShop(admin) {
       });
     }
   }
-
   return { contractsChecked: contracts.length, edited, charged, skipped };
 }
