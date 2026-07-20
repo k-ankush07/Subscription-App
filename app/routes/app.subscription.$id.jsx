@@ -4,6 +4,7 @@ import {
   collectActionsForCycle,
   applyActionsToCycle,
   getContractSettingsSnapshot, 
+  getContractPreview
 } from "../lib/billing-preview.server";
 const API = import.meta.env.VITE_API_URL;
 const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
@@ -239,21 +240,6 @@ const sellingPlanIds = [
       .filter(Boolean),
   ),
 ];
-
-const contractSnapshot = await getContractSettingsSnapshot(admin, contractId);
-
-const extraSettingsBySellingPlanId = {};
-
-for (const spId of sellingPlanIds) {
-  if (contractSnapshot) {
-    // Contract ka apna snapshot hai — sabhi selling plans ke liye wahi use karo.
-    extraSettingsBySellingPlanId[spId] = contractSnapshot;
-  } else {
-    // Purana contract, snapshot nahi hai — live plan settings pe fallback.
-    const extra = await getSellingPlanExtraSettings(admin, spId);
-    extraSettingsBySellingPlanId[spId] = extra;
-  }
-}
   const maxCycles = contract?.billingPolicy?.maxCycles ?? null;
   const now = new Date();
   let upcomingCycles = allCycles.filter(
@@ -281,7 +267,6 @@ for (const spId of sellingPlanIds) {
         contractId,
         contract,
         upcomingCycles,
-        extraSettingsBySellingPlanId
       }),
     });
   } catch (err) {
@@ -305,7 +290,8 @@ for (const spId of sellingPlanIds) {
   } catch (err) {
     console.error("Backend fetch notes failed:", err);
   }
-  return { contract, upcomingCycles, internalNotes, customerNotes ,extraSettingsBySellingPlanId,contractSnapshot};
+  const preview = await getContractPreview(admin, contractId);
+  return { contract, upcomingCycles, internalNotes, customerNotes,preview};
 }
 
 const RESCHEDULE_MUTATION = `
@@ -672,12 +658,6 @@ export async function action({ request, params }) {
         const sellingPlanId = firstLine?.sellingPlanId;
         const basePriceAmount = firstLine?.pricingPolicy?.basePrice?.amount ?? null;
         const pricingPolicy = firstLine?.pricingPolicy ?? null;
-
-        // CHANGED — pehle contract ka apna frozen snapshot try karo. Ye
-        // BUG ka fix hai: pehle yahan seedha live selling-plan settings
-        // padhi jaa rahi thi, jo contract creation ke baad merchant ne
-        // plan change kiya to us naye (live) value se hi charge ho raha
-        // tha — frozen snapshot value ignore ho rahi thi.
         let extraSettings = await getContractSettingsSnapshot(admin, contractId);
         if (!extraSettings && sellingPlanId) {
           extraSettings = await getSellingPlanExtraSettings(admin, sellingPlanId);

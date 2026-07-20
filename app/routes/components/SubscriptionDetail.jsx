@@ -53,10 +53,9 @@ export default function SubscriptionDetail() {
     upcomingCycles,
     internalNotes,
     customerNotes,
-    extraSettingsBySellingPlanId,
-    contractSnapshot
+    preview
   } = useLoaderData();
-  console.log("contract", contract,extraSettingsBySellingPlanId, "upcoming orders",upcomingCycles,"meta fields data ",contractSnapshot);
+  console.log("contract", contract, "upcoming orders",upcomingCycles,"preview",preview);
   const [localLines, setLocalLines] = useState(contract?.lines?.edges || []);
   const [showInternalNotes, setShowInternalNotes] = useState(false);
   const [Internalnotes, setInternalNotes] = useState(internalNotes || "");
@@ -163,7 +162,7 @@ export default function SubscriptionDetail() {
           ></Banner>
         )}
         <div>
-          <b>{contract.status}</b>, <b>{formateDate(contract?.createdAt)}</b> ,{" "}
+          <b>{preview?.status}</b>, <b>{formateDate(contract?.createdAt)}</b> ,{" "}
           <b>{contract?.originOrder?.name}</b>
         </div>
 
@@ -207,7 +206,7 @@ export default function SubscriptionDetail() {
         {contract?.status !== "CANCELLED" && (
           <div>
             <b>Next Order</b>
-            <p>{formateDate(nextCycleDate)}</p>
+            <p> {formateDate(preview?.nextOrder?.expectedDate)}</p>
             <br />
 
             {(contract?.billingPolicy?.minCycles != null ||
@@ -227,7 +226,7 @@ export default function SubscriptionDetail() {
 
         <div>
           <b>Billing Cycle</b>
-          <p>{nextCycleIndex}</p>
+          <p>{preview?.nextOrder?.cycleIndex}</p>
         </div>
         <div>
           <b>Customer</b>
@@ -310,19 +309,8 @@ export default function SubscriptionDetail() {
                       VariantId: {item?.node?.variantId.split("/").pop()}
                     </span>
                   </p>
-                  <p>
-                    {" "}
-                    {/* {`${currencySymbol(currencyCode)} ${price} X ${quantity} = ${currencySymbol(currencyCode)} ${Total}`} */}
-                  </p>
-                  {/* {cycleDiscounts.length > 0 && (
-                    <p>
-                      <span>
-                        {cycleDiscounts.length === 1
-                          ? `${cycleDiscounts[0]?.adjustmentValue?.percentage ? `${cycleDiscounts[0]?.adjustmentValue?.percentage}% for all orders ` : `₹${cycleDiscounts[0]?.adjustmentValue?.amount} for  all orders`}`
-                          : `${cycleDiscounts[0]?.adjustmentValue?.percentage ? `${cycleDiscounts[0]?.adjustmentValue?.percentage}%` : `₹${cycleDiscounts[0]?.adjustmentValue?.amount}`} off for the first ${cycleDiscounts[1]?.afterCycle || 1} order, then ${cycleDiscounts[1]?.adjustmentValue?.percentage ? `${cycleDiscounts[1]?.adjustmentValue?.percentage}%` : `₹${cycleDiscounts[1]?.adjustmentValue?.amount}`} off`}
-                      </span>
-                    </p>
-                  )} */}
+                  
+                
                   <p>
                     <b>{`Delivery: Every ${contract?.deliveryPolicy?.intervalCount} ${contract?.deliveryPolicy?.interval} `}</b>
                     <b>{`Billing: every ${contract?.billingPolicy?.intervalCount} ${contract?.billingPolicy?.interval}`}</b>

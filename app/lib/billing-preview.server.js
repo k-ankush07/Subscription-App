@@ -1,3 +1,4 @@
+
 const EXTRA_SETTINGS_NAMESPACE = "subscription_app";
 
 const CONTRACT_SETTINGS_SNAPSHOTS_KEY = "contract_settings_snapshots"; 
@@ -139,6 +140,7 @@ function normalizeAutomationAction(action, afterOrders) {
 
    
     for (let i = 1; i < validDests.length; i++) {
+      
       results.push({
         type: "ADD_PRODUCT",
         variantId: validDests[i].variantId,
@@ -380,17 +382,6 @@ function applyCustomDiscountAction(basePrice, discountAction) {
   return Math.max(0, discounted);
 }
 
-// NEW — ek hi jagah se ADD_PRODUCT (aur main-line) ki price nikalne ka logic.
-// Ye applyActionsToCycle ke ADD_PRODUCT block jaisa hi hisaab karta hai, taaki
-// preview aur actual applied price hamesha match karein.
-//
-// FIXED — pehle swap-generated lines (jaise ek swap ke multiple dests se
-// ADD_PRODUCT banti hain) sirf pricingPolicy ke fixed cycleDiscount tier se
-// calculate hoti thi — custom "after N orders, X% off" (DISCOUNT_CHANGE)
-// automation kabhi apply hi nahi hoti thi in par, kyunki DISCOUNT_CHANGE
-// sirf original/main line ki price update karta hai. Ab agar cycle ke liye
-// custom DISCOUNT_CHANGE configured hai, wahi use hoga (tier ki jagah) —
-// taaki har added product par bhi sahi discount lage.
 async function computeLinePrice(
   admin,
   { variantId, isSwapGenerated, discountEnabled, discountType, discountValue },
@@ -1191,7 +1182,7 @@ async function getContractPreview(admin, contractId) {
         },
         effectiveBase,
         discountTierForCycle,
-        discountAction, // NEW — custom "after N orders, X% off" bhi apply hoga swap-generated lines par
+        discountAction, 
       );
     } catch (err) {
       console.warn(`[preview] failed computing price for ADD_PRODUCT variant ${action.variantId}:`, err);
@@ -1229,9 +1220,6 @@ async function getContractPreview(admin, contractId) {
     nextOrder: {
       cycleIndex,
       expectedDate: nextBillingDate,
-      calculatedPricePerUnit,      // backward-compat — main line ki price
-      calculatedQuantity,
-      calculatedItemTotal,
       lineItems,                    // NEW — har product ki price/qty/total
       calculatedOrderTotal,         // NEW — sabka total
       willApply: (() => {
