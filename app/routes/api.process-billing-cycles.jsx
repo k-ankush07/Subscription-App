@@ -14,7 +14,6 @@ export const action = async ({ request }) => {
   if (request.method !== "POST") {
     return new Response("Method Not Allowed", { status: 405 });
   }
-
   const secret = request.headers.get("x-cron-secret");
 
   if (!process.env.CRON_SECRET) {

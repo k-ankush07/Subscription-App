@@ -110,56 +110,71 @@ async function snapshotContractSettings(admin, contractId, settings, shopId = nu
 function normalizeAutomationAction(action, afterOrders) {
   if (action.type === "swap") {
     const allDests = Array.isArray(action.dests) ? action.dests : [];
-    const dest = allDests[0] ?? null;
-    const variantId = dest?.variantIds?.[0] ?? null;
 
-    const totalConfiguredVariants = allDests.reduce(
-      (sum, d) => sum + (d.variantIds?.length || 0),
-      0,
-    );
-    const multipleDestsIgnored = totalConfiguredVariants > 1 || allDests.length > 1;
+    // Har dest se pehla variant lo, empty/invalid dests skip karo
+    const validDests = allDests
+      .map((dest) => ({ dest, variantId: dest?.variantIds?.[0] ?? null }))
+      .filter((d) => d.variantId);
 
-    if (multipleDestsIgnored) {
-      console.warn(
-        `[normalizeAutomationAction] VARIANT_SWAP: ${totalConfiguredVariants} destination variant(s) ` +
-          `configured across ${allDests.length} destination(s), but only the first (${variantId}) will ` +
-          `actually be applied. The rest are ignored.`,
-      );
+    if (validDests.length === 0) {
+      return [{
+        ...action,
+        type: "VARIANT_SWAP",
+        variantId: null,
+        dests: allDests,
+        after: afterOrders,
+      }];
     }
 
-    return {
+    const results = [];
+
+    // Pehla dest -> existing line SWAP hoga
+    results.push({
       ...action,
       type: "VARIANT_SWAP",
-      variantId,
+      variantId: validDests[0].variantId,
+      dests: allDests,
       after: afterOrders,
-      __multipleDestsIgnored: multipleDestsIgnored || undefined,
-    };
+    });
+
+   
+    for (let i = 1; i < validDests.length; i++) {
+      results.push({
+        type: "ADD_PRODUCT",
+        variantId: validDests[i].variantId,
+        quantity: action.quantity ?? 1,
+        sourceProductId: action.sourceProductId,
+        destProductId: validDests[i].dest?.id ?? null,
+        after: afterOrders,
+      });
+    }
+
+    return results; // ⬅ ab array return hota hai
   }
 
   if (action.type === "remove") {
     const variantId = action.sourceVariantId || (action.isVariant ? action.variantId : null);
     const productId = action.sourceProductId || action.productId || null;
 
-    return {
+    return [{
       ...action,
       type: variantId ? "REMOVE_VARIANT" : "REMOVE_PRODUCT",
       sourceProductId: productId ?? action.sourceProductId,
       sourceVariantId: variantId ?? action.sourceVariantId,
       after: afterOrders,
-    };
+    }];
   }
 
   if (action.type === "add") {
-    return {
+    return [{
       ...action,
       type: "ADD_PRODUCT",
       after: afterOrders,
-    };
+    }];
   }
 
-  return { ...action, after: afterOrders };
+  return [{ ...action, after: afterOrders }];
 }
-
 
 const ACTION_ORDER = [
   "QUANTITY_CHANGE",
@@ -213,6 +228,10 @@ function collectActionsForCycle(settings, cycleIndex) {
   }
 
   // 3. Quantity Change — "change quantity to X after N orders"
+  // FIXED — checkout/original subscription quantity kabhi use nahi honi
+  // chahiye. Agar merchant ne "change quantity" configure ki hai aur uska
+  // threshold pura ho gaya hai to wahi value use hogi; warna hamesha DEFAULT
+  // 1 quantity force hogi (checkout wali quantity, jaise 9, kabhi nahi).
   if (
     settings.changeQuantityAfterOrders &&
     cycleIndex >= Number(settings.quantityAfterOrders)
@@ -222,6 +241,14 @@ function collectActionsForCycle(settings, cycleIndex) {
       value: settings.quantityAfterOrdersValue,
       products: settings.quantityProducts ?? [],
       after: settings.quantityAfterOrders,
+    });
+  } else {
+    actions.push({
+      type: "QUANTITY_CHANGE",
+      value: 1,
+      products: [],
+      after: 0,
+      __default: true, // preview me alag se "willApply" list mein nahi dikhana
     });
   }
 
@@ -254,19 +281,19 @@ function collectActionsForCycle(settings, cycleIndex) {
     for (const auto of settings.automationCycles) {
       if (cycleIndex >= Number(auto.orders)) {
         for (const action of auto.actions ?? []) {
-          actions.push(normalizeAutomationAction(action, auto.orders));
+          actions.push(...normalizeAutomationAction(action, auto.orders)); // spread — array aata hai
         }
       }
     }
   }
 
-  // 7. Minimum quantity floor (always active if enabled)
-  if (settings.MinimumQuanitity) {
-    actions.push({
-      type: "MINIMUM_QUANTITY",
-      value: settings.MinimumQuanitityValue,
-    });
-  }
+  // 7. Minimum quantity floor — DISABLED (user ne mana kiya use karne se)
+  // if (settings.MinimumQuanitity) {
+  //   actions.push({
+  //     type: "MINIMUM_QUANTITY",
+  //     value: settings.MinimumQuanitityValue,
+  //   });
+  // }
 
   return actions;
 }
@@ -384,6 +411,10 @@ function resolveLineForAction(draftLines, action) {
   );
   return draftLines[0];
 }
+
+// FIXED — schema mein `deletedSubscriptionBillingCycleEditContractId` /
+// `deletedSubscriptionBillingCycleEditScheduleId` jaise fields exist hi nahi
+// karte. Actual payload `billingCycles` array + `userErrors` return karta hai.
 async function clearBillingCycleEdit(admin, contractId, cycleIndex) {
   if (cycleIndex == null) return { cleared: false, reason: "no cycleIndex provided" };
 
@@ -393,8 +424,12 @@ async function clearBillingCycleEdit(admin, contractId, cycleIndex) {
       subscriptionBillingCycleEditDelete(
         billingCycleInput: { contractId: $contractId, selector: { index: $index } }
       ) {
-        deletedSubscriptionBillingCycleEditContractId
-        deletedSubscriptionBillingCycleEditScheduleId
+        billingCycles {
+          cycleIndex
+          cycleStartAt
+          cycleEndAt
+          edited
+        }
         userErrors { field message }
       }
     }
@@ -414,12 +449,8 @@ async function clearBillingCycleEdit(admin, contractId, cycleIndex) {
   }
 
   return {
-    cleared: !!(
-      payload?.deletedSubscriptionBillingCycleEditContractId ||
-      payload?.deletedSubscriptionBillingCycleEditScheduleId
-    ),
-    contractEditId: payload?.deletedSubscriptionBillingCycleEditContractId ?? null,
-    scheduleEditId: payload?.deletedSubscriptionBillingCycleEditScheduleId ?? null,
+    cleared: (payload?.billingCycles?.length ?? 0) > 0,
+    billingCycles: payload?.billingCycles ?? [],
   };
 }
 
@@ -461,6 +492,7 @@ async function findBlockingBillingCycleIndex(admin, contractId, aroundDate = new
 
   return cycle.cycleIndex;
 }
+
 
 async function applyActionsToCycle(
   admin,
@@ -537,6 +569,8 @@ async function applyActionsToCycle(
   const discountTierForCycle = getDiscountTierForCycle(pricingPolicy, cycleIndex);
 
   const hasCustomDiscountChange = actions.some((a) => a.type === "DISCOUNT_CHANGE");
+  const discountActionEntry = actions.find((a) => a.type === "DISCOUNT_CHANGE");
+
   const orderedActions = sortActionsForApply(actions);
 
   const skippedActionsLog = [];
@@ -559,35 +593,41 @@ async function applyActionsToCycle(
           { variables: { draftId, lineId: targetLine.id, qty: Number(action.value) } },
         );
         const data = await res.json();
+        if (data.errors) throw new Error(`QUANTITY_CHANGE failed (GraphQL): ${data.errors[0]?.message}`);
         const errors = data.data?.subscriptionDraftLineUpdate?.userErrors;
         if (errors?.length) throw new Error(`QUANTITY_CHANGE failed: ${errors[0].message}`);
       }
 
-      // ── MINIMUM_QUANTITY (floor, only bump up if below) ──
-      if (action.type === "MINIMUM_QUANTITY") {
-        const minQty = Number(action.value);
-        if (lineId && currentQty < minQty) {
-          const res = await admin.graphql(
-            `
-            mutation enforceMinQty($draftId: ID!, $lineId: ID!, $qty: Int!) {
-              subscriptionDraftLineUpdate(draftId: $draftId, lineId: $lineId, input: { quantity: $qty }) {
-                userErrors { field message }
-              }
-            }
-            `,
-            { variables: { draftId, lineId, qty: minQty } },
-          );
-          const data = await res.json();
-          const errors = data.data?.subscriptionDraftLineUpdate?.userErrors;
-          if (errors?.length) throw new Error(`MINIMUM_QUANTITY failed: ${errors[0].message}`);
-        }
-      }
+      // ── MINIMUM_QUANTITY ── DISABLED (user ne mana kiya use karne se)
+      // if (action.type === "MINIMUM_QUANTITY") {
+      //   const minQty = Number(action.value);
+      //   if (lineId && currentQty < minQty) {
+      //     const res = await admin.graphql(
+      //       `
+      //       mutation enforceMinQty($draftId: ID!, $lineId: ID!, $qty: Int!) {
+      //         subscriptionDraftLineUpdate(draftId: $draftId, lineId: $lineId, input: { quantity: $qty }) {
+      //           userErrors { field message }
+      //         }
+      //       }
+      //       `,
+      //       { variables: { draftId, lineId, qty: minQty } },
+      //     );
+      //     const data = await res.json();
+      //     if (data.errors) throw new Error(`MINIMUM_QUANTITY failed (GraphQL): ${data.errors[0]?.message}`);
+      //     const errors = data.data?.subscriptionDraftLineUpdate?.userErrors;
+      //     if (errors?.length) throw new Error(`MINIMUM_QUANTITY failed: ${errors[0].message}`);
+      //   }
+      // }
 
       // ── PRODUCT_SWAP / VARIANT_SWAP ──
       if (action.type === "PRODUCT_SWAP" || action.type === "VARIANT_SWAP") {
         const targetLine = resolveLineForAction(draftLines, action);
         if (!targetLine) throw new Error(`${action.type} failed: no line found on draft`);
         if (!action.variantId) throw new Error(`${action.type} failed: no variantId configured`);
+
+        // Individual line pricing — pricing-policy tier discount lagao (agar
+        // custom DISCOUNT_CHANGE nahi hai, warna DISCOUNT_CHANGE action isse
+        // baad me overwrite kar dega apne hisaab se).
         let recalculatedPrice = null;
         if (!hasCustomDiscountChange && effectiveBasePrice != null) {
           recalculatedPrice = applyDiscountTierToPrice(effectiveBasePrice, discountTierForCycle).toFixed(2);
@@ -608,15 +648,9 @@ async function applyActionsToCycle(
           { variables: { draftId, lineId: targetLine.id, variantId: action.variantId, price: recalculatedPrice } },
         );
         const data = await res.json();
+        if (data.errors) throw new Error(`${action.type} failed (GraphQL): ${data.errors[0]?.message}`);
         const errors = data.data?.subscriptionDraftLineUpdate?.userErrors;
         if (errors?.length) throw new Error(`${action.type} failed: ${errors[0].message}`);
-
-        if (action.__multipleDestsIgnored) {
-          skippedActionsLog.push({
-            type: action.type,
-            reason: "Multiple swap destinations/variants were configured; only the first was applied.",
-          });
-        }
       }
 
       // ── DISCOUNT_CHANGE ── (always runs last — see sortActionsForApply)
@@ -643,6 +677,7 @@ async function applyActionsToCycle(
           { variables: { draftId, lineId, price: newPrice } },
         );
         const data = await res.json();
+        if (data.errors) throw new Error(`DISCOUNT_CHANGE failed (GraphQL): ${data.errors[0]?.message}`);
         const errors = data.data?.subscriptionDraftLineUpdate?.userErrors;
         if (errors?.length) throw new Error(`DISCOUNT_CHANGE failed: ${errors[0].message}`);
       }
@@ -674,6 +709,7 @@ async function applyActionsToCycle(
             { variables: { draftId, input: { title: "Auto shipping discount" } } },
           );
           const data = await res.json();
+          if (data.errors) throw new Error(`SHIPPING_DISCOUNT failed (GraphQL): ${data.errors[0]?.message}`);
           const errors = data.data?.subscriptionDraftFreeShippingDiscountAdd?.userErrors;
           if (errors?.length) throw new Error(`SHIPPING_DISCOUNT failed: ${errors[0].message}`);
         }
@@ -698,24 +734,90 @@ async function applyActionsToCycle(
           { variables: { draftId, lineId: targetLine.id } },
         );
         const data = await res.json();
+        if (data.errors) throw new Error(`${action.type} failed (GraphQL): ${data.errors[0]?.message}`);
         const errors = data.data?.subscriptionDraftLineRemove?.userErrors;
         if (errors?.length) throw new Error(`${action.type} failed: ${errors[0].message}`);
       }
 
-      // ── ADD_PRODUCT ──
       if (action.type === "ADD_PRODUCT") {
         if (!action.variantId) throw new Error("ADD_PRODUCT failed: no variantId configured");
+        let addPrice = action.currentPrice ?? null;
+
+        // if (addPrice == null) {
+        //   const variantPrice = await fetchVariantPrice(admin, action.variantId);
+        //   const basePriceForNewLine = variantPrice ?? effectiveBasePrice ?? 0;
+
+        //   if (hasCustomDiscountChange && discountActionEntry) {
+        //     let discounted = basePriceForNewLine;
+        //     if (discountActionEntry.adjustmentType === "PERCENTAGE") {
+        //       discounted =
+        //         basePriceForNewLine -
+        //         (basePriceForNewLine * Number(discountActionEntry.adjustmentValue)) / 100;
+        //     } else {
+        //       discounted = basePriceForNewLine - Number(discountActionEntry.adjustmentValue);
+        //     }
+        //     addPrice = Math.max(0, discounted).toFixed(2);
+        //   } else {
+        //     addPrice = applyDiscountTierToPrice(basePriceForNewLine, discountTierForCycle).toFixed(2);
+        //   }
+        // }
+        if (addPrice == null) {
+  const variantPrice = await fetchVariantPrice(admin, action.variantId);
+  const basePriceForNewLine = variantPrice ?? effectiveBasePrice ?? 0;
+
+  const isSwapGenerated =
+    !!action.destProductId || !!action.sourceProductId;
+
+  if (isSwapGenerated) {
+    addPrice = applyDiscountTierToPrice(
+      basePriceForNewLine,
+      discountTierForCycle,
+    ).toFixed(2);
+  } else if (action.discountEnabled) {
+    let discounted = basePriceForNewLine;
+
+    if (
+      String(action.discountType).toLowerCase() === "percentage"
+    ) {
+      discounted =
+        basePriceForNewLine -
+        (basePriceForNewLine *
+          Number(action.discountValue || 0)) /
+          100;
+    } else {
+      discounted =
+        basePriceForNewLine -
+        Number(action.discountValue || 0);
+    }
+
+    addPrice = Math.max(0, discounted).toFixed(2);
+  } else {
+    addPrice = basePriceForNewLine.toFixed(2);
+  }
+}
+
         const res = await admin.graphql(
           `
-          mutation addLine($draftId: ID!, $variantId: ID!, $qty: Int!) {
-            subscriptionDraftLineAdd(draftId: $draftId, input: { productVariantId: $variantId, quantity: $qty }) {
+          mutation addLine($draftId: ID!, $variantId: ID!, $qty: Int!, $price: Decimal!) {
+            subscriptionDraftLineAdd(
+              draftId: $draftId
+              input: { productVariantId: $variantId, quantity: $qty, currentPrice: $price }
+            ) {
               userErrors { field message }
             }
           }
           `,
-          { variables: { draftId, variantId: action.variantId, qty: Number(action.quantity) || 1 } },
+          {
+            variables: {
+              draftId,
+              variantId: action.variantId,
+              qty: Number(action.quantity) || 1,
+              price: addPrice,
+            },
+          },
         );
         const data = await res.json();
+        if (data.errors) throw new Error(`ADD_PRODUCT failed (GraphQL): ${data.errors[0]?.message}`);
         const errors = data.data?.subscriptionDraftLineAdd?.userErrors;
         if (errors?.length) throw new Error(`ADD_PRODUCT failed: ${errors[0].message}`);
       }
@@ -1007,7 +1109,9 @@ async function getContractPreview(admin, contractId) {
   const quantityAction = Array.isArray(actionsForNextCycle)
     ? actionsForNextCycle.find((a) => a.type === "QUANTITY_CHANGE")
     : null;
-  const calculatedQuantity = quantityAction ? Number(quantityAction.value) : firstLine?.quantity;
+  // FIXED — QUANTITY_CHANGE ab hamesha maujood hoti hai (configured value ya
+  // default 1) — checkout/original quantity kabhi fallback nahi banti.
+  const calculatedQuantity = quantityAction ? Number(quantityAction.value) : 1;
 
   const calculatedItemTotal =
     calculatedPricePerUnit && calculatedQuantity != null
@@ -1029,11 +1133,6 @@ async function getContractPreview(admin, contractId) {
     }
   }
 
-  if (swapAction?.__multipleDestsIgnored) {
-    swapAction.warning =
-      "Multiple swap destinations/variants are configured for this cycle, but only the first will actually be applied. Remove the extras to avoid confusion.";
-  }
-
   const preview = {
     contractId: contract.id,
     status: contract.status,
@@ -1053,10 +1152,10 @@ async function getContractPreview(admin, contractId) {
       calculatedPricePerUnit,
       calculatedQuantity,
       calculatedItemTotal,
-      willApply:
-        actionsForNextCycle.length > 0
-          ? actionsForNextCycle
-          : "No automatic changes configured for this cycle",
+      willApply: (() => {
+        const visible = actionsForNextCycle.filter((a) => !a.__default);
+        return visible.length > 0 ? visible : "No automatic changes configured for this cycle";
+      })(),
     },
     allExtraSettings: extraSettings,
   };
