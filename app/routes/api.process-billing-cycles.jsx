@@ -4,7 +4,7 @@
 
 import { unauthenticated } from "../shopify.server";
 import prisma from "../db.server";
-import { collectActionsForCycle, applyActionsToCycle,getEffectiveContractSettings } from "../lib/billing-preview.server";
+import { collectActionsForCycle, applyActionsToCycle } from "../lib/billing-preview.server";
 
 const EXTRA_SETTINGS_NAMESPACE = "subscription_app";
 
