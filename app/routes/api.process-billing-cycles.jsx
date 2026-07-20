@@ -8,7 +8,6 @@ import {
 
 const EXTRA_SETTINGS_NAMESPACE = "subscription_app";
 
-// Reject GET/other verbs politely rather than 500ing.
 export const loader = () => new Response("Use POST", { status: 405 });
 
 export const action = async ({ request }) => {

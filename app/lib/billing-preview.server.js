@@ -6,8 +6,6 @@ function metaKeyForGroup(groupId) {
   const numericId = groupId.split("/").pop();
   return `extra_settings_${numericId}`;
 }
-
-// NEW
 async function getShopIdForSnapshot(admin) {
   const res = await admin.graphql(`query { shop { id } }`);
   const data = await res.json();
@@ -365,11 +363,14 @@ function resolveLineForAction(draftLines, action) {
       }
     }
   }
+
   if (action.sourceProductId) targetProductIds.push(action.sourceProductId);
   if (action.sourceVariantId) targetVariantIds.push(action.sourceVariantId);
+
   if (targetProductIds.length === 0 && targetVariantIds.length === 0) {
     return draftLines[0];
   }
+
   const match = draftLines.find(
     (line) =>
       (line.variantId && targetVariantIds.includes(line.variantId)) ||
