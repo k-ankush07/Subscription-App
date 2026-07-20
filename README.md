@@ -254,6 +254,5 @@ link prodcut redirect.dfds
 
 
 
- abi mere me esa hora me meta fielda ka data selling plan me rkh ra or fir contract create kr ra or fir agr me plan chnage krta hu to vo chnages v old contract me reflect hore hai me chahta hu vo chnages sirf new me refrect ho us meta fileds ka snapshot origin order me sotore kr ste hai to vo kr do  na koi extra file or db use na hai na hi tyscript 
-exting file me hi chnages kro 
+ 
 

@@ -1220,7 +1220,7 @@ async function getContractPreview(admin, contractId) {
     nextOrder: {
       cycleIndex,
       expectedDate: nextBillingDate,
-      lineItems,                    // NEW — har product ki price/qty/total
+      // lineItems,                    // NEW — har product ki price/qty/total
       calculatedOrderTotal,         // NEW — sabka total
       willApply: (() => {
         const visible = actionsForNextCycle.filter((a) => !a.__default);
