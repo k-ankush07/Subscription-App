@@ -1,6 +1,10 @@
 import { authenticate } from "../shopify.server";
 import SubscriptionDetail from "./components/SubscriptionDetail";
-// import { collectActionsForCycle, applyActionsToCycle } from "../lib/billing-preview.server";
+import {
+  collectActionsForCycle,
+  applyActionsToCycle,
+  getContractSettingsSnapshot, 
+} from "../lib/billing-preview.server";
 const API = import.meta.env.VITE_API_URL;
 const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
 
@@ -235,11 +239,20 @@ const sellingPlanIds = [
       .filter(Boolean),
   ),
 ];
+
+const contractSnapshot = await getContractSettingsSnapshot(admin, contractId);
+
 const extraSettingsBySellingPlanId = {};
 
 for (const spId of sellingPlanIds) {
-  const extra = await getSellingPlanExtraSettings(admin, spId);
-  extraSettingsBySellingPlanId[spId] = extra;
+  if (contractSnapshot) {
+    // Contract ka apna snapshot hai — sabhi selling plans ke liye wahi use karo.
+    extraSettingsBySellingPlanId[spId] = contractSnapshot;
+  } else {
+    // Purana contract, snapshot nahi hai — live plan settings pe fallback.
+    const extra = await getSellingPlanExtraSettings(admin, spId);
+    extraSettingsBySellingPlanId[spId] = extra;
+  }
 }
   const maxCycles = contract?.billingPolicy?.maxCycles ?? null;
   const now = new Date();
@@ -292,7 +305,7 @@ for (const spId of sellingPlanIds) {
   } catch (err) {
     console.error("Backend fetch notes failed:", err);
   }
-  return { contract, upcomingCycles, internalNotes, customerNotes ,extraSettingsBySellingPlanId};
+  return { contract, upcomingCycles, internalNotes, customerNotes ,extraSettingsBySellingPlanId,contractSnapshot};
 }
 
 const RESCHEDULE_MUTATION = `
@@ -349,8 +362,8 @@ export async function action({ request, params }) {
     type === "resume" ||
     type === "skip" ||
     type === "unskip" ||
-    type === "reschedule" 
-    // type === "charge_now"
+    type === "reschedule" ||
+    type === "charge_now"
   ) {
     if (type === "pause") {
       const res = await admin.graphql(
@@ -618,118 +631,126 @@ export async function action({ request, params }) {
         newDate: payload.billingCycle.billingAttemptExpectedDate,
       };
     }
-    //  if (type === "charge_now") {
-    //   const cycleIndex = parseInt(formData.get("cycleIndex"), 10);
+     if (type === "charge_now") {
+      const cycleIndex = parseInt(formData.get("cycleIndex"), 10);
 
-    //   if (Number.isNaN(cycleIndex)) {
-    //     return { success: false, error: "Invalid billing cycle index" };
-    //   }
+      if (Number.isNaN(cycleIndex)) {
+        return { success: false, error: "Invalid billing cycle index" };
+      }
 
-    //   try {
-    //     const contractRes = await admin.graphql(
-    //       `
-    //       query getContractLineForCharge($contractId: ID!) {
-    //         subscriptionContract(id: $contractId) {
-    //           lines(first: 5) {
-    //             edges {
-    //               node {
-    //                 sellingPlanId
-    //                 pricingPolicy {
-    //                   basePrice { amount currencyCode }
-    //                   cycleDiscounts {
-    //                     afterCycle
-    //                     adjustmentType
-    //                     adjustmentValue {
-    //                       ... on SellingPlanPricingPolicyPercentageValue { percentage }
-    //                       ... on MoneyV2 { amount currencyCode }
-    //                     }
-    //                     computedPrice { amount currencyCode }
-    //                   }
-    //                 }
-    //               }
-    //             }
-    //           }
-    //         }
-    //       }
-    //       `,
-    //       { variables: { contractId } },
-    //     );
-    //     const contractData = await contractRes.json();
-    //     const firstLine = contractData.data?.subscriptionContract?.lines?.edges?.[0]?.node;
-    //     const sellingPlanId = firstLine?.sellingPlanId;
-    //     const basePriceAmount = firstLine?.pricingPolicy?.basePrice?.amount ?? null;
-    //     const pricingPolicy = firstLine?.pricingPolicy ?? null;
-    //     const extraSettings = sellingPlanId
-    //       ? await getSellingPlanExtraSettings(admin, sellingPlanId)
-    //       : null;
-    //     const actionsForThisCycle = extraSettings
-    //       ? collectActionsForCycle(extraSettings, cycleIndex)
-    //       : [];
+      try {
+        const contractRes = await admin.graphql(
+          `
+          query getContractLineForCharge($contractId: ID!) {
+            subscriptionContract(id: $contractId) {
+              lines(first: 5) {
+                edges {
+                  node {
+                    sellingPlanId
+                    pricingPolicy {
+                      basePrice { amount currencyCode }
+                      cycleDiscounts {
+                        afterCycle
+                        adjustmentType
+                        adjustmentValue {
+                          ... on SellingPlanPricingPolicyPercentageValue { percentage }
+                          ... on MoneyV2 { amount currencyCode }
+                        }
+                        computedPrice { amount currencyCode }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+          `,
+          { variables: { contractId } },
+        );
+        const contractData = await contractRes.json();
+        const firstLine = contractData.data?.subscriptionContract?.lines?.edges?.[0]?.node;
+        const sellingPlanId = firstLine?.sellingPlanId;
+        const basePriceAmount = firstLine?.pricingPolicy?.basePrice?.amount ?? null;
+        const pricingPolicy = firstLine?.pricingPolicy ?? null;
 
-    //     let skippedActions = [];
-    //     if (actionsForThisCycle.length > 0) {
-    //       const result = await applyActionsToCycle(
-    //         admin,
-    //         contractId,
-    //         cycleIndex,
-    //         actionsForThisCycle,
-    //         basePriceAmount,
-    //         pricingPolicy,
-    //       );
-    //       skippedActions = result?.skippedActions || [];
-    //     }
+        // CHANGED — pehle contract ka apna frozen snapshot try karo. Ye
+        // BUG ka fix hai: pehle yahan seedha live selling-plan settings
+        // padhi jaa rahi thi, jo contract creation ke baad merchant ne
+        // plan change kiya to us naye (live) value se hi charge ho raha
+        // tha — frozen snapshot value ignore ho rahi thi.
+        let extraSettings = await getContractSettingsSnapshot(admin, contractId);
+        if (!extraSettings && sellingPlanId) {
+          extraSettings = await getSellingPlanExtraSettings(admin, sellingPlanId);
+        }
 
-    //     // 3. Ab actual charge karo
-    //     const chargeRes = await admin.graphql(
-    //       `
-    //       mutation ChargeSubscriptionCycleNow($contractId: ID!, $index: Int!) {
-    //         subscriptionBillingCycleCharge(
-    //           subscriptionContractId: $contractId
-    //           billingCycleSelector: { index: $index }
-    //         ) {
-    //           subscriptionBillingAttempt {
-    //             id
-    //             ready
-    //             errorMessage
-    //             order { id name }
-    //           }
-    //           userErrors { field message code }
-    //         }
-    //       }
-    //       `,
-    //       { variables: { contractId, index: cycleIndex } },
-    //     );
+        const actionsForThisCycle = extraSettings
+          ? collectActionsForCycle(extraSettings, cycleIndex)
+          : [];
 
-    //     const chargeData = await chargeRes.json();
-    //     const chargePayload = chargeData.data?.subscriptionBillingCycleCharge;
+        let skippedActions = [];
+        if (actionsForThisCycle.length > 0) {
+          const result = await applyActionsToCycle(
+            admin,
+            contractId,
+            cycleIndex,
+            actionsForThisCycle,
+            basePriceAmount,
+            pricingPolicy,
+          );
+          skippedActions = result?.skippedActions || [];
+        }
 
-    //     if (!chargePayload || chargePayload.userErrors?.length) {
-    //       console.error("Charge now failed", chargePayload?.userErrors);
-    //       return {
-    //         success: false,
-    //         error:
-    //           chargePayload?.userErrors?.map((e) => e.message).join(", ") ||
-    //           "Charge failed",
-    //       };
-    //     }
+        // 3. Ab actual charge karo
+        const chargeRes = await admin.graphql(
+          `
+          mutation ChargeSubscriptionCycleNow($contractId: ID!, $index: Int!) {
+            subscriptionBillingCycleCharge(
+              subscriptionContractId: $contractId
+              billingCycleSelector: { index: $index }
+            ) {
+              subscriptionBillingAttempt {
+                id
+                ready
+                errorMessage
+                order { id name }
+              }
+              userErrors { field message code }
+            }
+          }
+          `,
+          { variables: { contractId, index: cycleIndex } },
+        );
 
-    //     const attempt = chargePayload.subscriptionBillingAttempt;
-    //     return {
-    //       success: true,
-    //       chargedCycleIndex: cycleIndex,
-    //       billingAttemptId: attempt?.id || null,
-    //       orderId: attempt?.order?.id || null,
-    //       orderName: attempt?.order?.name || null,
-    //       ready: attempt?.ready ?? null,
-    //       errorMessage: attempt?.errorMessage || null,
-    //       appliedActions: actionsForThisCycle.map((a) => a.type),
-    //       skippedActions,
-    //     };
-    //   } catch (err) {
-    //     console.error("[charge_now] failed:", err);
-    //     return { success: false, error: String(err?.message || err) };
-    //   }
-    // }
+        const chargeData = await chargeRes.json();
+        const chargePayload = chargeData.data?.subscriptionBillingCycleCharge;
+
+        if (!chargePayload || chargePayload.userErrors?.length) {
+          console.error("Charge now failed", chargePayload?.userErrors);
+          return {
+            success: false,
+            error:
+              chargePayload?.userErrors?.map((e) => e.message).join(", ") ||
+              "Charge failed",
+          };
+        }
+
+        const attempt = chargePayload.subscriptionBillingAttempt;
+        return {
+          success: true,
+          chargedCycleIndex: cycleIndex,
+          billingAttemptId: attempt?.id || null,
+          orderId: attempt?.order?.id || null,
+          orderName: attempt?.order?.name || null,
+          ready: attempt?.ready ?? null,
+          errorMessage: attempt?.errorMessage || null,
+          appliedActions: actionsForThisCycle.map((a) => a.type),
+          skippedActions,
+        };
+      } catch (err) {
+        console.error("[charge_now] failed:", err);
+        return { success: false, error: String(err?.message || err) };
+      }
+    }
   }
 
   const payload = {

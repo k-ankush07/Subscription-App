@@ -1,10 +1,113 @@
 const EXTRA_SETTINGS_NAMESPACE = "subscription_app";
+
+const CONTRACT_SETTINGS_SNAPSHOTS_KEY = "contract_settings_snapshots"; 
+
 function metaKeyForGroup(groupId) {
   const numericId = groupId.split("/").pop();
   return `extra_settings_${numericId}`;
 }
 
+// NEW
+async function getShopIdForSnapshot(admin) {
+  const res = await admin.graphql(`query { shop { id } }`);
+  const data = await res.json();
+  return data.data?.shop?.id ?? null;
+}
 
+async function readContractSnapshotsList(admin) {
+  const res = await admin.graphql(
+    `
+    query getContractSnapshots($namespace: String!, $key: String!) {
+      shop {
+        metafield(namespace: $namespace, key: $key) {
+          value
+        }
+      }
+    }
+    `,
+    { variables: { namespace: EXTRA_SETTINGS_NAMESPACE, key: CONTRACT_SETTINGS_SNAPSHOTS_KEY } },
+  );
+  const data = await res.json();
+  if (data.errors) {
+    console.warn(`[readContractSnapshotsList] query failed: ${data.errors[0]?.message}`);
+    return [];
+  }
+  const raw = data.data?.shop?.metafield?.value;
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+async function writeContractSnapshotsList(admin, shopId, list) {
+  const trimmed = list.slice(-500);
+  const res = await admin.graphql(
+    `
+    mutation setContractSnapshots($metafields: [MetafieldsSetInput!]!) {
+      metafieldsSet(metafields: $metafields) {
+        userErrors { field message }
+      }
+    }
+    `,
+    {
+      variables: {
+        metafields: [
+          {
+            ownerId: shopId,
+            namespace: EXTRA_SETTINGS_NAMESPACE,
+            key: CONTRACT_SETTINGS_SNAPSHOTS_KEY,
+            type: "json",
+            value: JSON.stringify(trimmed),
+          },
+        ],
+      },
+    },
+  );
+  const data = await res.json();
+  const errors = data.data?.metafieldsSet?.userErrors;
+  if (errors?.length) {
+    throw new Error(`writeContractSnapshotsList failed: ${errors[0].message}`);
+  }
+}
+async function getContractSettingsSnapshot(admin, contractId, shopId = null) {
+  try {
+    const resolvedShopId = shopId ?? (await getShopIdForSnapshot(admin));
+    if (!resolvedShopId) return null;
+    const list = await readContractSnapshotsList(admin);
+    // list ke end se search karo — same contract ka latest snapshot jeetega
+    for (let i = list.length - 1; i >= 0; i--) {
+      if (list[i]?.contractId === contractId) {
+        return list[i].settings ?? null;
+      }
+    }
+    return null;
+  } catch (err) {
+    console.warn(`[getContractSettingsSnapshot] failed for ${contractId}:`, err);
+    return null;
+  }
+}
+
+// NEW — contract creation ke time plan settings ka snapshot save karo
+async function snapshotContractSettings(admin, contractId, settings, shopId = null) {
+  if (!settings) {
+    console.warn(`[snapshotContractSettings] no settings to snapshot for ${contractId} — skipping`);
+    return { snapshotted: false };
+  }
+
+  const resolvedShopId = shopId ?? (await getShopIdForSnapshot(admin));
+  if (!resolvedShopId) {
+    console.warn(`[snapshotContractSettings] could not resolve shop id — skipping snapshot for ${contractId}`);
+    return { snapshotted: false };
+  }
+
+  const list = await readContractSnapshotsList(admin);
+  list.push({ contractId, settings, capturedAt: new Date().toISOString() });
+  await writeContractSnapshotsList(admin, resolvedShopId, list);
+  return { snapshotted: true };
+}
 
 function normalizeAutomationAction(action, afterOrders) {
   if (action.type === "swap") {
@@ -731,7 +834,7 @@ async function getContractPreview(admin, contractId) {
 
   let groupId = null;
   let groupName = null;
-  let extraSettings = null;
+  let livePlanSettings = null; // renamed from extraSettings — this is the LIVE selling-plan config
 
   if (sellingPlanId) {
     const groupsRes = await admin.graphql(`
@@ -776,14 +879,23 @@ async function getContractPreview(admin, contractId) {
       const raw = plan.node.extraSettingsMetafield?.value;
       if (raw) {
         try {
-          extraSettings = JSON.parse(raw);
+          livePlanSettings = JSON.parse(raw);
         } catch {
-          extraSettings = null;
+          livePlanSettings = null;
         }
       }
       break;
     }
   }
+
+  // NEW — contract ka apna frozen snapshot check karo. Agar contract create
+  // hote waqt snapshot liya gaya tha, to wahi authoritative hai — live plan
+  // settings me baad me hua koi bhi change is contract ko touch nahi karega.
+  // Snapshot na hone par (purane contracts, is fix se pehle bane) live plan
+  // settings pe hi fallback karo — backward compatible behaviour.
+  const snapshotSettings = await getContractSettingsSnapshot(admin, contractId);
+  const extraSettings = snapshotSettings ?? livePlanSettings;
+  const settingsSource = snapshotSettings ? "contract_snapshot" : "selling_plan_live";
 
   let cycleIndex = null;
   let nextBillingDate = contract.nextBillingDate;
@@ -928,6 +1040,7 @@ async function getContractPreview(admin, contractId) {
     contractId: contract.id,
     status: contract.status,
     customer: contract.customer,
+    settingsSource, 
     lineItem: {
       id: firstLine?.id,
       title: firstLine?.title,
@@ -961,6 +1074,7 @@ async function getContractPreview(admin, contractId) {
   console.log(
     `   Plan: ${preview.planGroup.name || "unknown"} (${preview.planGroup.id || "no group matched"})`,
   );
+  console.log(`   Settings source: ${preview.settingsSource}`);
   console.log(`   Next order date: ${preview.nextOrder.expectedDate}`);
   console.log(`   Next order cycle #: ${preview.nextOrder.cycleIndex}`);
   console.log(
@@ -989,4 +1103,6 @@ export {
   sortActionsForApply,
   clearBillingCycleEdit,
   findBlockingBillingCycleIndex,
+  getContractSettingsSnapshot,
+  snapshotContractSettings,
 };

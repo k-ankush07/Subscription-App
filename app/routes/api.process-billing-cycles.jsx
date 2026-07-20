@@ -1,10 +1,10 @@
-
-
-
-
 import { unauthenticated } from "../shopify.server";
 import prisma from "../db.server";
-import { collectActionsForCycle, applyActionsToCycle } from "../lib/billing-preview.server";
+import {
+  collectActionsForCycle,
+  applyActionsToCycle,
+  getContractSettingsSnapshot, // NEW
+} from "../lib/billing-preview.server";
 
 const EXTRA_SETTINGS_NAMESPACE = "subscription_app";
 
@@ -250,103 +250,6 @@ async function markCycleCharged(admin, shopId, chargedSet, marker) {
 
 const MAX_LOOKBACK_DAYS = 90;
 
-// async function findEarliestDueCycle(admin, contractId, now, contractCreatedAt) {
-//   const lookbackFloor = new Date(now.getTime() - MAX_LOOKBACK_DAYS * 24 * 60 * 60 * 1000);
-//   const createdAtDate = contractCreatedAt ? new Date(contractCreatedAt) : lookbackFloor;
-
-//   const effectiveStart =
-//     createdAtDate.getTime() > lookbackFloor.getTime() ? createdAtDate : lookbackFloor;
-//   const startDate = effectiveStart.getTime() < now.getTime() ? effectiveStart.toISOString() : now.toISOString();
-//   const endDate = now.toISOString();
-
-//   let cycles = [];
-//   try {
-//     const res = await admin.graphql(
-//       `
-//       query getDueCycles($contractId: ID!, $startDate: DateTime!, $endDate: DateTime!) {
-//         subscriptionBillingCycles(
-//           first: 50
-//           contractId: $contractId
-//           billingCyclesDateRangeSelector: { startDate: $startDate, endDate: $endDate }
-//         ) {
-//           edges {
-//             node {
-//               cycleIndex
-//               billingAttemptExpectedDate
-//               status
-//               skipped
-//             }
-//           }
-//         }
-//       }
-//       `,
-//       { variables: { contractId, startDate, endDate } },
-//     );
-
-//     const data = await res.json();
-//     if (data.errors) {
-//       throw new Error(data.errors[0]?.message || "unknown GraphQL error");
-//     }
-//     cycles = (data.data?.subscriptionBillingCycles?.edges || []).map((e) => e.node);
-//   } catch (err) {
-//     // If Shopify still rejects the range (e.g. contract createdAt somehow
-//     // out of range too), fall back to a minimal 7-day window ending now —
-//     // this at least catches the most common "cron missed by a few hours/
-//     // days" case instead of hard-failing the whole contract.
-//     console.error(`[findEarliestDueCycle] range query failed for ${contractId}, retrying with 7-day window:`, err);
-//     const fallbackStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
-//     const res = await admin.graphql(
-//       `
-//       query getDueCyclesFallback($contractId: ID!, $startDate: DateTime!, $endDate: DateTime!) {
-//         subscriptionBillingCycles(
-//           first: 50
-//           contractId: $contractId
-//           billingCyclesDateRangeSelector: { startDate: $startDate, endDate: $endDate }
-//         ) {
-//           edges {
-//             node {
-//               cycleIndex
-//               billingAttemptExpectedDate
-//               status
-//               skipped
-//             }
-//           }
-//         }
-//       }
-//       `,
-//       { variables: { contractId, startDate: fallbackStart, endDate } },
-//     );
-//     const data = await res.json();
-//     if (data.errors) {
-//       throw new Error(data.errors[0]?.message || "unknown GraphQL error (fallback)");
-//     }
-//     cycles = (data.data?.subscriptionBillingCycles?.edges || []).map((e) => e.node);
-//   }
-
-//   const nowTime = now.getTime();
-//   const dueUnbilled = cycles.filter((c) => {
-//     if (c.skipped) return false;
-//     if (c.status === "BILLED") return false;
-//     if (!c.billingAttemptExpectedDate) return false;
-//     return new Date(c.billingAttemptExpectedDate).getTime() <= nowTime;
-//   });
-
-//   if (dueUnbilled.length > 0) {
-//     dueUnbilled.sort((a, b) => a.cycleIndex - b.cycleIndex);
-//     return { cycle: dueUnbilled[0], nextUpcoming: null };
-//   }
-
-//   // FIX: nothing is due yet — instead of returning a bare `null` (which gave
-//   // skip logs with no date info at all), find the soonest not-yet-due,
-//   // unskipped, unbilled cycle so we can report WHEN the next charge will
-//   // actually happen. This makes "no due cycle found" log entries useful
-//   // instead of a dead end.
-//   const notYetDue = cycles
-//     .filter((c) => !c.skipped && c.status !== "BILLED" && c.billingAttemptExpectedDate)
-//     .sort((a, b) => new Date(a.billingAttemptExpectedDate) - new Date(b.billingAttemptExpectedDate));
-
-//   return { cycle: null, nextUpcoming: notYetDue[0] || null };
-// }
 async function findEarliestDueCycle(admin, contractId, now, contractCreatedAt) {
   const lookbackFloor = new Date(now.getTime() - MAX_LOOKBACK_DAYS * 24 * 60 * 60 * 1000);
   const createdAtDate = contractCreatedAt ? new Date(contractCreatedAt) : lookbackFloor;
@@ -542,7 +445,16 @@ async function processShop(admin) {
     const pricingPolicy = contract.lines.edges[0]?.node?.pricingPolicy ?? null; // FIX: needed for swap price recalc
     const planInfo = sellingPlanId ? sellingPlanIdToInfo.get(sellingPlanId) : null;
     const groupId = planInfo?.groupId ?? null;
-    const settings = planInfo?.settings ?? null;
+
+    // CHANGED — pehle contract ka apna frozen snapshot try karo (jo webhook
+    // ne contract creation ke time save kiya tha). Agar snapshot nahi hai
+    // (purane contracts, is fix se pehle bane), tabhi live selling-plan
+    // settings pe fallback karo — backward compatible.
+    let settings = await getContractSettingsSnapshot(admin, contract.id, shopId);
+    if (!settings) {
+      settings = planInfo?.settings ?? null;
+    }
+
     const actionsForThisCycle = settings ? collectActionsForCycle(settings, cycleIndex) : [];
 
     if (actionsForThisCycle.length > 0 && !processedCycles.has(editMarker)) {

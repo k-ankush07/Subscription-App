@@ -54,8 +54,9 @@ export default function SubscriptionDetail() {
     internalNotes,
     customerNotes,
     extraSettingsBySellingPlanId,
+    contractSnapshot
   } = useLoaderData();
-  console.log("contract", contract,extraSettingsBySellingPlanId, "upcoming orders",upcomingCycles);
+  console.log("contract", contract,extraSettingsBySellingPlanId, "upcoming orders",upcomingCycles,"meta fields data ",contractSnapshot);
   const [localLines, setLocalLines] = useState(contract?.lines?.edges || []);
   const [showInternalNotes, setShowInternalNotes] = useState(false);
   const [Internalnotes, setInternalNotes] = useState(internalNotes || "");
@@ -177,7 +178,7 @@ export default function SubscriptionDetail() {
             )}
           </>
         )}
- {/* {nextCycleIndex != null && (
+ {nextCycleIndex != null && (
           <Button
             onClick={() => {
               const confirmed = confirm(
@@ -195,7 +196,7 @@ export default function SubscriptionDetail() {
           >
             Charge Now
           </Button>
-        )} */}
+        )}
         {contract?.status !== "CANCELLED" ? (
           <Button onClick={handleCancelSubscription}>
             Cancel Subscription

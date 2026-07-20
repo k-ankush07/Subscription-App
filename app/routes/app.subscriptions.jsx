@@ -19,7 +19,7 @@ export async function loader({ request }) {
   const res = await admin.graphql(
     `
     query getContracts($query: String) {
-      subscriptionContracts(first: 110, query: $query) {
+      subscriptionContracts(first: 200, query: $query) {
         edges {
           node {
             id

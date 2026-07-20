@@ -1,6 +1,5 @@
-
 import { authenticate } from "../shopify.server";
-import { getContractPreview } from "../lib/billing-preview.server";
+import { getContractPreview, snapshotContractSettings } from "../lib/billing-preview.server";
 
 export const action = async ({ request }) => {
   const { shop, topic, payload, admin } = await authenticate.webhook(request);
@@ -25,8 +24,18 @@ export const action = async ({ request }) => {
       `[webhook] Preview built for ${normalizedContractId} — cycle ${preview?.nextOrder?.cycleIndex}, will apply:`,
       preview?.nextOrder?.willApply,
     );
+    if (preview?.allExtraSettings) {
+      const { snapshotted } = await snapshotContractSettings(
+        admin,
+        normalizedContractId,
+        preview.allExtraSettings,
+      );
+      console.log(`[webhook] settings snapshotted for ${normalizedContractId}:`, snapshotted);
+    } else {
+      console.log(`[webhook] no plan settings found to snapshot for ${normalizedContractId}`);
+    }
   } catch (err) {
-    console.error("[webhook] Failed to build contract preview:", err);
+    console.error("[webhook] Failed to build contract preview / snapshot settings:", err);
   }
 
   return new Response(null, { status: 200 });
