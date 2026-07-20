@@ -440,16 +440,7 @@ async function applyActionsToCycle(
 
   const skippedActionsLog = [];
 
-  // FIX: the whole per-action loop is now wrapped in try/catch. Previously,
-  // if any single action's mutation threw, the function propagated the
-  // error immediately WITHOUT committing (or discarding) the draft opened
-  // above. That left an orphaned, uncommitted edit attached to this billing
-  // cycle, which then blocked every later contract-level mutation on this
-  // contract (including cancellation) with:
-  //   "Subscription contract cannot be updated if there is a current or
-  //    upcoming billing cycle contract edit."
-  // Now, on any failure we best-effort clean up the dangling edit via
-  // clearBillingCycleEdit before rethrowing, so the contract stays mutable.
+ 
   try {
     for (const action of orderedActions) {
       // ── QUANTITY_CHANGE ──
@@ -629,8 +620,6 @@ async function applyActionsToCycle(
       }
     }
   } catch (err) {
-    // Best-effort cleanup so this contract doesn't get stuck un-cancellable.
-    // Don't let a cleanup failure mask the original error.
     try {
       await clearBillingCycleEdit(admin, contractId, cycleIndex);
     } catch (cleanupErr) {
@@ -769,7 +758,7 @@ async function getContractPreview(admin, contractId) {
     `);
 
     const groupsData = await groupsRes.json();
- // 🔍 DEBUG — isse pata chalega exact mismatch kaha hai
+ //  DEBUG — isse pata chalega exact mismatch kaha hai
   console.log("Looking for sellingPlanId:", JSON.stringify(sellingPlanId));
   const allPlanIds = groupsData.data.sellingPlanGroups.edges.flatMap(({ node: g }) =>
     g.sellingPlans.edges.map((e) => e.node.id)
