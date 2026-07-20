@@ -1082,7 +1082,7 @@ async function getContractPreview(admin, contractId) {
   console.log(
     `   Next order calculated total: ${preview.nextOrder.calculatedItemTotal?.amount} ${preview.nextOrder.calculatedItemTotal?.currencyCode}`,
   );
-  console.log(`   Will apply on next order:`, preview.nextOrder.willApply);
+  console.log(`Will apply on next order:`, preview.nextOrder.willApply);
 
   return preview;
 }
