@@ -168,7 +168,7 @@ function normalizeAutomationAction(action, afterOrders) {
     }
 
     const results = [];
-    // Pehla variant -> existing line ko swap karega
+    // Pehla variant  existing line ko swap karega
     results.push({
       ...action,
       type: "VARIANT_SWAP",
@@ -329,6 +329,12 @@ function collectActionsForCycle(settings, cycleIndex) {
   //     value: settings.MinimumQuanitityValue,
   //   });
   // }
+   const hasSwapAction = actions.some(
+    (a) => a.type === "VARIANT_SWAP" || a.type === "PRODUCT_SWAP",
+  );
+  if (hasSwapAction) {
+    return actions.filter((a) => a.type !== "DISCOUNT_CHANGE");
+  }
 
   return actions;
 }
@@ -923,7 +929,7 @@ async function getContractPreview(admin, contractId) {
           emailAddress
           }
           }
-        lines(first: 5) {
+        lines(first: 100) {
           edges {
             node {
               id
