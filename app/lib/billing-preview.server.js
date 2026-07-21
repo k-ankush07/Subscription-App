@@ -1,3 +1,4 @@
+
 const EXTRA_SETTINGS_NAMESPACE = "subscription_app";
 const CONTRACT_SETTINGS_SNAPSHOTS_KEY = "contract_settings_snapshots";
 function metaKeyForGroup(groupId) {
@@ -689,7 +690,7 @@ async function applyActionsToCycle(
       }
 
 
-      //  PRODUCT_SWAP / VARIANT_SWAP 
+      // ── PRODUCT_SWAP / VARIANT_SWAP ──
       if (action.type === "PRODUCT_SWAP" || action.type === "VARIANT_SWAP") {
         const targetLine = resolveLineForAction(draftLines, action);
         if (!targetLine) throw new Error(`${action.type} failed: no line found on draft`);
@@ -963,9 +964,11 @@ async function getContractPreview(admin, contractId) {
   const firstLine = contract.lines.edges[0]?.node;
   const sellingPlanId = firstLine?.sellingPlanId;
 
+  // CHANGED — ab live selling-plan settings kahin se bhi nahi padhte.
+  // groupId/groupName sirf display/audit-log ke liye chahiye, isliye
+  // group lookup query me se extra_settings metafield hata diya gaya hai.
   let groupId = null;
   let groupName = null;
-  let livePlanSettings = null; // renamed from extraSettings — this is the LIVE selling-plan config
 
   if (sellingPlanId) {
     const groupsRes = await admin.graphql(`
@@ -979,9 +982,6 @@ async function getContractPreview(admin, contractId) {
                 edges {
                   node {
                     id
-                    extraSettingsMetafield: metafield(namespace: "subscription_app", key: "extra_settings") {
-                      value
-                    }
                   }
                 }
               }
@@ -996,20 +996,13 @@ async function getContractPreview(admin, contractId) {
       if (!plan) continue;
       groupId = group.id;
       groupName = group.name;
-      const raw = plan.node.extraSettingsMetafield?.value;
-      if (raw) {
-        try {
-          livePlanSettings = JSON.parse(raw);
-        } catch {
-          livePlanSettings = null;
-        }
-      }
       break;
     }
   }
-  const snapshotSettings = await getContractSettingsSnapshot(admin, contractId);
-  const extraSettings = snapshotSettings ?? livePlanSettings;
-  const settingsSource = snapshotSettings ? "contract_snapshot" : "selling_plan_live";
+
+  // Settings sirf frozen snapshot se — koi live fallback nahi.
+  const extraSettings = await getContractSettingsSnapshot(admin, contractId);
+  const settingsSource = extraSettings ? "contract_snapshot" : "no_snapshot_found";
 
   let cycleIndex = null;
   let nextBillingDate = contract.nextBillingDate;
@@ -1351,34 +1344,12 @@ function removeAutomationVariant(settings, automationCycleIndex, automationActio
   return clonedSettings;
 }
 
+// CHANGED — ab yeh function sirf frozen snapshot return karta hai.
+// Live selling-plan metafield ka fallback poori tarah hata diya gaya hai.
+// `sellingPlanId` param backward-compat ke liye rakha hai lekin ab
+// istemaal nahi hota.
 async function getEffectiveSettingsForContract(admin, contractId, sellingPlanId, shopId = null) {
-  const snapshotSettings = await getContractSettingsSnapshot(admin, contractId, shopId);
-  if (snapshotSettings) return snapshotSettings;
-
-  if (!sellingPlanId) return null;
-
-  const res = await admin.graphql(
-    `
-    query getSellingPlanExtraSettingsForContract($sellingPlanId: ID!) {
-      node(id: $sellingPlanId) {
-        ... on SellingPlan {
-          metafield(namespace: "subscription_app", key: "extra_settings") {
-            value
-          }
-        }
-      }
-    }
-    `,
-    { variables: { sellingPlanId } },
-  );
-  const data = await res.json();
-  const raw = data.data?.node?.metafield?.value;
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
+  return await getContractSettingsSnapshot(admin, contractId, shopId);
 }
 
 export {

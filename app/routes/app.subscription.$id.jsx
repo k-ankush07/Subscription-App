@@ -1,49 +1,18 @@
+
+
 import { authenticate } from "../shopify.server";
 import SubscriptionDetail from "./components/SubscriptionDetail";
 import {
   collectActionsForCycle,
   applyActionsToCycle,
-  getContractSettingsSnapshot, 
+  getContractSettingsSnapshot,
   snapshotContractSettings,
   getContractPreview,
   getEffectiveSettingsForContract,
-   removeAutomationVariant,
+  removeAutomationVariant,
 } from "../lib/billing-preview.server";
 const API = import.meta.env.VITE_API_URL;
 const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
-
-
-
-async function getSellingPlanExtraSettings(admin, sellingPlanId) {
-  const res = await admin.graphql(
-    `
-    query GetSellingPlanExtraSettings($sellingPlanId: ID!) {
-      node(id: $sellingPlanId) {
-        ... on SellingPlan {
-          id
-          metafield(namespace: "subscription_app", key: "extra_settings") {
-            value
-          }
-        }
-      }
-    }
-    `,
-    { variables: { sellingPlanId } },
-  );
-
-  const json = await res.json();
-  const mf = json.data?.node?.metafield;
-
-  if (!mf?.value) return null;
-
-  try {
-    return JSON.parse(mf.value);
-  } catch (e) {
-    console.error("Invalid extra_settings JSON metafield", e);
-    return null;
-  }
-}
-
 
 export async function loader({ request, params }) {
   const { admin } = await authenticate.admin(request);
@@ -694,13 +663,14 @@ export async function action({ request, params }) {
         );
         const contractData = await contractRes.json();
         const firstLine = contractData.data?.subscriptionContract?.lines?.edges?.[0]?.node;
-        const sellingPlanId = firstLine?.sellingPlanId;
         const basePriceAmount = firstLine?.pricingPolicy?.basePrice?.amount ?? null;
         const pricingPolicy = firstLine?.pricingPolicy ?? null;
-        let extraSettings = await getContractSettingsSnapshot(admin, contractId);
-        if (!extraSettings && sellingPlanId) {
-          extraSettings = await getSellingPlanExtraSettings(admin, sellingPlanId);
-        }
+
+        // CHANGED — sirf frozen snapshot use hota hai. Koi live
+        // selling-plan metafield fallback nahi. Agar snapshot nahi
+        // mila, to koi automation action apply nahi hoga (sirf charge
+        // hoga jaisa hai).
+        const extraSettings = await getContractSettingsSnapshot(admin, contractId);
 
         const actionsForThisCycle = extraSettings
           ? collectActionsForCycle(extraSettings, cycleIndex)

@@ -1,9 +1,11 @@
+
+
 import { unauthenticated } from "../shopify.server";
 import prisma from "../db.server";
 import {
   collectActionsForCycle,
   applyActionsToCycle,
-  getContractSettingsSnapshot, // NEW
+  getContractSettingsSnapshot,
 } from "../lib/billing-preview.server";
 
 const EXTRA_SETTINGS_NAMESPACE = "subscription_app";
@@ -76,6 +78,9 @@ async function getShopsWithOfflineTokens() {
   return sessions.map((s) => s.shop);
 }
 
+// CHANGED — ab yeh sirf groupId/groupName lookup ke liye hai (audit log
+// me dikhane ke liye). Live extra_settings metafield ab yahan se bilkul
+// nahi padha jaata — settings hamesha frozen snapshot se aayenge.
 async function loadPlanGroupsAndSettings(admin) {
   const res = await admin.graphql(`
     query {
@@ -89,12 +94,6 @@ async function loadPlanGroupsAndSettings(admin) {
               edges {
                 node {
                   id
-                  extraSettingsMetafield: metafield(
-                    namespace: "subscription_app"
-                    key: "extra_settings"
-                  ) {
-                    value
-                  }
                 }
               }
             }
@@ -107,23 +106,13 @@ async function loadPlanGroupsAndSettings(admin) {
   const shopId = data.data.shop.id;
   const groups = data.data.sellingPlanGroups.edges.map((e) => e.node);
 
-  // sellingPlanId -> { groupId, groupName, settings }
+  // sellingPlanId -> { groupId, groupName }
   const sellingPlanIdToInfo = new Map();
   for (const group of groups) {
     for (const { node: plan } of group.sellingPlans.edges) {
-      const raw = plan.extraSettingsMetafield?.value;
-      let settings = null;
-      if (raw) {
-        try {
-          settings = JSON.parse(raw);
-        } catch {
-          settings = null;
-        }
-      }
       sellingPlanIdToInfo.set(plan.id, {
         groupId: group.id,
         groupName: group.name,
-        settings,
       });
     }
   }
@@ -440,18 +429,16 @@ async function processShop(admin) {
     const editMarker = `${contract.id}:${cycleIndex}`;
     const sellingPlanId = contract.lines.edges[0]?.node?.sellingPlanId;
     const basePriceAmount = contract.lines.edges[0]?.node?.pricingPolicy?.basePrice?.amount ?? null;
-    const pricingPolicy = contract.lines.edges[0]?.node?.pricingPolicy ?? null; // FIX: needed for swap price recalc
+    const pricingPolicy = contract.lines.edges[0]?.node?.pricingPolicy ?? null; // needed for swap price recalc
     const planInfo = sellingPlanId ? sellingPlanIdToInfo.get(sellingPlanId) : null;
     const groupId = planInfo?.groupId ?? null;
 
-    // CHANGED — pehle contract ka apna frozen snapshot try karo (jo webhook
-    // ne contract creation ke time save kiya tha). Agar snapshot nahi hai
-    // (purane contracts, is fix se pehle bane), tabhi live selling-plan
-    // settings pe fallback karo — backward compatible.
-    let settings = await getContractSettingsSnapshot(admin, contract.id, shopId);
-    if (!settings) {
-      settings = planInfo?.settings ?? null;
-    }
+    // CHANGED — sirf frozen snapshot use hota hai (jo webhook ne contract
+    // creation ke time save kiya tha). Agar snapshot nahi mila (jaise
+    // is fix se pehle bane purane contracts), settings null rahega aur
+    // is cycle ke liye koi automation action apply nahi hoga — koi live
+    // selling-plan fallback nahi.
+    const settings = await getContractSettingsSnapshot(admin, contract.id, shopId);
 
     const actionsForThisCycle = settings ? collectActionsForCycle(settings, cycleIndex) : [];
 
