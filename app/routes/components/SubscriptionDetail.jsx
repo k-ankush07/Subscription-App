@@ -50,14 +50,14 @@ function formateDate(date) {
 export default function SubscriptionDetail() {
   const { contract, upcomingCycles, internalNotes, customerNotes, preview } =
     useLoaderData();
-  console.log(
-    "contract",
-    contract,
-    "upcoming orders",
-    upcomingCycles,
-    "preview",
-    preview,
-  );
+  // console.log(
+  //   "contract",
+  //   contract,
+  //   "upcoming orders",
+  //   upcomingCycles,
+  //   "preview",
+  //   preview,
+  // );
   const [localLines, setLocalLines] = useState(contract?.lines?.edges || []);
   const [showInternalNotes, setShowInternalNotes] = useState(false);
   const [Internalnotes, setInternalNotes] = useState(internalNotes || "");
@@ -179,7 +179,7 @@ export default function SubscriptionDetail() {
             )}
           </>
         )}
-        {nextCycleIndex != null && (
+        {/* {nextCycleIndex != null && (
           <Button
             onClick={() => {
               const confirmed = confirm(
@@ -197,7 +197,7 @@ export default function SubscriptionDetail() {
           >
             Charge Now
           </Button>
-        )}
+        )} */}
         {contract?.status !== "CANCELLED" ? (
           <Button onClick={handleCancelSubscription}>
             Cancel Subscription
@@ -281,135 +281,6 @@ export default function SubscriptionDetail() {
             </span>
           </div>
         </div>
-
-        {/* {contract?.status !== "CANCELLED" &&
-          preview?.nextOrder?.willApply?.length > 0 && (
-            <Card>
-              <p>
-                <b>{`Delivery: Every ${contract?.deliveryPolicy?.intervalCount} ${contract?.deliveryPolicy?.interval} `}</b>
-                <b>{`Billing: every ${contract?.billingPolicy?.intervalCount} ${contract?.billingPolicy?.interval}`}</b>
-              </p>
-              <b>
-                Changes coming in next order (Cycle #
-                {preview?.nextOrder?.cycleIndex})
-              </b>
-              <div
-              >
-                {preview.nextOrder.willApply.map((change, idx) => {
-                  if (change.type === "DISCOUNT_CHANGE") {
-                    return (
-                      <div
-                        key={idx}
-                      >
-                        <b>Discount change</b>
-                        <p>
-                          After order #{change.after}, a{" "}
-                          {change.adjustmentValue}%{" "}
-                          {change.adjustmentType?.toLowerCase()} discount will
-                          apply.
-                        </p>
-                      </div>
-                    );
-                  }
-
-                  if (change.type === "VARIANT_SWAP") {
-                    return (
-                      <div
-                        key={idx}
-                      >
-                        <b>Product</b>
-                        <div
-                        >
-                          <div >
-                            <img
-                              src={change.imageUrl}
-                              alt={change.sourceProductName}
-                              width={60}
-                              height={60}
-                             
-                            />
-                            <p >
-                              {change.sourceProductName}
-                            </p>
-                          </div>
-                         <p>↓</p>
-                          {change.dests?.map((dest) => (
-                            <div key={dest.id} >
-                              <img
-                                src={dest.imageUrl}
-                                alt={dest.name}
-                                width={60}
-                                height={60}
-                               
-                              />
-                              <p
-                              >
-                                {dest.name}
-                              </p>
-                              {dest.variantNames?.map((vName, vIdx) => (
-                                <p
-                                  key={dest.variantIds?.[vIdx]}
-                                  
-                                >
-                                  {vName}
-                                </p>
-                              ))}
-                            </div>
-                          ))}
-                        </div>
-                        <p>
-                          Applies after order #{change.after}
-                        </p>
-                      </div>
-                    );
-                  }
-
-                  if (change.type === "ADD_PRODUCT" && change.productName) {
-                    return (
-                      <div
-                        key={idx}
-                      >
-                        <b>Product will be added</b>
-                        <div
-                          
-                        >
-                          <img
-                            src={change.imageUrl}
-                            alt={change.productName}
-                            width={60}
-                            height={60}
-                            
-                          />
-                          <div>
-                            <p>{change.productName}</p>
-                            {change.variantName && (
-                              <p >
-                                {change.variantName}
-                              </p>
-                            )}
-                            <p >
-                              Qty: {change.quantity}
-                            </p>
-                            {change.discountEnabled && (
-                              <p >
-                                {change.discountValue}% {change.discountType}{" "}
-                                off
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                        <p style={{ fontSize: "12px", color: "#666" }}>
-                          Applies after order #{change.after}
-                        </p>
-                      </div>
-                    );
-                  }
-
-                  return null;
-                })}
-              </div>
-            </Card>
-          )} */}
         {contract?.status !== "CANCELLED" &&
           preview?.nextOrder?.willApply?.length > 0 && (
             <Card>
