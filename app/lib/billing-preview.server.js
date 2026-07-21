@@ -1240,13 +1240,15 @@ let swappedTitle ;
     amount: lineItems.reduce((sum, li) => sum + Number(li.itemTotal.amount), 0).toFixed(2),
     currencyCode,
   };
-
+const hasSwap = actionsForNextCycle.some(
+  (a) => a.type === "VARIANT_SWAP" || a.type === "PRODUCT_SWAP"
+);
   const preview = {
     contractId: contract.id,
     status: contract.status,
     customer: contract.customer,
     settingsSource,
-    lineItem: {
+    lineItem:hasSwap ? {
       id: firstLine?.id,
       title: firstLine?.title,
       quantity: firstLine?.quantity,
@@ -1254,7 +1256,7 @@ let swappedTitle ;
       imageUrl: originalVariantInfo?.image?.url ?? null,
       imageAlt: originalVariantInfo?.image?.altText ?? firstLine?.title ?? null,
       pricingPolicyDebug: firstLine?.pricingPolicy ?? null,
-    },
+    } : null,
     planGroup: { id: groupId, name: groupName },
     nextOrder: {
       cycleIndex,
@@ -1276,9 +1278,17 @@ let swappedTitle ;
   console.log(
     `   Customer: ${preview.customer?.displayName || preview.customer?.id || "unknown"}`,
   );
-  console.log(
-    `   Product: ${preview.lineItem.title} (qty ${preview.lineItem.quantity}, ${preview.lineItem.price?.amount} ${preview.lineItem.price?.currencyCode})`,
-  );
+ console.log(
+  `   Product: ${
+    preview.lineItem?.title ?? "N/A"
+  } (qty ${
+    preview.lineItem?.quantity ?? "-"
+  }, ${
+    preview.lineItem?.price?.amount ?? "-"
+  } ${
+    preview.lineItem?.price?.currencyCode ?? ""
+  })`,
+);
   console.log(
     `   Plan: ${preview.planGroup.name || "unknown"} (${preview.planGroup.id || "no group matched"})`,
   );
@@ -1343,11 +1353,6 @@ function removeAutomationVariant(settings, automationCycleIndex, automationActio
 
   return clonedSettings;
 }
-
-// CHANGED — ab yeh function sirf frozen snapshot return karta hai.
-// Live selling-plan metafield ka fallback poori tarah hata diya gaya hai.
-// `sellingPlanId` param backward-compat ke liye rakha hai lekin ab
-// istemaal nahi hota.
 async function getEffectiveSettingsForContract(admin, contractId, sellingPlanId, shopId = null) {
   return await getContractSettingsSnapshot(admin, contractId, shopId);
 }

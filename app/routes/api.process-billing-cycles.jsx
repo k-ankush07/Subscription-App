@@ -432,12 +432,6 @@ async function processShop(admin) {
     const pricingPolicy = contract.lines.edges[0]?.node?.pricingPolicy ?? null; // needed for swap price recalc
     const planInfo = sellingPlanId ? sellingPlanIdToInfo.get(sellingPlanId) : null;
     const groupId = planInfo?.groupId ?? null;
-
-    // CHANGED — sirf frozen snapshot use hota hai (jo webhook ne contract
-    // creation ke time save kiya tha). Agar snapshot nahi mila (jaise
-    // is fix se pehle bane purane contracts), settings null rahega aur
-    // is cycle ke liye koi automation action apply nahi hoga — koi live
-    // selling-plan fallback nahi.
     const settings = await getContractSettingsSnapshot(admin, contract.id, shopId);
 
     const actionsForThisCycle = settings ? collectActionsForCycle(settings, cycleIndex) : [];
