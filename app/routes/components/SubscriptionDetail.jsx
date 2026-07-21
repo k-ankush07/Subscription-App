@@ -282,7 +282,7 @@ export default function SubscriptionDetail() {
           </div>
         </div>
 
-        {contract?.status !== "CANCELLED" &&
+        {/* {contract?.status !== "CANCELLED" &&
           preview?.nextOrder?.willApply?.length > 0 && (
             <Card>
               <p>
@@ -392,6 +392,182 @@ export default function SubscriptionDetail() {
                             </p>
                             {change.discountEnabled && (
                               <p >
+                                {change.discountValue}% {change.discountType}{" "}
+                                off
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <p style={{ fontSize: "12px", color: "#666" }}>
+                          Applies after order #{change.after}
+                        </p>
+                      </div>
+                    );
+                  }
+
+                  return null;
+                })}
+              </div>
+            </Card>
+          )} */}
+        {contract?.status !== "CANCELLED" &&
+          preview?.nextOrder?.willApply?.length > 0 && (
+            <Card>
+              <p>
+                <b>{`Delivery: Every ${contract?.deliveryPolicy?.intervalCount} ${contract?.deliveryPolicy?.interval} `}</b>
+                <b>{`Billing: every ${contract?.billingPolicy?.intervalCount} ${contract?.billingPolicy?.interval}`}</b>
+              </p>
+              <b>
+                Changes coming in next order (Cycle #
+                {preview?.nextOrder?.cycleIndex})
+              </b>
+              <div>
+                {preview.nextOrder.willApply.map((change, idx) => {
+                  if (change.type === "DISCOUNT_CHANGE") {
+                    return (
+                      <div key={idx}>
+                        <b>Discount change</b>
+                        <p>
+                          After order #{change.after}, a{" "}
+                          {change.adjustmentValue}%{" "}
+                          {change.adjustmentType?.toLowerCase()} discount will
+                          apply.
+                        </p>
+                      </div>
+                    );
+                  }
+
+                  if (change.type === "VARIANT_SWAP") {
+                    return (
+                      <div key={idx} style={{ marginTop: "12px" }}>
+                        <b>Product</b>
+                        <div>
+                          <div>
+                            <img
+                              src={change.imageUrl}
+                              alt={change.sourceProductName}
+                              width={60}
+                              height={60}
+                            />
+                            <p>{change.sourceProductName}</p>
+                          </div>
+                          <p>↓</p>
+
+                          {change.dests?.map((dest) => (
+                            <div key={dest.id} style={{ marginBottom: "12px" }}>
+                              <img
+                                src={dest.imageUrl}
+                                alt={dest.name}
+                                width={60}
+                                height={60}
+                              />
+                              <p>
+                                <b>{dest.name}</b>
+                              </p>
+
+                              {dest.variantNames?.map((vName, vIdx) => {
+                                const variantId = dest.variantIds?.[vIdx];
+                                const variantImage = dest.variantImages?.[vIdx];
+                                const matchedLineItem =
+                                  preview?.nextOrder?.lineItems?.find(
+                                    (li) => li.variantId === variantId,
+                                  );
+
+                                return (
+                                  <div
+                                    key={variantId}
+                                    style={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: "8px",
+                                      marginTop: "6px",
+                                      borderTop: "1px solid #eee",
+                                      paddingTop: "6px",
+                                    }}
+                                  >
+                                    <img
+                                      src={variantImage}
+                                      alt={vName}
+                                      width={40}
+                                      height={40}
+                                    />
+                                    <div>
+                                      <p style={{ fontWeight: 500, margin: 0 }}>
+                                        {vName}
+                                      </p>
+                                      {matchedLineItem && (
+                                        <p
+                                          style={{
+                                            fontSize: "12px",
+                                            color: "#666",
+                                            margin: 0,
+                                          }}
+                                        >
+                                          Qty: {matchedLineItem.quantity} •{" "}
+                                          {matchedLineItem.pricePerUnit?.amount}{" "}
+                                          {
+                                            matchedLineItem.pricePerUnit
+                                              ?.currencyCode
+                                          }
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ))}
+                        </div>
+                        <p>Applies after order #{change.after}</p>
+                      </div>
+                    );
+                  }
+
+                  if (change.type === "ADD_PRODUCT" && change.productName) {
+                    const matchedLineItem = preview?.nextOrder?.lineItems?.find(
+                      (li) => {
+                        const wantedVariantId =
+                          change.variantId ?? change.variantIds?.[0];
+                        if (wantedVariantId)
+                          return li.variantId === wantedVariantId;
+                        return li.productId === change.productId;
+                      },
+                    );
+
+                    return (
+                      <div key={idx} style={{ marginTop: "12px" }}>
+                        <b>Product will be added</b>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "8px",
+                          }}
+                        >
+                          <img
+                            src={change.imageUrl}
+                            alt={change.productName}
+                            width={60}
+                            height={60}
+                          />
+                          <div>
+                            <p>{change.productName}</p>
+                            {change.variantName && <p>{change.variantName}</p>}
+                            <p>
+                              Qty:{" "}
+                              {matchedLineItem?.quantity ?? change.quantity}
+                            </p>
+                            {matchedLineItem && (
+                              <p style={{ fontSize: "12px", color: "#666" }}>
+                                Price: {matchedLineItem.pricePerUnit?.amount}{" "}
+                                {matchedLineItem.pricePerUnit?.currencyCode} ×{" "}
+                                {matchedLineItem.quantity} ={" "}
+                                {matchedLineItem.itemTotal?.amount}{" "}
+                                {matchedLineItem.itemTotal?.currencyCode}
+                              </p>
+                            )}
+                            {change.discountEnabled && (
+                              <p>
                                 {change.discountValue}% {change.discountType}{" "}
                                 off
                               </p>

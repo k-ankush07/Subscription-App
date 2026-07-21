@@ -1,7 +1,5 @@
 const EXTRA_SETTINGS_NAMESPACE = "subscription_app";
-
-const CONTRACT_SETTINGS_SNAPSHOTS_KEY = "contract_settings_snapshots"; 
-
+const CONTRACT_SETTINGS_SNAPSHOTS_KEY = "contract_settings_snapshots";
 function metaKeyForGroup(groupId) {
   const numericId = groupId.split("/").pop();
   return `extra_settings_${numericId}`;
@@ -11,7 +9,6 @@ async function getShopIdForSnapshot(admin) {
   const data = await res.json();
   return data.data?.shop?.id ?? null;
 }
-
 async function readContractSnapshotsList(admin) {
   const res = await admin.graphql(
     `
@@ -105,50 +102,8 @@ async function snapshotContractSettings(admin, contractId, settings, shopId = nu
 }
 
 function normalizeAutomationAction(action, afterOrders) {
-  // if (action.type === "swap") {
-  //   const allDests = Array.isArray(action.dests) ? action.dests : [];
-  //   const validDests = allDests
-  //     .map((dest) => ({ dest, variantId: dest?.variantIds?.[0] ?? null }))
-  //     .filter((d) => d.variantId);
-
-  //   if (validDests.length === 0) {
-  //     return [{
-  //       ...action,
-  //       type: "VARIANT_SWAP",
-  //       variantId: null,
-  //       dests: allDests,
-  //       after: afterOrders,
-  //     }];
-  //   }
-
-  //   const results = [];
-  //   results.push({
-  //     ...action,
-  //     type: "VARIANT_SWAP",
-  //     variantId: validDests[0].variantId,
-  //     dests: allDests,
-  //     after: afterOrders,
-  //   });
-
-   
-  //   for (let i = 1; i < validDests.length; i++) {
-      
-  //     results.push({
-  //       type: "ADD_PRODUCT",
-  //       variantId: validDests[i].variantId,
-  //       quantity: action.quantity ?? 1,
-  //       sourceProductId: action.sourceProductId,
-  //       destProductId: validDests[i].dest?.id ?? null,
-  //       after: afterOrders,
-  //     });
-  //   }
-
-  //   return results; 
-  // }
   if (action.type === "swap") {
-    const allDests = Array.isArray(action.dests) ? action.dests : [];
-
-    // Har dest ke andar ke SAARE variantIds ko nikालो, sirf pehla nahi
+    const allDests = Array.isArray(action.dests) ? action.dests : []
     const flatVariants = [];
     for (const dest of allDests) {
       const variantIds = Array.isArray(dest?.variantIds) ? dest.variantIds : [];
@@ -227,7 +182,7 @@ const ACTION_ORDER = [
   "SHIPPING_DISCOUNT",
   "VARIANT_SWAP",
   "PRODUCT_SWAP",
-  "DISCOUNT_CHANGE", 
+  "DISCOUNT_CHANGE",
 ];
 
 function sortActionsForApply(actions) {
@@ -329,7 +284,11 @@ function collectActionsForCycle(settings, cycleIndex) {
   //     value: settings.MinimumQuanitityValue,
   //   });
   // }
-   const hasSwapAction = actions.some(
+
+  // 8. Agar is cycle mein product/variant SWAP ho raha hai, to custom
+  //    "discount after N orders" (DISCOUNT_CHANGE) automation apply nahi karna —
+  //    swap ke sath merchant ka extra discount stack nahi hoga.
+  const hasSwapAction = actions.some(
     (a) => a.type === "VARIANT_SWAP" || a.type === "PRODUCT_SWAP",
   );
   if (hasSwapAction) {
@@ -343,7 +302,6 @@ function computePriceForCycle(pricingPolicy, cycleIndex) {
   if (!pricingPolicy?.cycleDiscounts?.length) {
     return pricingPolicy?.basePrice ?? null;
   }
-
   cycleIndex = Number(cycleIndex);
   const applicableTiers = pricingPolicy.cycleDiscounts
     .map((tier) => ({
@@ -356,8 +314,6 @@ function computePriceForCycle(pricingPolicy, cycleIndex) {
   const bestTier = applicableTiers[applicableTiers.length - 1] ?? null;
   return bestTier ? bestTier.computedPrice : pricingPolicy.basePrice;
 }
-
-
 function getDiscountTierForCycle(pricingPolicy, cycleIndex) {
   if (!pricingPolicy?.cycleDiscounts?.length) return null;
   cycleIndex = Number(cycleIndex);
@@ -398,6 +354,74 @@ async function fetchVariantPrice(admin, variantId) {
   return price != null ? Number(price) : null;
 }
 
+async function fetchVariantImage(admin, variantId) {
+  if (!variantId) return null;
+  const res = await admin.graphql(
+    `
+    query getVariantImage($id: ID!) {
+      productVariant(id: $id) {
+        id
+        image { url altText }
+        product { featuredImage { url altText } }
+      }
+    }
+    `,
+    { variables: { id: variantId } },
+  );
+  const data = await res.json();
+  const variant = data.data?.productVariant;
+  const url = variant?.image?.url ?? variant?.product?.featuredImage?.url ?? null;
+  const altText = variant?.image?.altText ?? variant?.product?.featuredImage?.altText ?? null;
+  return url ? { url, altText } : null;
+}
+
+async function fetchVariantsBatch(admin, variantIds) {
+  const uniqueIds = [...new Set((variantIds || []).filter(Boolean))];
+  if (uniqueIds.length === 0) return {};
+
+  // Shopify's `nodes` query accepts up to 250 ids per call — chunk defensively.
+  const CHUNK_SIZE = 200;
+  const map = {};
+
+  for (let i = 0; i < uniqueIds.length; i += CHUNK_SIZE) {
+    const chunk = uniqueIds.slice(i, i + CHUNK_SIZE);
+
+    const res = await admin.graphql(
+      `
+      query getVariantsBatch($ids: [ID!]!) {
+        nodes(ids: $ids) {
+          ... on ProductVariant {
+            id
+            price
+            image { url altText }
+            product { featuredImage { url altText } }
+          }
+        }
+      }
+      `,
+      { variables: { ids: chunk } },
+    );
+    const data = await res.json();
+
+    if (data.errors) {
+      console.warn(`[fetchVariantsBatch] query failed: ${data.errors[0]?.message}`);
+      continue;
+    }
+
+    for (const node of data.data?.nodes ?? []) {
+      if (!node?.id) continue;
+      const imageUrl = node.image?.url ?? node.product?.featuredImage?.url ?? null;
+      const imageAlt = node.image?.altText ?? node.product?.featuredImage?.altText ?? null;
+      map[node.id] = {
+        price: node.price != null ? Number(node.price) : null,
+        image: imageUrl ? { url: imageUrl, altText: imageAlt } : null,
+      };
+    }
+  }
+
+  return map;
+}
+
 async function getEffectiveBasePrice(admin, actions, fallbackBasePrice) {
   const swap = actions?.find(
     (a) => a.type === "VARIANT_SWAP" || a.type === "PRODUCT_SWAP",
@@ -433,6 +457,33 @@ async function computeLinePrice(
   customDiscountAction = null,
 ) {
   const variantPrice = await fetchVariantPrice(admin, variantId);
+  const basePriceForLine = variantPrice ?? effectiveBasePrice ?? 0;
+
+  if (isSwapGenerated) {
+    if (customDiscountAction) {
+      return applyCustomDiscountAction(basePriceForLine, customDiscountAction);
+    }
+    return applyDiscountTierToPrice(basePriceForLine, discountTierForCycle);
+  }
+
+  if (discountEnabled) {
+    const isPercentage = String(discountType).toLowerCase() === "percentage";
+    const discounted = isPercentage
+      ? basePriceForLine - (basePriceForLine * Number(discountValue || 0)) / 100
+      : basePriceForLine - Number(discountValue || 0);
+    return Math.max(0, discounted);
+  }
+
+  return basePriceForLine;
+}
+
+function computeLinePriceFromKnownPrice(
+  variantPrice,
+  { isSwapGenerated, discountEnabled, discountType, discountValue },
+  effectiveBasePrice,
+  discountTierForCycle,
+  customDiscountAction = null,
+) {
   const basePriceForLine = variantPrice ?? effectiveBasePrice ?? 0;
 
   if (isSwapGenerated) {
@@ -575,7 +626,7 @@ async function applyActionsToCycle(
   cycleIndex,
   actions,
   basePriceAmount = null,
-  pricingPolicy = null, 
+  pricingPolicy = null,
 ) {
   const editRes = await admin.graphql(
     `
@@ -638,7 +689,10 @@ async function applyActionsToCycle(
   );
 
   const draftCheckData = await draftCheckRes.json();
-
+  const allActionVariantIds = actions
+    .map((a) => a.variantId)
+    .filter(Boolean);
+  const batchedVariantData = await fetchVariantsBatch(admin, allActionVariantIds);
 
   const effectiveBasePrice = await getEffectiveBasePrice(admin, actions, basePriceAmount);
   const discountTierForCycle = getDiscountTierForCycle(pricingPolicy, cycleIndex);
@@ -650,7 +704,7 @@ async function applyActionsToCycle(
 
   const skippedActionsLog = [];
 
- 
+
   try {
     for (const action of orderedActions) {
       // ── QUANTITY_CHANGE ──
@@ -816,10 +870,10 @@ async function applyActionsToCycle(
 
         if (addPrice == null) {
           const isSwapGenerated = !!action.destProductId || !!action.sourceProductId;
-          const price = await computeLinePrice(
-            admin,
+          const knownPrice = batchedVariantData[action.variantId]?.price ?? null;
+          const price = computeLinePriceFromKnownPrice(
+            knownPrice,
             {
-              variantId: action.variantId,
               isSwapGenerated,
               discountEnabled: action.discountEnabled,
               discountType: action.discountType,
@@ -923,19 +977,20 @@ async function getContractPreview(admin, contractId) {
         status
         nextBillingDate
         customer {
-         id 
+         id
          displayName
          defaultEmailAddress{
           emailAddress
           }
           }
-        lines(first: 100) {
+        lines(first: 5) {
           edges {
             node {
               id
               title
               quantity
               sellingPlanId
+              variantId
               currentPrice { amount currencyCode }
               pricingPolicy {
                 basePrice { amount currencyCode }
@@ -973,6 +1028,10 @@ async function getContractPreview(admin, contractId) {
   let livePlanSettings = null; // renamed from extraSettings — this is the LIVE selling-plan config
 
   if (sellingPlanId) {
+    // NOTE: `SellingPlan` has no back-reference field to its group in the
+    // Admin API schema, so the group id/name can only be found by scanning
+    // sellingPlanGroups (single query, not per-variant — this was never the
+    // slow part of the preview; the per-variant price/image fetches were).
     const groupsRes = await admin.graphql(`
       query {
         sellingPlanGroups(first: 100) {
@@ -995,22 +1054,12 @@ async function getContractPreview(admin, contractId) {
         }
       }
     `);
-
     const groupsData = await groupsRes.json();
-  console.log("Looking for sellingPlanId:", JSON.stringify(sellingPlanId));
-  const allPlanIds = groupsData.data.sellingPlanGroups.edges.flatMap(({ node: g }) =>
-    g.sellingPlans.edges.map((e) => e.node.id)
-  );
-  console.log("All plan IDs found in shop:", JSON.stringify(allPlanIds));
-  console.log("Total groups found:", groupsData.data.sellingPlanGroups.edges.length);
-
     for (const { node: group } of groupsData.data.sellingPlanGroups.edges) {
       const plan = group.sellingPlans.edges.find(({ node }) => node.id === sellingPlanId);
       if (!plan) continue;
-
       groupId = group.id;
       groupName = group.name;
-
       const raw = plan.node.extraSettingsMetafield?.value;
       if (raw) {
         try {
@@ -1092,12 +1141,25 @@ async function getContractPreview(admin, contractId) {
     ? actionsForNextCycle.find((a) => a.type === "VARIANT_SWAP" || a.type === "PRODUCT_SWAP")
     : null;
 
+  const addProductActions = Array.isArray(actionsForNextCycle)
+    ? actionsForNextCycle.filter((a) => a.type === "ADD_PRODUCT")
+    : [];
+
+
+  const allVariantIdsNeeded = [
+    firstLine?.variantId,
+    swapAction?.variantId,
+    ...addProductActions.map((a) => a.variantId),
+  ].filter(Boolean);
+
+  const variantDataMap = await fetchVariantsBatch(admin, allVariantIdsNeeded);
+
   let effectiveBase = Number(firstLine?.pricingPolicy?.basePrice?.amount) || 0;
 
   if (swapAction?.variantId) {
-    const newVariantPrice = await fetchVariantPrice(admin, swapAction.variantId);
-    if (newVariantPrice != null) {
-      effectiveBase = newVariantPrice;
+    const swappedInfo = variantDataMap[swapAction.variantId];
+    if (swappedInfo?.price != null) {
+      effectiveBase = swappedInfo.price;
       const tier = getDiscountTierForCycle(firstLine?.pricingPolicy, cycleIndex);
       calculatedPricePerUnit = {
         amount: applyDiscountTierToPrice(effectiveBase, tier).toFixed(2),
@@ -1167,33 +1229,48 @@ async function getContractPreview(admin, contractId) {
 
   const lineItems = [];
 
+  // Original line image — from the batch map, not a separate fetch.
+  const originalVariantInfo = variantDataMap[firstLine?.variantId];
+  let mainLineImageUrl = originalVariantInfo?.image?.url ?? null;
+  let mainLineImageAlt = originalVariantInfo?.image?.altText ?? firstLine?.title ?? null;
+
+  if (swapAction?.variantId) {
+    const swappedInfo = variantDataMap[swapAction.variantId];
+    if (swappedInfo?.image) {
+      mainLineImageUrl = swappedInfo.image.url;
+      mainLineImageAlt = swappedInfo.image.altText ?? mainLineImageAlt;
+    }
+  }
+
   if (calculatedPricePerUnit) {
     lineItems.push({
       title: swapAction?.variantId ? `${firstLine?.title} (swapped)` : firstLine?.title,
       productId: swapAction?.dests?.length ? swapAction.dests[0]?.id ?? null : null,
       variantId: swapAction?.variantId ?? null,
       quantity: calculatedQuantity,
+      imageUrl: mainLineImageUrl,
+      imageAlt: mainLineImageAlt,
       pricePerUnit: calculatedPricePerUnit,
       itemTotal: calculatedItemTotal,
     });
   }
 
-  const addProductActions = Array.isArray(actionsForNextCycle)
-    ? actionsForNextCycle.filter((a) => a.type === "ADD_PRODUCT")
-    : [];
-
   const discountTierForCycle = getDiscountTierForCycle(firstLine?.pricingPolicy, cycleIndex);
 
+  // No more `await` inside this loop — every price/image lookup comes from
+  // variantDataMap, which was already resolved in one batched call above.
   for (const action of addProductActions) {
     const isSwapGenerated = !!action.destProductId || !!action.sourceProductId;
     const qty = Number(action.quantity) || 1;
 
+    const variantInfo = variantDataMap[action.variantId];
+    const knownPrice = variantInfo?.price ?? null;
+
     let pricePerUnit;
     try {
-      pricePerUnit = await computeLinePrice(
-        admin,
+      pricePerUnit = computeLinePriceFromKnownPrice(
+        knownPrice,
         {
-          variantId: action.variantId,
           isSwapGenerated,
           discountEnabled: action.discountEnabled,
           discountType: action.discountType,
@@ -1201,18 +1278,23 @@ async function getContractPreview(admin, contractId) {
         },
         effectiveBase,
         discountTierForCycle,
-        discountAction, 
+        discountAction,
       );
     } catch (err) {
       console.warn(`[preview] failed computing price for ADD_PRODUCT variant ${action.variantId}:`, err);
       pricePerUnit = 0;
     }
 
+    let addedImageUrl = action.imageUrl ?? variantInfo?.image?.url ?? null;
+    let addedImageAlt = action.productName ?? action.variantName ?? variantInfo?.image?.altText ?? null;
+
     lineItems.push({
       title: action.productName ?? action.variantName ?? "Added product",
       productId: action.productId ?? action.destProductId ?? null,
       variantId: action.variantId,
       quantity: qty,
+      imageUrl: addedImageUrl,
+      imageAlt: addedImageAlt,
       pricePerUnit: { amount: pricePerUnit.toFixed(2), currencyCode },
       itemTotal: { amount: (pricePerUnit * qty).toFixed(2), currencyCode },
     });
@@ -1227,20 +1309,22 @@ async function getContractPreview(admin, contractId) {
     contractId: contract.id,
     status: contract.status,
     customer: contract.customer,
-    settingsSource, 
+    settingsSource,
     lineItem: {
       id: firstLine?.id,
       title: firstLine?.title,
       quantity: firstLine?.quantity,
       price: firstLine?.currentPrice,
+      imageUrl: originalVariantInfo?.image?.url ?? null,
+      imageAlt: originalVariantInfo?.image?.altText ?? firstLine?.title ?? null,
       pricingPolicyDebug: firstLine?.pricingPolicy ?? null,
     },
     planGroup: { id: groupId, name: groupName },
     nextOrder: {
       cycleIndex,
       expectedDate: nextBillingDate,
-      lineItems,                    
-      calculatedOrderTotal,         
+      lineItems,
+      calculatedOrderTotal,
       willApply: (() => {
         const visible = actionsForNextCycle
           .filter((a) => !a.__default)
@@ -1265,13 +1349,6 @@ async function getContractPreview(admin, contractId) {
   console.log(`   Settings source: ${preview.settingsSource}`);
   console.log(`   Next order date: ${preview.nextOrder.expectedDate}`);
   console.log(`   Next order cycle #: ${preview.nextOrder.cycleIndex}`);
-  console.log(
-    `   Next order calculated price/unit: ${preview.nextOrder.calculatedPricePerUnit?.amount} ${preview.nextOrder.calculatedPricePerUnit?.currencyCode}`,
-  );
-  console.log(`   Next order calculated quantity: ${preview.nextOrder.calculatedQuantity}`);
-  console.log(
-    `   Next order calculated total: ${preview.nextOrder.calculatedItemTotal?.amount} ${preview.nextOrder.calculatedItemTotal?.currencyCode}`,
-  );
   console.log(`   Next order line items:`, JSON.stringify(preview.nextOrder.lineItems));
   console.log(
     `   Next order calculated ORDER total: ${preview.nextOrder.calculatedOrderTotal?.amount} ${preview.nextOrder.calculatedOrderTotal?.currencyCode}`,
@@ -1289,8 +1366,11 @@ export {
   getDiscountTierForCycle,
   applyDiscountTierToPrice,
   fetchVariantPrice,
+  fetchVariantImage,
+  fetchVariantsBatch,
   getEffectiveBasePrice,
   computeLinePrice,
+  computeLinePriceFromKnownPrice,
   metaKeyForGroup,
   EXTRA_SETTINGS_NAMESPACE,
   sortActionsForApply,
