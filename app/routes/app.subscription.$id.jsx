@@ -360,7 +360,6 @@ export async function action({ request, params }) {
       }
       return { success: true, status: payload.contract.status };
     }
-
     if (type === "cancel") {
       const res = await admin.graphql(
         `
