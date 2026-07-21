@@ -356,6 +356,7 @@ export default function SubscriptionDetail() {
                                       paddingTop: "6px",
                                     }}
                                   >
+                                    <Button>Remove</Button>
                                     <img
                                       src={variantImage}
                                       alt={vName}
@@ -437,6 +438,7 @@ export default function SubscriptionDetail() {
                                 {matchedLineItem.itemTotal?.currencyCode}
                               </p>
                             )}
+                            <Button>Remove</Button>
                             {change.discountEnabled && (
                               <p>
                                 {change.discountValue}% {change.discountType}{" "}
