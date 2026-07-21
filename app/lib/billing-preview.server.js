@@ -265,29 +265,21 @@ function collectActionsForCycle(settings, cycleIndex) {
       after: settings.removeFreeProductValue,
     });
   }
-
   // 6. Custom automation list — merchant ke defined arbitrary cycles
-  if (settings.Automation && Array.isArray(settings.automationCycles)) {
-    for (const auto of settings.automationCycles) {
-      if (cycleIndex >= Number(auto.orders)) {
-        for (const action of auto.actions ?? []) {
-          actions.push(...normalizeAutomationAction(action, auto.orders)); // spread — array aata hai
+if (settings.Automation && Array.isArray(settings.automationCycles)) {
+  settings.automationCycles.forEach((auto, automationCycleIndex) => {
+    if (cycleIndex >= Number(auto.orders)) {
+      (auto.actions ?? []).forEach((action, automationActionIndex) => {
+        const normalized = normalizeAutomationAction(action, auto.orders);
+        for (const n of normalized) {
+          n.__automationCycleIndex = automationCycleIndex;
+          n.__automationActionIndex = automationActionIndex;
         }
-      }
+        actions.push(...normalized);
+      });
     }
-  }
-
-  // 7. Minimum quantity floor — DISABLED (user ne mana kiya use karne se)
-  // if (settings.MinimumQuanitity) {
-  //   actions.push({
-  //     type: "MINIMUM_QUANTITY",
-  //     value: settings.MinimumQuanitityValue,
-  //   });
-  // }
-
-  // 8. Agar is cycle mein product/variant SWAP ho raha hai, to custom
-  //    "discount after N orders" (DISCOUNT_CHANGE) automation apply nahi karna —
-  //    swap ke sath merchant ka extra discount stack nahi hoga.
+  });
+}
   const hasSwapAction = actions.some(
     (a) => a.type === "VARIANT_SWAP" || a.type === "PRODUCT_SWAP",
   );
@@ -660,35 +652,6 @@ async function applyActionsToCycle(
   const draftId = payload.draft.id;
   const draftLines = payload.draft.lines.edges.map((e) => e.node);
   const lineId = draftLines[0]?.id;
-  const currentQty = draftLines[0]?.quantity ?? 1;
-  const draftCheckRes = await admin.graphql(
-    `
-    query($id: ID!) {
-      subscriptionDraft(id: $id) {
-        id
-        lines(first: 5) {
-          edges {
-            node {
-              id
-              quantity
-              currentPrice {
-                amount
-                currencyCode
-              }
-            }
-          }
-        }
-      }
-    }
-    `,
-    {
-      variables: {
-        id: draftId,
-      },
-    },
-  );
-
-  const draftCheckData = await draftCheckRes.json();
   const allActionVariantIds = actions
     .map((a) => a.variantId)
     .filter(Boolean);
@@ -701,8 +664,6 @@ async function applyActionsToCycle(
   const discountActionEntry = actions.find((a) => a.type === "DISCOUNT_CHANGE");
 
   const orderedActions = sortActionsForApply(actions);
-
-  const skippedActionsLog = [];
 
 
   try {
@@ -727,28 +688,8 @@ async function applyActionsToCycle(
         if (errors?.length) throw new Error(`QUANTITY_CHANGE failed: ${errors[0].message}`);
       }
 
-      // ── MINIMUM_QUANTITY ── DISABLED (user ne mana kiya use karne se)
-      // if (action.type === "MINIMUM_QUANTITY") {
-      //   const minQty = Number(action.value);
-      //   if (lineId && currentQty < minQty) {
-      //     const res = await admin.graphql(
-      //       `
-      //       mutation enforceMinQty($draftId: ID!, $lineId: ID!, $qty: Int!) {
-      //         subscriptionDraftLineUpdate(draftId: $draftId, lineId: $lineId, input: { quantity: $qty }) {
-      //           userErrors { field message }
-      //         }
-      //       }
-      //       `,
-      //       { variables: { draftId, lineId, qty: minQty } },
-      //     );
-      //     const data = await res.json();
-      //     if (data.errors) throw new Error(`MINIMUM_QUANTITY failed (GraphQL): ${data.errors[0]?.message}`);
-      //     const errors = data.data?.subscriptionDraftLineUpdate?.userErrors;
-      //     if (errors?.length) throw new Error(`MINIMUM_QUANTITY failed: ${errors[0].message}`);
-      //   }
-      // }
 
-      // ── PRODUCT_SWAP / VARIANT_SWAP ──
+      //  PRODUCT_SWAP / VARIANT_SWAP 
       if (action.type === "PRODUCT_SWAP" || action.type === "VARIANT_SWAP") {
         const targetLine = resolveLineForAction(draftLines, action);
         if (!targetLine) throw new Error(`${action.type} failed: no line found on draft`);
@@ -961,10 +902,9 @@ async function applyActionsToCycle(
     throw new Error(`subscriptionBillingCycleContractDraftCommit failed: ${commitErrors[0].message}`);
   }
   return {
-    skippedActions: [
-      ...actions.filter((a) => a.__skippedReason).map((a) => ({ type: a.type, reason: a.__skippedReason })),
-      ...skippedActionsLog,
-    ],
+    skippedActions: actions
+      .filter((a) => a.__skippedReason)
+      .map((a) => ({ type: a.type, reason: a.__skippedReason })),
   };
 }
 
@@ -1028,10 +968,6 @@ async function getContractPreview(admin, contractId) {
   let livePlanSettings = null; // renamed from extraSettings — this is the LIVE selling-plan config
 
   if (sellingPlanId) {
-    // NOTE: `SellingPlan` has no back-reference field to its group in the
-    // Admin API schema, so the group id/name can only be found by scanning
-    // sellingPlanGroups (single query, not per-variant — this was never the
-    // slow part of the preview; the per-variant price/image fetches were).
     const groupsRes = await admin.graphql(`
       query {
         sellingPlanGroups(first: 100) {
@@ -1241,10 +1177,20 @@ async function getContractPreview(admin, contractId) {
       mainLineImageAlt = swappedInfo.image.altText ?? mainLineImageAlt;
     }
   }
-
-  if (calculatedPricePerUnit) {
+let swappedTitle ;
+  if (swapAction?.variantId) {
+    const matchedDest = (swapAction.dests || []).find((d) =>
+      (d.variantIds || []).includes(swapAction.variantId),
+    );
+    if (matchedDest) {
+      const variantIdx = matchedDest.variantIds.indexOf(swapAction.variantId);
+      const variantName = matchedDest.variantNames?.[variantIdx];
+      swappedTitle = variantName ? `${matchedDest.name}` : matchedDest.name;
+    }
+  }
+  if (calculatedPricePerUnit && swapAction?.variantId) {
     lineItems.push({
-      title: swapAction?.variantId ? `${firstLine?.title} (swapped)` : firstLine?.title,
+      title: swappedTitle,
       productId: swapAction?.dests?.length ? swapAction.dests[0]?.id ?? null : null,
       variantId: swapAction?.variantId ?? null,
       quantity: calculatedQuantity,
@@ -1256,9 +1202,6 @@ async function getContractPreview(admin, contractId) {
   }
 
   const discountTierForCycle = getDiscountTierForCycle(firstLine?.pricingPolicy, cycleIndex);
-
-  // No more `await` inside this loop — every price/image lookup comes from
-  // variantDataMap, which was already resolved in one batched call above.
   for (const action of addProductActions) {
     const isSwapGenerated = !!action.destProductId || !!action.sourceProductId;
     const qty = Number(action.quantity) || 1;
@@ -1357,6 +1300,86 @@ async function getContractPreview(admin, contractId) {
 
   return preview;
 }
+function removeAutomationVariant(settings, automationCycleIndex, automationActionIndex, variantId) {
+  if (!settings || !Array.isArray(settings.automationCycles)) {
+    throw new Error("removeAutomationVariant: no automationCycles configured");
+  }
+  const clonedSettings = JSON.parse(JSON.stringify(settings));
+  const entry = clonedSettings.automationCycles[automationCycleIndex];
+  if (!entry || !Array.isArray(entry.actions)) {
+    throw new Error("removeAutomationVariant: automation cycle entry not found");
+  }
+  const action = entry.actions[automationActionIndex];
+  if (!action) {
+    throw new Error("removeAutomationVariant: automation action not found");
+  }
+
+  if (action.type === "swap") {
+    const dests = Array.isArray(action.dests) ? action.dests : [];
+    const nextDests = [];
+    for (const dest of dests) {
+      const variantIds = Array.isArray(dest.variantIds) ? dest.variantIds : [];
+      const idx = variantId ? variantIds.indexOf(variantId) : -1;
+      if (idx === -1) {
+        nextDests.push(dest);
+        continue;
+      }
+      const nextDest = { ...dest };
+      ["variantIds", "variantNames", "variantImages"].forEach((key) => {
+        if (Array.isArray(nextDest[key])) {
+          nextDest[key] = nextDest[key].filter((_, i) => i !== idx);
+        }
+      });
+      // agar dest ke saare variants remove ho gaye, to dest hi drop kar do
+      if (nextDest.variantIds?.length > 0) {
+        nextDests.push(nextDest);
+      }
+    }
+    action.dests = nextDests;
+    if (nextDests.length === 0) {
+      entry.actions.splice(automationActionIndex, 1);
+    }
+  } else {
+    // "add" type ya koi bhi single-target action — poora action hata do
+    entry.actions.splice(automationActionIndex, 1);
+  }
+
+  if (entry.actions.length === 0) {
+    clonedSettings.automationCycles.splice(automationCycleIndex, 1);
+  }
+
+  return clonedSettings;
+}
+
+async function getEffectiveSettingsForContract(admin, contractId, sellingPlanId, shopId = null) {
+  const snapshotSettings = await getContractSettingsSnapshot(admin, contractId, shopId);
+  if (snapshotSettings) return snapshotSettings;
+
+  if (!sellingPlanId) return null;
+
+  const res = await admin.graphql(
+    `
+    query getSellingPlanExtraSettingsForContract($sellingPlanId: ID!) {
+      node(id: $sellingPlanId) {
+        ... on SellingPlan {
+          metafield(namespace: "subscription_app", key: "extra_settings") {
+            value
+          }
+        }
+      }
+    }
+    `,
+    { variables: { sellingPlanId } },
+  );
+  const data = await res.json();
+  const raw = data.data?.node?.metafield?.value;
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
 
 export {
   getContractPreview,
@@ -1378,4 +1401,6 @@ export {
   findBlockingBillingCycleIndex,
   getContractSettingsSnapshot,
   snapshotContractSettings,
+  removeAutomationVariant,
+  getEffectiveSettingsForContract
 };

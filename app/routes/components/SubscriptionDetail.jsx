@@ -91,6 +91,22 @@ export default function SubscriptionDetail() {
   }, [contract]);
 
   const navigate = useNavigate();
+  const handleRemoveAutomationItem = ({ automationCycleIndex, automationActionIndex, variantId }) => {
+  const confirmed = confirm(
+    "Remove this product from the upcoming automation? It won't be applied to the next order.",
+  );
+  if (!confirmed) return;
+  fetcher.submit(
+    {
+      type: "remove_automation_item",
+      automationCycleIndex,
+      automationActionIndex,
+      variantId: variantId || "",
+      sellingPlanId: lines?.[0]?.node?.sellingPlanId || "",
+    },
+    { method: "post" },
+  );
+};
   const backButton = () => {
     navigate("/app/subscriptions");
   };
@@ -118,7 +134,21 @@ export default function SubscriptionDetail() {
     const quantity = item?.node?.quantity || 0;
     return sum + price * quantity;
   }, 0);
-
+ const totalAutomationProductCount = Array.isArray(preview?.nextOrder?.willApply)
+    ? preview.nextOrder.willApply.reduce((count, change) => {
+        if (change.type === "VARIANT_SWAP") {
+          const destCount = (change.dests || []).reduce(
+            (sum, dest) => sum + (dest.variantIds?.length || 0),
+            0,
+          );
+          return count + destCount;
+        }
+        if (change.type === "ADD_PRODUCT" && change.productName) {
+          return count + 1;
+        }
+        return count;
+      }, 0)
+    : 0;
   const handlePause = () => {
     fetcher.submit({ type: "pause" }, { method: "post" });
   };
@@ -179,7 +209,7 @@ export default function SubscriptionDetail() {
             )}
           </>
         )}
-        {/* {nextCycleIndex != null && (
+        {nextCycleIndex != null && (
           <Button
             onClick={() => {
               const confirmed = confirm(
@@ -197,7 +227,7 @@ export default function SubscriptionDetail() {
           >
             Charge Now
           </Button>
-        )} */}
+        )}
         {contract?.status !== "CANCELLED" ? (
           <Button onClick={handleCancelSubscription}>
             Cancel Subscription
@@ -283,6 +313,7 @@ export default function SubscriptionDetail() {
         </div>
         {contract?.status !== "CANCELLED" &&
           preview?.nextOrder?.willApply?.length > 0 && (
+            
             <Card>
               <p>
                 <b>{`Delivery: Every ${contract?.deliveryPolicy?.intervalCount} ${contract?.deliveryPolicy?.interval} `}</b>
@@ -292,7 +323,9 @@ export default function SubscriptionDetail() {
                 Changes coming in next order (Cycle #
                 {preview?.nextOrder?.cycleIndex})
               </b>
+              
               <div>
+                
                 {preview.nextOrder.willApply.map((change, idx) => {
                   if (change.type === "DISCOUNT_CHANGE") {
                     return (
@@ -356,7 +389,21 @@ export default function SubscriptionDetail() {
                                       paddingTop: "6px",
                                     }}
                                   >
-                                    <Button>Remove</Button>
+                                    {totalAutomationProductCount > 1 && (
+                                      <Button
+                                        onClick={() =>
+                                          handleRemoveAutomationItem({
+                                            automationCycleIndex: change.__automationCycleIndex,
+                                            automationActionIndex: change.__automationActionIndex,
+                                            variantId,
+                                          })
+                                        }
+                                        loading={fetcher.state !== "idle"}
+                                        disabled={fetcher.state !== "idle"}
+                                      >
+                                        Remove
+                                      </Button>
+                                    )}
                                     <img
                                       src={variantImage}
                                       alt={vName}
@@ -438,7 +485,21 @@ export default function SubscriptionDetail() {
                                 {matchedLineItem.itemTotal?.currencyCode}
                               </p>
                             )}
-                            <Button>Remove</Button>
+                             {totalAutomationProductCount > 1 && (
+                              <Button
+                                onClick={() =>
+                                  handleRemoveAutomationItem({
+                                    automationCycleIndex: change.__automationCycleIndex,
+                                    automationActionIndex: change.__automationActionIndex,
+                                    variantId: matchedLineItem?.variantId ?? null,
+                                  })
+                                }
+                                loading={fetcher.state !== "idle"}
+                                disabled={fetcher.state !== "idle"}
+                              >
+                                Remove
+                              </Button>
+                            )}
                             {change.discountEnabled && (
                               <p>
                                 {change.discountValue}% {change.discountType}{" "}

@@ -1,10 +1,13 @@
 import { authenticate } from "../shopify.server";
 import SubscriptionDetail from "./components/SubscriptionDetail";
 import {
-  // collectActionsForCycle,
-  // applyActionsToCycle,
-  // getContractSettingsSnapshot, 
-  getContractPreview
+  collectActionsForCycle,
+  applyActionsToCycle,
+  getContractSettingsSnapshot, 
+  snapshotContractSettings,
+  getContractPreview,
+  getEffectiveSettingsForContract,
+   removeAutomationVariant,
 } from "../lib/billing-preview.server";
 const API = import.meta.env.VITE_API_URL;
 const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
@@ -349,7 +352,8 @@ export async function action({ request, params }) {
     type === "skip" ||
     type === "unskip" ||
     type === "reschedule" ||
-    type === "charge_now"
+    type === "charge_now"||
+    type === "remove_automation_item"
   ) {
     if (type === "pause") {
       const res = await admin.graphql(
@@ -617,120 +621,155 @@ export async function action({ request, params }) {
         newDate: payload.billingCycle.billingAttemptExpectedDate,
       };
     }
-    //  if (type === "charge_now") {
-    //   const cycleIndex = parseInt(formData.get("cycleIndex"), 10);
+    if (type === "remove_automation_item") {
+      const automationCycleIndex = parseInt(formData.get("automationCycleIndex"), 10);
+      const automationActionIndex = parseInt(formData.get("automationActionIndex"), 10);
+      const variantId = formData.get("variantId") || null;
+      const sellingPlanId = formData.get("sellingPlanId") || null;
 
-    //   if (Number.isNaN(cycleIndex)) {
-    //     return { success: false, error: "Invalid billing cycle index" };
-    //   }
+      if (Number.isNaN(automationCycleIndex) || Number.isNaN(automationActionIndex)) {
+        return { success: false, error: "Invalid automation item reference" };
+      }
 
-    //   try {
-    //     const contractRes = await admin.graphql(
-    //       `
-    //       query getContractLineForCharge($contractId: ID!) {
-    //         subscriptionContract(id: $contractId) {
-    //           lines(first: 5) {
-    //             edges {
-    //               node {
-    //                 sellingPlanId
-    //                 pricingPolicy {
-    //                   basePrice { amount currencyCode }
-    //                   cycleDiscounts {
-    //                     afterCycle
-    //                     adjustmentType
-    //                     adjustmentValue {
-    //                       ... on SellingPlanPricingPolicyPercentageValue { percentage }
-    //                       ... on MoneyV2 { amount currencyCode }
-    //                     }
-    //                     computedPrice { amount currencyCode }
-    //                   }
-    //                 }
-    //               }
-    //             }
-    //           }
-    //         }
-    //       }
-    //       `,
-    //       { variables: { contractId } },
-    //     );
-    //     const contractData = await contractRes.json();
-    //     const firstLine = contractData.data?.subscriptionContract?.lines?.edges?.[0]?.node;
-    //     const sellingPlanId = firstLine?.sellingPlanId;
-    //     const basePriceAmount = firstLine?.pricingPolicy?.basePrice?.amount ?? null;
-    //     const pricingPolicy = firstLine?.pricingPolicy ?? null;
-    //     let extraSettings = await getContractSettingsSnapshot(admin, contractId);
-    //     if (!extraSettings && sellingPlanId) {
-    //       extraSettings = await getSellingPlanExtraSettings(admin, sellingPlanId);
-    //     }
+      try {
+        const currentSettings = await getEffectiveSettingsForContract(
+          admin,
+          contractId,
+          sellingPlanId,
+        );
+        if (!currentSettings) {
+          return { success: false, error: "No automation settings found for this subscription" };
+        }
+        const updatedSettings = removeAutomationVariant(
+          currentSettings,
+          automationCycleIndex,
+          automationActionIndex,
+          variantId,
+        );
+        const { snapshotted } = await snapshotContractSettings(admin, contractId, updatedSettings);
+        if (!snapshotted) {
+          return { success: false, error: "Failed to save updated automation settings" };
+        }
+        return { success: true };
+      } catch (err) {
+        console.error("Remove automation item failed:", err);
+        return { success: false, error: String(err?.message || err) };
+      }
+    }
+     if (type === "charge_now") {
+      const cycleIndex = parseInt(formData.get("cycleIndex"), 10);
 
-    //     const actionsForThisCycle = extraSettings
-    //       ? collectActionsForCycle(extraSettings, cycleIndex)
-    //       : [];
+      if (Number.isNaN(cycleIndex)) {
+        return { success: false, error: "Invalid billing cycle index" };
+      }
 
-    //     let skippedActions = [];
-    //     if (actionsForThisCycle.length > 0) {
-    //       const result = await applyActionsToCycle(
-    //         admin,
-    //         contractId,
-    //         cycleIndex,
-    //         actionsForThisCycle,
-    //         basePriceAmount,
-    //         pricingPolicy,
-    //       );
-    //       skippedActions = result?.skippedActions || [];
-    //     }
+      try {
+        const contractRes = await admin.graphql(
+          `
+          query getContractLineForCharge($contractId: ID!) {
+            subscriptionContract(id: $contractId) {
+              lines(first: 5) {
+                edges {
+                  node {
+                    sellingPlanId
+                    pricingPolicy {
+                      basePrice { amount currencyCode }
+                      cycleDiscounts {
+                        afterCycle
+                        adjustmentType
+                        adjustmentValue {
+                          ... on SellingPlanPricingPolicyPercentageValue { percentage }
+                          ... on MoneyV2 { amount currencyCode }
+                        }
+                        computedPrice { amount currencyCode }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+          `,
+          { variables: { contractId } },
+        );
+        const contractData = await contractRes.json();
+        const firstLine = contractData.data?.subscriptionContract?.lines?.edges?.[0]?.node;
+        const sellingPlanId = firstLine?.sellingPlanId;
+        const basePriceAmount = firstLine?.pricingPolicy?.basePrice?.amount ?? null;
+        const pricingPolicy = firstLine?.pricingPolicy ?? null;
+        let extraSettings = await getContractSettingsSnapshot(admin, contractId);
+        if (!extraSettings && sellingPlanId) {
+          extraSettings = await getSellingPlanExtraSettings(admin, sellingPlanId);
+        }
 
-    //     // 3. Ab actual charge karo
-    //     const chargeRes = await admin.graphql(
-    //       `
-    //       mutation ChargeSubscriptionCycleNow($contractId: ID!, $index: Int!) {
-    //         subscriptionBillingCycleCharge(
-    //           subscriptionContractId: $contractId
-    //           billingCycleSelector: { index: $index }
-    //         ) {
-    //           subscriptionBillingAttempt {
-    //             id
-    //             ready
-    //             errorMessage
-    //             order { id name }
-    //           }
-    //           userErrors { field message code }
-    //         }
-    //       }
-    //       `,
-    //       { variables: { contractId, index: cycleIndex } },
-    //     );
+        const actionsForThisCycle = extraSettings
+          ? collectActionsForCycle(extraSettings, cycleIndex)
+          : [];
 
-    //     const chargeData = await chargeRes.json();
-    //     const chargePayload = chargeData.data?.subscriptionBillingCycleCharge;
+        let skippedActions = [];
+        if (actionsForThisCycle.length > 0) {
+          const result = await applyActionsToCycle(
+            admin,
+            contractId,
+            cycleIndex,
+            actionsForThisCycle,
+            basePriceAmount,
+            pricingPolicy,
+          );
+          skippedActions = result?.skippedActions || [];
+        }
 
-    //     if (!chargePayload || chargePayload.userErrors?.length) {
-    //       console.error("Charge now failed", chargePayload?.userErrors);
-    //       return {
-    //         success: false,
-    //         error:
-    //           chargePayload?.userErrors?.map((e) => e.message).join(", ") ||
-    //           "Charge failed",
-    //       };
-    //     }
+        // 3. Ab actual charge karo
+        const chargeRes = await admin.graphql(
+          `
+          mutation ChargeSubscriptionCycleNow($contractId: ID!, $index: Int!) {
+            subscriptionBillingCycleCharge(
+              subscriptionContractId: $contractId
+              billingCycleSelector: { index: $index }
+            ) {
+              subscriptionBillingAttempt {
+                id
+                ready
+                errorMessage
+                order { id name }
+              }
+              userErrors { field message code }
+            }
+          }
+          `,
+          { variables: { contractId, index: cycleIndex } },
+        );
 
-    //     const attempt = chargePayload.subscriptionBillingAttempt;
-    //     return {
-    //       success: true,
-    //       chargedCycleIndex: cycleIndex,
-    //       billingAttemptId: attempt?.id || null,
-    //       orderId: attempt?.order?.id || null,
-    //       orderName: attempt?.order?.name || null,
-    //       ready: attempt?.ready ?? null,
-    //       errorMessage: attempt?.errorMessage || null,
-    //       appliedActions: actionsForThisCycle.map((a) => a.type),
-    //       skippedActions,
-    //     };
-    //   } catch (err) {
-    //     console.error("[charge_now] failed:", err);
-    //     return { success: false, error: String(err?.message || err) };
-    //   }
-    // }
+        const chargeData = await chargeRes.json();
+        const chargePayload = chargeData.data?.subscriptionBillingCycleCharge;
+
+        if (!chargePayload || chargePayload.userErrors?.length) {
+          console.error("Charge now failed", chargePayload?.userErrors);
+          return {
+            success: false,
+            error:
+              chargePayload?.userErrors?.map((e) => e.message).join(", ") ||
+              "Charge failed",
+          };
+        }
+
+        const attempt = chargePayload.subscriptionBillingAttempt;
+        return {
+          success: true,
+          chargedCycleIndex: cycleIndex,
+          billingAttemptId: attempt?.id || null,
+          orderId: attempt?.order?.id || null,
+          orderName: attempt?.order?.name || null,
+          ready: attempt?.ready ?? null,
+          errorMessage: attempt?.errorMessage || null,
+          appliedActions: actionsForThisCycle.map((a) => a.type),
+          skippedActions,
+        };
+      } catch (err) {
+        console.error("[charge_now] failed:", err);
+        return { success: false, error: String(err?.message || err) };
+      }
+    }
   }
 
   const payload = {
