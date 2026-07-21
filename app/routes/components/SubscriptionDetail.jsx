@@ -177,7 +177,7 @@ export default function SubscriptionDetail() {
             )}
           </>
         )}
- {nextCycleIndex != null && (
+ {/* {nextCycleIndex != null && (
           <Button
             onClick={() => {
               const confirmed = confirm(
@@ -195,7 +195,7 @@ export default function SubscriptionDetail() {
           >
             Charge Now
           </Button>
-        )}
+        )} */}
         {contract?.status !== "CANCELLED" ? (
           <Button onClick={handleCancelSubscription}>
             Cancel Subscription
@@ -206,7 +206,8 @@ export default function SubscriptionDetail() {
         {contract?.status !== "CANCELLED" && (
           <div>
             <b>Next Order</b>
-            <p> {formateDate(preview?.nextOrder?.expectedDate)}</p>
+            {/* <p> {formateDate(preview?.nextOrder?.expectedDate)}</p> */}
+            <p>{formateDate(nextCycleDate)}</p>
             <br />
 
             {(contract?.billingPolicy?.minCycles != null ||
