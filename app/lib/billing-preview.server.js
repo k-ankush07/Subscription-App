@@ -963,10 +963,6 @@ async function getContractPreview(admin, contractId) {
 
   const firstLine = contract.lines.edges[0]?.node;
   const sellingPlanId = firstLine?.sellingPlanId;
-
-  // CHANGED — ab live selling-plan settings kahin se bhi nahi padhte.
-  // groupId/groupName sirf display/audit-log ke liye chahiye, isliye
-  // group lookup query me se extra_settings metafield hata diya gaya hai.
   let groupId = null;
   let groupName = null;
 
