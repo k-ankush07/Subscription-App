@@ -1,4 +1,3 @@
-
 const EXTRA_SETTINGS_NAMESPACE = "subscription_app";
 
 const CONTRACT_SETTINGS_SNAPSHOTS_KEY = "contract_settings_snapshots"; 
@@ -76,7 +75,6 @@ async function getContractSettingsSnapshot(admin, contractId, shopId = null) {
     const resolvedShopId = shopId ?? (await getShopIdForSnapshot(admin));
     if (!resolvedShopId) return null;
     const list = await readContractSnapshotsList(admin);
-    // list ke end se search karo — same contract ka latest snapshot jeetega
     for (let i = list.length - 1; i >= 0; i--) {
       if (list[i]?.contractId === contractId) {
         return list[i].settings ?? null;
@@ -88,8 +86,6 @@ async function getContractSettingsSnapshot(admin, contractId, shopId = null) {
     return null;
   }
 }
-
-// NEW — contract creation ke time plan settings ka snapshot save karo
 async function snapshotContractSettings(admin, contractId, settings, shopId = null) {
   if (!settings) {
     console.warn(`[snapshotContractSettings] no settings to snapshot for ${contractId} — skipping`);
@@ -109,15 +105,59 @@ async function snapshotContractSettings(admin, contractId, settings, shopId = nu
 }
 
 function normalizeAutomationAction(action, afterOrders) {
+  // if (action.type === "swap") {
+  //   const allDests = Array.isArray(action.dests) ? action.dests : [];
+  //   const validDests = allDests
+  //     .map((dest) => ({ dest, variantId: dest?.variantIds?.[0] ?? null }))
+  //     .filter((d) => d.variantId);
+
+  //   if (validDests.length === 0) {
+  //     return [{
+  //       ...action,
+  //       type: "VARIANT_SWAP",
+  //       variantId: null,
+  //       dests: allDests,
+  //       after: afterOrders,
+  //     }];
+  //   }
+
+  //   const results = [];
+  //   results.push({
+  //     ...action,
+  //     type: "VARIANT_SWAP",
+  //     variantId: validDests[0].variantId,
+  //     dests: allDests,
+  //     after: afterOrders,
+  //   });
+
+   
+  //   for (let i = 1; i < validDests.length; i++) {
+      
+  //     results.push({
+  //       type: "ADD_PRODUCT",
+  //       variantId: validDests[i].variantId,
+  //       quantity: action.quantity ?? 1,
+  //       sourceProductId: action.sourceProductId,
+  //       destProductId: validDests[i].dest?.id ?? null,
+  //       after: afterOrders,
+  //     });
+  //   }
+
+  //   return results; 
+  // }
   if (action.type === "swap") {
     const allDests = Array.isArray(action.dests) ? action.dests : [];
 
-    // Har dest se pehla variant lo, empty/invalid dests skip karo
-    const validDests = allDests
-      .map((dest) => ({ dest, variantId: dest?.variantIds?.[0] ?? null }))
-      .filter((d) => d.variantId);
+    // Har dest ke andar ke SAARE variantIds ko nikालो, sirf pehla nahi
+    const flatVariants = [];
+    for (const dest of allDests) {
+      const variantIds = Array.isArray(dest?.variantIds) ? dest.variantIds : [];
+      for (const variantId of variantIds) {
+        if (variantId) flatVariants.push({ dest, variantId });
+      }
+    }
 
-    if (validDests.length === 0) {
+    if (flatVariants.length === 0) {
       return [{
         ...action,
         type: "VARIANT_SWAP",
@@ -128,31 +168,30 @@ function normalizeAutomationAction(action, afterOrders) {
     }
 
     const results = [];
-
-    // Pehla dest -> existing line SWAP hoga
+    // Pehla variant -> existing line ko swap karega
     results.push({
       ...action,
       type: "VARIANT_SWAP",
-      variantId: validDests[0].variantId,
+      variantId: flatVariants[0].variantId,
       dests: allDests,
       after: afterOrders,
     });
 
-   
-    for (let i = 1; i < validDests.length; i++) {
-      
+    // Baaki SAARE variants (chahe same dest ke ho ya alag dest ke) -> naye line ADD_PRODUCT
+    for (let i = 1; i < flatVariants.length; i++) {
       results.push({
         type: "ADD_PRODUCT",
-        variantId: validDests[i].variantId,
+        variantId: flatVariants[i].variantId,
         quantity: action.quantity ?? 1,
         sourceProductId: action.sourceProductId,
-        destProductId: validDests[i].dest?.id ?? null,
+        destProductId: flatVariants[i].dest?.id ?? null,
         after: afterOrders,
       });
     }
 
-    return results; // ⬅ ab array return hota hai
+    return results;
   }
+
 
   if (action.type === "remove") {
     const variantId = action.sourceVariantId || (action.isVariant ? action.variantId : null);
@@ -188,7 +227,7 @@ const ACTION_ORDER = [
   "SHIPPING_DISCOUNT",
   "VARIANT_SWAP",
   "PRODUCT_SWAP",
-  "DISCOUNT_CHANGE", // must stay last
+  "DISCOUNT_CHANGE", 
 ];
 
 function sortActionsForApply(actions) {
@@ -368,8 +407,6 @@ async function getEffectiveBasePrice(admin, actions, fallbackBasePrice) {
   return Number(fallbackBasePrice) || 0;
 }
 
-// NEW — DISCOUNT_CHANGE (merchant's "after N orders, apply X% off" automation)
-// ko kisi bhi base price par apply karne ka common helper.
 function applyCustomDiscountAction(basePrice, discountAction) {
   const base = Number(basePrice);
   if (!discountAction) return base;
@@ -449,10 +486,6 @@ function resolveLineForAction(draftLines, action) {
   );
   return draftLines[0];
 }
-
-// FIXED — schema mein `deletedSubscriptionBillingCycleEditContractId` /
-// `deletedSubscriptionBillingCycleEditScheduleId` jaise fields exist hi nahi
-// karte. Actual payload `billingCycles` array + `userErrors` return karta hai.
 async function clearBillingCycleEdit(admin, contractId, cycleIndex) {
   if (cycleIndex == null) return { cleared: false, reason: "no cycleIndex provided" };
 
@@ -510,8 +543,6 @@ async function findBlockingBillingCycleIndex(admin, contractId, aroundDate = new
   if (!cycle) return null;
 
   if (cycle.edited) return cycle.cycleIndex;
-
-  // Also check the immediately following cycle — "upcoming" edits count too.
   const nextRes = await admin.graphql(
     `
     query getNextCycle($contractId: ID!, $index: Int!) {
@@ -662,10 +693,6 @@ async function applyActionsToCycle(
         const targetLine = resolveLineForAction(draftLines, action);
         if (!targetLine) throw new Error(`${action.type} failed: no line found on draft`);
         if (!action.variantId) throw new Error(`${action.type} failed: no variantId configured`);
-
-        // Individual line pricing — pricing-policy tier discount lagao (agar
-        // custom DISCOUNT_CHANGE nahi hai, warna DISCOUNT_CHANGE action isse
-        // baad me overwrite kar dega apne hisaab se).
         let recalculatedPrice = null;
         if (!hasCustomDiscountChange && effectiveBasePrice != null) {
           recalculatedPrice = applyDiscountTierToPrice(effectiveBasePrice, discountTierForCycle).toFixed(2);
@@ -850,7 +877,7 @@ async function applyActionsToCycle(
 
   const commitData = await commitRes.json();
   if (commitData.errors) {
-    // Commit itself failed at the transport/GraphQL level — same cleanup story.
+
     try {
       await clearBillingCycleEdit(admin, contractId, cycleIndex);
     } catch (cleanupErr) {
@@ -964,7 +991,6 @@ async function getContractPreview(admin, contractId) {
     `);
 
     const groupsData = await groupsRes.json();
- //  DEBUG — isse pata chalega exact mismatch kaha hai
   console.log("Looking for sellingPlanId:", JSON.stringify(sellingPlanId));
   const allPlanIds = groupsData.data.sellingPlanGroups.edges.flatMap(({ node: g }) =>
     g.sellingPlans.edges.map((e) => e.node.id)
@@ -990,12 +1016,6 @@ async function getContractPreview(admin, contractId) {
       break;
     }
   }
-
-  // NEW — contract ka apna frozen snapshot check karo. Agar contract create
-  // hote waqt snapshot liya gaya tha, to wahi authoritative hai — live plan
-  // settings me baad me hua koi bhi change is contract ko touch nahi karega.
-  // Snapshot na hone par (purane contracts, is fix se pehle bane) live plan
-  // settings pe hi fallback karo — backward compatible behaviour.
   const snapshotSettings = await getContractSettingsSnapshot(admin, contractId);
   const extraSettings = snapshotSettings ?? livePlanSettings;
   const settingsSource = snapshotSettings ? "contract_snapshot" : "selling_plan_live";
@@ -1112,8 +1132,6 @@ async function getContractPreview(admin, contractId) {
   const quantityAction = Array.isArray(actionsForNextCycle)
     ? actionsForNextCycle.find((a) => a.type === "QUANTITY_CHANGE")
     : null;
-  // FIXED — QUANTITY_CHANGE ab hamesha maujood hoti hai (configured value ya
-  // default 1) — checkout/original quantity kabhi fallback nahi banti.
   const calculatedQuantity = quantityAction ? Number(quantityAction.value) : 1;
 
   const calculatedItemTotal =
@@ -1135,11 +1153,6 @@ async function getContractPreview(admin, contractId) {
         "Shopify's subscription API only supports 100% free shipping — this configured partial discount will NOT be applied automatically.";
     }
   }
-
-  // NEW — har product ki alag price/qty/total nikalo: main line + har
-  // ADD_PRODUCT action. Ye wahi computeLinePrice logic use karta hai jo
-  // applyActionsToCycle mein actual order banate waqt use hota hai, taaki
-  // preview aur real order ki price hamesha match kare.
   const currencyCode =
     calculatedPricePerUnit?.currencyCode ??
     firstLine?.pricingPolicy?.basePrice?.currencyCode ??
@@ -1220,10 +1233,12 @@ async function getContractPreview(admin, contractId) {
     nextOrder: {
       cycleIndex,
       expectedDate: nextBillingDate,
-      // lineItems,                    // NEW — har product ki price/qty/total
-      calculatedOrderTotal,         // NEW — sabka total
+      lineItems,                    
+      calculatedOrderTotal,         
       willApply: (() => {
-        const visible = actionsForNextCycle.filter((a) => !a.__default);
+        const visible = actionsForNextCycle
+          .filter((a) => !a.__default)
+          .map(({ variantId, ...rest }) => rest);
         return visible.length > 0 ? visible : "No automatic changes configured for this cycle";
       })(),
     },
