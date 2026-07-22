@@ -953,7 +953,6 @@ useEffect(() => {
   const handleMainAddAction = (actionType) => {
     const newCycleId = Date.now();
     setCycles((prev) => [...prev, { id: newCycleId, orders: 1, actions: [] }]);
-    // defer so the new cycle is in state before resolving
     setTimeout(() => resolveActionType(actionType, newCycleId), 0);
     setShowMainDropdown(false);
   };
