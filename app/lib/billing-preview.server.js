@@ -1,4 +1,11 @@
 
+
+
+
+
+
+
+
 const EXTRA_SETTINGS_NAMESPACE = "subscription_app";
 const CONTRACT_SETTINGS_SNAPSHOTS_KEY = "contract_settings_snapshots";
 function metaKeyForGroup(groupId) {
@@ -284,7 +291,20 @@ if (settings.Automation && Array.isArray(settings.automationCycles)) {
   const hasSwapAction = actions.some(
     (a) => a.type === "VARIANT_SWAP" || a.type === "PRODUCT_SWAP",
   );
-  if (hasSwapAction) {
+
+  // CHANGED — jab sabhi swap destinations remove ho jaate hain, humara
+  // removeAutomationVariant() us action ko REMOVE_PRODUCT/REMOVE_VARIANT
+  // me convert kar deta hai (base line ko explicitly hataane ke liye).
+  // Uss case me base line ab exist nahi karegi, isliye DISCOUNT_CHANGE
+  // (jo hardcoded base lineId target karta hai) ko bhi suppress karna
+  // zaroori hai, warna "Line has already been removed" crash aata hai.
+  const hasBaseLineRemoval = actions.some(
+    (a) =>
+      (a.type === "REMOVE_PRODUCT" || a.type === "REMOVE_VARIANT") &&
+      a.__automationCycleIndex != null,
+  );
+
+  if (hasSwapAction || hasBaseLineRemoval) {
     return actions.filter((a) => a.type !== "DISCOUNT_CHANGE");
   }
 
@@ -653,6 +673,8 @@ async function applyActionsToCycle(
   const draftId = payload.draft.id;
   const draftLines = payload.draft.lines.edges.map((e) => e.node);
   const lineId = draftLines[0]?.id;
+  const removedLineIds = new Set(); // CHANGED — track which lines got removed this run
+
   const allActionVariantIds = actions
     .map((a) => a.variantId)
     .filter(Boolean);
@@ -673,6 +695,11 @@ async function applyActionsToCycle(
       if (action.type === "QUANTITY_CHANGE") {
         const targetLine = resolveLineForAction(draftLines, action);
         if (!targetLine) throw new Error("QUANTITY_CHANGE failed: no line found on draft");
+        if (removedLineIds.has(targetLine.id)) {
+          console.warn(`[applyActionsToCycle] QUANTITY_CHANGE skipped — target line already removed this cycle`);
+          action.__skippedReason = "Target line was already removed by another action this cycle.";
+          continue;
+        }
         const res = await admin.graphql(
           `
           mutation updateLineQty($draftId: ID!, $lineId: ID!, $qty: Int!) {
@@ -694,6 +721,11 @@ async function applyActionsToCycle(
       if (action.type === "PRODUCT_SWAP" || action.type === "VARIANT_SWAP") {
         const targetLine = resolveLineForAction(draftLines, action);
         if (!targetLine) throw new Error(`${action.type} failed: no line found on draft`);
+        if (removedLineIds.has(targetLine.id)) {
+          console.warn(`[applyActionsToCycle] ${action.type} skipped — target line already removed this cycle`);
+          action.__skippedReason = "Target line was already removed by another action this cycle.";
+          continue;
+        }
         if (!action.variantId) throw new Error(`${action.type} failed: no variantId configured`);
         let recalculatedPrice = null;
         if (!hasCustomDiscountChange && effectiveBasePrice != null) {
@@ -723,6 +755,11 @@ async function applyActionsToCycle(
       // ── DISCOUNT_CHANGE ── (always runs last — see sortActionsForApply)
       if (action.type === "DISCOUNT_CHANGE") {
         if (!lineId) throw new Error("DISCOUNT_CHANGE failed: no line found on draft");
+        if (removedLineIds.has(lineId)) {
+          console.warn(`[applyActionsToCycle] DISCOUNT_CHANGE skipped — base line already removed this cycle`);
+          action.__skippedReason = "Base line was already removed by another action this cycle.";
+          continue;
+        }
         const basePrice = effectiveBasePrice;
 
         let newPrice = basePrice;
@@ -790,6 +827,10 @@ async function applyActionsToCycle(
       ) {
         const targetLine = resolveLineForAction(draftLines, action);
         if (!targetLine) throw new Error(`${action.type} failed: no line found on draft`);
+        if (removedLineIds.has(targetLine.id)) {
+          console.warn(`[applyActionsToCycle] ${action.type} skipped — line already removed this cycle`);
+          continue;
+        }
         const res = await admin.graphql(
           `
           mutation removeLine($draftId: ID!, $lineId: ID!) {
@@ -804,6 +845,7 @@ async function applyActionsToCycle(
         if (data.errors) throw new Error(`${action.type} failed (GraphQL): ${data.errors[0]?.message}`);
         const errors = data.data?.subscriptionDraftLineRemove?.userErrors;
         if (errors?.length) throw new Error(`${action.type} failed: ${errors[0].message}`);
+        removedLineIds.add(targetLine.id); // CHANGED
       }
 
       if (action.type === "ADD_PRODUCT") {
@@ -1308,9 +1350,30 @@ function removeAutomationVariant(settings, automationCycleIndex, automationActio
   if (!entry || !Array.isArray(entry.actions)) {
     throw new Error("removeAutomationVariant: automation cycle entry not found");
   }
-  const action = entry.actions[automationActionIndex];
-  if (!action) {
-    throw new Error("removeAutomationVariant: automation action not found");
+
+  const actionOwnsVariant = (a) => {
+    if (!a) return false;
+    if (a.type === "swap") {
+      return (a.dests || []).some((d) => (d.variantIds || []).includes(variantId));
+    }
+    return a.variantId === variantId || a.sourceVariantId === variantId;
+  };
+
+  // automationActionIndex stale ho sakta hai (do quick removes ke beech
+  // revalidation na hui ho to). Pehle hint index try karo, warna poore
+  // entry.actions me variantId se dhoondo — index par blindly bharosa mat karo.
+  let actionIndex = automationActionIndex;
+  let action = entry.actions[actionIndex];
+
+  if (!variantId || !actionOwnsVariant(action)) {
+    const foundIndex = entry.actions.findIndex(actionOwnsVariant);
+    if (foundIndex === -1) {
+      throw new Error(
+        "removeAutomationVariant: target action not found (stale index) — please refresh and retry",
+      );
+    }
+    actionIndex = foundIndex;
+    action = entry.actions[actionIndex];
   }
 
   if (action.type === "swap") {
@@ -1329,18 +1392,42 @@ function removeAutomationVariant(settings, automationCycleIndex, automationActio
           nextDest[key] = nextDest[key].filter((_, i) => i !== idx);
         }
       });
-      // agar dest ke saare variants remove ho gaye, to dest hi drop kar do
       if (nextDest.variantIds?.length > 0) {
         nextDests.push(nextDest);
       }
     }
     action.dests = nextDests;
+
     if (nextDests.length === 0) {
-      entry.actions.splice(automationActionIndex, 1);
+      // CHANGED — sabhi swap destinations (B, C) hata diye gaye. Sirf
+      // action delete karna kaafi nahi: agar hum yahan se hat jaate hain,
+      // to koi bhi action ab source product (A) ko swap/remove nahi
+      // kar raha, aur Shopify default rule ke hisaab se A wapas
+      // original line ke roop me reappear ho jaata hai (D ke saath).
+      // Isliye is action ko REMOVE me convert karo taaki A explicitly
+      // hata di jaaye — sirf D bache, A + D nahi.
+      if (action.sourceVariantId) {
+        entry.actions[actionIndex] = {
+          type: "remove",
+          sourceProductId: action.sourceProductId ?? null,
+          sourceVariantId: action.sourceVariantId,
+          isVariant: true,
+        };
+      } else if (action.sourceProductId) {
+        entry.actions[actionIndex] = {
+          type: "remove",
+          sourceProductId: action.sourceProductId,
+          sourceVariantId: null,
+          isVariant: false,
+        };
+      } else {
+        // Source hi pata nahi — purana behavior (action delete) fallback,
+        // kyunki bina source ke hum kuch remove nahi kar sakte.
+        entry.actions.splice(actionIndex, 1);
+      }
     }
   } else {
-    // "add" type ya koi bhi single-target action — poora action hata do
-    entry.actions.splice(automationActionIndex, 1);
+    entry.actions.splice(actionIndex, 1);
   }
 
   if (entry.actions.length === 0) {
