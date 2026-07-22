@@ -1,25 +1,27 @@
-import { Page, Card, EmptyState, Tabs, TextField } from "@shopify/polaris";
+
+
+import { Page, Card, EmptyState, Tabs, TextField, Pagination, Text } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { useLoaderData, useNavigate, useSearchParams } from "react-router";
 import { currencySymbol } from "./utils/formatMoney.js";
+
+const PAGE_SIZE = 7;
+
+export function shouldRevalidate({ currentUrl, nextUrl, defaultShouldRevalidate }) {
+  if (currentUrl.pathname !== nextUrl.pathname) {
+    return defaultShouldRevalidate;
+  }
+  return false;
+}
 
 export async function loader({ request }) {
   const { admin } = await authenticate.admin(request);
 
-  const url = new URL(request.url);
-  const status = url.searchParams.get("status") || "ALL";
-
-  // Shopify query filter banao status ke hisaab se
-  let queryFilter = "";
-  if (status !== "ALL") {
-    queryFilter = `status:${status}`;
-  }
-
   const res = await admin.graphql(
     `
-    query getContracts($query: String) {
-      subscriptionContracts(first: 200, query: $query) {
+    query getContracts {
+      subscriptionContracts(first: 200) {
         edges {
           node {
             id
@@ -76,24 +78,26 @@ export async function loader({ request }) {
         }
       }
     }`,
-    {
-      variables: { query: queryFilter || null },
-    },
   );
 
   const data = await res.json();
 
   return {
     contracts: data.data.subscriptionContracts.edges.map((e) => e.node),
-    currentStatus: status,
   };
 }
 
 function Subscriptions() {
-  const { contracts, currentStatus } = useLoaderData();
+  const { contracts } = useLoaderData();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [searchValue, setSearchValue] = useState("");
+  const [searchValue, setSearchValue] = useState(searchParams.get("q") || "");
+  const currentStatus = searchParams.get("status") || "ALL";
+
+  // URL se current page nikal lo (default 1)
+  const pageFromUrl = parseInt(searchParams.get("page") || "1", 10);
+  const currentPage = Number.isNaN(pageFromUrl) || pageFromUrl < 1 ? 1 : pageFromUrl;
+
   const formatDate = (date) => {
     return new Date(date).toLocaleDateString("en-US", {
       month: "long",
@@ -129,27 +133,79 @@ function Subscriptions() {
   const selectedTabIndex = tabs.findIndex((t) => t.status === currentStatus);
   const selected = selectedTabIndex === -1 ? 0 : selectedTabIndex;
 
+  // Helper: searchParams update karo, aur agar naya param page nahi hai to page ko 1 pe reset kar do
+  const updateParams = useCallback(
+    (updates, resetPage = true) => {
+      const next = new URLSearchParams(searchParams);
+      Object.entries(updates).forEach(([key, value]) => {
+        if (value === null || value === "" || value === undefined) {
+          next.delete(key);
+        } else {
+          next.set(key, value);
+        }
+      });
+      if (resetPage) {
+        next.delete("page");
+      }
+      setSearchParams(next, { replace: false });
+    },
+    [searchParams, setSearchParams],
+  );
+
   const handleTabChange = useCallback(
     (selectedTabIndexValue) => {
       const newStatus = tabs[selectedTabIndexValue].status;
-      // URL update  loader re-run hoga refresh pe bhi yehi status rahega
-      setSearchParams(newStatus === "ALL" ? {} : { status: newStatus }, {
-        replace: false,
-      });
+      updateParams({ status: newStatus === "ALL" ? null : newStatus });
     },
-    [setSearchParams],
+    [updateParams],
   );
 
+  const handleSearchChange = useCallback(
+    (value) => {
+      setSearchValue(value);
+      updateParams({ q: value || null });
+    },
+    [updateParams],
+  );
+
+  const handlePageChange = useCallback(
+    (newPage) => {
+      updateParams({ page: newPage === 1 ? null : newPage }, false);
+    },
+    [updateParams],
+  );
+
+  // Status aur search dono client-side filter hote hain (saare 200 records me se),
+  // isliye tab switch instant hai — koi naya server call nahi
   const filteredContracts = contracts.filter((item) => {
+    if (currentStatus !== "ALL" && item.status !== currentStatus) return false;
+
     const contractId = item.id.split("/").pop();
-     const email = item.customer?.email?.toLowerCase() || "";
-  const search = searchValue.trim().toLowerCase();
-  if (!search) return true;
-    return (
-      contractId.includes(search) ||
-    email.includes(search)
-    );
+    const email = item.customer?.email?.toLowerCase() || "";
+    const search = searchValue.trim().toLowerCase();
+    if (!search) return true;
+    return contractId.includes(search) || email.includes(search);
   });
+
+  const reversedContracts = [...filteredContracts].reverse();
+  const totalItems = reversedContracts.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+
+  // Agar current page total pages se zyada ho gaya (e.g. search ke baad), page 1 pe le aao
+  const safePage = currentPage > totalPages ? totalPages : currentPage;
+  useEffect(() => {
+    if (currentPage !== safePage) {
+      handlePageChange(safePage === 1 ? null : safePage);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [totalPages]);
+
+  const startIndex = (safePage - 1) * PAGE_SIZE;
+  const paginatedContracts = reversedContracts.slice(
+    startIndex,
+    startIndex + PAGE_SIZE,
+  );
+
   return (
     <>
       <Page title="Subscriptions">
@@ -161,11 +217,11 @@ function Subscriptions() {
               labelHidden
               placeholder="Search by Contract ID and Email Id"
               value={searchValue}
-              onChange={setSearchValue}
+              onChange={handleSearchChange}
               autoComplete="off"
             />
           </div>
-          {filteredContracts.length === 0 ? (
+          {paginatedContracts.length === 0 ? (
             <EmptyState>
               <img src="https://subscriptions.kachingappz.app/images/empty-subscriptions-list-state.png" />
               <p>No Subscriptions</p>
@@ -187,7 +243,7 @@ function Subscriptions() {
                   </tr>
                 </thead>
                 <tbody>
-                  {[...filteredContracts].reverse().map((item) => {
+                  {paginatedContracts.map((item) => {
                     const lines = item.lines?.edges?.map((e) => e.node) ?? [];
                     const total = lines.reduce((sum, line) => {
                       const unitPrice = getLinePriceWithoutIndex(line);
@@ -236,6 +292,27 @@ function Subscriptions() {
                   })}
                 </tbody>
               </table>
+
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  padding: "12px 0",
+                }}
+              >
+                <Text variant="bodySm" tone="subdued">
+                  Showing {totalItems === 0 ? 0 : startIndex + 1}-
+                  {Math.min(startIndex + PAGE_SIZE, totalItems)} of {totalItems}
+                </Text>
+                <Pagination
+                  hasPrevious={safePage > 1}
+                  onPrevious={() => handlePageChange(safePage - 1)}
+                  hasNext={safePage < totalPages}
+                  onNext={() => handlePageChange(safePage + 1)}
+                  label={`Page ${safePage} of ${totalPages}`}
+                />
+              </div>
             </div>
           )}
         </Card>

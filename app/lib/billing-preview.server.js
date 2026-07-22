@@ -1,11 +1,3 @@
-
-
-
-
-
-
-
-
 const EXTRA_SETTINGS_NAMESPACE = "subscription_app";
 const CONTRACT_SETTINGS_SNAPSHOTS_KEY = "contract_settings_snapshots";
 function metaKeyForGroup(groupId) {
