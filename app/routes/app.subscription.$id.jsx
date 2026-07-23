@@ -227,6 +227,7 @@ const sellingPlanIds = [
         cycle.cycleIndex <= maxCycles - 1,
     );
   }
+    const preview = await getContractPreview(admin, contractId);
   try {
     const res = await fetch(`${API}/api/subscription`, {
       method: "POST",
@@ -239,6 +240,7 @@ const sellingPlanIds = [
         contractId,
         contract,
         upcomingCycles,
+        preview,
       }),
     });
   } catch (err) {
@@ -262,7 +264,7 @@ const sellingPlanIds = [
   } catch (err) {
     console.error("Backend fetch notes failed:", err);
   }
-  const preview = await getContractPreview(admin, contractId);
+
   return { contract, upcomingCycles, internalNotes, customerNotes,preview};
 }
 
@@ -664,11 +666,6 @@ export async function action({ request, params }) {
         const firstLine = contractData.data?.subscriptionContract?.lines?.edges?.[0]?.node;
         const basePriceAmount = firstLine?.pricingPolicy?.basePrice?.amount ?? null;
         const pricingPolicy = firstLine?.pricingPolicy ?? null;
-
-        // CHANGED — sirf frozen snapshot use hota hai. Koi live
-        // selling-plan metafield fallback nahi. Agar snapshot nahi
-        // mila, to koi automation action apply nahi hoga (sirf charge
-        // hoga jaisa hai).
         const extraSettings = await getContractSettingsSnapshot(admin, contractId);
 
         const actionsForThisCycle = extraSettings
