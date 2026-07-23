@@ -76,9 +76,6 @@ async function getShopsWithOfflineTokens() {
   return sessions.map((s) => s.shop);
 }
 
-// CHANGED — ab yeh sirf groupId/groupName lookup ke liye hai (audit log
-// me dikhane ke liye). Live extra_settings metafield ab yahan se bilkul
-// nahi padha jaata — settings hamesha frozen snapshot se aayenge.
 async function loadPlanGroupsAndSettings(admin) {
   const res = await admin.graphql(`
     query {

@@ -610,8 +610,6 @@ export default function SubscriptionDetail() {
                 ) {
                   const matchedProduct = (change.products || [])[0];
                   const matchedVariant = matchedProduct?.variants?.[0];
-
-                  // flat-shape fallbacks (REMOVE_VARIANT / REMOVE_PRODUCT often come this way)
                   const productTitle =
                     matchedProduct?.title ?? change.productName ?? "This item";
                   const variantTitle =

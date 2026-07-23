@@ -513,15 +513,6 @@ function computeLinePriceFromKnownPrice(
   return basePriceForLine;
 }
 
-// CHANGED — shared matching helper: checks whether an action's configured
-// source product/variant matches a given line. Used both when actually
-// applying actions to a draft (resolveLineForAction) and when building the
-// preview (getContractPreview), so both places agree on what "matches".
-// If an action has NO explicit target configured (empty products / no
-// sourceProductId / sourceVariantId), it's treated as targeting "the base
-// line" by design (e.g. the default QUANTITY_CHANGE action) — EXCEPT for
-// action types listed in `actionRequiresExplicitTarget`, which must never
-// silently fall back to the base line (see below).
 function getActionTargetIds(action) {
   const targetProductIds = [];
   const targetVariantIds = [];
@@ -545,18 +536,6 @@ function getActionTargetIds(action) {
   return { targetProductIds, targetVariantIds };
 }
 
-// CHANGED — kuch action types ko explicit product/variant target chahiye
-// hi chahiye. Agar merchant ne feature enable kiya lekin koi product/variant
-// select nahi kiya, to humein chupke se base line par apply/remove NAHI
-// karna chahiye — aisi actions ko simply SKIP karo (no match).
-//
-// - REMOVE_FREE_PRODUCT: hamesha explicit target chahiye. Iska koi sensible
-//   base-line fallback nahi hai — "free product remove karo" ka matlab
-//   kabhi bhi "main subscription line remove kar do" nahi hona chahiye.
-// - QUANTITY_CHANGE: sirf jab merchant-configured ho (yaani __default flag
-//   NAHI hai). Internal "__default" quantity-reset entry (jab custom
-//   quantity automation off hai) hamesha base line ko target karta rahega —
-//   wo merchant-configured nahi hai, isliye unaffected.
 function actionRequiresExplicitTarget(action) {
   if (action.type === "REMOVE_FREE_PRODUCT") return true;
   if (action.type === "QUANTITY_CHANGE" && !action.__default) return true;
@@ -569,13 +548,10 @@ function actionMatchesLine(action, line) {
 
   if (targetProductIds.length === 0 && targetVariantIds.length === 0) {
     if (actionRequiresExplicitTarget(action)) {
-      // CHANGED — is action type ke liye explicit target zaroori hai, aur
-      // koi configure nahi kiya gaya. Base line par chupke se match mat
-      // karo — action ko unmatched treat karo (skip).
+
       return false;
     }
-    // Koi specific target configure nahi kiya gaya — ye action base line
-    // ke liye hi hai (jaise default QUANTITY_CHANGE), isliye match maano.
+
     return true;
   }
 
@@ -585,17 +561,6 @@ function actionMatchesLine(action, line) {
   );
 }
 
-// Action types jinke liye "configured source product is subscription ki
-// actual line se match karta hai ya nahi" check karna zaroori hai — inhi
-// ke liye ek specific product/variant target hota hai.
-// CHANGED — "ADD_PRODUCT" bhi ab is set me hai. Swap se generate hui
-// extra-dest ADD_PRODUCT entries me sourceProductId set hota hai
-// (normalizeAutomationAction dekho), isliye wo ab is base-line match
-// check se gate hongi — matlab ek swap ke saare dests ek saath
-// apply/skip honge (atomic). Plain fixed "add" actions (bina
-// sourceProductId ke) is se unaffected rahenge — getActionTargetIds
-// unke liye khali list return karta hai, jo actionMatchesLine me
-// hamesha `true` (auto-match) maana jaata hai.
 const LINE_MATCH_REQUIRED_TYPES = new Set([
   "QUANTITY_CHANGE",
   "VARIANT_SWAP",
@@ -613,14 +578,6 @@ function resolveLineForAction(draftLines, action) {
 
   if (targetProductIds.length === 0 && targetVariantIds.length === 0) {
     if (actionRequiresExplicitTarget(action)) {
-      // CHANGED — is action type (REMOVE_FREE_PRODUCT, ya merchant-configured
-      // QUANTITY_CHANGE) ke liye product/variant configure hona zaroori hai.
-      // Pehle yahan draftLines[0] (base line) par fallback ho jaata tha —
-      // matlab "remove free product" bina product select kiye hi base
-      // subscription line hata deta tha, ya quantity change base product
-      // ki quantity badal deta tha bina kisi product select kiye. Ab agar
-      // koi target configure nahi hai, to null return karo — caller is
-      // action ko SKIP karega, kisi bhi line par kuch apply nahi hoga.
       console.warn(
         `[applyActionsToCycle] ${action.type}: no product/variant configured — action will be SKIPPED (explicit target required, no base-line fallback).`,
       );
@@ -630,14 +587,6 @@ function resolveLineForAction(draftLines, action) {
   }
 
   const match = draftLines.find((line) => actionMatchesLine(action, line));
-
-  // CHANGED — pehle yahan match na milne par draftLines[0] (pehli line) par
-  // fallback ho jaata tha, matlab agar automation me "Product A" configure
-  // kiya gaya ho lekin subscription "Product B" ka ho, tab bhi swap/remove
-  // Product B par apply ho jaata tha. Ab agar specific target configure
-  // kiya gaya hai aur wo is subscription ki kisi line se match nahi karta,
-  // to null return karo — caller is action ko skip karega, original
-  // product waisa hi rahega (koi swap/remove nahi hoga).
   if (!match) {
     console.warn(
       `[applyActionsToCycle] ${action.type}: configured source product/variant does not match this subscription's product — action will be SKIPPED (not applied to an unrelated product).`,
