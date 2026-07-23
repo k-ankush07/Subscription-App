@@ -252,5 +252,13 @@ https://admin.shopify.com/store/deepk-store/products/8937317761244
 link prodcut redirect.dfds
 
 
-mere paas prodcut A ke badle  mene Ba nd C swap kra okh or D add kra 
-ab contract bn gye  mene contract se B and C delte kr diya bcha mere pass sirf D or jb me charge se order generate krta hu to mere pass D nhi blki A nad D dono aare jbki me chahta hu bs D aaye A nhi
+quantityAfterOrdersValue": 1,
+    "quantityAfterOrders": 13,
+    "quantityProducts": [],
+
+    ye apply ho usi me jo prodcut isme diya hai agr vo conifigure hai toh 
+
+    or same remove me v 
+
+    me chahta hu agr chnage quanty enable haii or usme prodcut ya varint hai to usi pr apply ho or kisi pr nhi 
+    or same remove me v 

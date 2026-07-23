@@ -50,13 +50,7 @@ function formateDate(date) {
 export default function SubscriptionDetail() {
   const { contract, upcomingCycles, internalNotes, customerNotes, preview } =
     useLoaderData();
-  console.log(
-    "preview",
-    preview,
-    "contract",
-    contract,
-    "cycle",
-  );
+  console.log("preview", preview, "contract", contract, "cycle");
   const [localLines, setLocalLines] = useState(contract?.lines?.edges || []);
   const [showInternalNotes, setShowInternalNotes] = useState(false);
   const [Internalnotes, setInternalNotes] = useState(internalNotes || "");
@@ -93,22 +87,26 @@ export default function SubscriptionDetail() {
   }, [contract]);
 
   const navigate = useNavigate();
-  const handleRemoveAutomationItem = ({ automationCycleIndex, automationActionIndex, variantId }) => {
-  const confirmed = confirm(
-    "Remove this product from the upcoming automation? It won't be applied to the next order.",
-  );
-  if (!confirmed) return;
-  fetcher.submit(
-    {
-      type: "remove_automation_item",
-      automationCycleIndex,
-      automationActionIndex,
-      variantId: variantId || "",
-      sellingPlanId: lines?.[0]?.node?.sellingPlanId || "",
-    },
-    { method: "post" },
-  );
-};
+  const handleRemoveAutomationItem = ({
+    automationCycleIndex,
+    automationActionIndex,
+    variantId,
+  }) => {
+    const confirmed = confirm(
+      "Remove this product from the upcoming automation? It won't be applied to the next order.",
+    );
+    if (!confirmed) return;
+    fetcher.submit(
+      {
+        type: "remove_automation_item",
+        automationCycleIndex,
+        automationActionIndex,
+        variantId: variantId || "",
+        sellingPlanId: lines?.[0]?.node?.sellingPlanId || "",
+      },
+      { method: "post" },
+    );
+  };
   const backButton = () => {
     navigate("/app/subscriptions");
   };
@@ -136,19 +134,22 @@ export default function SubscriptionDetail() {
     const quantity = item?.node?.quantity || 0;
     return sum + price * quantity;
   }, 0);
-  const totalAutomationProductCount = willApplyChanges.reduce((count, change) => {
-    if (change.type === "VARIANT_SWAP") {
-      const destCount = (change.dests || []).reduce(
-        (sum, dest) => sum + (dest.variantIds?.length || 0),
-        0,
-      );
-      return count + destCount;
-    }
-    if (change.type === "ADD_PRODUCT" && change.productName) {
-      return count + 1;
-    }
-    return count;
-  }, 0);
+  const totalAutomationProductCount = willApplyChanges.reduce(
+    (count, change) => {
+      if (change.type === "VARIANT_SWAP") {
+        const destCount = (change.dests || []).reduce(
+          (sum, dest) => sum + (dest.variantIds?.length || 0),
+          0,
+        );
+        return count + destCount;
+      }
+      if (change.type === "ADD_PRODUCT" && change.productName) {
+        return count + 1;
+      }
+      return count;
+    },
+    0,
+  );
   const handlePause = () => {
     fetcher.submit({ type: "pause" }, { method: "post" });
   };
@@ -209,7 +210,7 @@ export default function SubscriptionDetail() {
             )}
           </>
         )}
-        {/* {nextCycleIndex != null && contract?.status !== "CANCELLED" && (
+        {nextCycleIndex != null && contract?.status !== "CANCELLED" && (
           <Button
             onClick={() => {
               const confirmed = confirm(
@@ -227,7 +228,8 @@ export default function SubscriptionDetail() {
           >
             Charge Now
           </Button>
-         )} */}
+        )}
+
         {contract?.status !== "CANCELLED" ? (
           <Button onClick={handleCancelSubscription}>
             Cancel Subscription
@@ -310,7 +312,7 @@ export default function SubscriptionDetail() {
             </span>
           </div>
         </div>
-        {contract?.status !== "CANCELLED" && willApplyChanges.length > 0 && (
+        {willApplyChanges.length > 0 && (
           <Card>
             <p>
               <b>{`Delivery: Every ${contract?.deliveryPolicy?.intervalCount} ${contract?.deliveryPolicy?.interval} `}</b>
@@ -328,8 +330,7 @@ export default function SubscriptionDetail() {
                     <div key={idx}>
                       <b>Discount change</b>
                       <p>
-                        After order #{change.after}, a{" "}
-                        {change.adjustmentValue}%{" "}
+                        After order #{change.after}, a {change.adjustmentValue}%{" "}
                         {change.adjustmentType?.toLowerCase()} discount will
                         apply.
                       </p>
@@ -389,8 +390,10 @@ export default function SubscriptionDetail() {
                                     <Button
                                       onClick={() =>
                                         handleRemoveAutomationItem({
-                                          automationCycleIndex: change.__automationCycleIndex,
-                                          automationActionIndex: change.__automationActionIndex,
+                                          automationCycleIndex:
+                                            change.__automationCycleIndex,
+                                          automationActionIndex:
+                                            change.__automationActionIndex,
                                           variantId,
                                         })
                                       }
@@ -469,8 +472,7 @@ export default function SubscriptionDetail() {
                           <p>{change.productName}</p>
                           {change.variantName && <p>{change.variantName}</p>}
                           <p>
-                            Qty:{" "}
-                            {matchedLineItem?.quantity ?? change.quantity}
+                            Qty: {matchedLineItem?.quantity ?? change.quantity}
                           </p>
                           {matchedLineItem && (
                             <p style={{ fontSize: "12px", color: "#666" }}>
@@ -485,8 +487,10 @@ export default function SubscriptionDetail() {
                             <Button
                               onClick={() =>
                                 handleRemoveAutomationItem({
-                                  automationCycleIndex: change.__automationCycleIndex,
-                                  automationActionIndex: change.__automationActionIndex,
+                                  automationCycleIndex:
+                                    change.__automationCycleIndex,
+                                  automationActionIndex:
+                                    change.__automationActionIndex,
                                   variantId: matchedLineItem?.variantId ?? null,
                                 })
                               }
@@ -498,8 +502,7 @@ export default function SubscriptionDetail() {
                           )}
                           {change.discountEnabled && (
                             <p>
-                              {change.discountValue}% {change.discountType}{" "}
-                              off
+                              {change.discountValue}% {change.discountType} off
                             </p>
                           )}
                         </div>
@@ -511,6 +514,167 @@ export default function SubscriptionDetail() {
                   );
                 }
 
+                if (change.type === "QUANTITY_CHANGE") {
+                  const matchedProduct = (change.products || [])[0];
+                  const matchedVariant = matchedProduct?.variants?.[0];
+                  const otherVariants = (matchedProduct?.variants || []).slice(
+                    1,
+                  );
+
+                  const matchedLineItem = preview?.nextOrder?.lineItems?.find(
+                    (li) => {
+                      if (matchedVariant?.variantsId)
+                        return li.variantId === matchedVariant.variantsId;
+                      if (matchedProduct?.id)
+                        return li.productId === matchedProduct.id;
+                      return false;
+                    },
+                  );
+
+                  const imageUrl =
+                    change.imageUrl ??
+                    matchedLineItem?.imageUrl ??
+                    matchedVariant?.variantsImageUrl ??
+                    matchedProduct?.imageUrl ??
+                    null;
+                  const imageAlt =
+                    change.imageAlt ??
+                    matchedLineItem?.imageAlt ??
+                    matchedVariant?.variantsImageAlt ??
+                    matchedProduct?.imageAlt ??
+                    matchedProduct?.title ??
+                    "";
+
+                  return (
+                    <div key={idx} style={{ marginTop: "12px" }}>
+                      <b>Quantity change</b>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "8px",
+                        }}
+                      >
+                        {imageUrl && (
+                          <img
+                            src={imageUrl}
+                            alt={imageAlt}
+                            width={60}
+                            height={60}
+                          />
+                        )}
+                        <div>
+                          <p>
+                            {matchedProduct?.title || "This subscription"}
+                            {matchedVariant?.variantsTitle
+                              ? ` — ${matchedVariant.variantsTitle}`
+                              : ""}
+                          </p>
+                          {matchedVariant?.variantsId && (
+                            <p style={{ fontSize: "11px", color: "#999" }}>
+                              Variant ID: {matchedVariant.variantsId}
+                            </p>
+                          )}
+                          {otherVariants.map((v) => (
+                            <p
+                              key={v.variantsId}
+                              style={{ fontSize: "11px", color: "#999" }}
+                            >
+                              {v.variantsTitle ? `${v.variantsTitle} — ` : ""}
+                              Variant ID: {v.variantsId}
+                            </p>
+                          ))}
+                          <p>
+                            After order #{change.after}, quantity will change to{" "}
+                            {change.value}.
+                          </p>
+                          {matchedLineItem && (
+                            <p style={{ fontSize: "12px", color: "#666" }}>
+                              Price: {matchedLineItem.pricePerUnit?.amount}{" "}
+                              {matchedLineItem.pricePerUnit?.currencyCode} ×{" "}
+                              {matchedLineItem.quantity} ={" "}
+                              {matchedLineItem.itemTotal?.amount}{" "}
+                              {matchedLineItem.itemTotal?.currencyCode}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
+                if (
+                  change.type === "REMOVE_PRODUCT" ||
+                  change.type === "REMOVE_VARIANT" ||
+                  change.type === "REMOVE_FREE_PRODUCT"
+                ) {
+                  const matchedProduct = (change.products || [])[0];
+                  const matchedVariant = matchedProduct?.variants?.[0];
+
+                  // flat-shape fallbacks (REMOVE_VARIANT / REMOVE_PRODUCT often come this way)
+                  const productTitle =
+                    matchedProduct?.title ?? change.productName ?? "This item";
+                  const variantTitle =
+                    matchedVariant?.variantsTitle ?? change.variantName ?? "";
+                  const variantId =
+                    matchedVariant?.variantsId ??
+                    change.sourceVariantId ??
+                    change.variantId ??
+                    change.variantIds?.[0] ??
+                    null;
+
+                  const label =
+                    change.type === "REMOVE_FREE_PRODUCT"
+                      ? "Free product will be removed"
+                      : "Product will be removed";
+
+                  const imageUrl =
+                    change.imageUrl ??
+                    matchedVariant?.variantsImageUrl ??
+                    matchedProduct?.imageUrl ??
+                    null;
+                  const imageAlt =
+                    change.imageAlt ??
+                    matchedVariant?.variantsImageAlt ??
+                    matchedProduct?.imageAlt ??
+                    productTitle;
+
+                  return (
+                    <div key={idx} style={{ marginTop: "12px" }}>
+                      <b>{label}</b>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "8px",
+                        }}
+                      >
+                        {imageUrl && (
+                          <img
+                            src={imageUrl}
+                            alt={imageAlt}
+                            width={60}
+                            height={60}
+                          />
+                        )}
+                        <div>
+                          <p>
+                            {productTitle}
+                            {variantTitle ? ` — ${variantTitle}` : ""}
+                          </p>
+                          {variantId && (
+                            <p style={{ fontSize: "11px", color: "#999" }}>
+                              Variant ID: {variantId}
+                            </p>
+                          )}
+                          <p style={{ fontSize: "12px", color: "#666" }}>
+                            Applies after order #{change.after}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
                 return null;
               })}
             </div>

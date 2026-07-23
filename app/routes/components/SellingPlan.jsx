@@ -68,15 +68,23 @@ function SellingPlan({
     console.log("selected ", selected);
     if (!selected || selected.length === 0) return;
 
-    // Poora object store karo (id + title + variants) — alag IDs/objects array ki zaroorat nahi
-    const pickedObjects = selected.map((p) => ({
-      id: p.id,
-      title: p.title,
-      variants: (p.variants || []).map((v) => ({
-        variantsId: v.id,
-        variantsTitle: v.title,
-      })),
-    }));
+   const pickedObjects = selected.map((p) => {
+  const productImageUrl = p.images?.[0]?.originalSrc ?? p.images?.[0]?.url ?? null;
+  const productImageAlt = p.images?.[0]?.altText ?? p.title ?? null;
+
+  return {
+    id: p.id,
+    title: p.title,
+    imageUrl: productImageUrl,
+    imageAlt: productImageAlt,
+    variants: (p.variants || []).map((v) => ({
+      variantsId: v.id,
+      variantsTitle: v.title,
+      variantsImageUrl: v.image?.originalSrc ?? v.image?.url ?? productImageUrl,
+      variantsImageAlt: v.image?.altText ?? productImageAlt,
+    })),
+  };
+});
 
     if (target === "quantity") {
       updatePlan(index, { quantityProducts: pickedObjects });
@@ -440,10 +448,10 @@ function SellingPlan({
                         label="After # of orders"
                         type="number"
                         min={1}
-                        value={String(plan.removeFreeProductValue ?? 1)}
+                        value={String(plan.removeFreeProductOrders ?? 1)}
                         onChange={(val) =>
                           updatePlan(index, {
-                            removeFreeProductValue: Number(val),
+                            removeFreeProductOrders: Number(val),
                           })
                         }
                       />

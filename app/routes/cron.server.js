@@ -8,9 +8,9 @@ export function startBillingCycleCron() {
 
   cron.schedule("*/5 * * * *", async () => {
     console.log("[cron] Running process-billing-cycles...");
-    console.log("process.env",process.env.SHOPIFY_APP_URL)
+    console.log("process.env",process.env.SHOPIFY_APP_URL_CRON)
     try {
-      const res = await fetch(`${process.env.SHOPIFY_APP_URL}/api/process-billing-cycles`, {
+      const res = await fetch(`${process.env.SHOPIFY_APP_URL_CRON}/api/process-billing-cycles`, {
         method: "POST",
         headers: { "x-cron-secret": process.env.CRON_SECRET },
       });
