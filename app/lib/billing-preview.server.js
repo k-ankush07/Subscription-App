@@ -680,7 +680,7 @@ async function findBlockingBillingCycleIndex(admin, contractId, aroundDate = new
   return cycle.cycleIndex;
 }
 
-// cdnvfdvfvffvfdewddcdcdscdscxcxscdssdsdsdddwsw
+// cdnvfdvfvffvfdewddcdcd
 async function applyActionsToCycle(
   admin,
   contractId,
