@@ -252,13 +252,3 @@ https://admin.shopify.com/store/deepk-store/products/8937317761244
 link prodcut redirect.dfds
 
 
-quantityAfterOrdersValue": 1,
-    "quantityAfterOrders": 13,
-    "quantityProducts": [],
-
-    ye apply ho usi me jo prodcut isme diya hai agr vo conifigure hai toh 
-
-    or same remove me v 
-
-    me chahta hu agr chnage quanty enable haii or usme prodcut ya varint hai to usi pr apply ho or kisi pr nhi 
-    or same remove me v 

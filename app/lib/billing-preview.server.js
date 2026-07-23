@@ -131,13 +131,6 @@ function normalizeAutomationAction(action, afterOrders) {
       dests: allDests,
       after: afterOrders,
     });
-
-    // Baaki SAARE variants (chahe same dest ke ho ya alag dest ke) -> naye line ADD_PRODUCT
-    // CHANGED — sourceProductId (aur agar available ho sourceVariantId) yahan bhi
-    // carry karte hain taaki ye entries VARIANT_SWAP ke saath hi ek hi source-match
-    // check share karein (getActionTargetIds/actionMatchesLine dono is field ko
-    // dekhte hain) — matlab agar base swap match nahi karta, ye extra ADD_PRODUCT
-    // entries bhi apply nahi hongi (atomic behavior).
     for (let i = 1; i < flatVariants.length; i++) {
       results.push({
         type: "ADD_PRODUCT",
@@ -763,11 +756,7 @@ async function applyActionsToCycle(
       if (action.type === "PRODUCT_SWAP" || action.type === "VARIANT_SWAP") {
         const targetLine = resolveLineForAction(draftLines, action);
         if (!targetLine) {
-          // CHANGED — configured source product is subscription ki actual
-          // line se match nahi karta. Pehle ye case pehli line par swap
-          // apply kar deta tha (galat product swap ho jaata tha). Ab is
-          // action ko simply skip karo — original product jaisa hai waisa
-          // hi rahega, koi swap nahi hoga.
+
           console.warn(`[applyActionsToCycle] ${action.type} skipped — configured source product doesn't match this subscription's product`);
           action.__skippedReason = "Configured source product doesn't match this subscription's product — swap not applied.";
           continue;
@@ -904,14 +893,6 @@ async function applyActionsToCycle(
       }
 
       if (action.type === "ADD_PRODUCT") {
-        // CHANGED — agar ye action kisi swap se generate hua extra-dest hai
-        // (sourceProductId/sourceVariantId set hai — dekho
-        // normalizeAutomationAction), to us swap ke source/base line se
-        // match check karo. Match nahi to skip — taaki ek swap block ke
-        // saare dests atomically saath apply/skip hon, alag-alag nahi.
-        // Plain fixed "add" actions (bina sourceProductId ke) unaffected
-        // rahenge — unke liye targetProductIds/targetVariantIds khali
-        // honge, isliye ye check pass ho jayega (hamesha add hoga).
         const { targetProductIds, targetVariantIds } = getActionTargetIds(action);
         if (targetProductIds.length > 0 || targetVariantIds.length > 0) {
           const sourceMatchLine = draftLines.find((line) => actionMatchesLine(action, line));
@@ -1183,19 +1164,6 @@ async function getContractPreview(admin, contractId) {
 
   const rawActionsForNextCycle =
     cycleIndex != null ? collectActionsForCycle(extraSettings, cycleIndex) : [];
-
-  // CHANGED — sirf wahi actions rakho jinka configured source product/variant
-  // is subscription ki actual line (firstLine) se match karta ho. Pehle
-  // swap/remove/quantity actions preview me bhi bina match check ke
-  // dikhaye/apply hote the — ab agar match nahi karta, wo action preview
-  // se hi hata diya jaata hai (matlab: original product wahi rahega). Ab
-  // ADD_PRODUCT bhi LINE_MATCH_REQUIRED_TYPES me hai, isliye swap se bane
-  // extra-dest ADD_PRODUCT entries bhi apne source ke match par depend
-  // karti hain (plain fixed "add" actions bina sourceProductId ke
-  // unaffected rahengi). REMOVE_FREE_PRODUCT aur merchant-configured
-  // QUANTITY_CHANGE ab actionMatchesLine() se hi false milega jab koi
-  // product/variant configure nahi hai (actionRequiresExplicitTarget) —
-  // isliye woh preview se bhi automatically hat jaate hain.
   const actionsForNextCycle = rawActionsForNextCycle.filter((a) => {
     if (!LINE_MATCH_REQUIRED_TYPES.has(a.type)) return true;
     return actionMatchesLine(a, firstLine);
@@ -1423,7 +1391,7 @@ let swappedTitle ;
         return visible.length > 0 ? visible : "No automatic changes configured for this cycle";
       })(),
     },
-    // allExtraSettings: extraSettings,
+    allExtraSettings: extraSettings,
   };
 
   console.log(` Contract: ${preview.contractId}`);
