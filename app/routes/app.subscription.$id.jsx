@@ -1,5 +1,3 @@
-
-
 import { authenticate } from "../shopify.server";
 import SubscriptionDetail from "./components/SubscriptionDetail";
 import {
@@ -10,6 +8,7 @@ import {
   getContractPreview,
   getEffectiveSettingsForContract,
   removeAutomationVariant,
+  addBaseLineRemoval,
 } from "../lib/billing-preview.server";
 const API = import.meta.env.VITE_API_URL;
 const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
@@ -20,7 +19,7 @@ export async function loader({ request, params }) {
   const subscriptionId = params.id;
   const contractId = `gid://shopify/SubscriptionContract/${subscriptionId}`;
 
-  const startDate = new Date()  
+  const startDate = new Date();
   const endDateObj = new Date();
   endDateObj.setMonth(endDateObj.getMonth() + 20);
   const endDate = endDateObj.toISOString();
@@ -201,24 +200,20 @@ export async function loader({ request, params }) {
   const allCycles =
     data.data.subscriptionBillingCycles?.edges?.map((edge) => edge.node) || [];
 
- // Contract lines list
-const lines = contract.lines?.edges?.map((e) => e.node) || [];
+  // Contract lines list
+  const lines = contract.lines?.edges?.map((e) => e.node) || [];
 
-// Unique sellingPlanIds collect karo
-const sellingPlanIds = [
-  ...new Set(
-    lines
-      .map((line) => line.sellingPlanId)
-      .filter(Boolean),
-  ),
-];
+  // Unique sellingPlanIds collect karo
+  const sellingPlanIds = [
+    ...new Set(lines.map((line) => line.sellingPlanId).filter(Boolean)),
+  ];
   const maxCycles = contract?.billingPolicy?.maxCycles ?? null;
   const now = new Date();
   let upcomingCycles = allCycles.filter(
     (cycle) =>
       cycle.billingAttemptExpectedDate &&
       new Date(cycle.billingAttemptExpectedDate) >= now &&
-       cycle.status !== "BILLED",
+      cycle.status !== "BILLED",
   );
   if (maxCycles != null) {
     upcomingCycles = upcomingCycles.filter(
@@ -227,7 +222,7 @@ const sellingPlanIds = [
         cycle.cycleIndex <= maxCycles - 1,
     );
   }
-    const preview = await getContractPreview(admin, contractId);
+  const preview = await getContractPreview(admin, contractId);
   try {
     const res = await fetch(`${API}/api/subscription`, {
       method: "POST",
@@ -265,7 +260,7 @@ const sellingPlanIds = [
     console.error("Backend fetch notes failed:", err);
   }
 
-  return { contract, upcomingCycles, internalNotes, customerNotes,preview};
+  return { contract, upcomingCycles, internalNotes, customerNotes, preview };
 }
 
 const RESCHEDULE_MUTATION = `
@@ -307,7 +302,6 @@ async function rescheduleSingleCycle(admin, contractId, cycleIndex, isoDate) {
   return data?.data?.subscriptionBillingCycleScheduleEdit;
 }
 
-
 export async function action({ request, params }) {
   const formData = await request.formData();
   const type = formData.get("type");
@@ -323,8 +317,9 @@ export async function action({ request, params }) {
     type === "skip" ||
     type === "unskip" ||
     type === "reschedule" ||
-    type === "charge_now"||
-    type === "remove_automation_item"
+    type === "charge_now" ||
+    type === "remove_automation_item" ||
+    type === "remove_base_line"
   ) {
     if (type === "pause") {
       const res = await admin.graphql(
@@ -565,15 +560,20 @@ export async function action({ request, params }) {
     }
     if (type === "reschedule") {
       const cycleIndex = parseInt(formData.get("cycleIndex"), 10);
-      const newDate = formData.get("newDate"); 
-      const originalDate = formData.get("originalDate"); 
+      const newDate = formData.get("newDate");
+      const originalDate = formData.get("originalDate");
 
       if (Number.isNaN(cycleIndex) || !newDate) {
         return { success: false, error: "Invalid cycle index or date" };
       }
 
       const isoDate = new Date(newDate).toISOString();
-      const payload = await rescheduleSingleCycle(admin, contractId, cycleIndex, isoDate);
+      const payload = await rescheduleSingleCycle(
+        admin,
+        contractId,
+        cycleIndex,
+        isoDate,
+      );
 
       if (!payload || payload.userErrors?.length) {
         console.error("Reschedule failed", payload?.userErrors);
@@ -592,12 +592,21 @@ export async function action({ request, params }) {
       };
     }
     if (type === "remove_automation_item") {
-      const automationCycleIndex = parseInt(formData.get("automationCycleIndex"), 10);
-      const automationActionIndex = parseInt(formData.get("automationActionIndex"), 10);
+      const automationCycleIndex = parseInt(
+        formData.get("automationCycleIndex"),
+        10,
+      );
+      const automationActionIndex = parseInt(
+        formData.get("automationActionIndex"),
+        10,
+      );
       const variantId = formData.get("variantId") || null;
       const sellingPlanId = formData.get("sellingPlanId") || null;
 
-      if (Number.isNaN(automationCycleIndex) || Number.isNaN(automationActionIndex)) {
+      if (
+        Number.isNaN(automationCycleIndex) ||
+        Number.isNaN(automationActionIndex)
+      ) {
         return { success: false, error: "Invalid automation item reference" };
       }
 
@@ -608,7 +617,10 @@ export async function action({ request, params }) {
           sellingPlanId,
         );
         if (!currentSettings) {
-          return { success: false, error: "No automation settings found for this subscription" };
+          return {
+            success: false,
+            error: "No automation settings found for this subscription",
+          };
         }
         const updatedSettings = removeAutomationVariant(
           currentSettings,
@@ -616,9 +628,16 @@ export async function action({ request, params }) {
           automationActionIndex,
           variantId,
         );
-        const { snapshotted } = await snapshotContractSettings(admin, contractId, updatedSettings);
+        const { snapshotted } = await snapshotContractSettings(
+          admin,
+          contractId,
+          updatedSettings,
+        );
         if (!snapshotted) {
-          return { success: false, error: "Failed to save updated automation settings" };
+          return {
+            success: false,
+            error: "Failed to save updated automation settings",
+          };
         }
         return { success: true };
       } catch (err) {
@@ -626,7 +645,46 @@ export async function action({ request, params }) {
         return { success: false, error: String(err?.message || err) };
       }
     }
-     if (type === "charge_now") {
+    if (type === "remove_base_line") {
+      const cycleIndex = parseInt(formData.get("cycleIndex"), 10);
+      const productId = formData.get("productId") || null;
+      const variantId = formData.get("variantId") || null;
+      const sellingPlanId = formData.get("sellingPlanId") || null;
+
+      if (Number.isNaN(cycleIndex)) {
+        return { success: false, error: "Invalid billing cycle index" };
+      }
+
+      try {
+        const currentSettings = await getEffectiveSettingsForContract(
+          admin,
+          contractId,
+          sellingPlanId,
+        );
+        const updatedSettings = addBaseLineRemoval(
+          currentSettings,
+          cycleIndex,
+          productId,
+          variantId,
+        );
+        const { snapshotted } = await snapshotContractSettings(
+          admin,
+          contractId,
+          updatedSettings,
+        );
+        if (!snapshotted) {
+          return {
+            success: false,
+            error: "Failed to save updated automation settings",
+          };
+        }
+        return { success: true };
+      } catch (err) {
+        console.error("Remove base line failed:", err);
+        return { success: false, error: String(err?.message || err) };
+      }
+    }
+    if (type === "charge_now") {
       const cycleIndex = parseInt(formData.get("cycleIndex"), 10);
 
       if (Number.isNaN(cycleIndex)) {
@@ -663,10 +721,15 @@ export async function action({ request, params }) {
           { variables: { contractId } },
         );
         const contractData = await contractRes.json();
-        const firstLine = contractData.data?.subscriptionContract?.lines?.edges?.[0]?.node;
-        const basePriceAmount = firstLine?.pricingPolicy?.basePrice?.amount ?? null;
+        const firstLine =
+          contractData.data?.subscriptionContract?.lines?.edges?.[0]?.node;
+        const basePriceAmount =
+          firstLine?.pricingPolicy?.basePrice?.amount ?? null;
         const pricingPolicy = firstLine?.pricingPolicy ?? null;
-        const extraSettings = await getContractSettingsSnapshot(admin, contractId);
+        const extraSettings = await getContractSettingsSnapshot(
+          admin,
+          contractId,
+        );
 
         const actionsForThisCycle = extraSettings
           ? collectActionsForCycle(extraSettings, cycleIndex)

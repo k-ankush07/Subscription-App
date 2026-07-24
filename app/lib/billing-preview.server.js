@@ -3,10 +3,7 @@
 
 const EXTRA_SETTINGS_NAMESPACE = "subscription_app";
 const CONTRACT_SETTINGS_SNAPSHOTS_KEY = "contract_settings_snapshots";
-function metaKeyForGroup(groupId) {
-  const numericId = groupId.split("/").pop();
-  return `extra_settings_${numericId}`;
-}
+
 async function getShopIdForSnapshot(admin) {
   const res = await admin.graphql(`query { shop { id } }`);
   const data = await res.json();
@@ -180,7 +177,6 @@ const ACTION_ORDER = [
   "REMOVE_VARIANT",
   "REMOVE_FREE_PRODUCT",
   "ADD_PRODUCT",
-  "SHIPPING_DISCOUNT",
   "VARIANT_SWAP",
   "PRODUCT_SWAP",
   "DISCOUNT_CHANGE",
@@ -208,19 +204,6 @@ function collectActionsForCycle(settings, cycleIndex) {
       adjustmentType: settings.afterDiscountType ?? "PERCENTAGE",
       adjustmentValue: Number(settings.afterDiscountValue) || 0,
       after: settings.afterOrders,
-    });
-  }
-
-  // 2. Shipping discount — "after N orders"
-  if (
-    settings.giveShippingDiscount &&
-    cycleIndex >= Number(settings.shippingAfterOrders)
-  ) {
-    actions.push({
-      type: "SHIPPING_DISCOUNT",
-      discountType: settings.shippingDiscountType,
-      value: settings.shippingDiscountValue,
-      after: settings.shippingAfterOrders,
     });
   }
   if (
@@ -361,26 +344,6 @@ async function fetchVariantPrice(admin, variantId) {
   return price != null ? Number(price) : null;
 }
 
-async function fetchVariantImage(admin, variantId) {
-  if (!variantId) return null;
-  const res = await admin.graphql(
-    `
-    query getVariantImage($id: ID!) {
-      productVariant(id: $id) {
-        id
-        image { url altText }
-        product { featuredImage { url altText } }
-      }
-    }
-    `,
-    { variables: { id: variantId } },
-  );
-  const data = await res.json();
-  const variant = data.data?.productVariant;
-  const url = variant?.image?.url ?? variant?.product?.featuredImage?.url ?? null;
-  const altText = variant?.image?.altText ?? variant?.product?.featuredImage?.altText ?? null;
-  return url ? { url, altText } : null;
-}
 
 async function fetchVariantsBatch(admin, variantIds) {
   const uniqueIds = [...new Set((variantIds || []).filter(Boolean))];
@@ -397,6 +360,7 @@ async function fetchVariantsBatch(admin, variantIds) {
         nodes(ids: $ids) {
           ... on ProductVariant {
             id
+            title
             price
             image { url altText }
             product { featuredImage { url altText } }
@@ -419,6 +383,7 @@ async function fetchVariantsBatch(admin, variantIds) {
       const imageAlt = node.image?.altText ?? node.product?.featuredImage?.altText ?? null;
       map[node.id] = {
         price: node.price != null ? Number(node.price) : null,
+        title: node.title ?? null, 
         image: imageUrl ? { url: imageUrl, altText: imageAlt } : null,
       };
     }
@@ -445,43 +410,15 @@ async function getEffectiveBasePrice(admin, actions, fallbackBasePrice) {
 function applyCustomDiscountAction(basePrice, discountAction) {
   const base = Number(basePrice);
   if (!discountAction) return base;
-  let discounted = base;
-  if (discountAction.adjustmentType === "PERCENTAGE") {
-    discounted = base - (base * Number(discountAction.adjustmentValue)) / 100;
-  } else {
-    discounted = base - Number(discountAction.adjustmentValue);
+  const type = String(discountAction.adjustmentType || "").toLowerCase();
+  if (type === "percentage") {
+    return Math.max(0, base - (base * Number(discountAction.adjustmentValue)) / 100);
   }
-  return Math.max(0, discounted);
+  if (type === "fixed_amount") {
+    return Math.max(0, Number(discountAction.adjustmentValue));
+  }
+  return Math.max(0, base - Number(discountAction.adjustmentValue));
 }
-
-async function computeLinePrice(
-  admin,
-  { variantId, isSwapGenerated, discountEnabled, discountType, discountValue },
-  effectiveBasePrice,
-  discountTierForCycle,
-  customDiscountAction = null,
-) {
-  const variantPrice = await fetchVariantPrice(admin, variantId);
-  const basePriceForLine = variantPrice ?? effectiveBasePrice ?? 0;
-
-  if (isSwapGenerated) {
-    if (customDiscountAction) {
-      return applyCustomDiscountAction(basePriceForLine, customDiscountAction);
-    }
-    return applyDiscountTierToPrice(basePriceForLine, discountTierForCycle);
-  }
-
-  if (discountEnabled) {
-    const isPercentage = String(discountType).toLowerCase() === "percentage";
-    const discounted = isPercentage
-      ? basePriceForLine - (basePriceForLine * Number(discountValue || 0)) / 100
-      : basePriceForLine - Number(discountValue || 0);
-    return Math.max(0, discounted);
-  }
-
-  return basePriceForLine;
-}
-
 function computeLinePriceFromKnownPrice(
   variantPrice,
   { isSwapGenerated, discountEnabled, discountType, discountValue },
@@ -499,16 +436,20 @@ function computeLinePriceFromKnownPrice(
   }
 
   if (discountEnabled) {
-    const isPercentage = String(discountType).toLowerCase() === "percentage";
-    const discounted = isPercentage
-      ? basePriceForLine - (basePriceForLine * Number(discountValue || 0)) / 100
-      : basePriceForLine - Number(discountValue || 0);
-    return Math.max(0, discounted);
+  const type = String(discountType).toLowerCase();
+  if (type === "percentage") {
+    return Math.max(0, basePriceForLine - (basePriceForLine * Number(discountValue || 0)) / 100);
   }
+  if (type === "fixed_amount") {
+    // "fixed_amount" = final price directly set to this value
+    return Math.max(0, Number(discountValue || 0));
+  }
+  // "amount" = subtract this much from base price
+  return Math.max(0, basePriceForLine - Number(discountValue || 0));
+}
 
   return basePriceForLine;
 }
-
 function getActionTargetIds(action) {
   const targetProductIds = [];
   const targetVariantIds = [];
@@ -519,15 +460,25 @@ function getActionTargetIds(action) {
         targetProductIds.push(p);
         continue;
       }
-      if (p?.id) targetProductIds.push(p.id);
-      for (const v of p?.variants ?? []) {
-        if (v?.variantsId) targetVariantIds.push(v.variantsId);
+      const variantIds = (p?.variants ?? [])
+        .map((v) => v?.variantsId)
+        .filter(Boolean);
+
+      if (variantIds.length > 0) {
+        // specific variants configured — match ONLY those, not the whole product
+        targetVariantIds.push(...variantIds);
+      } else if (p?.id) {
+        targetProductIds.push(p.id);
       }
     }
   }
 
-  if (action.sourceProductId) targetProductIds.push(action.sourceProductId);
-  if (action.sourceVariantId) targetVariantIds.push(action.sourceVariantId);
+  if (action.sourceVariantId) {
+    // variant-specific target — don't also fall back to product-level match
+    targetVariantIds.push(action.sourceVariantId);
+  } else if (action.sourceProductId) {
+    targetProductIds.push(action.sourceProductId);
+  }
 
   return { targetProductIds, targetVariantIds };
 }
@@ -631,43 +582,6 @@ async function clearBillingCycleEdit(admin, contractId, cycleIndex, cycleDate = 
     cleared: (payload?.billingCycles?.length ?? 0) > 0,
     billingCycles: payload?.billingCycles ?? [],
   };
-}
-
-async function findBlockingBillingCycleIndex(admin, contractId, aroundDate = new Date()) {
-  const res = await admin.graphql(
-    `
-    query getCycleAround($contractId: ID!, $date: DateTime!) {
-      subscriptionBillingCycle(billingCycleInput: { contractId: $contractId, selector: { date: $date } }) {
-        cycleIndex
-        edited
-        status
-      }
-    }
-    `,
-    { variables: { contractId, date: aroundDate.toISOString() } },
-  );
-  const data = await res.json();
-  const cycle = data.data?.subscriptionBillingCycle;
-  if (!cycle) return null;
-
-  if (cycle.edited) return cycle.cycleIndex;
-  const nextRes = await admin.graphql(
-    `
-    query getNextCycle($contractId: ID!, $index: Int!) {
-      subscriptionBillingCycle(billingCycleInput: { contractId: $contractId, selector: { index: $index } }) {
-        cycleIndex
-        edited
-        status
-      }
-    }
-    `,
-    { variables: { contractId, index: cycle.cycleIndex + 1 } },
-  );
-  const nextData = await nextRes.json();
-  const nextCycle = nextData.data?.subscriptionBillingCycle;
-  if (nextCycle?.edited) return nextCycle.cycleIndex;
-
-  return cycle.cycleIndex;
 }
 
 async function applyActionsToCycle(
@@ -835,39 +749,6 @@ async function applyActionsToCycle(
         if (errors?.length) throw new Error(`DISCOUNT_CHANGE failed: ${errors[0].message}`);
       }
 
-      // ── SHIPPING_DISCOUNT ──
-      if (action.type === "SHIPPING_DISCOUNT") {
-        const configuredValue = Number(action.value);
-        const isFullFreeShipping =
-          action.discountType === "PERCENTAGE"
-            ? configuredValue >= 100
-            : false; // fixed-amount shipping discounts aren't supported at all via this mutation
-
-        if (!isFullFreeShipping) {
-          console.warn(
-            `[applyActionsToCycle] SHIPPING_DISCOUNT skipped: configured value (${action.discountType} ${action.value}) is a partial shipping discount, ` +
-              `but Shopify's subscription API (subscriptionDraftFreeShippingDiscountAdd) only supports 100% free shipping. ` +
-              `Not applying free shipping to avoid over-discounting. This cycle's shipping was left unchanged.`,
-          );
-          action.__skippedReason = "Partial shipping discounts are not supported by Shopify's subscription API (100% free shipping only).";
-        } else {
-          const res = await admin.graphql(
-            `
-            mutation addShippingDiscount($draftId: ID!, $input: SubscriptionFreeShippingDiscountInput!) {
-              subscriptionDraftFreeShippingDiscountAdd(draftId: $draftId, input: $input) {
-                userErrors { field message }
-              }
-            }
-            `,
-            { variables: { draftId, input: { title: "Auto shipping discount" } } },
-          );
-          const data = await res.json();
-          if (data.errors) throw new Error(`SHIPPING_DISCOUNT failed (GraphQL): ${data.errors[0]?.message}`);
-          const errors = data.data?.subscriptionDraftFreeShippingDiscountAdd?.userErrors;
-          if (errors?.length) throw new Error(`SHIPPING_DISCOUNT failed: ${errors[0].message}`);
-        }
-      }
-
       // ── REMOVE_PRODUCT / REMOVE_VARIANT / REMOVE_FREE_PRODUCT ──
       if (
         action.type === "REMOVE_PRODUCT" ||
@@ -1021,6 +902,117 @@ async function applyActionsToCycle(
       .filter((a) => a.__skippedReason)
       .map((a) => ({ type: a.type, reason: a.__skippedReason })),
   };
+}
+function removeAutomationVariant(settings, automationCycleIndex, automationActionIndex, variantId) {
+  if (!settings || !Array.isArray(settings.automationCycles)) {
+    throw new Error("removeAutomationVariant: no automationCycles configured");
+  }
+  const clonedSettings = JSON.parse(JSON.stringify(settings));
+  const entry = clonedSettings.automationCycles[automationCycleIndex];
+  if (!entry || !Array.isArray(entry.actions)) {
+    throw new Error("removeAutomationVariant: automation cycle entry not found");
+  }
+
+  const actionOwnsVariant = (a) => {
+    if (!a) return false;
+    if (a.type === "swap") {
+      return (a.dests || []).some((d) => (d.variantIds || []).includes(variantId));
+    }
+    return a.variantId === variantId || a.sourceVariantId === variantId;
+  };
+  let actionIndex = automationActionIndex;
+  let action = entry.actions[actionIndex];
+
+  if (!variantId || !actionOwnsVariant(action)) {
+    const foundIndex = entry.actions.findIndex(actionOwnsVariant);
+    if (foundIndex === -1) {
+      throw new Error(
+        "removeAutomationVariant: target action not found (stale index) — please refresh and retry",
+      );
+    }
+    actionIndex = foundIndex;
+    action = entry.actions[actionIndex];
+  }
+
+  if (action.type === "swap") {
+    const dests = Array.isArray(action.dests) ? action.dests : [];
+    const nextDests = [];
+    for (const dest of dests) {
+      const variantIds = Array.isArray(dest.variantIds) ? dest.variantIds : [];
+      const idx = variantId ? variantIds.indexOf(variantId) : -1;
+      if (idx === -1) {
+        nextDests.push(dest);
+        continue;
+      }
+      const nextDest = { ...dest };
+      ["variantIds", "variantNames", "variantImages"].forEach((key) => {
+        if (Array.isArray(nextDest[key])) {
+          nextDest[key] = nextDest[key].filter((_, i) => i !== idx);
+        }
+      });
+      if (nextDest.variantIds?.length > 0) {
+        nextDests.push(nextDest);
+      }
+    }
+    action.dests = nextDests;
+
+    if (nextDests.length === 0) {
+      if (action.sourceVariantId) {
+        entry.actions[actionIndex] = {
+          type: "remove",
+          sourceProductId: action.sourceProductId ?? null,
+          sourceVariantId: action.sourceVariantId,
+          isVariant: true,
+        };
+      } else if (action.sourceProductId) {
+        entry.actions[actionIndex] = {
+          type: "remove",
+          sourceProductId: action.sourceProductId,
+          sourceVariantId: null,
+          isVariant: false,
+        };
+      } else {
+
+        entry.actions.splice(actionIndex, 1);
+      }
+    }
+  } else {
+    entry.actions.splice(actionIndex, 1);
+  }
+
+  if (entry.actions.length === 0) {
+    clonedSettings.automationCycles.splice(automationCycleIndex, 1);
+  }
+
+  return clonedSettings;
+}
+function addBaseLineRemoval(settings, cycleIndex, productId, variantId) {
+  const clonedSettings = settings
+    ? JSON.parse(JSON.stringify(settings))
+    : {};
+
+  if (!Array.isArray(clonedSettings.automationCycles)) {
+    clonedSettings.automationCycles = [];
+  }
+
+  clonedSettings.Automation = true;
+
+  clonedSettings.automationCycles.push({
+    orders: Number(cycleIndex) || 0,
+    actions: [
+      {
+        type: "remove",
+        sourceProductId: productId ?? null,
+        sourceVariantId: variantId ?? null,
+        isVariant: !!variantId,
+      },
+    ],
+  });
+
+  return clonedSettings;
+}
+async function getEffectiveSettingsForContract(admin, contractId, sellingPlanId, shopId = null) {
+  return await getContractSettingsSnapshot(admin, contractId, shopId);
 }
 
 async function getContractPreview(admin, contractId) {
@@ -1252,18 +1244,6 @@ async function getContractPreview(admin, contractId) {
           currencyCode: calculatedPricePerUnit.currencyCode,
         }
       : null;
-  const shippingAction = Array.isArray(actionsForNextCycle)
-    ? actionsForNextCycle.find((a) => a.type === "SHIPPING_DISCOUNT")
-    : null;
-  if (shippingAction) {
-    const isFullFreeShipping =
-      shippingAction.discountType === "PERCENTAGE" && Number(shippingAction.value) >= 100;
-    shippingAction.willActuallyApply = isFullFreeShipping;
-    if (!isFullFreeShipping) {
-      shippingAction.warning =
-        "Shopify's subscription API only supports 100% free shipping — this configured partial discount will NOT be applied automatically.";
-    }
-  }
   const currencyCode =
     calculatedPricePerUnit?.currencyCode ??
     firstLine?.pricingPolicy?.basePrice?.currencyCode ??
@@ -1311,7 +1291,15 @@ let swappedTitle ;
       imageAlt: mainLineImageAlt,
       pricePerUnit: calculatedPricePerUnit,
       itemTotal: calculatedItemTotal,
-    });
+      isBaseLine: true,
+    automationCycleIndex: swapAction?.__automationCycleIndex ?? null,
+    automationActionIndex: swapAction?.__automationActionIndex ?? null,
+      discountLabel: discountAction
+    ? (String(discountAction.adjustmentType).toUpperCase() === "PERCENTAGE"
+        ? `${discountAction.adjustmentValue}% off`
+        : `${discountAction.adjustmentValue} ${currencyCode} off`)
+    : null,
+      });
   }
 
   const discountTierForCycle = getDiscountTierForCycle(firstLine?.pricingPolicy, cycleIndex);
@@ -1353,6 +1341,14 @@ let swappedTitle ;
       imageAlt: addedImageAlt,
       pricePerUnit: { amount: pricePerUnit.toFixed(2), currencyCode },
       itemTotal: { amount: (pricePerUnit * qty).toFixed(2), currencyCode },
+       isBaseLine: false,
+    automationCycleIndex: action.__automationCycleIndex ?? null,
+    automationActionIndex: action.__automationActionIndex ?? null,
+    discountLabel: action.discountEnabled
+  ? (String(action.discountType).toLowerCase() === "percentage"
+      ? `${action.discountValue}% off`
+      : `${action.discountValue} ${currencyCode} off`)
+  : null,
     });
   }
 
@@ -1371,6 +1367,9 @@ let swappedTitle ;
       title: firstLine?.title,
       quantity: firstLine?.quantity,
       price: firstLine?.currentPrice,
+      productId: firstLine?.productId,      
+      variantId: firstLine?.variantId,
+      variantName: originalVariantInfo?.title ?? null,
       imageUrl: originalVariantInfo?.image?.url ?? null,
       imageAlt: originalVariantInfo?.image?.altText ?? firstLine?.title ?? null,
       pricingPolicyDebug: firstLine?.pricingPolicy ?? null,
@@ -1421,92 +1420,7 @@ let swappedTitle ;
 
   return preview;
 }
-function removeAutomationVariant(settings, automationCycleIndex, automationActionIndex, variantId) {
-  if (!settings || !Array.isArray(settings.automationCycles)) {
-    throw new Error("removeAutomationVariant: no automationCycles configured");
-  }
-  const clonedSettings = JSON.parse(JSON.stringify(settings));
-  const entry = clonedSettings.automationCycles[automationCycleIndex];
-  if (!entry || !Array.isArray(entry.actions)) {
-    throw new Error("removeAutomationVariant: automation cycle entry not found");
-  }
 
-  const actionOwnsVariant = (a) => {
-    if (!a) return false;
-    if (a.type === "swap") {
-      return (a.dests || []).some((d) => (d.variantIds || []).includes(variantId));
-    }
-    return a.variantId === variantId || a.sourceVariantId === variantId;
-  };
-  let actionIndex = automationActionIndex;
-  let action = entry.actions[actionIndex];
-
-  if (!variantId || !actionOwnsVariant(action)) {
-    const foundIndex = entry.actions.findIndex(actionOwnsVariant);
-    if (foundIndex === -1) {
-      throw new Error(
-        "removeAutomationVariant: target action not found (stale index) — please refresh and retry",
-      );
-    }
-    actionIndex = foundIndex;
-    action = entry.actions[actionIndex];
-  }
-
-  if (action.type === "swap") {
-    const dests = Array.isArray(action.dests) ? action.dests : [];
-    const nextDests = [];
-    for (const dest of dests) {
-      const variantIds = Array.isArray(dest.variantIds) ? dest.variantIds : [];
-      const idx = variantId ? variantIds.indexOf(variantId) : -1;
-      if (idx === -1) {
-        nextDests.push(dest);
-        continue;
-      }
-      const nextDest = { ...dest };
-      ["variantIds", "variantNames", "variantImages"].forEach((key) => {
-        if (Array.isArray(nextDest[key])) {
-          nextDest[key] = nextDest[key].filter((_, i) => i !== idx);
-        }
-      });
-      if (nextDest.variantIds?.length > 0) {
-        nextDests.push(nextDest);
-      }
-    }
-    action.dests = nextDests;
-
-    if (nextDests.length === 0) {
-      if (action.sourceVariantId) {
-        entry.actions[actionIndex] = {
-          type: "remove",
-          sourceProductId: action.sourceProductId ?? null,
-          sourceVariantId: action.sourceVariantId,
-          isVariant: true,
-        };
-      } else if (action.sourceProductId) {
-        entry.actions[actionIndex] = {
-          type: "remove",
-          sourceProductId: action.sourceProductId,
-          sourceVariantId: null,
-          isVariant: false,
-        };
-      } else {
-
-        entry.actions.splice(actionIndex, 1);
-      }
-    }
-  } else {
-    entry.actions.splice(actionIndex, 1);
-  }
-
-  if (entry.actions.length === 0) {
-    clonedSettings.automationCycles.splice(automationCycleIndex, 1);
-  }
-
-  return clonedSettings;
-}
-async function getEffectiveSettingsForContract(admin, contractId, sellingPlanId, shopId = null) {
-  return await getContractSettingsSnapshot(admin, contractId, shopId);
-}
 
 export {
   getContractPreview,
@@ -1516,18 +1430,15 @@ export {
   getDiscountTierForCycle,
   applyDiscountTierToPrice,
   fetchVariantPrice,
-  fetchVariantImage,
   fetchVariantsBatch,
   getEffectiveBasePrice,
-  computeLinePrice,
   computeLinePriceFromKnownPrice,
-  metaKeyForGroup,
   EXTRA_SETTINGS_NAMESPACE,
   sortActionsForApply,
   clearBillingCycleEdit,
-  findBlockingBillingCycleIndex,
   getContractSettingsSnapshot,
   snapshotContractSettings,
   removeAutomationVariant,
-  getEffectiveSettingsForContract
+  getEffectiveSettingsForContract,
+  addBaseLineRemoval,
 };

@@ -9,24 +9,6 @@ import {
   useLoaderData,
 } from "react-router";
 
-function getCurrentComputedPrice(item, currentCycleIndex) {
-  const discounts = item?.node?.pricingPolicy?.cycleDiscounts || [];
-  if (discounts.length === 0) {
-    return parseFloat(item?.node?.currentPrice?.amount || 0);
-  }
-  const applicable = discounts
-    .filter((d) => d.afterCycle <= currentCycleIndex)
-    .sort((a, b) => b.afterCycle - a.afterCycle)[0];
-
-  if (!applicable) {
-    return parseFloat(item?.node?.currentPrice?.amount || 0);
-  }
-
-  return parseFloat(
-    applicable.computedPrice?.amount ?? item?.node?.currentPrice?.amount ?? 0,
-  );
-}
-
 function getCardImage(brand) {
   const brandMap = {
     visa: "https://subscriptions-assets.kachingappz.app/payment-method-icons/visa.svg",
@@ -68,23 +50,9 @@ export default function SubscriptionDetail() {
     upcomingCycles?.find((cycle) => !cycle.skipped) ?? null;
   const nextCycleIndex = nextUpcomingCycle?.cycleIndex ?? null;
   const nextCycleDate = nextUpcomingCycle?.billingAttemptExpectedDate ?? null;
-  const orderEdges = contract?.orders?.edges || [];
-  const latestOrder =
-    orderEdges.length > 0 ? orderEdges[orderEdges.length - 1].node : null;
-  const shipingChargesAmount =
-    latestOrder?.totalShippingPriceSet?.shopMoney?.amount || 0;
-  const shippingTitle = latestOrder?.shippingLine?.title || "";
   const willApplyChanges = Array.isArray(preview?.nextOrder?.willApply)
     ? preview.nextOrder.willApply
     : [];
-
-  useEffect(() => {
-    setInternalNotes(internalNotes || "");
-    setCustomerNotes(customerNotes || "");
-  }, [internalNotes, customerNotes]);
-  useEffect(() => {
-    setLocalLines(contract?.lines?.edges || []);
-  }, [contract]);
 
   const navigate = useNavigate();
   const handleRemoveAutomationItem = ({
@@ -110,7 +78,6 @@ export default function SubscriptionDetail() {
   const backButton = () => {
     navigate("/app/subscriptions");
   };
-
   const handleSave = () => {
     fetcher.submit(
       { type: "internal", notes: Internalnotes },
@@ -119,7 +86,6 @@ export default function SubscriptionDetail() {
     setShowInternalNotes(false);
     setInternalNotes("");
   };
-
   const handleSaveCustomer = () => {
     fetcher.submit(
       { type: "customer", notes: CustomerNotes },
@@ -128,28 +94,25 @@ export default function SubscriptionDetail() {
     setshowCustomerNotes(false);
     setCustomerNotes("");
   };
+  // const totalAutomationProductCount = willApplyChanges.reduce(
+  //   (count, change) => {
+  //     if (change.type === "VARIANT_SWAP") {
+  //       const destCount = (change.dests || []).reduce(
+  //         (sum, dest) => sum + (dest.variantIds?.length || 0),
+  //         0,
+  //       );
+  //       return count + destCount;
+  //     }
+  //     if (change.type === "ADD_PRODUCT" && change.productName) {
+  //       return count + 1;
+  //     }
+  //     return count;
+  //   },
+  //   0,
+  // );
 
-  const grandTotal = lines?.reduce((sum, item) => {
-    const price = getCurrentComputedPrice(item, nextCycleIndex ?? 0);
-    const quantity = item?.node?.quantity || 0;
-    return sum + price * quantity;
-  }, 0);
-  const totalAutomationProductCount = willApplyChanges.reduce(
-    (count, change) => {
-      if (change.type === "VARIANT_SWAP") {
-        const destCount = (change.dests || []).reduce(
-          (sum, dest) => sum + (dest.variantIds?.length || 0),
-          0,
-        );
-        return count + destCount;
-      }
-      if (change.type === "ADD_PRODUCT" && change.productName) {
-        return count + 1;
-      }
-      return count;
-    },
-    0,
-  );
+  const totalLineItemsCount = preview?.nextOrder?.lineItems?.length || 0;
+
   const handlePause = () => {
     fetcher.submit({ type: "pause" }, { method: "post" });
   };
@@ -180,11 +143,32 @@ export default function SubscriptionDetail() {
     setEditingCycleIndex(null);
     setEditDate("");
   };
+  const handleRemoveBaseLine = ({ productId, variantId }) => {
+    const confirmed = confirm(
+      "Remove this product from the upcoming order? It won't be applied to the next order.",
+    );
+    if (!confirmed) return;
+    fetcher.submit(
+      {
+        type: "remove_base_line",
+        cycleIndex: preview?.nextOrder?.cycleIndex ?? 0,
+        productId: productId || "",
+        variantId: variantId || "",
+        sellingPlanId: lines?.[0]?.node?.sellingPlanId || "",
+      },
+      { method: "post" },
+    );
+  };
 
   useEffect(() => {
     setLocalLines(contract?.lines?.edges || []);
-    setVisibleCyclesCount(5); // naya contract load hone par wapas 5 pe reset
+    setVisibleCyclesCount(5);
   }, [contract]);
+  useEffect(() => {
+    setInternalNotes(internalNotes || "");
+    setCustomerNotes(customerNotes || "");
+  }, [internalNotes, customerNotes]);
+
   return (
     <>
       <Page backAction={{ onAction: backButton }} title={`${id}`}>
@@ -312,16 +296,141 @@ export default function SubscriptionDetail() {
             </span>
           </div>
         </div>
-        {willApplyChanges.length > 0 && (
+        {preview?.nextOrder?.lineItems?.length > 0 && (
           <Card>
             <p>
               <b>{`Delivery: Every ${contract?.deliveryPolicy?.intervalCount} ${contract?.deliveryPolicy?.interval} `}</b>
               <b>{`Billing: every ${contract?.billingPolicy?.intervalCount} ${contract?.billingPolicy?.interval}`}</b>
             </p>
-            <b>
-              Changes coming in next order (Cycle #
-              {preview?.nextOrder?.cycleIndex})
-            </b>
+            <b>Next Order (Cycle #{preview?.nextOrder?.cycleIndex})</b>
+
+            {preview.nextOrder.lineItems.map((li, idx) => (
+              <div
+                key={idx}
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: "8px",
+                  marginTop: "12px",
+                  borderTop: "1px solid #eee",
+                  paddingTop: "8px",
+                }}
+              >
+                {li.imageUrl && (
+                  <img
+                    src={li.imageUrl}
+                    alt={li.imageAlt}
+                    width={60}
+                    height={60}
+                  />
+                )}
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontWeight: 500, margin: 0 }}>{li.title}</p>
+
+                  {li.productId && (
+                    <p style={{ fontSize: "11px", color: "#999", margin: 0 }}>
+                      Product ID: {li.productId}
+                    </p>
+                  )}
+                  {li.variantId && (
+                    <p style={{ fontSize: "11px", color: "#999", margin: 0 }}>
+                      Variant ID: {li.variantId}
+                    </p>
+                  )}
+
+                  <p
+                    style={{ fontSize: "12px", color: "#666", margin: "4px 0" }}
+                  >
+                    Qty: {li.quantity} • {li.pricePerUnit?.amount}{" "}
+                    {li.pricePerUnit?.currencyCode} × {li.quantity} ={" "}
+                    {li.itemTotal?.amount} {li.itemTotal?.currencyCode}
+                  </p>
+
+                  {li.discountLabel && (
+                    <p
+                      style={{ fontSize: "12px", color: "#008060", margin: 0 }}
+                    >
+                      {li.discountLabel}
+                    </p>
+                  )}
+
+                  {li.automationCycleIndex != null &&
+                    li.automationActionIndex != null &&
+                    totalLineItemsCount > 1 && (
+                      <Button
+                        onClick={() =>
+                          handleRemoveAutomationItem({
+                            automationCycleIndex: li.automationCycleIndex,
+                            automationActionIndex: li.automationActionIndex,
+                            variantId: li.variantId,
+                          })
+                        }
+                        loading={fetcher.state !== "idle"}
+                        disabled={fetcher.state !== "idle"}
+                      >
+                        Remove
+                      </Button>
+                    )}
+
+                  {li.isBaseLine && totalLineItemsCount > 1 && (
+                    <Button
+                      onClick={() =>
+                        handleRemoveBaseLine({
+                          productId: li.productId,
+                          variantId: li.variantId,
+                        })
+                      }
+                      loading={fetcher.state !== "idle"}
+                      disabled={fetcher.state !== "idle"}
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </Card>
+        )}
+        {/* {preview?.nextOrder?.lineItems?.length > 0 && (
+          <Card>
+            <p>
+              <b>{`Delivery: Every ${contract?.deliveryPolicy?.intervalCount} ${contract?.deliveryPolicy?.interval} `}</b>
+              <b>{`Billing: every ${contract?.billingPolicy?.intervalCount} ${contract?.billingPolicy?.interval}`}</b>
+            </p>
+            <b>Next Order (Cycle #{preview?.nextOrder?.cycleIndex})</b>
+
+            {preview.nextOrder.lineItems.map((li, idx) => (
+              <div
+                key={idx}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  marginTop: "8px",
+                }}
+              >
+                {li.imageUrl && (
+                  <img
+                    src={li.imageUrl}
+                    alt={li.imageAlt}
+                    width={60}
+                    height={60}
+                  />
+                )}
+                <div>
+                  <p>{li.title}</p>
+                  <p style={{ fontSize: "12px", color: "#666" }}>
+                    Qty: {li.quantity} • {li.pricePerUnit?.amount}{" "}
+                    {li.pricePerUnit?.currencyCode} × {li.quantity} ={" "}
+                    {li.itemTotal?.amount} {li.itemTotal?.currencyCode}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </Card>
+        )} */}
+        {/* {willApplyChanges.length > 0 && (
+          <Card>
 
             <div>
               {willApplyChanges.map((change, idx) => {
@@ -677,7 +786,7 @@ export default function SubscriptionDetail() {
               })}
             </div>
           </Card>
-        )}
+        )} */}
         <Card>
           <b>Payment Summary</b>
 
