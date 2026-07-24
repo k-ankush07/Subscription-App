@@ -385,8 +385,6 @@ async function fetchVariantImage(admin, variantId) {
 async function fetchVariantsBatch(admin, variantIds) {
   const uniqueIds = [...new Set((variantIds || []).filter(Boolean))];
   if (uniqueIds.length === 0) return {};
-
-  // Shopify's `nodes` query accepts up to 250 ids per call — chunk defensively.
   const CHUNK_SIZE = 200;
   const map = {};
 
@@ -592,14 +590,6 @@ function resolveLineForAction(draftLines, action) {
   }
   return match || null;
 }
-
-// CHANGED — cycleDate (optional) allows callers to target a cycle by date
-// instead of by index. Shopify's `subscriptionBillingCycleEditDelete` (like
-// `subscriptionBillingCycleContractEdit`) can reject an `index` selector with
-// "Billing cycle selector is invalid" for cycles that haven't been
-// "realized" yet (no billing attempt / edit has ever touched them, typically
-// the very first upcoming cycle on a fresh contract). Passing the date is
-// the more reliable selector in that situation.
 async function clearBillingCycleEdit(admin, contractId, cycleIndex, cycleDate = null) {
   if (cycleIndex == null && !cycleDate) {
     return { cleared: false, reason: "no cycleIndex or cycleDate provided" };
@@ -719,11 +709,6 @@ async function applyActionsToCycle(
   if (!payload?.draft) {
     throw new Error("subscriptionBillingCycleContractEdit returned no draft");
   }
-
-  // const draftId = payload.draft.id;
-  // const draftLines = payload.draft.lines.edges.map((e) => e.node);
-  // const lineId = draftLines[0]?.id;
-  // const removedLineIds = new Set(); // CHANGED — track which lines got removed this run
   const draftId = payload.draft.id;
   const draftLines = payload.draft.lines.edges.map((e) => e.node);
   const lineId = draftLines[0]?.id;
@@ -955,28 +940,7 @@ async function applyActionsToCycle(
           );
           addPrice = price.toFixed(2);
         }
-
-        // const res = await admin.graphql(
-        //   `
-        //   mutation addLine($draftId: ID!, $variantId: ID!, $qty: Int!, $price: Decimal!) {
-        //     subscriptionDraftLineAdd(
-        //       draftId: $draftId
-        //       input: { productVariantId: $variantId, quantity: $qty, currentPrice: $price }
-        //     ) {
-        //       userErrors { field message }
-        //     }
-        //   }
-        //   `,
-        //   {
-        //     variables: {
-        //       draftId,
-        //       variantId: action.variantId,
-        //       qty: Number(action.quantity) || 1,
-        //       price: addPrice,
-        //     },
-        //   },
-        // );
-       const res = await admin.graphql(
+        const res = await admin.graphql(
           `
           mutation addLine($draftId: ID!, $variantId: ID!, $qty: Int!, $price: Decimal!, $sellingPlanId: ID) {
             subscriptionDraftLineAdd(
@@ -1147,7 +1111,6 @@ async function getContractPreview(admin, contractId) {
     }
   }
 
-  // Settings sirf frozen snapshot se — koi live fallback nahi.
   const extraSettings = await getContractSettingsSnapshot(admin, contractId);
   const settingsSource = extraSettings ? "contract_snapshot" : "no_snapshot_found";
 
@@ -1308,8 +1271,6 @@ async function getContractPreview(admin, contractId) {
     "INR";
 
   const lineItems = [];
-
-  // Original line image — from the batch map, not a separate fetch.
   const originalVariantInfo = variantDataMap[firstLine?.variantId];
   let mainLineImageUrl = originalVariantInfo?.image?.url ?? null;
   let mainLineImageAlt = originalVariantInfo?.image?.altText ?? firstLine?.title ?? null;
@@ -1332,14 +1293,6 @@ let swappedTitle ;
       swappedTitle = variantName ? `${matchedDest.name}` : matchedDest.name;
     }
   }
-
-  // CHANGED — base line ab hamesha lineItems me push hoti hai (jab tak wo
-  // REMOVE action se hata na di gayi ho), chahe koi swap ho ya na ho.
-  // Pehle ye sirf `swapAction?.variantId` hone par push hoti thi — matlab
-  // agar sirf QUANTITY_CHANGE/DISCOUNT_CHANGE configured the (koi swap
-  // nahi), to base product preview se hi gayab ho jaata tha aur
-  // lineItems/calculatedOrderTotal khali/0 aata tha, jabki willApply me
-  // actions sahi dikh rahe the.
   const isBaseLineRemoved = actionsForNextCycle.some(
     (a) =>
       (a.type === "REMOVE_PRODUCT" || a.type === "REMOVE_VARIANT") &&
@@ -1413,8 +1366,6 @@ let swappedTitle ;
     status: contract.status,
     customer: contract.customer,
     settingsSource,
-    // CHANGED — top-level lineItem ab hamesha bheja jaata hai (pehle sirf
-    // hasSwap true hone par bheja jaata tha, warna null aata tha).
     lineItem: {
       id: firstLine?.id,
       title: firstLine?.title,
@@ -1487,10 +1438,6 @@ function removeAutomationVariant(settings, automationCycleIndex, automationActio
     }
     return a.variantId === variantId || a.sourceVariantId === variantId;
   };
-
-  // automationActionIndex stale ho sakta hai (do quick removes ke beech
-  // revalidation na hui ho to). Pehle hint index try karo, warna poore
-  // entry.actions me variantId se dhoondo — index par blindly bharosa mat karo.
   let actionIndex = automationActionIndex;
   let action = entry.actions[actionIndex];
 
@@ -1528,13 +1475,6 @@ function removeAutomationVariant(settings, automationCycleIndex, automationActio
     action.dests = nextDests;
 
     if (nextDests.length === 0) {
-      // CHANGED — sabhi swap destinations (B, C) hata diye gaye. Sirf
-      // action delete karna kaafi nahi: agar hum yahan se hat jaate hain,
-      // to koi bhi action ab source product (A) ko swap/remove nahi
-      // kar raha, aur Shopify default rule ke hisaab se A wapas
-      // original line ke roop me reappear ho jaata hai (D ke saath).
-      // Isliye is action ko REMOVE me convert karo taaki A explicitly
-      // hata di jaaye — sirf D bache, A + D nahi.
       if (action.sourceVariantId) {
         entry.actions[actionIndex] = {
           type: "remove",
@@ -1550,8 +1490,7 @@ function removeAutomationVariant(settings, automationCycleIndex, automationActio
           isVariant: false,
         };
       } else {
-        // Source hi pata nahi — purana behavior (action delete) fallback,
-        // kyunki bina source ke hum kuch remove nahi kar sakte.
+
         entry.actions.splice(actionIndex, 1);
       }
     }
