@@ -17,7 +17,7 @@ const API = import.meta.env.VITE_API_URL;
 const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
 
 export async function loader({ request, params }) {
-  const { admin } = await authenticate.admin(request);
+  const { admin,session } = await authenticate.admin(request);
 
   const subscriptionId = params.id;
   const contractId = `gid://shopify/SubscriptionContract/${subscriptionId}`;
@@ -263,7 +263,7 @@ export async function loader({ request, params }) {
     console.error("Backend fetch notes failed:", err);
   }
 
-  return { contract, upcomingCycles, internalNotes, customerNotes, preview };
+  return { contract, upcomingCycles, internalNotes, customerNotes, preview ,shop: session.shop, };
 }
 
 const RESCHEDULE_MUTATION = `
@@ -642,10 +642,6 @@ export async function action({ request, params }) {
           admin,
           contractId,
         );
-
-        // IMPORTANT: pass pricingPolicy so the "before threshold" native selling-plan
-        // discount (e.g. 10% off) is correctly applied/charged when the custom
-        // "after N orders" discount hasn't kicked in yet — keeps this in sync with preview.
         const actionsForThisCycle = extraSettings
           ? collectActionsForCycle(extraSettings, cycleIndex, pricingPolicy)
           : [];

@@ -1,3 +1,4 @@
+
 const EXTRA_SETTINGS_NAMESPACE = "subscription_app";
 const CONTRACT_SETTINGS_SNAPSHOTS_KEY = "contract_settings_snapshots";
 
@@ -201,17 +202,6 @@ function sortActionsForApply(actions) {
     return (ai === -1 ? ACTION_ORDER.length : ai) - (bi === -1 ? ACTION_ORDER.length : bi);
   });
 }
-
-/**
- * Resolves which discount is "in effect" for a given cycle:
- *  - "after"  → merchant's custom "change discount after N orders" setting (afterOrders/afterDiscountValue)
- *  - "before" → the native Shopify selling-plan pricing policy discount tier (pricingPolicy.cycleDiscounts),
- *               which is what's active until the custom "after" threshold kicks in
- *  - none     → no discount at all (returns a __default placeholder so downstream code can detect "no discount")
- *
- * This single function is the source of truth for BOTH the preview (getContractPreview) and the
- * actual billing application (applyActionsToCycle via collectActionsForCycle), so they never disagree.
- */
 function resolveDiscountForCycle(settings, pricingPolicy, cycleIndex) {
   cycleIndex = Number(cycleIndex);
 
@@ -328,7 +318,7 @@ if (settings.Automation && Array.isArray(settings.automationCycles)) {
   });
 }
   const hasSwapAction = actions.some(
-  (a) => a.type === "VARIANT_SWAP" || a.type === "PRODUCT_SWAP",
+  (a) => a.type === "VARIANT_SWAP" || a.type === "PRODUCT_SWAP"
 );
 
 if (hasSwapAction) {
@@ -1061,13 +1051,8 @@ function removeAllDiscounts(settings) {
     throw new Error("removeAllDiscounts: no settings configured");
   }
   const clonedSettings = JSON.parse(JSON.stringify(settings));
-
-  // Global "after N orders" discount (base line) off kar do
   clonedSettings.changeDiscountAfterOrders = false;
-  // Native/"before" selling-plan discount tier (base line, pre-threshold) bhi off kar do
-  clonedSettings.beforeDiscountDisabled = true;
-
-  // Har automation action jisme discountEnabled tha, usko bhi off kar do
+  clonedSettings.beforeDiscountDisabled = true;o
   if (Array.isArray(clonedSettings.automationCycles)) {
     clonedSettings.automationCycles.forEach((entry) => {
       (entry.actions ?? []).forEach((action) => {
@@ -1088,10 +1073,6 @@ function removeLineDiscount(settings, { isBaseLine, discountPhase, automationCyc
   const clonedSettings = JSON.parse(JSON.stringify(settings));
 
   if (isBaseLine) {
-    // Base line ka discount 2 jagah se aa sakta hai:
-    //  - "before" phase → native selling-plan discount tier (pricingPolicy.cycleDiscounts)
-    //  - "after" phase  → merchant ka custom "change discount after N orders" setting
-    // Jo bhi currently active hai (discountPhase se pata chalta hai), usi ko off karo.
     if (discountPhase === "before") {
       clonedSettings.beforeDiscountDisabled = true;
     } else {

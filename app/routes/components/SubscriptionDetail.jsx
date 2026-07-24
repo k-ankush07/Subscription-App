@@ -7,6 +7,7 @@ import {
   useParams,
   useFetcher,
   useLoaderData,
+  useRevalidator,
 } from "react-router";
 
 function getCardImage(brand) {
@@ -30,7 +31,14 @@ function formateDate(date) {
 }
 
 export default function SubscriptionDetail() {
-  const { contract, upcomingCycles, internalNotes, customerNotes, preview } = useLoaderData();
+  const {
+    contract,
+    upcomingCycles,
+    internalNotes,
+    customerNotes,
+    preview,
+    shop,
+  } = useLoaderData();
   console.log("preview", preview, "contract", contract, "cycle");
   const [localLines, setLocalLines] = useState(contract?.lines?.edges || []);
   const [showInternalNotes, setShowInternalNotes] = useState(false);
@@ -40,8 +48,16 @@ export default function SubscriptionDetail() {
   const [editingCycleIndex, setEditingCycleIndex] = useState(null);
   const [editDate, setEditDate] = useState("");
   const [visibleCyclesCount, setVisibleCyclesCount] = useState(5);
+  const customerId = contract?.customer?.id?.split("/").pop();
+  const shopHandle = shop?.replace(".myshopify.com", "");
   const { id } = useParams();
   const fetcher = useFetcher();
+  const revalidator = useRevalidator();
+  useEffect(() => {
+    if (fetcher.state === "idle" && fetcher.data != null) {
+      revalidator.revalidate();
+    }
+  }, [fetcher.state, fetcher.data]);
 
   const lines = localLines;
   const currencyCode = lines?.[0]?.node?.currentPrice?.currencyCode;
@@ -52,6 +68,34 @@ export default function SubscriptionDetail() {
   const willApplyChanges = Array.isArray(preview?.nextOrder?.willApply)
     ? preview.nextOrder.willApply
     : [];
+
+  const paymentInstrument = contract?.customerPaymentMethod?.instrument;
+  const hasValidPaymentMethod = !!(
+    contract?.customerPaymentMethod?.id && paymentInstrument
+  );
+
+  let chargeDisabledReason = null;
+  if (contract?.status !== "ACTIVE") {
+    chargeDisabledReason =
+      "Subscription must be active to charge (currently " +
+      (contract?.status?.toLowerCase() || "inactive") +
+      ").";
+  } else if (nextCycleIndex == null) {
+    chargeDisabledReason = "No upcoming billing cycle to charge.";
+  } else if (nextUpcomingCycle?.skipped) {
+    chargeDisabledReason = "The next cycle is skipped — resume it first.";
+  } else if (!hasValidPaymentMethod) {
+    chargeDisabledReason = "No valid payment method on file for this customer.";
+  } else if (nextCycleDate) {
+    const msUntilDue = new Date(nextCycleDate).getTime() - Date.now();
+    const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
+    if (msUntilDue > TWENTY_FOUR_HOURS_MS) {
+      chargeDisabledReason = `Can only charge within 24 hours of the billing date (${formateDate(
+        nextCycleDate,
+      )}).`;
+    }
+  }
+  const canChargeNow = !chargeDisabledReason;
 
   const navigate = useNavigate();
   const handleRemoveAutomationItem = ({
@@ -166,9 +210,6 @@ export default function SubscriptionDetail() {
       {
         type: "remove_line_discount",
         isBaseLine: li.isBaseLine ? "true" : "false",
-        // "before" (native selling-plan discount, e.g. 10% off pre-threshold) or
-        // "after" (merchant's custom "after N orders" discount, e.g. 60% off). The server
-        // uses this to know exactly which setting to flip so the correct discount gets removed.
         discountPhase: li.discountPhase || "",
         automationCycleIndex:
           li.automationCycleIndex != null
@@ -218,24 +259,32 @@ export default function SubscriptionDetail() {
             )}
           </>
         )}
-        {nextCycleIndex != null && contract?.status !== "CANCELLED" && (
-          <Button
-            onClick={() => {
-              const confirmed = confirm(
-                `Charge this customer now for cycle #${nextCycleIndex}? This will place an order immediately.`,
-              );
-              if (!confirmed) return;
-              fetcher.submit(
-                { type: "charge_now", cycleIndex: nextCycleIndex },
-                { method: "post" },
-              );
-            }}
-            loading={fetcher.state !== "idle"}
-            disabled={fetcher.state !== "idle"}
-            tone="success"
-          >
-            Charge Now
-          </Button>
+        {contract?.status !== "CANCELLED" && (
+          <span title={!canChargeNow ? chargeDisabledReason : undefined}>
+            <Button
+              onClick={() => {
+                if (!canChargeNow || nextCycleIndex == null) return;
+                const confirmed = confirm(
+                  `Charge this customer now for cycle #${nextCycleIndex}? This will place an order immediately.`,
+                );
+                if (!confirmed) return;
+                fetcher.submit(
+                  { type: "charge_now", cycleIndex: nextCycleIndex },
+                  { method: "post" },
+                );
+              }}
+              loading={fetcher.state !== "idle"}
+              disabled={fetcher.state !== "idle" || !canChargeNow}
+              tone="success"
+            >
+              Charge Now
+            </Button>
+            {!canChargeNow && (
+              <div style={{ fontSize: "12px", color: "#8a8a8a" }}>
+                {chargeDisabledReason}
+              </div>
+            )}
+          </span>
         )}
 
         {contract?.status !== "CANCELLED" ? (
@@ -272,6 +321,13 @@ export default function SubscriptionDetail() {
         </div>
         <div>
           <b>Customer</b>
+          <a
+            href={`https://admin.shopify.com/store/${shopHandle}/customers/${customerId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Customers Page
+          </a>
           <p>
             <span>
               {contract?.customer?.firstName} {contract?.customer?.lastName}
