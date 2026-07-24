@@ -1,8 +1,20 @@
-
-
-
 const EXTRA_SETTINGS_NAMESPACE = "subscription_app";
 const CONTRACT_SETTINGS_SNAPSHOTS_KEY = "contract_settings_snapshots";
+
+function currencySymbol(currencyCode, locale = 'en') {
+  if (!currencyCode) return '';
+  try {
+    const parts = new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency: currencyCode,
+      currencyDisplay: 'symbol',
+    }).formatToParts(0);
+    const symbolPart = parts.find((p) => p.type === 'currency');
+    return symbolPart ? symbolPart.value : currencyCode;
+  } catch {
+    return currencyCode;
+  }
+}
 
 async function getShopIdForSnapshot(admin) {
   const res = await admin.graphql(`query { shop { id } }`);
@@ -190,22 +202,74 @@ function sortActionsForApply(actions) {
   });
 }
 
-function collectActionsForCycle(settings, cycleIndex) {
-  const actions = [];
-  if (!settings) return actions;
-
+/**
+ * Resolves which discount is "in effect" for a given cycle:
+ *  - "after"  → merchant's custom "change discount after N orders" setting (afterOrders/afterDiscountValue)
+ *  - "before" → the native Shopify selling-plan pricing policy discount tier (pricingPolicy.cycleDiscounts),
+ *               which is what's active until the custom "after" threshold kicks in
+ *  - none     → no discount at all (returns a __default placeholder so downstream code can detect "no discount")
+ *
+ * This single function is the source of truth for BOTH the preview (getContractPreview) and the
+ * actual billing application (applyActionsToCycle via collectActionsForCycle), so they never disagree.
+ */
+function resolveDiscountForCycle(settings, pricingPolicy, cycleIndex) {
   cycleIndex = Number(cycleIndex);
-  if (
-    settings.changeDiscountAfterOrders &&
-    cycleIndex >= Number(settings.afterOrders)
-  ) {
-    actions.push({
+
+  const customActive =
+    settings?.changeDiscountAfterOrders &&
+    cycleIndex >= Number(settings.afterOrders) &&
+    Number(settings.afterDiscountValue) > 0;
+
+  if (customActive) {
+    return {
       type: "DISCOUNT_CHANGE",
       adjustmentType: settings.afterDiscountType ?? "PERCENTAGE",
       adjustmentValue: Number(settings.afterDiscountValue) || 0,
       after: settings.afterOrders,
-    });
+      __phase: "after",
+    };
   }
+
+  // Custom "after" discount isn't active (either not configured, or we haven't hit the threshold yet).
+  // Fall back to the native selling-plan discount tier, unless the merchant explicitly removed it
+  // for this contract.
+  if (!settings?.beforeDiscountDisabled) {
+    const nativeTier = getDiscountTierForCycle(pricingPolicy, cycleIndex);
+    if (nativeTier) {
+      const isPct = nativeTier.adjustmentType === "PERCENTAGE";
+      const value = isPct
+        ? Number(nativeTier.adjustmentValue?.percentage ?? 0)
+        : Number(nativeTier.adjustmentValue?.amount ?? 0);
+      if (value > 0) {
+        return {
+          type: "DISCOUNT_CHANGE",
+          adjustmentType: nativeTier.adjustmentType,
+          adjustmentValue: value,
+          after: nativeTier.afterCycle,
+          __phase: "before",
+        };
+      }
+    }
+  }
+
+  return {
+    type: "DISCOUNT_CHANGE",
+    adjustmentType: "PERCENTAGE",
+    adjustmentValue: 0,
+    after: 0,
+    __default: true,
+    __phase: "none",
+  };
+}
+
+function collectActionsForCycle(settings, cycleIndex, pricingPolicy = null) {
+  const actions = [];
+  if (!settings) return actions;
+
+  cycleIndex = Number(cycleIndex);
+
+  actions.push(resolveDiscountForCycle(settings, pricingPolicy, cycleIndex));
+
   if (
     settings.changeQuantityAfterOrders &&
     cycleIndex >= Number(settings.quantityAfterOrders)
@@ -325,7 +389,6 @@ function applyDiscountTierToPrice(basePrice, tier) {
   return Math.max(0, base - amt);
 }
 
-
 async function fetchVariantPrice(admin, variantId) {
   if (!variantId) return null;
   const res = await admin.graphql(
@@ -343,7 +406,6 @@ async function fetchVariantPrice(admin, variantId) {
   const price = data.data?.productVariant?.price;
   return price != null ? Number(price) : null;
 }
-
 
 async function fetchVariantsBatch(admin, variantIds) {
   const uniqueIds = [...new Set((variantIds || []).filter(Boolean))];
@@ -594,7 +656,7 @@ async function applyActionsToCycle(
   cycleDate = null,
 ) {
   const openSelector = cycleDate ? { date: cycleDate } : { index: cycleIndex };
-
+   console.log(`[applyActionsToCycle date ] contract=${contractId} selector=${JSON.stringify(openSelector)}`); // ADD THIS
   const editRes = await admin.graphql(
     `
     mutation openCycleDraft($contractId: ID!, $selector: SubscriptionBillingCycleSelector!) {
@@ -637,7 +699,7 @@ async function applyActionsToCycle(
   const effectiveBasePrice = await getEffectiveBasePrice(admin, actions, basePriceAmount);
   const discountTierForCycle = getDiscountTierForCycle(pricingPolicy, cycleIndex);
 
-  const hasCustomDiscountChange = actions.some((a) => a.type === "DISCOUNT_CHANGE");
+  const hasCustomDiscountChange = actions.some((a) => a.type === "DISCOUNT_CHANGE" && !a.__default);
   const discountActionEntry = actions.find((a) => a.type === "DISCOUNT_CHANGE");
 
   const orderedActions = sortActionsForApply(actions);
@@ -676,10 +738,10 @@ async function applyActionsToCycle(
 
 
       // ── PRODUCT_SWAP / VARIANT_SWAP ──
+      // ── PRODUCT_SWAP / VARIANT_SWAP ──
       if (action.type === "PRODUCT_SWAP" || action.type === "VARIANT_SWAP") {
         const targetLine = resolveLineForAction(draftLines, action);
         if (!targetLine) {
-
           console.warn(`[applyActionsToCycle] ${action.type} skipped — configured source product doesn't match this subscription's product`);
           action.__skippedReason = "Configured source product doesn't match this subscription's product — swap not applied.";
           continue;
@@ -690,24 +752,32 @@ async function applyActionsToCycle(
           continue;
         }
         if (!action.variantId) throw new Error(`${action.type} failed: no variantId configured`);
+
+        // FIX: use THIS action's own variant price, not a globally-picked (possibly unrelated) swap's price
+        const ownVariantPrice = batchedVariantData[action.variantId]?.price;
+        const basePriceForThisSwap = ownVariantPrice != null ? ownVariantPrice : effectiveBasePrice;
+
         let recalculatedPrice = null;
-        if (!hasCustomDiscountChange && effectiveBasePrice != null) {
-          recalculatedPrice = applyDiscountTierToPrice(effectiveBasePrice, discountTierForCycle).toFixed(2);
+        if (!hasCustomDiscountChange && basePriceForThisSwap != null) {
+          recalculatedPrice = applyDiscountTierToPrice(basePriceForThisSwap, discountTierForCycle).toFixed(2);
         }
+
+        // FIX: quantity ko explicitly set karo, warna purani line ki quantity carry ho jati hai
+        const swapQuantity = Number(action.quantity) || 1;
 
         const res = await admin.graphql(
           `
-          mutation swapLine($draftId: ID!, $lineId: ID!, $variantId: ID!, $price: Decimal) {
+          mutation swapLine($draftId: ID!, $lineId: ID!, $variantId: ID!, $price: Decimal, $qty: Int) {
             subscriptionDraftLineUpdate(
               draftId: $draftId
               lineId: $lineId
-              input: { productVariantId: $variantId, currentPrice: $price }
+              input: { productVariantId: $variantId, currentPrice: $price, quantity: $qty }
             ) {
               userErrors { field message }
             }
           }
           `,
-          { variables: { draftId, lineId: targetLine.id, variantId: action.variantId, price: recalculatedPrice } },
+          { variables: { draftId, lineId: targetLine.id, variantId: action.variantId, price: recalculatedPrice, qty: swapQuantity } },
         );
         const data = await res.json();
         if (data.errors) throw new Error(`${action.type} failed (GraphQL): ${data.errors[0]?.message}`);
@@ -986,6 +1056,68 @@ function removeAutomationVariant(settings, automationCycleIndex, automationActio
 
   return clonedSettings;
 }
+function removeAllDiscounts(settings) {
+  if (!settings) {
+    throw new Error("removeAllDiscounts: no settings configured");
+  }
+  const clonedSettings = JSON.parse(JSON.stringify(settings));
+
+  // Global "after N orders" discount (base line) off kar do
+  clonedSettings.changeDiscountAfterOrders = false;
+  // Native/"before" selling-plan discount tier (base line, pre-threshold) bhi off kar do
+  clonedSettings.beforeDiscountDisabled = true;
+
+  // Har automation action jisme discountEnabled tha, usko bhi off kar do
+  if (Array.isArray(clonedSettings.automationCycles)) {
+    clonedSettings.automationCycles.forEach((entry) => {
+      (entry.actions ?? []).forEach((action) => {
+        if (action && action.discountEnabled) {
+          action.discountEnabled = false;
+        }
+      });
+    });
+  }
+
+  return clonedSettings;
+}
+
+function removeLineDiscount(settings, { isBaseLine, discountPhase, automationCycleIndex, automationActionIndex }) {
+  if (!settings) {
+    throw new Error("removeLineDiscount: no settings configured");
+  }
+  const clonedSettings = JSON.parse(JSON.stringify(settings));
+
+  if (isBaseLine) {
+    // Base line ka discount 2 jagah se aa sakta hai:
+    //  - "before" phase → native selling-plan discount tier (pricingPolicy.cycleDiscounts)
+    //  - "after" phase  → merchant ka custom "change discount after N orders" setting
+    // Jo bhi currently active hai (discountPhase se pata chalta hai), usi ko off karo.
+    if (discountPhase === "before") {
+      clonedSettings.beforeDiscountDisabled = true;
+    } else {
+      // "after" ya legacy calls (jinme phase nahi bheja gaya) → purana behavior
+      clonedSettings.changeDiscountAfterOrders = false;
+    }
+    return clonedSettings;
+  }
+
+  if (!Array.isArray(clonedSettings.automationCycles)) {
+    throw new Error("removeLineDiscount: no automationCycles configured");
+  }
+  const entry = clonedSettings.automationCycles[automationCycleIndex];
+  if (!entry || !Array.isArray(entry.actions)) {
+    throw new Error("removeLineDiscount: automation cycle entry not found");
+  }
+  const action = entry.actions[automationActionIndex];
+  if (!action) {
+    throw new Error(
+      "removeLineDiscount: target action not found (stale index) — please refresh and retry",
+    );
+  }
+  action.discountEnabled = false;
+
+  return clonedSettings;
+}
 function addBaseLineRemoval(settings, cycleIndex, productId, variantId) {
   const clonedSettings = settings
     ? JSON.parse(JSON.stringify(settings))
@@ -1164,14 +1296,15 @@ async function getContractPreview(admin, contractId) {
   }
 
   const rawActionsForNextCycle =
-    cycleIndex != null ? collectActionsForCycle(extraSettings, cycleIndex) : [];
+    cycleIndex != null ? collectActionsForCycle(extraSettings, cycleIndex, firstLine?.pricingPolicy) : [];
   const actionsForNextCycle = rawActionsForNextCycle.filter((a) => {
     if (!LINE_MATCH_REQUIRED_TYPES.has(a.type)) return true;
     return actionMatchesLine(a, firstLine);
   });
 
-  let calculatedPricePerUnit =
-    cycleIndex != null ? computePriceForCycle(firstLine?.pricingPolicy, cycleIndex) : null;
+  // let calculatedPricePerUnit =
+  //   cycleIndex != null ? computePriceForCycle(firstLine?.pricingPolicy, cycleIndex) : null;
+  let calculatedPricePerUnit = firstLine?.pricingPolicy?.basePrice ?? null;
   const swapAction = Array.isArray(actionsForNextCycle)
     ? actionsForNextCycle.find((a) => a.type === "VARIANT_SWAP" || a.type === "PRODUCT_SWAP")
     : null;
@@ -1210,11 +1343,15 @@ async function getContractPreview(admin, contractId) {
     }
   }
 
+  // Unified discount for the base line — either "before" (native selling-plan tier) or
+  // "after" (merchant's custom afterOrders override). Never both, never a stray "0% off".
   const discountAction = Array.isArray(actionsForNextCycle)
     ? actionsForNextCycle.find((a) => a.type === "DISCOUNT_CHANGE")
     : null;
+  const hasRealDiscount =
+    discountAction && !discountAction.__default && Number(discountAction.adjustmentValue) > 0;
 
-  if (discountAction) {
+  if (hasRealDiscount) {
     const base = effectiveBase;
 
     let discounted = base;
@@ -1279,6 +1416,15 @@ let swappedTitle ;
       actionMatchesLine(a, firstLine),
   );
 
+  const baseOriginalPricePerUnit = {
+    amount: effectiveBase.toFixed(2),
+    currencyCode,
+  };
+  const baseOriginalItemTotal = {
+    amount: (effectiveBase * calculatedQuantity).toFixed(2),
+    currencyCode,
+  };
+
   if (calculatedPricePerUnit && !isBaseLineRemoved) {
     lineItems.push({
       title: swapAction?.variantId ? swappedTitle : firstLine?.title,
@@ -1291,15 +1437,22 @@ let swappedTitle ;
       imageAlt: mainLineImageAlt,
       pricePerUnit: calculatedPricePerUnit,
       itemTotal: calculatedItemTotal,
+      originalPricePerUnit: hasRealDiscount ? baseOriginalPricePerUnit : calculatedPricePerUnit,
+      originalItemTotal: hasRealDiscount ? baseOriginalItemTotal : calculatedItemTotal,
       isBaseLine: true,
-    automationCycleIndex: swapAction?.__automationCycleIndex ?? null,
-    automationActionIndex: swapAction?.__automationActionIndex ?? null,
-      discountLabel: discountAction
-    ? (String(discountAction.adjustmentType).toUpperCase() === "PERCENTAGE"
-        ? `${discountAction.adjustmentValue}% off`
-        : `${discountAction.adjustmentValue} ${currencyCode} off`)
-    : null,
-      });
+      automationCycleIndex: swapAction?.__automationCycleIndex ?? null,
+      automationActionIndex: swapAction?.__automationActionIndex ?? null,
+      // "before" = native selling-plan discount tier, "after" = merchant's custom afterOrders override.
+      // The UI needs this to know which setting to flip when "Remove discount" is clicked.
+      discountPhase: hasRealDiscount ? discountAction.__phase : null,
+      discountLabel: hasRealDiscount
+        ? (String(discountAction.adjustmentType).toUpperCase() === "PERCENTAGE"
+            ? `${discountAction.adjustmentValue}% off`
+            : String(discountAction.adjustmentType).toUpperCase() === "FIXED_AMOUNT"
+              ? `Fixed price: ${currencySymbol(currencyCode)}${discountAction.adjustmentValue}`
+              : `${currencySymbol(currencyCode)}${discountAction.adjustmentValue} off`)
+        : null,
+    });
   }
 
   const discountTierForCycle = getDiscountTierForCycle(firstLine?.pricingPolicy, cycleIndex);
@@ -1322,7 +1475,7 @@ let swappedTitle ;
         },
         effectiveBase,
         discountTierForCycle,
-        discountAction,
+        hasRealDiscount ? discountAction : null,
       );
     } catch (err) {
       console.warn(`[preview] failed computing price for ADD_PRODUCT variant ${action.variantId}:`, err);
@@ -1332,6 +1485,13 @@ let swappedTitle ;
     let addedImageUrl = action.imageUrl ?? variantInfo?.image?.url ?? null;
     let addedImageAlt = action.productName ?? action.variantName ?? variantInfo?.image?.altText ?? null;
 
+    const originalPriceValue =
+      knownPrice != null ? knownPrice : isSwapGenerated ? effectiveBase : pricePerUnit;
+
+    // FIX: this label depends ONLY on the add-product action's own discount config —
+    // it must NOT be gated on the base line's discount action being "non-default".
+    // Previously `action.discountEnabled && !discountAction.__default` meant this label
+    // silently disappeared whenever the base line had no active discount of its own.
     lineItems.push({
       title: action.productName ?? action.variantName ?? "Added product",
       productId: action.productId ?? action.destProductId ?? null,
@@ -1341,19 +1501,31 @@ let swappedTitle ;
       imageAlt: addedImageAlt,
       pricePerUnit: { amount: pricePerUnit.toFixed(2), currencyCode },
       itemTotal: { amount: (pricePerUnit * qty).toFixed(2), currencyCode },
-       isBaseLine: false,
-    automationCycleIndex: action.__automationCycleIndex ?? null,
-    automationActionIndex: action.__automationActionIndex ?? null,
-    discountLabel: action.discountEnabled
-  ? (String(action.discountType).toLowerCase() === "percentage"
-      ? `${action.discountValue}% off`
-      : `${action.discountValue} ${currencyCode} off`)
-  : null,
+      originalPricePerUnit: { amount: originalPriceValue.toFixed(2), currencyCode },
+      originalItemTotal: { amount: (originalPriceValue * qty).toFixed(2), currencyCode },
+      isBaseLine: false,
+      automationCycleIndex: action.__automationCycleIndex ?? null,
+      automationActionIndex: action.__automationActionIndex ?? null,
+      discountPhase: null, // automation-item discounts aren't phased — remove just disables discountEnabled
+      discountLabel:
+        action.discountEnabled && Number(action.discountValue) > 0
+          ? (String(action.discountType).toLowerCase() === "percentage"
+              ? `${action.discountValue}% off`
+              : String(action.discountType).toLowerCase() === "fixed_amount"
+                ? `Fixed price: ${currencySymbol(currencyCode)}${action.discountValue}`
+                : `${currencySymbol(currencyCode)}${action.discountValue} off`)
+          : null,
     });
   }
 
   const calculatedOrderTotal = {
     amount: lineItems.reduce((sum, li) => sum + Number(li.itemTotal.amount), 0).toFixed(2),
+    currencyCode,
+  };
+  const originalOrderTotal = {
+    amount: lineItems
+      .reduce((sum, li) => sum + Number((li.originalItemTotal ?? li.itemTotal).amount), 0)
+      .toFixed(2),
     currencyCode,
   };
 
@@ -1380,6 +1552,7 @@ let swappedTitle ;
       expectedDate: nextBillingDate,
       lineItems,
       calculatedOrderTotal,
+      originalOrderTotal,
       willApply: (() => {
         const visible = actionsForNextCycle
           .filter((a) => !a.__default)
@@ -1420,11 +1593,11 @@ let swappedTitle ;
 
   return preview;
 }
-
-
 export {
+  currencySymbol,
   getContractPreview,
   collectActionsForCycle,
+  resolveDiscountForCycle,
   applyActionsToCycle,
   computePriceForCycle,
   getDiscountTierForCycle,
@@ -1441,4 +1614,6 @@ export {
   removeAutomationVariant,
   getEffectiveSettingsForContract,
   addBaseLineRemoval,
+  removeAllDiscounts,      
+  removeLineDiscount, 
 };

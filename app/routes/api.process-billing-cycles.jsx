@@ -120,6 +120,7 @@ async function loadPlanGroupsAndSettings(admin) {
 const PROCESSED_CYCLES_KEY = "processed_billing_cycles";
 const CHARGED_CYCLES_KEY = "charged_billing_cycles";
 const AUDIT_LOG_KEY = "audit_log";
+const EDIT_LOOKAHEAD_MINUTES = 5;
 
 async function appendAuditLog(admin, shopId, entry) {
   const res = await admin.graphql(`
@@ -316,8 +317,8 @@ async function findEarliestDueCycle(admin, contractId, now, contractCreatedAt) {
     return { cycle: dueUnbilled[0], nextUpcoming: null };
   }
 
-  // FIX: nothing due in the [start, now] window — that window can't contain
-  // a future cycle by construction, so look ahead separately with a
+  // Nothing due in the [start, now] window — that window can't contain a
+  // future cycle by construction, so look ahead separately with a
   // forward-looking range to find the next upcoming (not-yet-due) cycle.
   const FORWARD_LOOKAHEAD_DAYS = 30;
   const forwardEnd = new Date(now.getTime() + FORWARD_LOOKAHEAD_DAYS * 24 * 60 * 60 * 1000).toISOString();
@@ -411,6 +412,75 @@ async function processShop(admin) {
     const now = new Date();
     const { cycle, nextUpcoming } = await findEarliestDueCycle(admin, contract.id, now, contract.createdAt);
 
+    const sellingPlanId = contract.lines.edges[0]?.node?.sellingPlanId;
+    const basePriceAmount = contract.lines.edges[0]?.node?.pricingPolicy?.basePrice?.amount ?? null;
+    const pricingPolicy = contract.lines.edges[0]?.node?.pricingPolicy ?? null; // needed for swap price recalc
+    const planInfo = sellingPlanId ? sellingPlanIdToInfo.get(sellingPlanId) : null;
+    const groupId = planInfo?.groupId ?? null;
+    const settings = await getContractSettingsSnapshot(admin, contract.id, shopId);
+
+    // ── STEP 1: edit the next-upcoming cycle BEFORE it goes overdue.
+    // Shopify only allows subscriptionBillingCycleContractEdit while the
+    // cycle's billingAttemptExpectedDate is still in the future — once it
+    // passes, the selector is rejected as invalid regardless of format. ──
+    if (nextUpcoming && settings) {
+      const minsUntilDue = (new Date(nextUpcoming.billingAttemptExpectedDate).getTime() - now.getTime()) / 60000;
+      const editMarker = `${contract.id}:${nextUpcoming.cycleIndex}`;
+
+      if (minsUntilDue >= 0 && minsUntilDue <= EDIT_LOOKAHEAD_MINUTES && !processedCycles.has(editMarker)) {
+        const actionsForUpcoming = collectActionsForCycle(settings, nextUpcoming.cycleIndex);
+
+        if (actionsForUpcoming.length > 0) {
+          try {
+            const { skippedActions } = await applyActionsToCycle(
+              admin,
+              contract.id,
+              nextUpcoming.cycleIndex,
+              actionsForUpcoming,
+              basePriceAmount,
+              pricingPolicy,
+              nextUpcoming.billingAttemptExpectedDate, // still future here — date selector is valid
+            );
+            await markCycleProcessed(admin, shopId, processedCycles, editMarker);
+            await appendAuditLog(admin, shopId, {
+              contractId: contract.id,
+              groupId,
+              cycleIndex: nextUpcoming.cycleIndex,
+              actions: actionsForUpcoming.map((a) => a.type),
+              skippedActions: skippedActions?.length ? skippedActions : undefined,
+              status: "success",
+            });
+            edited.push({
+              contractId: contract.id,
+              cycleIndex: nextUpcoming.cycleIndex,
+              actions: actionsForUpcoming.map((a) => a.type),
+              skippedActions: skippedActions?.length ? skippedActions : undefined,
+            });
+          } catch (err) {
+            await appendAuditLog(admin, shopId, {
+              contractId: contract.id,
+              groupId,
+              cycleIndex: nextUpcoming.cycleIndex,
+              actions: actionsForUpcoming.map((a) => a.type),
+              status: "failed",
+              error: String(err?.message || err),
+            });
+            console.error(`[process-billing-cycles] failed to pre-edit upcoming contract ${contract.id}:`, err);
+            skipped.push({
+              contractId: contract.id,
+              cycleIndex: nextUpcoming.cycleIndex,
+              reason: "error during pre-due draft apply — will retry next run if still not due",
+              error: String(err?.message || err),
+            });
+          }
+        }
+      }
+    }
+
+    // ── STEP 2: charge the cycle that's actually due now.
+    // No edit attempt here — editing an overdue cycle always fails. Any
+    // automation actions for this cycle should already have been applied
+    // in STEP 1 on a previous run, while it was still upcoming. ──
     if (!cycle) {
       skipped.push({
         contractId: contract.id,
@@ -423,73 +493,24 @@ async function processShop(admin) {
     }
 
     const cycleIndex = cycle.cycleIndex;
-    // CHANGED — keep the cycle's expected billing date so we can use it as a
-    // date selector when opening the draft edit below. Shopify's
-    // subscriptionBillingCycleContractEdit can reject an `index` selector
-    // with "Billing cycle selector is invalid" for a cycle that hasn't been
-    // realized yet (no billing attempt / edit ever touched it) — the date
-    // selector is the reliable one in that case.
-    const cycleDate = cycle.billingAttemptExpectedDate;
-    const editMarker = `${contract.id}:${cycleIndex}`;
-    const sellingPlanId = contract.lines.edges[0]?.node?.sellingPlanId;
-    const basePriceAmount = contract.lines.edges[0]?.node?.pricingPolicy?.basePrice?.amount ?? null;
-    const pricingPolicy = contract.lines.edges[0]?.node?.pricingPolicy ?? null; // needed for swap price recalc
-    const planInfo = sellingPlanId ? sellingPlanIdToInfo.get(sellingPlanId) : null;
-    const groupId = planInfo?.groupId ?? null;
-    const settings = await getContractSettingsSnapshot(admin, contract.id, shopId);
-
-    const actionsForThisCycle = settings ? collectActionsForCycle(settings, cycleIndex) : [];
-
-    if (actionsForThisCycle.length > 0 && !processedCycles.has(editMarker)) {
-      try {
-        const { skippedActions } = await applyActionsToCycle(
-          admin,
-          contract.id,
-          cycleIndex,
-          actionsForThisCycle,
-          basePriceAmount,
-          pricingPolicy,
-          cycleDate, // CHANGED — pass the date through so the draft-edit uses a date selector
-        );
-        await markCycleProcessed(admin, shopId, processedCycles, editMarker);
-        await appendAuditLog(admin, shopId, {
-          contractId: contract.id,
-          groupId,
-          cycleIndex,
-          actions: actionsForThisCycle.map((a) => a.type),
-          skippedActions: skippedActions?.length ? skippedActions : undefined,
-          status: "success",
-        });
-        edited.push({
-          contractId: contract.id,
-          cycleIndex,
-          actions: actionsForThisCycle.map((a) => a.type),
-          skippedActions: skippedActions?.length ? skippedActions : undefined,
-        });
-      } catch (err) {
-        await appendAuditLog(admin, shopId, {
-          contractId: contract.id,
-          groupId,
-          cycleIndex,
-          actions: actionsForThisCycle.map((a) => a.type),
-          status: "failed",
-          error: String(err?.message || err),
-        });
-        console.error(`[process-billing-cycles] failed to edit contract ${contract.id}:`, err);
-        skipped.push({
-          contractId: contract.id,
-          cycleIndex,
-          reason: "error during draft apply — cycle NOT charged, will retry next run",
-          error: String(err?.message || err),
-        });
-        continue;
-      }
-    }
-
     const chargeMarker = `${contract.id}:${cycleIndex}`;
+
     if (chargedCycles.has(chargeMarker)) {
       skipped.push({ contractId: contract.id, cycleIndex, reason: "already charged", checkedAt: now.toISOString() });
       continue;
+    }
+
+    // Visibility check: if this due cycle had automation actions configured
+    // but was never pre-edited (e.g. app was down during its lookahead
+    // window, or its billing interval is shorter than EDIT_LOOKAHEAD_MINUTES),
+    // log it clearly. We still charge — better a plain charge than none —
+    // but the configured automation won't be reflected in this order.
+    const editMarkerForDueCycle = `${contract.id}:${cycleIndex}`;
+    const actionsThatShouldHaveApplied = settings ? collectActionsForCycle(settings, cycleIndex) : [];
+    if (actionsThatShouldHaveApplied.length > 0 && !processedCycles.has(editMarkerForDueCycle)) {
+      console.warn(
+        `[process-billing-cycles] contract ${contract.id} cycle ${cycleIndex} is due but was never pre-edited — configured automation actions will NOT apply to this charge.`,
+      );
     }
 
     try {

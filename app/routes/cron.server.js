@@ -6,11 +6,11 @@ export function startBillingCycleCron() {
   }
   globalThis.__billingCronStarted = true;
 
-  cron.schedule("*/5 * * * *", async () => {
+  cron.schedule("* * * * *", async () => {
     console.log("[cron] Running process-billing-cycles...");
-    console.log("process.env",process.env.SHOPIFY_APP_URL_CRON)
+    console.log("process.env https://paid-raising-consistency-relation.trycloudflare.com")
     try {
-      const res = await fetch(`${process.env.SHOPIFY_APP_URL_CRON}/api/process-billing-cycles`, {
+      const res = await fetch(`https://paid-raising-consistency-relation.trycloudflare.com/api/process-billing-cycles`, {
         method: "POST",
         headers: { "x-cron-secret": process.env.CRON_SECRET },
       });

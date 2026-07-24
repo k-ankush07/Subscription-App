@@ -1,3 +1,4 @@
+
 import { authenticate } from "../shopify.server";
 import SubscriptionDetail from "./components/SubscriptionDetail";
 import {
@@ -9,6 +10,8 @@ import {
   getEffectiveSettingsForContract,
   removeAutomationVariant,
   addBaseLineRemoval,
+  removeAllDiscounts,
+  removeLineDiscount,
 } from "../lib/billing-preview.server";
 const API = import.meta.env.VITE_API_URL;
 const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
@@ -319,7 +322,9 @@ export async function action({ request, params }) {
     type === "reschedule" ||
     type === "charge_now" ||
     type === "remove_automation_item" ||
-    type === "remove_base_line"
+    type === "remove_base_line" ||
+    type === "remove_all_discounts" ||   
+    type === "remove_line_discount"  
   ) {
     if (type === "pause") {
       const res = await admin.graphql(
@@ -591,6 +596,124 @@ export async function action({ request, params }) {
         newDate: payload.billingCycle.billingAttemptExpectedDate,
       };
     }
+    if (type === "charge_now") {
+      const cycleIndex = parseInt(formData.get("cycleIndex"), 10);
+
+      if (Number.isNaN(cycleIndex)) {
+        return { success: false, error: "Invalid billing cycle index" };
+      }
+
+      try {
+        const contractRes = await admin.graphql(
+          `
+          query getContractLineForCharge($contractId: ID!) {
+            subscriptionContract(id: $contractId) {
+              lines(first: 5) {
+                edges {
+                  node {
+                    sellingPlanId
+                    pricingPolicy {
+                      basePrice { amount currencyCode }
+                      cycleDiscounts {
+                        afterCycle
+                        adjustmentType
+                        adjustmentValue {
+                          ... on SellingPlanPricingPolicyPercentageValue { percentage }
+                          ... on MoneyV2 { amount currencyCode }
+                        }
+                        computedPrice { amount currencyCode }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+          `,
+          { variables: { contractId } },
+        );
+        const contractData = await contractRes.json();
+        const firstLine =
+          contractData.data?.subscriptionContract?.lines?.edges?.[0]?.node;
+        const basePriceAmount =
+          firstLine?.pricingPolicy?.basePrice?.amount ?? null;
+        const pricingPolicy = firstLine?.pricingPolicy ?? null;
+        const extraSettings = await getContractSettingsSnapshot(
+          admin,
+          contractId,
+        );
+
+        // IMPORTANT: pass pricingPolicy so the "before threshold" native selling-plan
+        // discount (e.g. 10% off) is correctly applied/charged when the custom
+        // "after N orders" discount hasn't kicked in yet — keeps this in sync with preview.
+        const actionsForThisCycle = extraSettings
+          ? collectActionsForCycle(extraSettings, cycleIndex, pricingPolicy)
+          : [];
+
+        let skippedActions = [];
+        if (actionsForThisCycle.length > 0) {
+          const result = await applyActionsToCycle(
+            admin,
+            contractId,
+            cycleIndex,
+            actionsForThisCycle,
+            basePriceAmount,
+            pricingPolicy,
+          );
+          skippedActions = result?.skippedActions || [];
+        }
+
+        // 3. Ab actual charge karo
+        const chargeRes = await admin.graphql(
+          `
+          mutation ChargeSubscriptionCycleNow($contractId: ID!, $index: Int!) {
+            subscriptionBillingCycleCharge(
+              subscriptionContractId: $contractId
+              billingCycleSelector: { index: $index }
+            ) {
+              subscriptionBillingAttempt {
+                id
+                ready
+                errorMessage
+                order { id name }
+              }
+              userErrors { field message code }
+            }
+          }
+          `,
+          { variables: { contractId, index: cycleIndex } },
+        );
+
+        const chargeData = await chargeRes.json();
+        const chargePayload = chargeData.data?.subscriptionBillingCycleCharge;
+
+        if (!chargePayload || chargePayload.userErrors?.length) {
+          console.error("Charge now failed", chargePayload?.userErrors);
+          return {
+            success: false,
+            error:
+              chargePayload?.userErrors?.map((e) => e.message).join(", ") ||
+              "Charge failed",
+          };
+        }
+
+        const attempt = chargePayload.subscriptionBillingAttempt;
+        return {
+          success: true,
+          chargedCycleIndex: cycleIndex,
+          billingAttemptId: attempt?.id || null,
+          orderId: attempt?.order?.id || null,
+          orderName: attempt?.order?.name || null,
+          ready: attempt?.ready ?? null,
+          errorMessage: attempt?.errorMessage || null,
+          appliedActions: actionsForThisCycle.map((a) => a.type),
+          skippedActions,
+        };
+      } catch (err) {
+        console.error("[charge_now] failed:", err);
+        return { success: false, error: String(err?.message || err) };
+      }
+    }
     if (type === "remove_automation_item") {
       const automationCycleIndex = parseInt(
         formData.get("automationCycleIndex"),
@@ -684,118 +807,87 @@ export async function action({ request, params }) {
         return { success: false, error: String(err?.message || err) };
       }
     }
-    if (type === "charge_now") {
-      const cycleIndex = parseInt(formData.get("cycleIndex"), 10);
+    if (type === "remove_all_discounts") {
+  const sellingPlanId = formData.get("sellingPlanId") || null;
+  try {
+    const currentSettings = await getEffectiveSettingsForContract(
+      admin,
+      contractId,
+      sellingPlanId,
+    );
+    if (!currentSettings) {
+      return {
+        success: false,
+        error: "No automation settings found for this subscription",
+      };
+    }
+    const updatedSettings = removeAllDiscounts(currentSettings);
+    const { snapshotted } = await snapshotContractSettings(
+      admin,
+      contractId,
+      updatedSettings,
+    );
+    if (!snapshotted) {
+      return {
+        success: false,
+        error: "Failed to save updated automation settings",
+      };
+    }
+    return { success: true };
+  } catch (err) {
+    console.error("Remove all discounts failed:", err);
+    return { success: false, error: String(err?.message || err) };
+  }
+    } 
+    if (type === "remove_line_discount") {
+      const isBaseLine = formData.get("isBaseLine") === "true";
+      // "before" (native selling-plan discount) or "after" (custom afterOrders discount) —
+      // tells us which setting to flip. Only meaningful when isBaseLine is true.
+      const discountPhase = formData.get("discountPhase") || null;
+      const rawCycleIndex = formData.get("automationCycleIndex");
+      const rawActionIndex = formData.get("automationActionIndex");
+      const automationCycleIndex =
+        rawCycleIndex !== "" ? parseInt(rawCycleIndex, 10) : null;
+      const automationActionIndex =
+        rawActionIndex !== "" ? parseInt(rawActionIndex, 10) : null;
+      const sellingPlanId = formData.get("sellingPlanId") || null;
 
-      if (Number.isNaN(cycleIndex)) {
-        return { success: false, error: "Invalid billing cycle index" };
+      if (!isBaseLine && (Number.isNaN(automationCycleIndex) || Number.isNaN(automationActionIndex))) {
+        return { success: false, error: "Invalid discount reference" };
       }
 
       try {
-        const contractRes = await admin.graphql(
-          `
-          query getContractLineForCharge($contractId: ID!) {
-            subscriptionContract(id: $contractId) {
-              lines(first: 5) {
-                edges {
-                  node {
-                    sellingPlanId
-                    pricingPolicy {
-                      basePrice { amount currencyCode }
-                      cycleDiscounts {
-                        afterCycle
-                        adjustmentType
-                        adjustmentValue {
-                          ... on SellingPlanPricingPolicyPercentageValue { percentage }
-                          ... on MoneyV2 { amount currencyCode }
-                        }
-                        computedPrice { amount currencyCode }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-          `,
-          { variables: { contractId } },
-        );
-        const contractData = await contractRes.json();
-        const firstLine =
-          contractData.data?.subscriptionContract?.lines?.edges?.[0]?.node;
-        const basePriceAmount =
-          firstLine?.pricingPolicy?.basePrice?.amount ?? null;
-        const pricingPolicy = firstLine?.pricingPolicy ?? null;
-        const extraSettings = await getContractSettingsSnapshot(
+        const currentSettings = await getEffectiveSettingsForContract(
           admin,
           contractId,
+          sellingPlanId,
         );
-
-        const actionsForThisCycle = extraSettings
-          ? collectActionsForCycle(extraSettings, cycleIndex)
-          : [];
-
-        let skippedActions = [];
-        if (actionsForThisCycle.length > 0) {
-          const result = await applyActionsToCycle(
-            admin,
-            contractId,
-            cycleIndex,
-            actionsForThisCycle,
-            basePriceAmount,
-            pricingPolicy,
-          );
-          skippedActions = result?.skippedActions || [];
-        }
-
-        // 3. Ab actual charge karo
-        const chargeRes = await admin.graphql(
-          `
-          mutation ChargeSubscriptionCycleNow($contractId: ID!, $index: Int!) {
-            subscriptionBillingCycleCharge(
-              subscriptionContractId: $contractId
-              billingCycleSelector: { index: $index }
-            ) {
-              subscriptionBillingAttempt {
-                id
-                ready
-                errorMessage
-                order { id name }
-              }
-              userErrors { field message code }
-            }
-          }
-          `,
-          { variables: { contractId, index: cycleIndex } },
-        );
-
-        const chargeData = await chargeRes.json();
-        const chargePayload = chargeData.data?.subscriptionBillingCycleCharge;
-
-        if (!chargePayload || chargePayload.userErrors?.length) {
-          console.error("Charge now failed", chargePayload?.userErrors);
+        if (!currentSettings) {
           return {
             success: false,
-            error:
-              chargePayload?.userErrors?.map((e) => e.message).join(", ") ||
-              "Charge failed",
+            error: "No automation settings found for this subscription",
           };
         }
-
-        const attempt = chargePayload.subscriptionBillingAttempt;
-        return {
-          success: true,
-          chargedCycleIndex: cycleIndex,
-          billingAttemptId: attempt?.id || null,
-          orderId: attempt?.order?.id || null,
-          orderName: attempt?.order?.name || null,
-          ready: attempt?.ready ?? null,
-          errorMessage: attempt?.errorMessage || null,
-          appliedActions: actionsForThisCycle.map((a) => a.type),
-          skippedActions,
-        };
+        const updatedSettings = removeLineDiscount(currentSettings, {
+          isBaseLine,
+          discountPhase,
+          automationCycleIndex,
+          automationActionIndex,
+        });
+        const { snapshotted } = await snapshotContractSettings(
+          admin,
+          contractId,
+          updatedSettings,
+        );
+        if (!snapshotted) {
+          return {
+            success: false,
+            error: "Failed to save updated automation settings",
+          };
+        }
+        return { success: true };
       } catch (err) {
-        console.error("[charge_now] failed:", err);
+        console.error("Remove line discount failed:", err);
         return { success: false, error: String(err?.message || err) };
       }
     }

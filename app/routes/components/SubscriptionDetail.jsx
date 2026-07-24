@@ -30,8 +30,7 @@ function formateDate(date) {
 }
 
 export default function SubscriptionDetail() {
-  const { contract, upcomingCycles, internalNotes, customerNotes, preview } =
-    useLoaderData();
+  const { contract, upcomingCycles, internalNotes, customerNotes, preview } = useLoaderData();
   console.log("preview", preview, "contract", contract, "cycle");
   const [localLines, setLocalLines] = useState(contract?.lines?.edges || []);
   const [showInternalNotes, setShowInternalNotes] = useState(false);
@@ -94,23 +93,6 @@ export default function SubscriptionDetail() {
     setshowCustomerNotes(false);
     setCustomerNotes("");
   };
-  // const totalAutomationProductCount = willApplyChanges.reduce(
-  //   (count, change) => {
-  //     if (change.type === "VARIANT_SWAP") {
-  //       const destCount = (change.dests || []).reduce(
-  //         (sum, dest) => sum + (dest.variantIds?.length || 0),
-  //         0,
-  //       );
-  //       return count + destCount;
-  //     }
-  //     if (change.type === "ADD_PRODUCT" && change.productName) {
-  //       return count + 1;
-  //     }
-  //     return count;
-  //   },
-  //   0,
-  // );
-
   const totalLineItemsCount = preview?.nextOrder?.lineItems?.length || 0;
 
   const handlePause = () => {
@@ -154,6 +136,48 @@ export default function SubscriptionDetail() {
         cycleIndex: preview?.nextOrder?.cycleIndex ?? 0,
         productId: productId || "",
         variantId: variantId || "",
+        sellingPlanId: lines?.[0]?.node?.sellingPlanId || "",
+      },
+      { method: "post" },
+    );
+  };
+  const hasAnyDiscount = preview?.nextOrder?.lineItems?.some(
+    (li) => li.discountLabel,
+  );
+
+  const handleRemoveAllDiscounts = () => {
+    const confirmed = confirm(
+      "Remove all discounts from the upcoming order? This will apply to future orders too.",
+    );
+    if (!confirmed) return;
+    fetcher.submit(
+      {
+        type: "remove_all_discounts",
+        sellingPlanId: lines?.[0]?.node?.sellingPlanId || "",
+      },
+      { method: "post" },
+    );
+  };
+
+  const handleRemoveLineDiscount = (li) => {
+    const confirmed = confirm("Remove the discount from this product?");
+    if (!confirmed) return;
+    fetcher.submit(
+      {
+        type: "remove_line_discount",
+        isBaseLine: li.isBaseLine ? "true" : "false",
+        // "before" (native selling-plan discount, e.g. 10% off pre-threshold) or
+        // "after" (merchant's custom "after N orders" discount, e.g. 60% off). The server
+        // uses this to know exactly which setting to flip so the correct discount gets removed.
+        discountPhase: li.discountPhase || "",
+        automationCycleIndex:
+          li.automationCycleIndex != null
+            ? String(li.automationCycleIndex)
+            : "",
+        automationActionIndex:
+          li.automationActionIndex != null
+            ? String(li.automationActionIndex)
+            : "",
         sellingPlanId: lines?.[0]?.node?.sellingPlanId || "",
       },
       { method: "post" },
@@ -302,18 +326,33 @@ export default function SubscriptionDetail() {
               <b>{`Delivery: Every ${contract?.deliveryPolicy?.intervalCount} ${contract?.deliveryPolicy?.interval} `}</b>
               <b>{`Billing: every ${contract?.billingPolicy?.intervalCount} ${contract?.billingPolicy?.interval}`}</b>
             </p>
-            <b>Next Order (Cycle #{preview?.nextOrder?.cycleIndex})</b>
-
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <b>Next Order (Cycle #{preview?.nextOrder?.cycleIndex})</b>
+              {hasAnyDiscount && (
+                <Button
+                  onClick={handleRemoveAllDiscounts}
+                  loading={fetcher.state !== "idle"}
+                  disabled={fetcher.state !== "idle"}
+                >
+                  Remove All discount
+                </Button>
+              )}
+            </div>
             {preview.nextOrder.lineItems.map((li, idx) => (
               <div
                 key={idx}
                 style={{
-                  display: "flex",
-                  alignItems: "flex-start",
-                  gap: "8px",
-                  marginTop: "12px",
-                  borderTop: "1px solid #eee",
-                  paddingTop: "8px",
+                  marginTop: "5px",
+                  marginBottom: "5px",
+                  padding: "10px",
+                  border: "2px solid gray",
+                  borderRadius: "20px",
                 }}
               >
                 {li.imageUrl && (
@@ -325,58 +364,39 @@ export default function SubscriptionDetail() {
                   />
                 )}
                 <div style={{ flex: 1 }}>
-                  <p style={{ fontWeight: 500, margin: 0 }}>{li.title}</p>
+                  <p>{li.title}</p>
 
-                  {li.productId && (
-                    <p style={{ fontSize: "11px", color: "#999", margin: 0 }}>
-                      Product ID: {li.productId}
-                    </p>
-                  )}
-                  {li.variantId && (
-                    <p style={{ fontSize: "11px", color: "#999", margin: 0 }}>
-                      Variant ID: {li.variantId}
-                    </p>
-                  )}
+                  {li.productId && <p>Product ID: {li.productId}</p>}
+                  {li.variantId && <p>Variant ID: {li.variantId}</p>}
 
-                  <p
-                    style={{ fontSize: "12px", color: "#666", margin: "4px 0" }}
-                  >
+                  <p>
                     Qty: {li.quantity} • {li.pricePerUnit?.amount}{" "}
                     {li.pricePerUnit?.currencyCode} × {li.quantity} ={" "}
                     {li.itemTotal?.amount} {li.itemTotal?.currencyCode}
                   </p>
 
                   {li.discountLabel && (
-                    <p
-                      style={{ fontSize: "12px", color: "#008060", margin: 0 }}
-                    >
-                      {li.discountLabel}
+                    <p>
+                      {li.discountLabel}{" "}
+                      <Button
+                        plain
+                        onClick={() => handleRemoveLineDiscount(li)}
+                        loading={fetcher.state !== "idle"}
+                        disabled={fetcher.state !== "idle"}
+                      >
+                        Remove discount
+                      </Button>
                     </p>
                   )}
 
                   {li.automationCycleIndex != null &&
-                    li.automationActionIndex != null &&
-                    totalLineItemsCount > 1 && (
-                      <Button
-                        onClick={() =>
-                          handleRemoveAutomationItem({
-                            automationCycleIndex: li.automationCycleIndex,
-                            automationActionIndex: li.automationActionIndex,
-                            variantId: li.variantId,
-                          })
-                        }
-                        loading={fetcher.state !== "idle"}
-                        disabled={fetcher.state !== "idle"}
-                      >
-                        Remove
-                      </Button>
-                    )}
-
-                  {li.isBaseLine && totalLineItemsCount > 1 && (
+                  li.automationActionIndex != null &&
+                  totalLineItemsCount > 1 ? (
                     <Button
                       onClick={() =>
-                        handleRemoveBaseLine({
-                          productId: li.productId,
+                        handleRemoveAutomationItem({
+                          automationCycleIndex: li.automationCycleIndex,
+                          automationActionIndex: li.automationActionIndex,
                           variantId: li.variantId,
                         })
                       }
@@ -385,408 +405,28 @@ export default function SubscriptionDetail() {
                     >
                       Remove
                     </Button>
+                  ) : (
+                    li.isBaseLine &&
+                    totalLineItemsCount > 1 && (
+                      <Button
+                        onClick={() =>
+                          handleRemoveBaseLine({
+                            productId: li.productId,
+                            variantId: li.variantId,
+                          })
+                        }
+                        loading={fetcher.state !== "idle"}
+                        disabled={fetcher.state !== "idle"}
+                      >
+                        Remove
+                      </Button>
+                    )
                   )}
                 </div>
               </div>
             ))}
           </Card>
         )}
-        {/* {preview?.nextOrder?.lineItems?.length > 0 && (
-          <Card>
-            <p>
-              <b>{`Delivery: Every ${contract?.deliveryPolicy?.intervalCount} ${contract?.deliveryPolicy?.interval} `}</b>
-              <b>{`Billing: every ${contract?.billingPolicy?.intervalCount} ${contract?.billingPolicy?.interval}`}</b>
-            </p>
-            <b>Next Order (Cycle #{preview?.nextOrder?.cycleIndex})</b>
-
-            {preview.nextOrder.lineItems.map((li, idx) => (
-              <div
-                key={idx}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  marginTop: "8px",
-                }}
-              >
-                {li.imageUrl && (
-                  <img
-                    src={li.imageUrl}
-                    alt={li.imageAlt}
-                    width={60}
-                    height={60}
-                  />
-                )}
-                <div>
-                  <p>{li.title}</p>
-                  <p style={{ fontSize: "12px", color: "#666" }}>
-                    Qty: {li.quantity} • {li.pricePerUnit?.amount}{" "}
-                    {li.pricePerUnit?.currencyCode} × {li.quantity} ={" "}
-                    {li.itemTotal?.amount} {li.itemTotal?.currencyCode}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </Card>
-        )} */}
-        {/* {willApplyChanges.length > 0 && (
-          <Card>
-
-            <div>
-              {willApplyChanges.map((change, idx) => {
-                if (change.type === "DISCOUNT_CHANGE") {
-                  return (
-                    <div key={idx}>
-                      <b>Discount change</b>
-                      <p>
-                        After order #{change.after}, a {change.adjustmentValue}%{" "}
-                        {change.adjustmentType?.toLowerCase()} discount will
-                        apply.
-                      </p>
-                    </div>
-                  );
-                }
-
-                if (change.type === "VARIANT_SWAP") {
-                  return (
-                    <div key={idx} style={{ marginTop: "12px" }}>
-                      <b>Product</b>
-                      <div>
-                        <div>
-                          <img
-                            src={change.imageUrl}
-                            alt={change.sourceProductName}
-                            width={60}
-                            height={60}
-                          />
-                          <p>{change.sourceProductName}</p>
-                        </div>
-                        <p>↓</p>
-
-                        {change.dests?.map((dest) => (
-                          <div key={dest.id} style={{ marginBottom: "12px" }}>
-                            <img
-                              src={dest.imageUrl}
-                              alt={dest.name}
-                              width={60}
-                              height={60}
-                            />
-                            <p>
-                              <b>{dest.name}</b>
-                            </p>
-
-                            {dest.variantNames?.map((vName, vIdx) => {
-                              const variantId = dest.variantIds?.[vIdx];
-                              const variantImage = dest.variantImages?.[vIdx];
-                              const matchedLineItem =
-                                preview?.nextOrder?.lineItems?.find(
-                                  (li) => li.variantId === variantId,
-                                );
-
-                              return (
-                                <div
-                                  key={variantId}
-                                  style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: "8px",
-                                    marginTop: "6px",
-                                    borderTop: "1px solid #eee",
-                                    paddingTop: "6px",
-                                  }}
-                                >
-                                  {totalAutomationProductCount > 1 && (
-                                    <Button
-                                      onClick={() =>
-                                        handleRemoveAutomationItem({
-                                          automationCycleIndex:
-                                            change.__automationCycleIndex,
-                                          automationActionIndex:
-                                            change.__automationActionIndex,
-                                          variantId,
-                                        })
-                                      }
-                                      loading={fetcher.state !== "idle"}
-                                      disabled={fetcher.state !== "idle"}
-                                    >
-                                      Remove
-                                    </Button>
-                                  )}
-                                  <img
-                                    src={variantImage}
-                                    alt={vName}
-                                    width={40}
-                                    height={40}
-                                  />
-                                  <div>
-                                    <p style={{ fontWeight: 500, margin: 0 }}>
-                                      {vName}
-                                    </p>
-                                    {matchedLineItem && (
-                                      <p
-                                        style={{
-                                          fontSize: "12px",
-                                          color: "#666",
-                                          margin: 0,
-                                        }}
-                                      >
-                                        Qty: {matchedLineItem.quantity} •{" "}
-                                        {matchedLineItem.pricePerUnit?.amount}{" "}
-                                        {
-                                          matchedLineItem.pricePerUnit
-                                            ?.currencyCode
-                                        }
-                                      </p>
-                                    )}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        ))}
-                      </div>
-                      <p>Applies after order #{change.after}</p>
-                    </div>
-                  );
-                }
-
-                if (change.type === "ADD_PRODUCT" && change.productName) {
-                  const matchedLineItem = preview?.nextOrder?.lineItems?.find(
-                    (li) => {
-                      const wantedVariantId =
-                        change.variantId ?? change.variantIds?.[0];
-                      if (wantedVariantId)
-                        return li.variantId === wantedVariantId;
-                      return li.productId === change.productId;
-                    },
-                  );
-
-                  return (
-                    <div key={idx} style={{ marginTop: "12px" }}>
-                      <b>Product will be added</b>
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "8px",
-                        }}
-                      >
-                        <img
-                          src={change.imageUrl}
-                          alt={change.productName}
-                          width={60}
-                          height={60}
-                        />
-                        <div>
-                          <p>{change.productName}</p>
-                          {change.variantName && <p>{change.variantName}</p>}
-                          <p>
-                            Qty: {matchedLineItem?.quantity ?? change.quantity}
-                          </p>
-                          {matchedLineItem && (
-                            <p style={{ fontSize: "12px", color: "#666" }}>
-                              Price: {matchedLineItem.pricePerUnit?.amount}{" "}
-                              {matchedLineItem.pricePerUnit?.currencyCode} ×{" "}
-                              {matchedLineItem.quantity} ={" "}
-                              {matchedLineItem.itemTotal?.amount}{" "}
-                              {matchedLineItem.itemTotal?.currencyCode}
-                            </p>
-                          )}
-                          {totalAutomationProductCount > 1 && (
-                            <Button
-                              onClick={() =>
-                                handleRemoveAutomationItem({
-                                  automationCycleIndex:
-                                    change.__automationCycleIndex,
-                                  automationActionIndex:
-                                    change.__automationActionIndex,
-                                  variantId: matchedLineItem?.variantId ?? null,
-                                })
-                              }
-                              loading={fetcher.state !== "idle"}
-                              disabled={fetcher.state !== "idle"}
-                            >
-                              Remove
-                            </Button>
-                          )}
-                          {change.discountEnabled && (
-                            <p>
-                              {change.discountValue}% {change.discountType} off
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <p style={{ fontSize: "12px", color: "#666" }}>
-                        Applies after order #{change.after}
-                      </p>
-                    </div>
-                  );
-                }
-
-                if (change.type === "QUANTITY_CHANGE") {
-                  const matchedProduct = (change.products || [])[0];
-                  const matchedVariant = matchedProduct?.variants?.[0];
-                  const otherVariants = (matchedProduct?.variants || []).slice(
-                    1,
-                  );
-
-                  const matchedLineItem = preview?.nextOrder?.lineItems?.find(
-                    (li) => {
-                      if (matchedVariant?.variantsId)
-                        return li.variantId === matchedVariant.variantsId;
-                      if (matchedProduct?.id)
-                        return li.productId === matchedProduct.id;
-                      return false;
-                    },
-                  );
-
-                  const imageUrl =
-                    change.imageUrl ??
-                    matchedLineItem?.imageUrl ??
-                    matchedVariant?.variantsImageUrl ??
-                    matchedProduct?.imageUrl ??
-                    null;
-                  const imageAlt =
-                    change.imageAlt ??
-                    matchedLineItem?.imageAlt ??
-                    matchedVariant?.variantsImageAlt ??
-                    matchedProduct?.imageAlt ??
-                    matchedProduct?.title ??
-                    "";
-
-                  return (
-                    <div key={idx} style={{ marginTop: "12px" }}>
-                      <b>Quantity change</b>
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "8px",
-                        }}
-                      >
-                        {imageUrl && (
-                          <img
-                            src={imageUrl}
-                            alt={imageAlt}
-                            width={60}
-                            height={60}
-                          />
-                        )}
-                        <div>
-                          <p>
-                            {matchedProduct?.title || "This subscription"}
-                            {matchedVariant?.variantsTitle
-                              ? ` — ${matchedVariant.variantsTitle}`
-                              : ""}
-                          </p>
-                          {matchedVariant?.variantsId && (
-                            <p style={{ fontSize: "11px", color: "#999" }}>
-                              Variant ID: {matchedVariant.variantsId}
-                            </p>
-                          )}
-                          {otherVariants.map((v) => (
-                            <p
-                              key={v.variantsId}
-                              style={{ fontSize: "11px", color: "#999" }}
-                            >
-                              {v.variantsTitle ? `${v.variantsTitle} — ` : ""}
-                              Variant ID: {v.variantsId}
-                            </p>
-                          ))}
-                          <p>
-                            After order #{change.after}, quantity will change to{" "}
-                            {change.value}.
-                          </p>
-                          {matchedLineItem && (
-                            <p style={{ fontSize: "12px", color: "#666" }}>
-                              Price: {matchedLineItem.pricePerUnit?.amount}{" "}
-                              {matchedLineItem.pricePerUnit?.currencyCode} ×{" "}
-                              {matchedLineItem.quantity} ={" "}
-                              {matchedLineItem.itemTotal?.amount}{" "}
-                              {matchedLineItem.itemTotal?.currencyCode}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                }
-
-                if (
-                  change.type === "REMOVE_PRODUCT" ||
-                  change.type === "REMOVE_VARIANT" ||
-                  change.type === "REMOVE_FREE_PRODUCT"
-                ) {
-                  const matchedProduct = (change.products || [])[0];
-                  const matchedVariant = matchedProduct?.variants?.[0];
-                  const productTitle =
-                    matchedProduct?.title ?? change.productName ?? "This item";
-                  const variantTitle =
-                    matchedVariant?.variantsTitle ?? change.variantName ?? "";
-                  const variantId =
-                    matchedVariant?.variantsId ??
-                    change.sourceVariantId ??
-                    change.variantId ??
-                    change.variantIds?.[0] ??
-                    null;
-
-                  const label =
-                    change.type === "REMOVE_FREE_PRODUCT"
-                      ? "Free product will be removed"
-                      : "Product will be removed";
-
-                  const imageUrl =
-                    change.imageUrl ??
-                    matchedVariant?.variantsImageUrl ??
-                    matchedProduct?.imageUrl ??
-                    null;
-                  const imageAlt =
-                    change.imageAlt ??
-                    matchedVariant?.variantsImageAlt ??
-                    matchedProduct?.imageAlt ??
-                    productTitle;
-
-                  return (
-                    <div key={idx} style={{ marginTop: "12px" }}>
-                      <b>{label}</b>
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "8px",
-                        }}
-                      >
-                        {imageUrl && (
-                          <img
-                            src={imageUrl}
-                            alt={imageAlt}
-                            width={60}
-                            height={60}
-                          />
-                        )}
-                        <div>
-                          <p>
-                            {productTitle}
-                            {variantTitle ? ` — ${variantTitle}` : ""}
-                          </p>
-                          {variantId && (
-                            <p style={{ fontSize: "11px", color: "#999" }}>
-                              Variant ID: {variantId}
-                            </p>
-                          )}
-                          <p style={{ fontSize: "12px", color: "#666" }}>
-                            Applies after order #{change.after}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                }
-                return null;
-              })}
-            </div>
-          </Card>
-        )} */}
         <Card>
           <b>Payment Summary</b>
 
