@@ -1,3 +1,4 @@
+
 import { Banner, Button, Card, Page, Icon, Checkbox } from "@shopify/polaris";
 import React, { useEffect, useState } from "react";
 import { currencySymbol } from "../utils/formatMoney.js";
@@ -58,6 +59,25 @@ export default function SubscriptionDetail() {
       revalidator.revalidate();
     }
   }, [fetcher.state, fetcher.data]);
+
+  // ---- FIX: single shared `fetcher` was used for every button, so
+  // `fetcher.state !== "idle"` became true for ALL buttons whenever ANY
+  // action was submitted. We now look at `fetcher.formData` (available
+  // while a submission is in flight) to figure out exactly which action
+  // is running, and only mark THAT specific control as loading/disabled.
+  const isPending = fetcher.state !== "idle";
+  const pendingFormData = isPending ? fetcher.formData : null;
+  const pendingType = pendingFormData?.get("type") ?? null;
+
+  // matchers: { fieldName: expectedValue }. Every field must match the
+  // in-flight submission's formData for this to be considered "the same" action.
+  const isThisActionPending = (type, matchers = {}) => {
+    if (!isPending || pendingType !== type) return false;
+    return Object.entries(matchers).every(([key, expected]) => {
+      const expectedStr = expected == null ? "" : String(expected);
+      return (pendingFormData.get(key) ?? "") === expectedStr;
+    });
+  };
 
   const lines = localLines;
   const currencyCode = lines?.[0]?.node?.currentPrice?.currencyCode;
@@ -217,6 +237,11 @@ export default function SubscriptionDetail() {
           li.automationActionIndex != null
             ? String(li.automationActionIndex)
             : "",
+        // added purely so we can uniquely match this specific line item's
+        // loading state on the client — safe to keep even if the server
+        // action ignores it.
+        productId: li.productId || "",
+        variantId: li.variantId || "",
         sellingPlanId: lines?.[0]?.node?.sellingPlanId || "",
       },
       { method: "post" },
@@ -248,12 +273,24 @@ export default function SubscriptionDetail() {
 
         {contract?.status === "ACTIVE" ? (
           <>
-            <Button onClick={handlePause}>Pause</Button>
+            <Button
+              onClick={handlePause}
+              loading={isThisActionPending("pause")}
+              disabled={isThisActionPending("pause")}
+            >
+              Pause
+            </Button>
           </>
         ) : (
           <>
             {contract?.status !== "CANCELLED" && (
-              <Button onClick={handleResume}>Resume</Button>
+              <Button
+                onClick={handleResume}
+                loading={isThisActionPending("resume")}
+                disabled={isThisActionPending("resume")}
+              >
+                Resume
+              </Button>
             )}
           </>
         )}
@@ -272,8 +309,8 @@ export default function SubscriptionDetail() {
           { method: "post" },
         );
       }}
-      loading={fetcher.state !== "idle"}
-      disabled={fetcher.state !== "idle" || !canChargeNow}
+      loading={isThisActionPending("charge_now", { cycleIndex: nextCycleIndex })}
+      disabled={isThisActionPending("charge_now", { cycleIndex: nextCycleIndex }) || !canChargeNow}
       tone="success"
     >
       Charge Now
@@ -287,7 +324,11 @@ export default function SubscriptionDetail() {
 )}
 
         {contract?.status !== "CANCELLED" ? (
-          <Button onClick={handleCancelSubscription}>
+          <Button
+            onClick={handleCancelSubscription}
+            loading={isThisActionPending("cancel")}
+            disabled={isThisActionPending("cancel")}
+          >
             Cancel Subscription
           </Button>
         ) : (
@@ -392,8 +433,8 @@ export default function SubscriptionDetail() {
               { contract?.status !== "CANCELLED" && hasAnyDiscount && (
                 <Button
                   onClick={handleRemoveAllDiscounts}
-                  loading={fetcher.state !== "idle"}
-                  disabled={fetcher.state !== "idle"}
+                  loading={isThisActionPending("remove_all_discounts")}
+                  disabled={isThisActionPending("remove_all_discounts")}
                 >
                   Remove All discount
                 </Button>
@@ -436,8 +477,34 @@ export default function SubscriptionDetail() {
                       <Button
                         plain
                         onClick={() => handleRemoveLineDiscount(li)}
-                        loading={fetcher.state !== "idle"}
-                        disabled={fetcher.state !== "idle"}
+                        loading={isThisActionPending("remove_line_discount", {
+                          isBaseLine: li.isBaseLine ? "true" : "false",
+                          discountPhase: li.discountPhase || "",
+                          automationCycleIndex:
+                            li.automationCycleIndex != null
+                              ? String(li.automationCycleIndex)
+                              : "",
+                          automationActionIndex:
+                            li.automationActionIndex != null
+                              ? String(li.automationActionIndex)
+                              : "",
+                          productId: li.productId || "",
+                          variantId: li.variantId || "",
+                        })}
+                        disabled={isThisActionPending("remove_line_discount", {
+                          isBaseLine: li.isBaseLine ? "true" : "false",
+                          discountPhase: li.discountPhase || "",
+                          automationCycleIndex:
+                            li.automationCycleIndex != null
+                              ? String(li.automationCycleIndex)
+                              : "",
+                          automationActionIndex:
+                            li.automationActionIndex != null
+                              ? String(li.automationActionIndex)
+                              : "",
+                          productId: li.productId || "",
+                          variantId: li.variantId || "",
+                        })}
                       >
                         Remove discount
                       </Button>
@@ -455,8 +522,16 @@ export default function SubscriptionDetail() {
                           variantId: li.variantId,
                         })
                       }
-                      loading={fetcher.state !== "idle"}
-                      disabled={fetcher.state !== "idle"}
+                      loading={isThisActionPending("remove_automation_item", {
+                        automationCycleIndex: li.automationCycleIndex,
+                        automationActionIndex: li.automationActionIndex,
+                        variantId: li.variantId || "",
+                      })}
+                      disabled={isThisActionPending("remove_automation_item", {
+                        automationCycleIndex: li.automationCycleIndex,
+                        automationActionIndex: li.automationActionIndex,
+                        variantId: li.variantId || "",
+                      })}
                     >
                       Remove
                     </Button>
@@ -470,8 +545,14 @@ export default function SubscriptionDetail() {
                             variantId: li.variantId,
                           })
                         }
-                        loading={fetcher.state !== "idle"}
-                        disabled={fetcher.state !== "idle"}
+                        loading={isThisActionPending("remove_base_line", {
+                          productId: li.productId || "",
+                          variantId: li.variantId || "",
+                        })}
+                        disabled={isThisActionPending("remove_base_line", {
+                          productId: li.productId || "",
+                          variantId: li.variantId || "",
+                        })}
                       >
                         Remove
                       </Button>
@@ -482,6 +563,17 @@ export default function SubscriptionDetail() {
             ))}
           </Card>
         )}
+        {/* <Card>
+          <b>Payment Summary</b>
+
+          <p>
+            Subtotal:-
+            {currencySymbol(
+              preview?.nextOrder?.calculatedOrderTotal?.currencyCode,
+            )}{" "}
+            {preview?.nextOrder?.calculatedOrderTotal?.amount}
+          </p>
+        </Card> */}
         <Card>
           <b>Payment Summary</b>
 
@@ -491,6 +583,37 @@ export default function SubscriptionDetail() {
               preview?.nextOrder?.calculatedOrderTotal?.currencyCode,
             )}{" "}
             {preview?.nextOrder?.calculatedOrderTotal?.amount}
+          </p>
+
+          {preview?.nextOrder?.shipping && (
+            <p>
+              Shipping:-{" "}
+              {preview.nextOrder.shipping.calculatedPrice?.amount !==
+                preview.nextOrder.shipping.originalPrice?.amount && (
+                <span >
+                  {currencySymbol(preview.nextOrder.shipping.originalPrice?.currencyCode)}{" "} 
+                  {preview.nextOrder.shipping.originalPrice?.amount}{" "}
+                </span>
+              )} =
+              {currencySymbol(preview.nextOrder.shipping.calculatedPrice?.currencyCode)}{" "}
+              {preview.nextOrder.shipping.calculatedPrice?.amount}
+              {preview.nextOrder.shipping.discountLabel && (
+                <span style={{ marginLeft: "6px",  }}>
+                  ({preview.nextOrder.shipping.discountLabel})
+                </span>
+              )}
+            </p>
+          )}
+
+          <p>
+            <b>
+              Total:-{" "}
+              {currencySymbol(preview?.nextOrder?.calculatedOrderTotal?.currencyCode)}{" "}
+              {(
+                Number(preview?.nextOrder?.calculatedOrderTotal?.amount || 0) +
+                Number(preview?.nextOrder?.shipping?.calculatedPrice?.amount || 0)
+              ).toFixed(2)}
+            </b>
           </p>
         </Card>
         {contract?.status !== "CANCELLED" && (
@@ -538,14 +661,24 @@ export default function SubscriptionDetail() {
                           />
                           <Button
                             onClick={() => handleReschedule(cycle)}
-                            loading={fetcher.state !== "idle"}
-                            disabled={fetcher.state !== "idle"}
+                            loading={isThisActionPending("reschedule", {
+                              cycleIndex: cycle.cycleIndex,
+                            })}
+                            disabled={isThisActionPending("reschedule", {
+                              cycleIndex: cycle.cycleIndex,
+                            })}
                           >
-                            {fetcher.state !== "idle" ? "Saving…" : "Save"}
+                            {isThisActionPending("reschedule", {
+                              cycleIndex: cycle.cycleIndex,
+                            })
+                              ? "Saving…"
+                              : "Save"}
                           </Button>
                           <Button
                             plain
-                            disabled={fetcher.state !== "idle"}
+                            disabled={isThisActionPending("reschedule", {
+                              cycleIndex: cycle.cycleIndex,
+                            })}
                             onClick={() => {
                               setEditingCycleIndex(null);
                               setEditDate("");
@@ -568,6 +701,12 @@ export default function SubscriptionDetail() {
                     {contract?.status === "ACTIVE" && !cycle.skipped && (
                       <Button
                         plain
+                        loading={isThisActionPending("skip", {
+                          cycleIndex: cycle.cycleIndex,
+                        })}
+                        disabled={isThisActionPending("skip", {
+                          cycleIndex: cycle.cycleIndex,
+                        })}
                         onClick={() => {
                           fetcher.submit(
                             {
@@ -584,6 +723,12 @@ export default function SubscriptionDetail() {
                     {contract?.status === "ACTIVE" && cycle.skipped && (
                       <Button
                         plain
+                        loading={isThisActionPending("unskip", {
+                          cycleIndex: cycle.cycleIndex,
+                        })}
+                        disabled={isThisActionPending("unskip", {
+                          cycleIndex: cycle.cycleIndex,
+                        })}
                         onClick={() => {
                           fetcher.submit(
                             {
@@ -637,7 +782,13 @@ export default function SubscriptionDetail() {
               >
                 Cancel
               </Button>
-              <Button onClick={handleSave}>Save</Button>
+              <Button
+                onClick={handleSave}
+                loading={isThisActionPending("internal")}
+                disabled={isThisActionPending("internal")}
+              >
+                Save
+              </Button>
             </>
           )}
         </div>
@@ -659,10 +810,20 @@ export default function SubscriptionDetail() {
               >
                 Cancel
               </Button>
-              <Button onClick={handleSaveCustomer}>Save</Button>
+              <Button
+                onClick={handleSaveCustomer}
+                loading={isThisActionPending("customer")}
+                disabled={isThisActionPending("customer")}
+              >
+                Save
+              </Button>
             </>
           )}
         </div>
+
+        <Card>
+          <h2>Past Orders</h2>
+        </Card>
       </Page>
     </>
   );

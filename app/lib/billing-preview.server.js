@@ -1,22 +1,7 @@
-
+import { currencySymbol } from "../routes/utils/formatMoney.js";
 
 const EXTRA_SETTINGS_NAMESPACE = "subscription_app";
 const CONTRACT_SETTINGS_SNAPSHOTS_KEY = "contract_settings_snapshots";
-
-function currencySymbol(currencyCode, locale = 'en') {
-  if (!currencyCode) return '';
-  try {
-    const parts = new Intl.NumberFormat(locale, {
-      style: 'currency',
-      currency: currencyCode,
-      currencyDisplay: 'symbol',
-    }).formatToParts(0);
-    const symbolPart = parts.find((p) => p.type === 'currency');
-    return symbolPart ? symbolPart.value : currencyCode;
-  } catch {
-    return currencyCode;
-  }
-}
 
 async function getShopIdForSnapshot(admin) {
   const res = await admin.graphql(`query { shop { id } }`);
@@ -194,6 +179,7 @@ const ACTION_ORDER = [
   "VARIANT_SWAP",
   "PRODUCT_SWAP",
   "DISCOUNT_CHANGE",
+  "SHIPPING_DISCOUNT_CHANGE",
 ];
 
 function sortActionsForApply(actions) {
@@ -253,6 +239,48 @@ function resolveDiscountForCycle(settings, pricingPolicy, cycleIndex) {
   };
 }
 
+function resolveShippingDiscountForCycle(settings, cycleIndex) {
+  cycleIndex = Number(cycleIndex);
+
+  const active =
+    settings?.giveShippingDiscount &&
+    cycleIndex >= Number(settings.shippingAfterOrders ?? 0) &&
+    settings.shippingDiscountValue != null &&
+    Number(settings.shippingDiscountValue) >= 0;
+
+  if (active) {
+    return {
+      type: "SHIPPING_DISCOUNT_CHANGE",
+      adjustmentType: settings.shippingDiscountType ?? "PERCENTAGE",
+      adjustmentValue: Number(settings.shippingDiscountValue) || 0,
+      after: settings.shippingAfterOrders ?? 0,
+    };
+  }
+
+  return {
+    type: "SHIPPING_DISCOUNT_CHANGE",
+    adjustmentType: "PERCENTAGE",
+    adjustmentValue: 0,
+    after: 0,
+    __default: true,
+  };
+}
+
+function applyShippingDiscountToPrice(basePrice, action) {
+  const base = Number(basePrice) || 0;
+  if (!action || action.__default) return base;
+
+  const type = String(action.adjustmentType || "").toUpperCase();
+  if (type === "PERCENTAGE") {
+    return Math.max(0, base - (base * Number(action.adjustmentValue || 0)) / 100);
+  }
+  if (type === "FIXED_AMOUNT") {
+    return Math.max(0, base - Number(action.adjustmentValue || 0));
+  }
+  // "PRICE" — merchant sets the final delivery price directly
+  return Math.max(0, Number(action.adjustmentValue || 0));
+}
+
 function collectActionsForCycle(settings, cycleIndex, pricingPolicy = null) {
   const actions = [];
   if (!settings) return actions;
@@ -260,6 +288,7 @@ function collectActionsForCycle(settings, cycleIndex, pricingPolicy = null) {
   cycleIndex = Number(cycleIndex);
 
   actions.push(resolveDiscountForCycle(settings, pricingPolicy, cycleIndex));
+  actions.push(resolveShippingDiscountForCycle(settings, cycleIndex));
 
   if (
     settings.changeQuantityAfterOrders &&
@@ -645,6 +674,7 @@ async function applyActionsToCycle(
   basePriceAmount = null,
   pricingPolicy = null,
   cycleDate = null,
+  deliveryPriceAmount = null, // original/current shipping price for this contract
 ) {
   const openSelector = cycleDate ? { date: cycleDate } : { index: cycleIndex };
    console.log(`[applyActionsToCycle date ] contract=${contractId} selector=${JSON.stringify(openSelector)}`); // ADD THIS
@@ -776,7 +806,7 @@ async function applyActionsToCycle(
         if (errors?.length) throw new Error(`${action.type} failed: ${errors[0].message}`);
       }
 
-      // ── DISCOUNT_CHANGE ── (always runs last — see sortActionsForApply)
+      // ── DISCOUNT_CHANGE ── (base line price — runs after line edits)
       if (action.type === "DISCOUNT_CHANGE") {
         if (!lineId) throw new Error("DISCOUNT_CHANGE failed: no line found on draft");
         if (removedLineIds.has(lineId)) {
@@ -810,7 +840,39 @@ async function applyActionsToCycle(
         if (errors?.length) throw new Error(`DISCOUNT_CHANGE failed: ${errors[0].message}`);
       }
 
-      // ── REMOVE_PRODUCT / REMOVE_VARIANT / REMOVE_FREE_PRODUCT ──
+      // ── SHIPPING_DISCOUNT_CHANGE ── (delivery price on the draft, not a line)
+      if (action.type === "SHIPPING_DISCOUNT_CHANGE") {
+        if (action.__default) continue; // no shipping discount configured for this cycle
+
+        if (deliveryPriceAmount == null) {
+          console.warn(
+            `[applyActionsToCycle] SHIPPING_DISCOUNT_CHANGE skipped — original delivery price not provided`,
+          );
+          action.__skippedReason = "Original delivery price not available — shipping discount not applied.";
+          continue;
+        }
+
+        const newShippingPrice = applyShippingDiscountToPrice(deliveryPriceAmount, action).toFixed(2);
+
+        const res = await admin.graphql(
+          `
+          mutation updateDraftShippingPrice($draftId: ID!, $input: SubscriptionDraftInput!) {
+            subscriptionDraftUpdate(draftId: $draftId, input: $input) {
+              draft {
+                id
+                deliveryPrice { amount currencyCode }
+              }
+              userErrors { field message }
+            }
+          }
+          `,
+          { variables: { draftId, input: { deliveryPrice: newShippingPrice } } },
+        );
+        const data = await res.json();
+        if (data.errors) throw new Error(`SHIPPING_DISCOUNT_CHANGE failed (GraphQL): ${data.errors[0]?.message}`);
+        const errors = data.data?.subscriptionDraftUpdate?.userErrors;
+        if (errors?.length) throw new Error(`SHIPPING_DISCOUNT_CHANGE failed: ${errors[0].message}`);
+      }
       if (
         action.type === "REMOVE_PRODUCT" ||
         action.type === "REMOVE_VARIANT" ||
@@ -1137,6 +1199,7 @@ async function getContractPreview(admin, contractId) {
         id
         status
         nextBillingDate
+        deliveryPrice { amount currencyCode }
         billingPolicy {
           interval
           intervalCount
@@ -1517,6 +1580,31 @@ let swappedTitle ;
     currencyCode,
   };
 
+  // ── Shipping discount for next order (independent of line items) ──
+  const shippingAction = Array.isArray(actionsForNextCycle)
+    ? actionsForNextCycle.find((a) => a.type === "SHIPPING_DISCOUNT_CHANGE")
+    : null;
+  const hasRealShippingDiscount = shippingAction && !shippingAction.__default;
+  const originalShippingPriceAmount = Number(contract.deliveryPrice?.amount ?? 0);
+  const shippingCurrency = contract.deliveryPrice?.currencyCode ?? currencyCode;
+  const calculatedShippingPriceAmount = hasRealShippingDiscount
+    ? applyShippingDiscountToPrice(originalShippingPriceAmount, shippingAction)
+    : originalShippingPriceAmount;
+
+  const shippingPreview = contract.deliveryPrice
+    ? {
+        originalPrice: { amount: originalShippingPriceAmount.toFixed(2), currencyCode: shippingCurrency },
+        calculatedPrice: { amount: calculatedShippingPriceAmount.toFixed(2), currencyCode: shippingCurrency },
+        discountLabel: hasRealShippingDiscount
+          ? (String(shippingAction.adjustmentType).toUpperCase() === "PERCENTAGE"
+              ? `${shippingAction.adjustmentValue}% off shipping`
+              : String(shippingAction.adjustmentType).toUpperCase() === "FIXED_AMOUNT"
+                ? `${currencySymbol(shippingCurrency)}${shippingAction.adjustmentValue} off shipping`
+                : `Fixed shipping: ${currencySymbol(shippingCurrency)}${shippingAction.adjustmentValue}`)
+          : null,
+      }
+    : null;
+
   // ── Min/Max cycle info, for UI display ──
   const minCycles = contract.billingPolicy?.minCycles ?? null;
   const maxCycles = contract.billingPolicy?.maxCycles ?? null;
@@ -1570,6 +1658,7 @@ let swappedTitle ;
       lineItems,
       calculatedOrderTotal,
       originalOrderTotal,
+      shipping: shippingPreview,
       willApply: (() => {
         const visible = actionsForNextCycle
           .filter((a) => !a.__default)
@@ -1612,10 +1701,11 @@ let swappedTitle ;
   return preview;
 }
 export {
-  currencySymbol,
   getContractPreview,
   collectActionsForCycle,
   resolveDiscountForCycle,
+  resolveShippingDiscountForCycle,
+  applyShippingDiscountToPrice,
   applyActionsToCycle,
   computePriceForCycle,
   getDiscountTierForCycle,

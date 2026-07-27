@@ -1,6 +1,3 @@
-
-
-
 import { unauthenticated } from "../shopify.server";
 import prisma from "../db.server";
 import {
@@ -8,6 +5,8 @@ import {
   applyActionsToCycle,
   getContractSettingsSnapshot,
   getContractPreview,
+  clearAnyOpenDraft,
+  isBlockedByOpenDraft,
 } from "../lib/billing-preview.server";
 
 const EXTRA_SETTINGS_NAMESPACE = "subscription_app";
@@ -378,6 +377,7 @@ async function processShop(admin) {
             id
             createdAt
             nextBillingDate
+            deliveryPrice { amount currencyCode }
             billingPolicy {
               minCycles
               maxCycles
@@ -421,6 +421,7 @@ async function processShop(admin) {
     const sellingPlanId = contract.lines.edges[0]?.node?.sellingPlanId;
     const basePriceAmount = contract.lines.edges[0]?.node?.pricingPolicy?.basePrice?.amount ?? null;
     const pricingPolicy = contract.lines.edges[0]?.node?.pricingPolicy ?? null; // needed for swap price recalc
+    const deliveryPriceAmount = contract.deliveryPrice?.amount ?? null; // needed for shipping discount recalc
     const planInfo = sellingPlanId ? sellingPlanIdToInfo.get(sellingPlanId) : null;
     const groupId = planInfo?.groupId ?? null;
     const settings = await getContractSettingsSnapshot(admin, contract.id, shopId);
@@ -473,6 +474,7 @@ async function processShop(admin) {
         );
         const cancelData = await cancelRes.json();
         const cancelPayload = cancelData.data?.subscriptionContractCancel;
+        
 
         if (cancelPayload?.userErrors?.length) {
           console.error(`[process-billing-cycles] auto-cancel failed for ${contract.id}:`, cancelPayload.userErrors);
@@ -504,17 +506,12 @@ async function processShop(admin) {
             reason: cancelReason,
           });
         }
-        continue; // is contract ke liye STEP 1 / STEP 2 dono skip karo
+        continue;
       }
     } catch (err) {
       console.error(`[process-billing-cycles] failed auto-cancel check for ${contract.id}:`, err);
-      // check fail ho jaye to bhi normal flow continue karo — atkna nahi chahiye
     }
 
-    // ── STEP 1: edit the next-upcoming cycle BEFORE it goes overdue.
-    // Shopify only allows subscriptionBillingCycleContractEdit while the
-    // cycle's billingAttemptExpectedDate is still in the future — once it
-    // passes, the selector is rejected as invalid regardless of format. ──
     if (nextUpcoming && settings) {
       const minsUntilDue = (new Date(nextUpcoming.billingAttemptExpectedDate).getTime() - now.getTime()) / 60000;
       const editMarker = `${contract.id}:${nextUpcoming.cycleIndex}`;
@@ -532,6 +529,7 @@ async function processShop(admin) {
               basePriceAmount,
               pricingPolicy,
               nextUpcoming.billingAttemptExpectedDate, // still future here — date selector is valid
+              deliveryPriceAmount,
             );
             await markCycleProcessed(admin, shopId, processedCycles, editMarker);
             await appendAuditLog(admin, shopId, {

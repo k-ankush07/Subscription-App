@@ -1,4 +1,3 @@
-
 import { authenticate } from "../shopify.server";
 import SubscriptionDetail from "./components/SubscriptionDetail";
 import {
@@ -12,6 +11,7 @@ import {
   addBaseLineRemoval,
   removeAllDiscounts,
   removeLineDiscount,
+  
 } from "../lib/billing-preview.server";
 const API = import.meta.env.VITE_API_URL;
 const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
@@ -40,6 +40,10 @@ export async function loader({ request, params }) {
         createdAt
         updatedAt
         nextBillingDate
+        deliveryPrice {
+          amount
+          currencyCode
+        }
         deliveryPolicy {
           interval
           intervalCount
@@ -608,6 +612,7 @@ export async function action({ request, params }) {
           `
           query getContractLineForCharge($contractId: ID!) {
             subscriptionContract(id: $contractId) {
+              deliveryPrice { amount currencyCode }
               lines(first: 5) {
                 edges {
                   node {
@@ -638,6 +643,8 @@ export async function action({ request, params }) {
         const basePriceAmount =
           firstLine?.pricingPolicy?.basePrice?.amount ?? null;
         const pricingPolicy = firstLine?.pricingPolicy ?? null;
+        const deliveryPriceAmount =
+          contractData.data?.subscriptionContract?.deliveryPrice?.amount ?? null;
         const extraSettings = await getContractSettingsSnapshot(
           admin,
           contractId,
@@ -655,6 +662,8 @@ export async function action({ request, params }) {
             actionsForThisCycle,
             basePriceAmount,
             pricingPolicy,
+            null,
+            deliveryPriceAmount,
           );
           skippedActions = result?.skippedActions || [];
         }
@@ -837,8 +846,6 @@ export async function action({ request, params }) {
     } 
     if (type === "remove_line_discount") {
       const isBaseLine = formData.get("isBaseLine") === "true";
-      // "before" (native selling-plan discount) or "after" (custom afterOrders discount) —
-      // tells us which setting to flip. Only meaningful when isBaseLine is true.
       const discountPhase = formData.get("discountPhase") || null;
       const rawCycleIndex = formData.get("automationCycleIndex");
       const rawActionIndex = formData.get("automationActionIndex");
