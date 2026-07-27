@@ -15,7 +15,7 @@ export function startBillingCycleCron() {
         headers: { "x-cron-secret": process.env.CRON_SECRET },
       });
       // fefcddwdxwsdwsdwsdwswdxs
-      if (!res.ok) {
+      if (!res.ok) {ws
         const text = await res.text();
         console.error(`[cron] Non-OK response (${res.status}):`, text);
         return;
