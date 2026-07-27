@@ -1,5 +1,6 @@
 
 
+
 import { unauthenticated } from "../shopify.server";
 import prisma from "../db.server";
 import {
@@ -377,6 +378,10 @@ async function processShop(admin) {
             id
             createdAt
             nextBillingDate
+            billingPolicy {
+              minCycles
+              maxCycles
+            }
             lines(first: 5) {
               edges {
                 node {
@@ -419,6 +424,92 @@ async function processShop(admin) {
     const planInfo = sellingPlanId ? sellingPlanIdToInfo.get(sellingPlanId) : null;
     const groupId = planInfo?.groupId ?? null;
     const settings = await getContractSettingsSnapshot(admin, contract.id, shopId);
+
+    // ── NEW: auto-cancel checks, run BEFORE STEP 1 / STEP 2 (which both
+    // depend on a cycle being "due"). Two independent reasons to cancel:
+    //
+    //   1. MAX CYCLES REACHED — the next cycle's index has reached/passed
+    //      the contract's maxCycles limit. Cancel regardless of whether
+    //      the next order would be empty or not.
+    //
+    //   2. NEXT ORDER IS EMPTY — automation (e.g. REMOVE_PRODUCT) left the
+    //      next order with zero line items. Cancel even if minCycles has
+    //      not been reached yet — there is nothing left to bill, so
+    //      waiting for minCycles serves no purpose.
+    //
+    // If neither reason applies (order has real line items and, if
+    // minCycles is set, it just means normal charging continues — minCycles
+    // never blocks these two reasons, it only means "don't cancel for other
+    // reasons before this many cycles"). ──
+    try {
+      const minCycles = contract.billingPolicy?.minCycles ?? null;
+      const maxCycles = contract.billingPolicy?.maxCycles ?? null;
+
+      const preview = await getContractPreview(admin, contract.id);
+      const nextLineItems = preview?.nextOrder?.lineItems ?? [];
+      const nextCycleIdx = preview?.nextOrder?.cycleIndex ?? null;
+
+      let cancelReason = null;
+      if (maxCycles != null && nextCycleIdx != null && nextCycleIdx >= maxCycles) {
+        cancelReason = `maximum billing cycles reached (cycle ${nextCycleIdx} >= max ${maxCycles})`;
+      } else if (preview && nextLineItems.length === 0) {
+        cancelReason =
+          minCycles != null && nextCycleIdx != null && nextCycleIdx < minCycles
+            ? `next order has zero line items (min cycles ${minCycles} not yet reached, but nothing left to bill)`
+            : "next order has zero line items";
+      }
+
+      if (cancelReason) {
+        const cancelRes = await admin.graphql(
+          `
+          mutation CancelSubscriptionContract($contractId: ID!) {
+            subscriptionContractCancel(subscriptionContractId: $contractId) {
+              contract { id status }
+              userErrors { field message code }
+            }
+          }
+          `,
+          { variables: { contractId: contract.id } },
+        );
+        const cancelData = await cancelRes.json();
+        const cancelPayload = cancelData.data?.subscriptionContractCancel;
+
+        if (cancelPayload?.userErrors?.length) {
+          console.error(`[process-billing-cycles] auto-cancel failed for ${contract.id}:`, cancelPayload.userErrors);
+          await appendAuditLog(admin, shopId, {
+            contractId: contract.id,
+            groupId,
+            actions: ["AUTO_CANCEL"],
+            status: "failed",
+            reason: cancelReason,
+            error: cancelPayload.userErrors.map((e) => e.message).join(", "),
+          });
+          skipped.push({
+            contractId: contract.id,
+            reason: `${cancelReason} — auto-cancel attempted but failed`,
+            error: cancelPayload.userErrors.map((e) => e.message).join(", "),
+          });
+        } else {
+          await appendAuditLog(admin, shopId, {
+            contractId: contract.id,
+            groupId,
+            actions: ["AUTO_CANCEL"],
+            status: "success",
+            reason: cancelReason,
+          });
+          charged.push({
+            contractId: contract.id,
+            autoCancelled: true,
+            newStatus: cancelPayload?.contract?.status ?? "CANCELLED",
+            reason: cancelReason,
+          });
+        }
+        continue; // is contract ke liye STEP 1 / STEP 2 dono skip karo
+      }
+    } catch (err) {
+      console.error(`[process-billing-cycles] failed auto-cancel check for ${contract.id}:`, err);
+      // check fail ho jaye to bhi normal flow continue karo — atkna nahi chahiye
+    }
 
     // ── STEP 1: edit the next-upcoming cycle BEFORE it goes overdue.
     // Shopify only allows subscriptionBillingCycleContractEdit while the
@@ -477,11 +568,6 @@ async function processShop(admin) {
         }
       }
     }
-
-    // ── STEP 2: charge the cycle that's actually due now.
-    // No edit attempt here — editing an overdue cycle always fails. Any
-    // automation actions for this cycle should already have been applied
-    // in STEP 1 on a previous run, while it was still upcoming. ──
     if (!cycle) {
       skipped.push({
         contractId: contract.id,
@@ -501,63 +587,11 @@ async function processShop(admin) {
       continue;
     }
 
-    try {
-      const preview = await getContractPreview(admin, contract.id);
-      const nextLineItems = preview?.nextOrder?.lineItems ?? [];
-
-      if (preview && nextLineItems.length === 0) {
-        const cancelRes = await admin.graphql(
-          `
-          mutation CancelSubscriptionContract($contractId: ID!) {
-            subscriptionContractCancel(subscriptionContractId: $contractId) {
-              contract { id status }
-              userErrors { field message code }
-            }
-          }
-          `,
-          { variables: { contractId: contract.id } },
-        );
-        const cancelData = await cancelRes.json();
-        const cancelPayload = cancelData.data?.subscriptionContractCancel;
-
-        if (cancelPayload?.userErrors?.length) {
-          console.error(`[process-billing-cycles] auto-cancel failed for ${contract.id}:`, cancelPayload.userErrors);
-          await appendAuditLog(admin, shopId, {
-            contractId: contract.id,
-            groupId,
-            cycleIndex,
-            actions: ["AUTO_CANCEL"],
-            status: "failed",
-            error: cancelPayload.userErrors.map((e) => e.message).join(", "),
-          });
-          skipped.push({
-            contractId: contract.id,
-            cycleIndex,
-            reason: "next order has zero line items — auto-cancel attempted but failed",
-            error: cancelPayload.userErrors.map((e) => e.message).join(", "),
-          });
-        } else {
-          await markCycleCharged(admin, shopId, chargedCycles, chargeMarker);
-          await appendAuditLog(admin, shopId, {
-            contractId: contract.id,
-            groupId,
-            cycleIndex,
-            actions: ["AUTO_CANCEL"],
-            status: "success",
-          });
-          charged.push({
-            contractId: contract.id,
-            cycleIndex,
-            autoCancelled: true,
-            reason: "next order had zero line items after automation — subscription cancelled instead of charged",
-          });
-        }
-        continue;
-      }
-    } catch (err) {
-      console.error(`[process-billing-cycles] failed empty-order check for ${contract.id}:`, err);
-    }
-
+    // Visibility check: if this due cycle had automation actions configured
+    // but was never pre-edited (e.g. app was down during its lookahead
+    // window, or its billing interval is shorter than EDIT_LOOKAHEAD_MINUTES),
+    // log it clearly. We still charge — better a plain charge than none —
+    // but the configured automation won't be reflected in this order.
     const editMarkerForDueCycle = `${contract.id}:${cycleIndex}`;
     const actionsThatShouldHaveApplied = settings ? collectActionsForCycle(settings, cycleIndex) : [];
     if (actionsThatShouldHaveApplied.length > 0 && !processedCycles.has(editMarkerForDueCycle)) {

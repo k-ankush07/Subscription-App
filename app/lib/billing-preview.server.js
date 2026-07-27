@@ -1,4 +1,5 @@
 
+
 const EXTRA_SETTINGS_NAMESPACE = "subscription_app";
 const CONTRACT_SETTINGS_SNAPSHOTS_KEY = "contract_settings_snapshots";
 
@@ -1052,7 +1053,7 @@ function removeAllDiscounts(settings) {
   }
   const clonedSettings = JSON.parse(JSON.stringify(settings));
   clonedSettings.changeDiscountAfterOrders = false;
-  clonedSettings.beforeDiscountDisabled = true;o
+  clonedSettings.beforeDiscountDisabled = true;
   if (Array.isArray(clonedSettings.automationCycles)) {
     clonedSettings.automationCycles.forEach((entry) => {
       (entry.actions ?? []).forEach((action) => {
@@ -1136,6 +1137,12 @@ async function getContractPreview(admin, contractId) {
         id
         status
         nextBillingDate
+        billingPolicy {
+          interval
+          intervalCount
+          minCycles
+          maxCycles
+        }
         customer {
          id
          displayName
@@ -1510,6 +1517,34 @@ let swappedTitle ;
     currencyCode,
   };
 
+  // ── Min/Max cycle info, for UI display ──
+  const minCycles = contract.billingPolicy?.minCycles ?? null;
+  const maxCycles = contract.billingPolicy?.maxCycles ?? null;
+  const cyclesRemainingUntilMax =
+    maxCycles != null && cycleIndex != null ? Math.max(0, maxCycles - cycleIndex) : null;
+  const cyclesRemainingUntilMin =
+    minCycles != null && cycleIndex != null ? Math.max(0, minCycles - cycleIndex) : null;
+
+  const billingPolicySummary = {
+    minCycles,
+    maxCycles,
+    hasMinCycles: minCycles != null,
+    hasMaxCycles: maxCycles != null,
+    minCyclesReached: minCycles != null && cycleIndex != null ? cycleIndex >= minCycles : null,
+    maxCyclesReached: maxCycles != null && cycleIndex != null ? cycleIndex >= maxCycles : null,
+    cyclesRemainingUntilMin,
+    cyclesRemainingUntilMax,
+    summary:
+      minCycles == null && maxCycles == null
+        ? "Unlimited — runs until cancelled"
+        : [
+            minCycles != null ? `Min ${minCycles} cycles` : null,
+            maxCycles != null ? `Max ${maxCycles} cycles` : null,
+          ]
+            .filter(Boolean)
+            .join(" • "),
+  };
+
   const preview = {
     contractId: contract.id,
     status: contract.status,
@@ -1528,6 +1563,7 @@ let swappedTitle ;
       pricingPolicyDebug: firstLine?.pricingPolicy ?? null,
     },
     planGroup: { id: groupId, name: groupName },
+    billingPolicy: billingPolicySummary,
     nextOrder: {
       cycleIndex,
       expectedDate: nextBillingDate,
@@ -1564,6 +1600,7 @@ let swappedTitle ;
     `   Plan: ${preview.planGroup.name || "unknown"} (${preview.planGroup.id || "no group matched"})`,
   );
   console.log(`   Settings source: ${preview.settingsSource}`);
+  console.log(`   Billing policy: ${preview.billingPolicy.summary}`);
   console.log(`   Next order date: ${preview.nextOrder.expectedDate}`);
   console.log(`   Next order cycle #: ${preview.nextOrder.cycleIndex}`);
   console.log(`   Next order line items:`, JSON.stringify(preview.nextOrder.lineItems));

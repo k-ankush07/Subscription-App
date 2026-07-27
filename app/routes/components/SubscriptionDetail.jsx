@@ -65,9 +65,6 @@ export default function SubscriptionDetail() {
     upcomingCycles?.find((cycle) => !cycle.skipped) ?? null;
   const nextCycleIndex = nextUpcomingCycle?.cycleIndex ?? null;
   const nextCycleDate = nextUpcomingCycle?.billingAttemptExpectedDate ?? null;
-  const willApplyChanges = Array.isArray(preview?.nextOrder?.willApply)
-    ? preview.nextOrder.willApply
-    : [];
 
   const paymentInstrument = contract?.customerPaymentMethod?.instrument;
   const hasValidPaymentMethod = !!(
@@ -392,7 +389,7 @@ export default function SubscriptionDetail() {
               }}
             >
               <b>Next Order (Cycle #{preview?.nextOrder?.cycleIndex})</b>
-              {hasAnyDiscount && (
+              { contract?.status !== "CANCELLED" && hasAnyDiscount && (
                 <Button
                   onClick={handleRemoveAllDiscounts}
                   loading={fetcher.state !== "idle"}
@@ -433,7 +430,7 @@ export default function SubscriptionDetail() {
                     {li.itemTotal?.amount} {li.itemTotal?.currencyCode}
                   </p>
 
-                  {li.discountLabel && (
+                  { contract?.status !== "CANCELLED" &&  li.discountLabel && (
                     <p>
                       {li.discountLabel}{" "}
                       <Button
