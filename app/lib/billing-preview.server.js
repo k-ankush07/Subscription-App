@@ -839,8 +839,6 @@ async function applyActionsToCycle(
         const errors = data.data?.subscriptionDraftLineUpdate?.userErrors;
         if (errors?.length) throw new Error(`DISCOUNT_CHANGE failed: ${errors[0].message}`);
       }
-
-      // ── SHIPPING_DISCOUNT_CHANGE ── (delivery price on the draft, not a line)
       if (action.type === "SHIPPING_DISCOUNT_CHANGE") {
         if (action.__default) continue; // no shipping discount configured for this cycle
 
@@ -1700,6 +1698,35 @@ let swappedTitle ;
 
   return preview;
 }
+
+async function clearAnyOpenDraft(admin, contractId, { fromIndex = 0, toIndex = 6 } = {}) {
+  const results = [];
+  for (let i = fromIndex; i <= toIndex; i++) {
+    try {
+      const r = await clearBillingCycleEdit(admin, contractId, i);
+      results.push({ cycleIndex: i, ...r });
+    } catch (err) {
+      results.push({ cycleIndex: i, cleared: false, error: String(err?.message || err) });
+    }
+  }
+  return results;
+}
+async function isBlockedByOpenDraft(admin, contractId) {
+  const res = await admin.graphql(
+    `
+    query checkOpenDraft($id: ID!) {
+      subscriptionContract(id: $id) {
+        id
+        status
+      }
+    }
+    `,
+    { variables: { id: contractId } },
+  );
+  const data = await res.json();
+
+  return { status: data?.data?.subscriptionContract?.status ?? null };
+}
 export {
   getContractPreview,
   collectActionsForCycle,
@@ -1724,4 +1751,6 @@ export {
   addBaseLineRemoval,
   removeAllDiscounts,      
   removeLineDiscount, 
+  clearAnyOpenDraft,        
+  isBlockedByOpenDraft, 
 };

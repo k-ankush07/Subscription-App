@@ -1,4 +1,3 @@
-
 import { Banner, Button, Card, Page, Icon, Checkbox } from "@shopify/polaris";
 import React, { useEffect, useState } from "react";
 import { currencySymbol } from "../utils/formatMoney.js";
@@ -24,7 +23,10 @@ function getCardImage(brand) {
 }
 
 function formateDate(date) {
-  return new Date(date).toLocaleDateString("en-US", {
+  if (!date) return "—";
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("en-US", {
     month: "long",
     day: "numeric",
     year: "numeric",
@@ -59,18 +61,9 @@ export default function SubscriptionDetail() {
       revalidator.revalidate();
     }
   }, [fetcher.state, fetcher.data]);
-
-  // ---- FIX: single shared `fetcher` was used for every button, so
-  // `fetcher.state !== "idle"` became true for ALL buttons whenever ANY
-  // action was submitted. We now look at `fetcher.formData` (available
-  // while a submission is in flight) to figure out exactly which action
-  // is running, and only mark THAT specific control as loading/disabled.
   const isPending = fetcher.state !== "idle";
   const pendingFormData = isPending ? fetcher.formData : null;
   const pendingType = pendingFormData?.get("type") ?? null;
-
-  // matchers: { fieldName: expectedValue }. Every field must match the
-  // in-flight submission's formData for this to be considered "the same" action.
   const isThisActionPending = (type, matchers = {}) => {
     if (!isPending || pendingType !== type) return false;
     return Object.entries(matchers).every(([key, expected]) => {
@@ -80,7 +73,6 @@ export default function SubscriptionDetail() {
   };
 
   const lines = localLines;
-  const currencyCode = lines?.[0]?.node?.currentPrice?.currencyCode;
   const nextUpcomingCycle =
     upcomingCycles?.find((cycle) => !cycle.skipped) ?? null;
   const nextCycleIndex = nextUpcomingCycle?.cycleIndex ?? null;
@@ -112,9 +104,6 @@ export default function SubscriptionDetail() {
       )}).`;
     }
   }
-  const canChargeNow = !chargeDisabledReason;
-  const hasNextOrderLineItems = (preview?.nextOrder?.lineItems?.length || 0) > 0;
-
   const navigate = useNavigate();
   const handleRemoveAutomationItem = ({
     automationCycleIndex,
@@ -237,9 +226,6 @@ export default function SubscriptionDetail() {
           li.automationActionIndex != null
             ? String(li.automationActionIndex)
             : "",
-        // added purely so we can uniquely match this specific line item's
-        // loading state on the client — safe to keep even if the server
-        // action ignores it.
         productId: li.productId || "",
         variantId: li.variantId || "",
         sellingPlanId: lines?.[0]?.node?.sellingPlanId || "",
@@ -294,35 +280,18 @@ export default function SubscriptionDetail() {
             )}
           </>
         )}
-
-        {contract?.status !== "CANCELLED" && hasNextOrderLineItems && (
-  <span title={!canChargeNow ? chargeDisabledReason : undefined}>
-    <Button
-      onClick={() => {
-        if (!canChargeNow || nextCycleIndex == null) return;
-        const confirmed = confirm(
-          `Charge this customer now for cycle #${nextCycleIndex}? This will place an order immediately.`,
-        );
-        if (!confirmed) return;
-        fetcher.submit(
-          { type: "charge_now", cycleIndex: nextCycleIndex },
-          { method: "post" },
-        );
-      }}
-      loading={isThisActionPending("charge_now", { cycleIndex: nextCycleIndex })}
-      disabled={isThisActionPending("charge_now", { cycleIndex: nextCycleIndex }) || !canChargeNow}
-      tone="success"
-    >
-      Charge Now
-    </Button>
-    {!canChargeNow && (
-      <div style={{ fontSize: "12px", color: "#8a8a8a" }}>
-        {chargeDisabledReason}
-      </div>
-    )}
-  </span>
-)}
-
+<Button
+  onClick={() => {
+    fetcher.submit(
+      { type: "charge_now", cycleIndex: nextCycleIndex },
+      { method: "post" },
+    );
+  }}
+  disabled={!!chargeDisabledReason || isThisActionPending("charge_now")}
+  loading={isThisActionPending("charge_now")}
+>
+  Charge Now
+</Button>
         {contract?.status !== "CANCELLED" ? (
           <Button
             onClick={handleCancelSubscription}
@@ -337,7 +306,7 @@ export default function SubscriptionDetail() {
         {contract?.status !== "CANCELLED" && (
           <div>
             <b>Next Order</b>
-            <p>{formateDate(nextCycleDate)}</p>
+            <p>{nextCycleDate ? formateDate(nextCycleDate) : "No upcoming billing cycle"}</p>
             <br />
 
             {(contract?.billingPolicy?.minCycles != null ||
@@ -430,7 +399,7 @@ export default function SubscriptionDetail() {
               }}
             >
               <b>Next Order (Cycle #{preview?.nextOrder?.cycleIndex})</b>
-              { contract?.status !== "CANCELLED" && hasAnyDiscount && (
+              {contract?.status !== "CANCELLED" && hasAnyDiscount && (
                 <Button
                   onClick={handleRemoveAllDiscounts}
                   loading={isThisActionPending("remove_all_discounts")}
@@ -471,7 +440,7 @@ export default function SubscriptionDetail() {
                     {li.itemTotal?.amount} {li.itemTotal?.currencyCode}
                   </p>
 
-                  { contract?.status !== "CANCELLED" &&  li.discountLabel && (
+                  {contract?.status !== "CANCELLED" && li.discountLabel && (
                     <p>
                       {li.discountLabel}{" "}
                       <Button
@@ -563,17 +532,6 @@ export default function SubscriptionDetail() {
             ))}
           </Card>
         )}
-        {/* <Card>
-          <b>Payment Summary</b>
-
-          <p>
-            Subtotal:-
-            {currencySymbol(
-              preview?.nextOrder?.calculatedOrderTotal?.currencyCode,
-            )}{" "}
-            {preview?.nextOrder?.calculatedOrderTotal?.amount}
-          </p>
-        </Card> */}
         <Card>
           <b>Payment Summary</b>
 
@@ -590,15 +548,20 @@ export default function SubscriptionDetail() {
               Shipping:-{" "}
               {preview.nextOrder.shipping.calculatedPrice?.amount !==
                 preview.nextOrder.shipping.originalPrice?.amount && (
-                <span >
-                  {currencySymbol(preview.nextOrder.shipping.originalPrice?.currencyCode)}{" "} 
+                <span>
+                  {currencySymbol(
+                    preview.nextOrder.shipping.originalPrice?.currencyCode,
+                  )}{" "}
                   {preview.nextOrder.shipping.originalPrice?.amount}{" "}
                 </span>
-              )} =
-              {currencySymbol(preview.nextOrder.shipping.calculatedPrice?.currencyCode)}{" "}
+              )}{" "}
+              =
+              {currencySymbol(
+                preview.nextOrder.shipping.calculatedPrice?.currencyCode,
+              )}{" "}
               {preview.nextOrder.shipping.calculatedPrice?.amount}
               {preview.nextOrder.shipping.discountLabel && (
-                <span style={{ marginLeft: "6px",  }}>
+                <span style={{ marginLeft: "6px" }}>
                   ({preview.nextOrder.shipping.discountLabel})
                 </span>
               )}
@@ -608,10 +571,14 @@ export default function SubscriptionDetail() {
           <p>
             <b>
               Total:-{" "}
-              {currencySymbol(preview?.nextOrder?.calculatedOrderTotal?.currencyCode)}{" "}
+              {currencySymbol(
+                preview?.nextOrder?.calculatedOrderTotal?.currencyCode,
+              )}{" "}
               {(
                 Number(preview?.nextOrder?.calculatedOrderTotal?.amount || 0) +
-                Number(preview?.nextOrder?.shipping?.calculatedPrice?.amount || 0)
+                Number(
+                  preview?.nextOrder?.shipping?.calculatedPrice?.amount || 0,
+                )
               ).toFixed(2)}
             </b>
           </p>
