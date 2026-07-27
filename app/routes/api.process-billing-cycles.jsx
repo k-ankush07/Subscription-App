@@ -6,6 +6,7 @@ import {
   collectActionsForCycle,
   applyActionsToCycle,
   getContractSettingsSnapshot,
+  getContractPreview,
 } from "../lib/billing-preview.server";
 
 const EXTRA_SETTINGS_NAMESPACE = "subscription_app";
@@ -500,11 +501,63 @@ async function processShop(admin) {
       continue;
     }
 
-    // Visibility check: if this due cycle had automation actions configured
-    // but was never pre-edited (e.g. app was down during its lookahead
-    // window, or its billing interval is shorter than EDIT_LOOKAHEAD_MINUTES),
-    // log it clearly. We still charge — better a plain charge than none —
-    // but the configured automation won't be reflected in this order.
+    try {
+      const preview = await getContractPreview(admin, contract.id);
+      const nextLineItems = preview?.nextOrder?.lineItems ?? [];
+
+      if (preview && nextLineItems.length === 0) {
+        const cancelRes = await admin.graphql(
+          `
+          mutation CancelSubscriptionContract($contractId: ID!) {
+            subscriptionContractCancel(subscriptionContractId: $contractId) {
+              contract { id status }
+              userErrors { field message code }
+            }
+          }
+          `,
+          { variables: { contractId: contract.id } },
+        );
+        const cancelData = await cancelRes.json();
+        const cancelPayload = cancelData.data?.subscriptionContractCancel;
+
+        if (cancelPayload?.userErrors?.length) {
+          console.error(`[process-billing-cycles] auto-cancel failed for ${contract.id}:`, cancelPayload.userErrors);
+          await appendAuditLog(admin, shopId, {
+            contractId: contract.id,
+            groupId,
+            cycleIndex,
+            actions: ["AUTO_CANCEL"],
+            status: "failed",
+            error: cancelPayload.userErrors.map((e) => e.message).join(", "),
+          });
+          skipped.push({
+            contractId: contract.id,
+            cycleIndex,
+            reason: "next order has zero line items — auto-cancel attempted but failed",
+            error: cancelPayload.userErrors.map((e) => e.message).join(", "),
+          });
+        } else {
+          await markCycleCharged(admin, shopId, chargedCycles, chargeMarker);
+          await appendAuditLog(admin, shopId, {
+            contractId: contract.id,
+            groupId,
+            cycleIndex,
+            actions: ["AUTO_CANCEL"],
+            status: "success",
+          });
+          charged.push({
+            contractId: contract.id,
+            cycleIndex,
+            autoCancelled: true,
+            reason: "next order had zero line items after automation — subscription cancelled instead of charged",
+          });
+        }
+        continue;
+      }
+    } catch (err) {
+      console.error(`[process-billing-cycles] failed empty-order check for ${contract.id}:`, err);
+    }
+
     const editMarkerForDueCycle = `${contract.id}:${cycleIndex}`;
     const actionsThatShouldHaveApplied = settings ? collectActionsForCycle(settings, cycleIndex) : [];
     if (actionsThatShouldHaveApplied.length > 0 && !processedCycles.has(editMarkerForDueCycle)) {

@@ -96,6 +96,7 @@ export default function SubscriptionDetail() {
     }
   }
   const canChargeNow = !chargeDisabledReason;
+  const hasNextOrderLineItems = (preview?.nextOrder?.lineItems?.length || 0) > 0;
 
   const navigate = useNavigate();
   const handleRemoveAutomationItem = ({
@@ -259,33 +260,34 @@ export default function SubscriptionDetail() {
             )}
           </>
         )}
-        {contract?.status !== "CANCELLED" && (
-          <span title={!canChargeNow ? chargeDisabledReason : undefined}>
-            <Button
-              onClick={() => {
-                if (!canChargeNow || nextCycleIndex == null) return;
-                const confirmed = confirm(
-                  `Charge this customer now for cycle #${nextCycleIndex}? This will place an order immediately.`,
-                );
-                if (!confirmed) return;
-                fetcher.submit(
-                  { type: "charge_now", cycleIndex: nextCycleIndex },
-                  { method: "post" },
-                );
-              }}
-              loading={fetcher.state !== "idle"}
-              disabled={fetcher.state !== "idle" || !canChargeNow}
-              tone="success"
-            >
-              Charge Now
-            </Button>
-            {!canChargeNow && (
-              <div style={{ fontSize: "12px", color: "#8a8a8a" }}>
-                {chargeDisabledReason}
-              </div>
-            )}
-          </span>
-        )}
+
+        {contract?.status !== "CANCELLED" && hasNextOrderLineItems && (
+  <span title={!canChargeNow ? chargeDisabledReason : undefined}>
+    <Button
+      onClick={() => {
+        if (!canChargeNow || nextCycleIndex == null) return;
+        const confirmed = confirm(
+          `Charge this customer now for cycle #${nextCycleIndex}? This will place an order immediately.`,
+        );
+        if (!confirmed) return;
+        fetcher.submit(
+          { type: "charge_now", cycleIndex: nextCycleIndex },
+          { method: "post" },
+        );
+      }}
+      loading={fetcher.state !== "idle"}
+      disabled={fetcher.state !== "idle" || !canChargeNow}
+      tone="success"
+    >
+      Charge Now
+    </Button>
+    {!canChargeNow && (
+      <div style={{ fontSize: "12px", color: "#8a8a8a" }}>
+        {chargeDisabledReason}
+      </div>
+    )}
+  </span>
+)}
 
         {contract?.status !== "CANCELLED" ? (
           <Button onClick={handleCancelSubscription}>
