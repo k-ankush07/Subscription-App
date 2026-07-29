@@ -331,7 +331,6 @@ export async function action({ request, params }) {
     type === "remove_base_line" ||
     type === "remove_all_discounts" ||   
     type === "remove_line_discount"   ||
-    type === "apply_all_discounts" ||
     type === "apply_line_discount"
   ) {
     if (type === "pause") {
