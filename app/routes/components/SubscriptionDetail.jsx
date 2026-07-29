@@ -2,7 +2,6 @@ import { Banner, Button, Card, Page, Icon, Checkbox } from "@shopify/polaris";
 import React, { useEffect, useState } from "react";
 import { currencySymbol } from "../utils/formatMoney.js";
 import {
-  Link,
   useNavigate,
   useParams,
   useFetcher,
