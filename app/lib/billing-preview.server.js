@@ -756,10 +756,6 @@ async function applyActionsToCycle(
         const errors = data.data?.subscriptionDraftLineUpdate?.userErrors;
         if (errors?.length) throw new Error(`QUANTITY_CHANGE failed: ${errors[0].message}`);
       }
-
-
-      // ── PRODUCT_SWAP / VARIANT_SWAP ──
-      // ── PRODUCT_SWAP / VARIANT_SWAP ──
       if (action.type === "PRODUCT_SWAP" || action.type === "VARIANT_SWAP") {
         const targetLine = resolveLineForAction(draftLines, action);
         if (!targetLine) {
@@ -1157,76 +1153,6 @@ function removeLineDiscount(settings, { isBaseLine, discountPhase, automationCyc
     );
   }
   action.discountEnabled = false;
-
-  return clonedSettings;
-}
-
-function applyAllDiscounts(settings, { discountType, discountValue, afterOrders = 0 }) {
-  const value = Number(discountValue);
-  if (!discountType || !(value > 0)) {
-    throw new Error("applyAllDiscounts: discountType and a positive discountValue are required");
-  }
-
-  const clonedSettings = settings ? JSON.parse(JSON.stringify(settings)) : {};
-
-  // Base line discount ("after N orders" mechanism — afterOrders=0 matlab abhi se hi active)
-  clonedSettings.changeDiscountAfterOrders = true;
-  clonedSettings.afterOrders = Number(afterOrders) || 0;
-  clonedSettings.afterDiscountType = discountType;
-  clonedSettings.afterDiscountValue = value;
-
-  // Automation ke har "add" product action pr bhi same discount
-  if (Array.isArray(clonedSettings.automationCycles)) {
-    clonedSettings.automationCycles.forEach((entry) => {
-      (entry.actions ?? []).forEach((action) => {
-        if (action && action.type === "add") {
-          action.discountEnabled = true;
-          action.discountType = discountType;
-          action.discountValue = value;
-        }
-      });
-    });
-  }
-
-  return clonedSettings;
-}
-
-function applyLineDiscount(
-  settings,
-  { isBaseLine, automationCycleIndex, automationActionIndex, discountType, discountValue, afterOrders = 0 },
-) {
-  const value = Number(discountValue);
-  if (!discountType || !(value > 0)) {
-    throw new Error("applyLineDiscount: discountType and a positive discountValue are required");
-  }
-
-  const clonedSettings = settings ? JSON.parse(JSON.stringify(settings)) : {};
-
-  if (isBaseLine) {
-    clonedSettings.changeDiscountAfterOrders = true;
-    clonedSettings.afterOrders = Number(afterOrders) || 0;
-    clonedSettings.afterDiscountType = discountType;
-    clonedSettings.afterDiscountValue = value;
-    return clonedSettings;
-  }
-
-  if (!Array.isArray(clonedSettings.automationCycles)) {
-    throw new Error("applyLineDiscount: no automationCycles configured");
-  }
-  const entry = clonedSettings.automationCycles[automationCycleIndex];
-  if (!entry || !Array.isArray(entry.actions)) {
-    throw new Error("applyLineDiscount: automation cycle entry not found");
-  }
-  const action = entry.actions[automationActionIndex];
-  if (!action) {
-    throw new Error(
-      "applyLineDiscount: target action not found (stale index) — please refresh and retry",
-    );
-  }
-
-  action.discountEnabled = true;
-  action.discountType = discountType;
-  action.discountValue = value;
 
   return clonedSettings;
 }
@@ -1820,9 +1746,7 @@ export {
   getEffectiveSettingsForContract,
   addBaseLineRemoval,
   removeAllDiscounts,      
-  removeLineDiscount,
-    applyAllDiscounts,
-  applyLineDiscount, 
+  removeLineDiscount, 
   clearAnyOpenDraft,        
   isBlockedByOpenDraft, 
 };

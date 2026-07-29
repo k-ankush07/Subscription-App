@@ -12,7 +12,7 @@ import {
   removeAllDiscounts,
   removeLineDiscount,
   clearAnyOpenDraft,   
-  applyLineDiscount,    
+  applyLineDiscount,   
 } from "../lib/billing-preview.server";
 const API = import.meta.env.VITE_API_URL;
 const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
@@ -330,7 +330,7 @@ export async function action({ request, params }) {
     type === "remove_base_line" ||
     type === "remove_all_discounts" ||   
     type === "remove_line_discount"   ||
-    type === "apply_line_discount"
+    type === "apply_line_discount" 
   ) {
     if (type === "pause") {
       try {
@@ -1024,38 +1024,49 @@ export async function action({ request, params }) {
       return { success: false, error: String(err?.message || err) };
     }
     }
-    if (type === "apply_line_discount") {
-      const isBaseLine = formData.get("isBaseLine") === "true";
-      const rawCycleIndex = formData.get("automationCycleIndex");
-      const rawActionIndex = formData.get("automationActionIndex");
-      const automationCycleIndex = rawCycleIndex !== "" ? parseInt(rawCycleIndex, 10) : null;
-      const automationActionIndex = rawActionIndex !== "" ? parseInt(rawActionIndex, 10) : null;
-      const sellingPlanId = formData.get("sellingPlanId") || null;
-      const discountType = formData.get("discountType");
-      const discountValue = formData.get("discountValue");
+   if (type === "apply_line_discount") {
+  const isBaseLine = formData.get("isBaseLine") === "true";
+  const rawCycleIndex = formData.get("automationCycleIndex");
+  const rawActionIndex = formData.get("automationActionIndex");
+  const automationCycleIndex = rawCycleIndex !== "" ? parseInt(rawCycleIndex, 10) : null;
+  const automationActionIndex = rawActionIndex !== "" ? parseInt(rawActionIndex, 10) : null;
+  const sellingPlanId = formData.get("sellingPlanId") || null;
+  const discountType = formData.get("discountType");
+  const discountValue = formData.get("discountValue");
 
-      if (!isBaseLine && (Number.isNaN(automationCycleIndex) || Number.isNaN(automationActionIndex))) {
-        return { success: false, error: "Invalid discount reference" };
-      }
+  if (!isBaseLine && (Number.isNaN(automationCycleIndex) || Number.isNaN(automationActionIndex))) {
+    return { success: false, error: "Invalid discount reference" };
+  }
 
-      try {
-        const currentSettings = await getEffectiveSettingsForContract(admin, contractId, sellingPlanId);
-        const updatedSettings = applyLineDiscount(currentSettings, {
-          isBaseLine,
-          automationCycleIndex,
-          automationActionIndex,
-          discountType,
-          discountValue,
-        });
-        const { snapshotted } = await snapshotContractSettings(admin, contractId, updatedSettings);
-        if (!snapshotted) {
-          return { success: false, error: "Failed to save updated automation settings" };
-        }
-        return { success: true };
-      } catch (err) {
-        console.error("Apply line discount failed:", err);
-        return { success: false, error: String(err?.message || err) };
-      }
+  try {
+    const currentSettings = await getEffectiveSettingsForContract(
+      admin,
+      contractId,
+      sellingPlanId,
+    );
+    const updatedSettings = applyLineDiscount(currentSettings, {
+      isBaseLine,
+      automationCycleIndex,
+      automationActionIndex,
+      discountType,
+      discountValue,
+    });
+    const { snapshotted } = await snapshotContractSettings(
+      admin,
+      contractId,
+      updatedSettings,
+    );
+    if (!snapshotted) {
+      return {
+        success: false,
+        error: "Failed to save updated automation settings",
+      };
+    }
+    return { success: true };
+  } catch (err) {
+    console.error("Apply line discount failed:", err);
+    return { success: false, error: String(err?.message || err) };
+  }
     }
   }
 
