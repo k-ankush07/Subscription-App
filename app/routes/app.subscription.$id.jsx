@@ -824,8 +824,6 @@ export async function action({ request, params }) {
       { variables: { contractId } },
     );
     const contractData = await contractRes.json();
-
-    // ── NEW: query khud fail ho gayi to turant pata chale ──
     if (contractData.errors) {
       console.error("[charge_now] getContractLineForCharge GraphQL errors:", JSON.stringify(contractData.errors));
     }
@@ -861,12 +859,9 @@ export async function action({ request, params }) {
       skippedActions = result?.skippedActions || [];
     }
 
-    // ── NEW: charge se theek pehle koi stuck/open draft ho to clear kar do ──
     await clearAnyOpenDraft(admin, contractId).catch((err) =>
       console.warn(`[charge_now] pre-charge clearAnyOpenDraft failed for ${contractId}:`, err),
     );
-
-    // 3. Ab actual charge karo
     const chargeRes = await admin.graphql(
       `
       mutation ChargeSubscriptionCycleNow($contractId: ID!, $index: Int!) {
@@ -901,8 +896,6 @@ export async function action({ request, params }) {
     }
 
     const attempt = chargePayload.subscriptionBillingAttempt;
-
-    // ── NEW: agar yeh charge maxCycles ka last allowed cycle tha, turant cancel karo ──
     const maxCycles = Number(
       contractData.data?.subscriptionContract?.billingPolicy?.maxCycles ?? NaN,
     );
@@ -919,10 +912,6 @@ export async function action({ request, params }) {
 
     if (!Number.isNaN(maxCycles) && numericCycleIndex >= maxCycles - 1) {
       try {
-        // ── NEW: cancel se pehle bhi koi open draft ho to clear kar do —
-        // warna Shopify "contract has a pending billing cycle edit" jaisi
-        // error de kar cancel reject kar sakta hai, aur wo error pehle
-        // sirf console.error me chhup jaati thi, UI tak nahi pahunchti thi. ──
         await clearAnyOpenDraft(admin, contractId).catch((err) =>
           console.warn(`[charge_now] pre-cancel clearAnyOpenDraft failed for ${contractId}:`, err),
         );
@@ -939,8 +928,6 @@ export async function action({ request, params }) {
           { variables: { contractId } },
         );
         const cancelData = await cancelRes.json();
-
-        // ── NEW: GraphQL-level errors bhi log/capture karo, sirf userErrors nahi ──
         if (cancelData.errors) {
           console.error("[charge_now] auto-cancel GraphQL errors:", JSON.stringify(cancelData.errors));
           autoCancelError = cancelData.errors.map((e) => e.message).join(", ");

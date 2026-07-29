@@ -8,9 +8,9 @@ export function startBillingCycleCron() {
 
   cron.schedule("* * * * *", async () => {
     console.log("[cron] Running process-billing-cycles...");
-    console.log("process.env https://puerto-serious-hygiene-successful.trycloudflare.com")
+    console.log("process.env https://honor-changes-lanes-simple.trycloudflare.com")
     try {
-      const res = await fetch(`https://puerto-serious-hygiene-successful.trycloudflare.com/api/process-billing-cycles`, {
+      const res = await fetch(`https://honor-changes-lanes-simple.trycloudflare.com/api/process-billing-cycles`, {
         method: "POST",
         headers: { "x-cron-secret": process.env.CRON_SECRET },
       });

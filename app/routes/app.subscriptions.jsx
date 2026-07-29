@@ -21,7 +21,7 @@ export async function loader({ request }) {
   const res = await admin.graphql(
     `
     query getContracts {
-      subscriptionContracts(first: 200) {
+      subscriptionContracts(first: 250) {
         edges {
           node {
             id
