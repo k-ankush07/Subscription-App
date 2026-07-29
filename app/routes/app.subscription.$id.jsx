@@ -1025,23 +1025,6 @@ export async function action({ request, params }) {
       return { success: false, error: String(err?.message || err) };
     }
     }
-    if (type === "apply_all_discounts") {
-      const sellingPlanId = formData.get("sellingPlanId") || null;
-      const discountType = formData.get("discountType");
-      const discountValue = formData.get("discountValue");
-      try {
-        const currentSettings = await getEffectiveSettingsForContract(admin, contractId, sellingPlanId);
-        const updatedSettings = applyAllDiscounts(currentSettings, { discountType, discountValue });
-        const { snapshotted } = await snapshotContractSettings(admin, contractId, updatedSettings);
-        if (!snapshotted) {
-          return { success: false, error: "Failed to save updated automation settings" };
-        }
-        return { success: true };
-      } catch (err) {
-        console.error("Apply all discounts failed:", err);
-        return { success: false, error: String(err?.message || err) };
-      }
-    }
     if (type === "apply_line_discount") {
       const isBaseLine = formData.get("isBaseLine") === "true";
       const rawCycleIndex = formData.get("automationCycleIndex");
