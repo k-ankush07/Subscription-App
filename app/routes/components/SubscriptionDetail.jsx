@@ -2,6 +2,7 @@ import { Banner, Button, Card, Page, Icon, Checkbox } from "@shopify/polaris";
 import React, { useEffect, useState } from "react";
 import { currencySymbol } from "../utils/formatMoney.js";
 import {
+  Link,
   useNavigate,
   useParams,
   useFetcher,
@@ -49,8 +50,6 @@ export default function SubscriptionDetail() {
   const [CustomerNotes, setCustomerNotes] = useState(customerNotes || "");
   const [editingCycleIndex, setEditingCycleIndex] = useState(null);
   const [editDate, setEditDate] = useState("");
-  const [openLineDiscount, setOpenLineDiscount] = useState(null); 
-const [lineDiscountForms, setLineDiscountForms] = useState({});
   const [visibleCyclesCount, setVisibleCyclesCount] = useState(5);
   const customerId = contract?.customer?.id?.split("/").pop();
   const shopHandle = shop?.replace(".myshopify.com", "");
@@ -244,34 +243,6 @@ const [lineDiscountForms, setLineDiscountForms] = useState({});
     setCustomerNotes(customerNotes || "");
   }, [internalNotes, customerNotes]);
 
-const getLineDiscountForm = (idx) =>
-  lineDiscountForms[idx] || { type: "PERCENTAGE", value: "" };
-
-const setLineDiscountForm = (idx, patch) => {
-  setLineDiscountForms((prev) => ({
-    ...prev,
-    [idx]: { ...getLineDiscountForm(idx), ...patch },
-  }));
-};
-const handleApplyLineDiscount = (li, idx) => {
-  const form = getLineDiscountForm(idx);
-  if (!form.value) return;
-  fetcher.submit(
-    {
-      type: "apply_line_discount",
-      isBaseLine: li.isBaseLine ? "true" : "false",
-      automationCycleIndex:
-        li.automationCycleIndex != null ? String(li.automationCycleIndex) : "",
-      automationActionIndex:
-        li.automationActionIndex != null ? String(li.automationActionIndex) : "",
-      discountType: form.type,
-      discountValue: form.value,
-      sellingPlanId: lines?.[0]?.node?.sellingPlanId || "",
-    },
-    { method: "post" },
-  );
-  // form ko close nahi karna — user jaisa chhode waisa hi rahega
-};
   return (
     <>
       <Page backAction={{ onAction: backButton }} title={`${id}`}>
@@ -559,60 +530,6 @@ const handleApplyLineDiscount = (li, idx) => {
                       </Button>
                     )
                   )}
-
-
-
-                  {!li.discountLabel && (
-  <div style={{ marginTop: "6px" }}>
-    {openLineDiscount === idx ? (
-      (() => {
-        const isPendingThisLine = isThisActionPending("apply_line_discount", {
-          isBaseLine: li.isBaseLine ? "true" : "false",
-          automationCycleIndex:
-            li.automationCycleIndex != null ? String(li.automationCycleIndex) : "",
-          automationActionIndex:
-            li.automationActionIndex != null ? String(li.automationActionIndex) : "",
-        });
-
-        return (
-          <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
-            <select
-              value={getLineDiscountForm(idx).type}
-              onChange={(e) => setLineDiscountForm(idx, { type: e.target.value })}
-              disabled={isPendingThisLine}
-            >
-              <option value="PERCENTAGE">% off</option>
-              <option value="FIXED_AMOUNT">Fixed price</option>
-              <option value="AMOUNT">Amount off</option>
-            </select>
-            <input
-              type="number"
-              placeholder="Value"
-              value={getLineDiscountForm(idx).value}
-              onChange={(e) => setLineDiscountForm(idx, { value: e.target.value })}
-              disabled={isPendingThisLine}
-              style={{ width: "80px" }}
-            />
-            <Button
-              onClick={() => handleApplyLineDiscount(li, idx)}
-              loading={isPendingThisLine}
-              disabled={isPendingThisLine}
-            >
-              {isPendingThisLine ? "Applying…" : "Apply"}
-            </Button>
-            <Button plain onClick={() => setOpenLineDiscount(null)} disabled={isPendingThisLine}>
-              Cancel
-            </Button>
-          </div>
-        );
-      })()
-    ) : (
-      <Button plain onClick={() => setOpenLineDiscount(idx)}>
-        Add discount
-      </Button>
-    )}
-  </div>
-)}
                 </div>
               </div>
             ))}

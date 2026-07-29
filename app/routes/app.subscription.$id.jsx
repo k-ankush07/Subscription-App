@@ -209,11 +209,6 @@ export async function loader({ request, params }) {
 
   // Contract lines list
   const lines = contract.lines?.edges?.map((e) => e.node) || [];
-
-  // Unique sellingPlanIds collect karo
-  const sellingPlanIds = [
-    ...new Set(lines.map((line) => line.sellingPlanId).filter(Boolean)),
-  ];
   const maxCycles = contract?.billingPolicy?.maxCycles ?? null;
   const now = new Date();
   let upcomingCycles = allCycles.filter(
