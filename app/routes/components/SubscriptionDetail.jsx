@@ -280,18 +280,18 @@ export default function SubscriptionDetail() {
             )}
           </>
         )}
-<Button
-  onClick={() => {
-    fetcher.submit(
-      { type: "charge_now", cycleIndex: nextCycleIndex },
-      { method: "post" },
-    );
-  }}
-  disabled={!!chargeDisabledReason || isThisActionPending("charge_now")}
-  loading={isThisActionPending("charge_now")}
->
-  Charge Now
-</Button>
+        {contract?.status !== "CANCELLED" ?  <Button
+          onClick={() => {
+            fetcher.submit(
+              { type: "charge_now", cycleIndex: nextCycleIndex },
+              { method: "post" },
+            );
+          }}
+          disabled={!!chargeDisabledReason || isThisActionPending("charge_now")}
+          loading={isThisActionPending("charge_now")}
+        >
+          Charge Now
+        </Button> : ""}
         {contract?.status !== "CANCELLED" ? (
           <Button
             onClick={handleCancelSubscription}
@@ -306,7 +306,11 @@ export default function SubscriptionDetail() {
         {contract?.status !== "CANCELLED" && (
           <div>
             <b>Next Order</b>
-            <p>{nextCycleDate ? formateDate(nextCycleDate) : "No upcoming billing cycle"}</p>
+            <p>
+              {nextCycleDate
+                ? formateDate(nextCycleDate)
+                : "No upcoming billing cycle"}
+            </p>
             <br />
 
             {(contract?.billingPolicy?.minCycles != null ||
@@ -323,7 +327,6 @@ export default function SubscriptionDetail() {
             )}
           </div>
         )}
-
         <div>
           <b>Billing Cycle</b>
           <p>{preview?.nextOrder?.cycleIndex}</p>
@@ -730,7 +733,6 @@ export default function SubscriptionDetail() {
             )}
           </Card>
         )}
-
         <div>
           <b>Internal Notes</b>
           <br />

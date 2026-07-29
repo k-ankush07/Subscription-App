@@ -1,3 +1,4 @@
+
 import { unauthenticated } from "../shopify.server";
 import prisma from "../db.server";
 import {
@@ -5,6 +6,7 @@ import {
   applyActionsToCycle,
   getContractSettingsSnapshot,
   getContractPreview,
+  clearAnyOpenDraft,
 } from "../lib/billing-preview.server";
 
 const EXTRA_SETTINGS_NAMESPACE = "subscription_app";
@@ -101,8 +103,6 @@ async function loadPlanGroupsAndSettings(admin) {
   const data = await res.json();
   const shopId = data.data.shop.id;
   const groups = data.data.sellingPlanGroups.edges.map((e) => e.node);
-
-  // sellingPlanId -> { groupId, groupName }
   const sellingPlanIdToInfo = new Map();
   for (const group of groups) {
     for (const { node: plan } of group.sellingPlans.edges) {
@@ -315,10 +315,6 @@ async function findEarliestDueCycle(admin, contractId, now, contractCreatedAt) {
     dueUnbilled.sort((a, b) => a.cycleIndex - b.cycleIndex);
     return { cycle: dueUnbilled[0], nextUpcoming: null };
   }
-
-  // Nothing due in the [start, now] window — that window can't contain a
-  // future cycle by construction, so look ahead separately with a
-  // forward-looking range to find the next upcoming (not-yet-due) cycle.
   const FORWARD_LOOKAHEAD_DAYS = 30;
   const forwardEnd = new Date(now.getTime() + FORWARD_LOOKAHEAD_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
@@ -356,7 +352,6 @@ async function findEarliestDueCycle(admin, contractId, now, contractCreatedAt) {
     nextUpcoming = upcoming[0] || null;
   } catch (err) {
     console.error(`[findEarliestDueCycle] forward lookahead failed for ${contractId}:`, err);
-    // Non-fatal — just leave nextUpcoming as null, same as today's behavior.
   }
 
   return { cycle: null, nextUpcoming };
@@ -423,23 +418,6 @@ async function processShop(admin) {
     const planInfo = sellingPlanId ? sellingPlanIdToInfo.get(sellingPlanId) : null;
     const groupId = planInfo?.groupId ?? null;
     const settings = await getContractSettingsSnapshot(admin, contract.id, shopId);
-
-    // ── NEW: auto-cancel checks, run BEFORE STEP 1 / STEP 2 (which both
-    // depend on a cycle being "due"). Two independent reasons to cancel:
-    //
-    //   1. MAX CYCLES REACHED — the next cycle's index has reached/passed
-    //      the contract's maxCycles limit. Cancel regardless of whether
-    //      the next order would be empty or not.
-    //
-    //   2. NEXT ORDER IS EMPTY — automation (e.g. REMOVE_PRODUCT) left the
-    //      next order with zero line items. Cancel even if minCycles has
-    //      not been reached yet — there is nothing left to bill, so
-    //      waiting for minCycles serves no purpose.
-    //
-    // If neither reason applies (order has real line items and, if
-    // minCycles is set, it just means normal charging continues — minCycles
-    // never blocks these two reasons, it only means "don't cancel for other
-    // reasons before this many cycles"). ──
     try {
       const minCycles = contract.billingPolicy?.minCycles ?? null;
       const maxCycles = contract.billingPolicy?.maxCycles ?? null;
@@ -459,20 +437,61 @@ async function processShop(admin) {
       }
 
       if (cancelReason) {
-        const cancelRes = await admin.graphql(
-          `
+        const CANCEL_MUTATION = `
           mutation CancelSubscriptionContract($contractId: ID!) {
             subscriptionContractCancel(subscriptionContractId: $contractId) {
               contract { id status }
               userErrors { field message code }
             }
           }
-          `,
-          { variables: { contractId: contract.id } },
-        );
-        const cancelData = await cancelRes.json();
-        const cancelPayload = cancelData.data?.subscriptionContractCancel;
-        
+        `;
+        const isOpenEditError = (payload) =>
+          payload?.userErrors?.some((e) =>
+            /billing cycle contract edit|incomplete billing attempts/i.test(e.message || ""),
+          );
+        const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+        const WAIT_STEPS_MS = [2000, 4000, 6000];
+        let cancelPayload = null;
+
+        for (let attempt = 0; attempt <= WAIT_STEPS_MS.length; attempt++) {
+          if (attempt > 0) {
+            const waitMs = WAIT_STEPS_MS[attempt - 1];
+            console.log(
+              `[process-billing-cycles] cancel attempt ${attempt + 1}/${WAIT_STEPS_MS.length + 1} for ${contract.id} — waiting ${waitMs}ms`,
+            );
+            await sleep(waitMs);
+          }
+
+          const clearResults = await clearAnyOpenDraft(admin, contract.id, {
+            fromIndex: 0,
+            toIndex: (nextCycleIdx ?? 0) + 3,
+          });
+          const clearedCount = clearResults.filter((r) => r.cleared).length;
+          console.log(
+            `[process-billing-cycles] pre-cancel clear for ${contract.id} (attempt ${attempt + 1}): ${clearedCount} cleared, ${
+              clearResults.length - clearedCount
+            } failed`,
+          );
+
+          const cancelRes = await admin.graphql(CANCEL_MUTATION, {
+            variables: { contractId: contract.id },
+          });
+          const cancelData = await cancelRes.json();
+          cancelPayload = cancelData.data?.subscriptionContractCancel;
+
+          if (cancelData.errors) {
+            console.error(
+              `[process-billing-cycles] auto-cancel GraphQL errors for ${contract.id}:`,
+              JSON.stringify(cancelData.errors),
+            );
+          }
+
+          if (!isOpenEditError(cancelPayload)) break;
+
+          console.warn(
+            `[process-billing-cycles] cancel attempt ${attempt + 1} for ${contract.id} blocked by open/incomplete billing cycle edit`,
+          );
+        }
 
         if (cancelPayload?.userErrors?.length) {
           console.error(`[process-billing-cycles] auto-cancel failed for ${contract.id}:`, cancelPayload.userErrors);
@@ -582,12 +601,6 @@ async function processShop(admin) {
       skipped.push({ contractId: contract.id, cycleIndex, reason: "already charged", checkedAt: now.toISOString() });
       continue;
     }
-
-    // Visibility check: if this due cycle had automation actions configured
-    // but was never pre-edited (e.g. app was down during its lookahead
-    // window, or its billing interval is shorter than EDIT_LOOKAHEAD_MINUTES),
-    // log it clearly. We still charge — better a plain charge than none —
-    // but the configured automation won't be reflected in this order.
     const editMarkerForDueCycle = `${contract.id}:${cycleIndex}`;
     const actionsThatShouldHaveApplied = settings ? collectActionsForCycle(settings, cycleIndex) : [];
     if (actionsThatShouldHaveApplied.length > 0 && !processedCycles.has(editMarkerForDueCycle)) {

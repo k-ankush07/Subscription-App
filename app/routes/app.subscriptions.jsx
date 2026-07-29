@@ -15,13 +15,84 @@ export function shouldRevalidate({ currentUrl, nextUrl, defaultShouldRevalidate 
   return false;
 }
 
+// export async function loader({ request }) {
+//   const { admin } = await authenticate.admin(request);
+
+//   const res = await admin.graphql(
+//     `
+//     query getContracts {
+//       subscriptionContracts(first: 250) {
+//         edges {
+//           node {
+//             id
+//             status
+//             createdAt
+//             updatedAt
+//             nextBillingDate
+//             currencyCode
+//             customer {
+//               id
+//               firstName
+//               lastName
+//               email
+//             }
+//             deliveryPolicy {
+//               interval
+//               intervalCount
+//             }
+//             lines(first: 50) {
+//               edges {
+//                 node {
+//                   id
+//                   title
+//                   quantity
+//                   sellingPlanName
+//                   sellingPlanId
+//                   pricingPolicy {
+//                     cycleDiscounts {
+//                       afterCycle
+//                       adjustmentType
+//                       adjustmentValue {
+//                         ... on SellingPlanPricingPolicyPercentageValue {
+//                           percentage
+//                         }
+//                         ... on MoneyV2 {
+//                           amount
+//                           currencyCode
+//                         }
+//                       }
+//                       computedPrice {
+//                         amount
+//                         currencyCode
+//                       }
+//                     }
+//                   }
+//                   currentPrice {
+//                     amount
+//                     currencyCode
+//                   }
+//                 }
+//               }
+//             }
+//           }
+//         }
+//       }
+//     }`,
+//   );
+
+//   const data = await res.json();
+
+//   return {
+//     contracts: data.data.subscriptionContracts.edges.map((e) => e.node),
+//   };
+// }
+
 export async function loader({ request }) {
   const { admin } = await authenticate.admin(request);
 
-  const res = await admin.graphql(
-    `
-    query getContracts {
-      subscriptionContracts(first: 250) {
+  const query = `
+    query getContracts($cursor: String) {
+      subscriptionContracts(first: 100, after: $cursor) {
         edges {
           node {
             id
@@ -76,14 +147,37 @@ export async function loader({ request }) {
             }
           }
         }
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
       }
-    }`,
-  );
+    }
+  `;
 
-  const data = await res.json();
+  let contracts = [];
+  let cursor = null;
+  let hasNextPage = true;
+
+  while (hasNextPage) {
+    const res = await admin.graphql(query, {
+      variables: {
+        cursor,
+      },
+    });
+
+    const json = await res.json();
+
+    const page = json.data.subscriptionContracts;
+
+    contracts.push(...page.edges.map((e) => e.node));
+
+    hasNextPage = page.pageInfo.hasNextPage;
+    cursor = page.pageInfo.endCursor;
+  }
 
   return {
-    contracts: data.data.subscriptionContracts.edges.map((e) => e.node),
+    contracts,
   };
 }
 
