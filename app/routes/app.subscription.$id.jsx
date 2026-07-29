@@ -12,7 +12,6 @@ import {
   removeAllDiscounts,
   removeLineDiscount,
   clearAnyOpenDraft,   
-  applyAllDiscounts,
   applyLineDiscount,    
 } from "../lib/billing-preview.server";
 const API = import.meta.env.VITE_API_URL;

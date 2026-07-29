@@ -50,12 +50,6 @@ export default function SubscriptionDetail() {
   const [editingCycleIndex, setEditingCycleIndex] = useState(null);
   const [editDate, setEditDate] = useState("");
   const [visibleCyclesCount, setVisibleCyclesCount] = useState(5);
-  const [discountForm, setDiscountForm] = useState({
-    type: "PERCENTAGE",
-    value: "",
-  });
-  const [openLineDiscount, setOpenLineDiscount] = useState(null);
-  const [lineDiscountForms, setLineDiscountForms] = useState({});
   const customerId = contract?.customer?.id?.split("/").pop();
   const shopHandle = shop?.replace(".myshopify.com", "");
   const { id } = useParams();
@@ -238,52 +232,6 @@ export default function SubscriptionDetail() {
       { method: "post" },
     );
   };
-  const getLineDiscountForm = (idx) =>
-    lineDiscountForms[idx] || { type: "PERCENTAGE", value: "" };
-
-  const setLineDiscountForm = (idx, patch) => {
-    setLineDiscountForms((prev) => ({
-      ...prev,
-      [idx]: { ...getLineDiscountForm(idx), ...patch },
-    }));
-  };
-
-  const handleApplyAllDiscounts = () => {
-    if (!discountForm.value) return;
-    fetcher.submit(
-      {
-        type: "apply_all_discounts",
-        discountType: discountForm.type,
-        discountValue: discountForm.value,
-        sellingPlanId: lines?.[0]?.node?.sellingPlanId || "",
-      },
-      { method: "post" },
-    );
-  };
-
-  const handleApplyLineDiscount = (li, idx) => {
-    const form = getLineDiscountForm(idx);
-    if (!form.value) return;
-    fetcher.submit(
-      {
-        type: "apply_line_discount",
-        isBaseLine: li.isBaseLine ? "true" : "false",
-        automationCycleIndex:
-          li.automationCycleIndex != null
-            ? String(li.automationCycleIndex)
-            : "",
-        automationActionIndex:
-          li.automationActionIndex != null
-            ? String(li.automationActionIndex)
-            : "",
-        discountType: form.type,
-        discountValue: form.value,
-        sellingPlanId: lines?.[0]?.node?.sellingPlanId || "",
-      },
-      { method: "post" },
-    );
-    setOpenLineDiscount(null);
-  };
 
   useEffect(() => {
     setLocalLines(contract?.lines?.edges || []);
@@ -331,24 +279,18 @@ export default function SubscriptionDetail() {
             )}
           </>
         )}
-        {contract?.status !== "CANCELLED" ? (
-          <Button
-            onClick={() => {
-              fetcher.submit(
-                { type: "charge_now", cycleIndex: nextCycleIndex },
-                { method: "post" },
-              );
-            }}
-            disabled={
-              !!chargeDisabledReason || isThisActionPending("charge_now")
-            }
-            loading={isThisActionPending("charge_now")}
-          >
-            Charge Now
-          </Button>
-        ) : (
-          ""
-        )}
+        {contract?.status !== "CANCELLED" ?  <Button
+          onClick={() => {
+            fetcher.submit(
+              { type: "charge_now", cycleIndex: nextCycleIndex },
+              { method: "post" },
+            );
+          }}
+          disabled={!!chargeDisabledReason || isThisActionPending("charge_now")}
+          loading={isThisActionPending("charge_now")}
+        >
+          Charge Now
+        </Button> : ""}
         {contract?.status !== "CANCELLED" ? (
           <Button
             onClick={handleCancelSubscription}
@@ -460,52 +402,13 @@ export default function SubscriptionDetail() {
             >
               <b>Next Order (Cycle #{preview?.nextOrder?.cycleIndex})</b>
               {contract?.status !== "CANCELLED" && hasAnyDiscount && (
-                <>
-                  <Button
-                    onClick={handleRemoveAllDiscounts}
-                    loading={isThisActionPending("remove_all_discounts")}
-                    disabled={isThisActionPending("remove_all_discounts")}
-                  >
-                    Remove All discount
-                  </Button>
-
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: "8px",
-                      alignItems: "center",
-                    }}
-                  >
-                    <select
-                      value={discountForm.type}
-                      onChange={(e) =>
-                        setDiscountForm((f) => ({ ...f, type: e.target.value }))
-                      }
-                    >
-                      <option value="PERCENTAGE">% off</option>
-                      <option value="FIXED_AMOUNT">Fixed price</option>
-                      <option value="AMOUNT">Amount off</option>
-                    </select>
-                    <input
-                      type="number"
-                      placeholder="Value"
-                      value={discountForm.value}
-                      onChange={(e) =>
-                        setDiscountForm((f) => ({
-                          ...f,
-                          value: e.target.value,
-                        }))
-                      }
-                      style={{ width: "80px" }}
-                    />
-                    <Button
-                      onClick={handleApplyAllDiscounts}
-                      loading={isThisActionPending("apply_all_discounts")}
-                    >
-                      Apply to all
-                    </Button>
-                  </div>
-                </>
+                <Button
+                  onClick={handleRemoveAllDiscounts}
+                  loading={isThisActionPending("remove_all_discounts")}
+                  disabled={isThisActionPending("remove_all_discounts")}
+                >
+                  Remove All discount
+                </Button>
               )}
             </div>
             {preview.nextOrder.lineItems.map((li, idx) => (
@@ -578,71 +481,7 @@ export default function SubscriptionDetail() {
                       </Button>
                     </p>
                   )}
-                  {!li.discountLabel && (
-                    <div style={{ marginTop: "6px" }}>
-                      {openLineDiscount === idx ? (
-                        <div
-                          style={{
-                            display: "flex",
-                            gap: "8px",
-                            alignItems: "center",
-                            flexWrap: "wrap",
-                          }}
-                        >
-                          <select
-                            value={getLineDiscountForm(idx).type}
-                            onChange={(e) =>
-                              setLineDiscountForm(idx, { type: e.target.value })
-                            }
-                          >
-                            <option value="PERCENTAGE">% off</option>
-                            <option value="FIXED_AMOUNT">Fixed price</option>
-                            <option value="AMOUNT">Amount off</option>
-                          </select>
-                          <input
-                            type="number"
-                            placeholder="Value"
-                            value={getLineDiscountForm(idx).value}
-                            onChange={(e) =>
-                              setLineDiscountForm(idx, {
-                                value: e.target.value,
-                              })
-                            }
-                            style={{ width: "80px" }}
-                          />
-                          <Button
-                            onClick={() => handleApplyLineDiscount(li, idx)}
-                            loading={isThisActionPending(
-                              "apply_line_discount",
-                              {
-                                isBaseLine: li.isBaseLine ? "true" : "false",
-                                automationCycleIndex:
-                                  li.automationCycleIndex != null
-                                    ? String(li.automationCycleIndex)
-                                    : "",
-                                automationActionIndex:
-                                  li.automationActionIndex != null
-                                    ? String(li.automationActionIndex)
-                                    : "",
-                              },
-                            )}
-                          >
-                            Apply
-                          </Button>
-                          <Button
-                            plain
-                            onClick={() => setOpenLineDiscount(null)}
-                          >
-                            Cancel
-                          </Button>
-                        </div>
-                      ) : (
-                        <Button plain onClick={() => setOpenLineDiscount(idx)}>
-                          Add discount
-                        </Button>
-                      )}
-                    </div>
-                  )}
+
                   {li.automationCycleIndex != null &&
                   li.automationActionIndex != null &&
                   totalLineItemsCount > 1 ? (
