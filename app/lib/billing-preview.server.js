@@ -1723,6 +1723,90 @@ async function isBlockedByOpenDraft(admin, contractId) {
 
   return { status: data?.data?.subscriptionContract?.status ?? null };
 }
+const CONTRACT_UPDATE_MUTATION = `
+  mutation SubscriptionContractUpdate($contractId: ID!) {
+    subscriptionContractUpdate(contractId: $contractId) {
+      draft { id }
+      userErrors { field message code }
+    }
+  }
+`;
+
+const DRAFT_UPDATE_ADDRESS_MUTATION = `
+  mutation SubscriptionDraftUpdateAddress(
+    $draftId: ID!
+    $deliveryMethod: SubscriptionDeliveryMethodInput!
+  ) {
+    subscriptionDraftUpdate(draftId: $draftId, input: { deliveryMethod: $deliveryMethod }) {
+      draft { id }
+      userErrors { field message code }
+    }
+  }
+`;
+
+const DRAFT_COMMIT_MUTATION = `
+  mutation SubscriptionDraftCommit($draftId: ID!) {
+    subscriptionDraftCommit(draftId: $draftId) {
+      contract { id }
+      userErrors { field message code }
+    }
+  }
+`;
+
+// addressInput: { firstName, lastName, address1, address2, city, province, zip, country, phone }
+async function updateContractAddress(admin, contractId, addressInput) {
+  try {
+    await clearAnyOpenDraft(admin, contractId);
+  } catch (err) {
+    console.warn(`[update_address] clearAnyOpenDraft failed for ${contractId}:`, err);
+  }
+
+  const draftRes = await admin.graphql(CONTRACT_UPDATE_MUTATION, {
+    variables: { contractId },
+  });
+  const draftData = await draftRes.json();
+  const draftPayload = draftData?.data?.subscriptionContractUpdate;
+  if (!draftPayload?.draft?.id || draftPayload.userErrors?.length) {
+    return {
+      success: false,
+      error:
+        draftPayload?.userErrors?.map((e) => e.message).join(", ") ||
+        "Failed to open draft for address update",
+    };
+  }
+  const draftId = draftPayload.draft.id;
+
+  const updateRes = await admin.graphql(DRAFT_UPDATE_ADDRESS_MUTATION, {
+    variables: {
+      draftId,
+      deliveryMethod: { shipping: { address: addressInput } },
+    },
+  });
+  const updateData = await updateRes.json();
+  const updatePayload = updateData?.data?.subscriptionDraftUpdate;
+  if (updatePayload?.userErrors?.length) {
+    return {
+      success: false,
+      error: updatePayload.userErrors.map((e) => e.message).join(", "),
+    };
+  }
+
+  const commitRes = await admin.graphql(DRAFT_COMMIT_MUTATION, {
+    variables: { draftId },
+  });
+  const commitData = await commitRes.json();
+  const commitPayload = commitData?.data?.subscriptionDraftCommit;
+  if (!commitPayload?.contract || commitPayload.userErrors?.length) {
+    return {
+      success: false,
+      error:
+        commitPayload?.userErrors?.map((e) => e.message).join(", ") ||
+        "Failed to commit address change",
+    };
+  }
+
+  return { success: true };
+}
 export {
   getContractPreview,
   collectActionsForCycle,
@@ -1749,4 +1833,5 @@ export {
   removeLineDiscount, 
   clearAnyOpenDraft,        
   isBlockedByOpenDraft, 
+   updateContractAddress,
 };

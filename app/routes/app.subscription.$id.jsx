@@ -12,6 +12,7 @@ import {
   removeAllDiscounts,
   removeLineDiscount,
   clearAnyOpenDraft,       
+   updateContractAddress,
 } from "../lib/billing-preview.server";
 const API = import.meta.env.VITE_API_URL;
 const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
@@ -58,15 +59,25 @@ export async function loader({ request, params }) {
           id
           name
         }
-        customer {
-          id
-          firstName
-          lastName
-          note
-          defaultEmailAddress{
-          emailAddress
-          }
-        }
+       customer {
+              id
+              firstName
+              lastName
+              note
+              defaultEmailAddress { emailAddress }
+              addresses {
+                id
+                firstName
+                lastName
+                address1
+                address2
+                city
+                province
+                zip
+                country
+                phone
+              }
+            }
         deliveryMethod {
           ... on SubscriptionDeliveryMethodShipping {
             address {
@@ -224,6 +235,13 @@ export async function loader({ request, params }) {
         cycle.cycleIndex <= maxCycles - 1,
     );
   }
+  const pastOrders = contract.orders?.edges?.map((edge) => edge.node) || [];
+  const pastSkippedCycles = allCycles.filter(
+  (cycle) =>
+    cycle.skipped &&
+    cycle.billingAttemptExpectedDate &&
+    new Date(cycle.billingAttemptExpectedDate) < now,
+);
   const preview = await getContractPreview(admin, contractId);
   try {
     const res = await fetch(`${API}/api/subscription`, {
@@ -238,6 +256,7 @@ export async function loader({ request, params }) {
         contract,
         upcomingCycles,
         preview,
+          pastSkippedCycles, pastOrders, 
       }),
     });
   } catch (err) {
@@ -262,7 +281,7 @@ export async function loader({ request, params }) {
     console.error("Backend fetch notes failed:", err);
   }
 
-  return { contract, upcomingCycles, internalNotes, customerNotes, preview ,shop: session.shop, };
+  return { contract, upcomingCycles,   pastSkippedCycles, pastOrders, internalNotes, customerNotes, preview ,shop: session.shop, };
 }
 
 const RESCHEDULE_MUTATION = `
@@ -323,7 +342,8 @@ export async function action({ request, params }) {
     type === "remove_automation_item" ||
     type === "remove_base_line" ||
     type === "remove_all_discounts" ||   
-    type === "remove_line_discount"  
+    type === "remove_line_discount"  ||
+    type === "update_address"
   ) {
     if (type === "pause") {
       try {
@@ -1017,7 +1037,86 @@ export async function action({ request, params }) {
       console.error("[charge_now] failed:", err);
       return { success: false, error: String(err?.message || err) };
     }
-  }
+   }
+   if (type === "update_address") {
+      const mode = formData.get("mode"); // "select" | "manual"
+
+      const buildAddressInput = (a) => ({
+        firstName: a.firstName || "",
+        lastName: a.lastName || "",
+        address1: a.address1 || "",
+        address2: a.address2 || "",
+        city: a.city || "",
+        province: a.province || "",
+        zip: a.zip || "",
+        country: a.country || "",
+        phone: a.phone || undefined,
+      });
+
+      try {
+        let addressInput;
+
+        if (mode === "select") {
+          const addressId = formData.get("addressId");
+
+          const custRes = await admin.graphql(
+            `query GetContractCustomerAddresses($contractId: ID!) {
+              subscriptionContract(id: $contractId) {
+                customer {
+                  addresses {
+                    id
+                    firstName
+                    lastName
+                    address1
+                    address2
+                    city
+                    province
+                    zip
+                    country
+                    phone
+                  }
+                }
+              }
+            }`,
+            { variables: { contractId } },
+          );
+          const custData = await custRes.json();
+          const addresses =
+            custData?.data?.subscriptionContract?.customer?.addresses || [];
+          const match = addresses.find((a) => a.id === addressId);
+
+          if (!match) {
+            return { success: false, error: "Selected address not found" };
+          }
+          addressInput = buildAddressInput(match);
+        } else {
+          addressInput = buildAddressInput({
+            firstName: formData.get("firstName"),
+            lastName: formData.get("lastName"),
+            address1: formData.get("address1"),
+            address2: formData.get("address2"),
+            city: formData.get("city"),
+            province: formData.get("province"),
+            zip: formData.get("zip"),
+            country: formData.get("country"),
+            phone: formData.get("phone"),
+          });
+
+          if (!addressInput.address1 || !addressInput.city || !addressInput.country) {
+            return {
+              success: false,
+              error: "Address line 1, city aur country zaroori hain",
+            };
+          }
+        }
+
+        const result = await updateContractAddress(admin, contractId, addressInput);
+        return result;
+      } catch (err) {
+        console.error("Update address failed:", err);
+        return { success: false, error: String(err?.message || err) };
+      }
+    }
   }
 
   const payload = {

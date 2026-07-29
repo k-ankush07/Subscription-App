@@ -1,8 +1,7 @@
 import { Banner, Button, Card, Page, Icon, Checkbox } from "@shopify/polaris";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { currencySymbol } from "../utils/formatMoney.js";
 import {
-  Link,
   useNavigate,
   useParams,
   useFetcher,
@@ -41,8 +40,17 @@ export default function SubscriptionDetail() {
     customerNotes,
     preview,
     shop,
+    pastSkippedCycles,
+    pastOrders,
   } = useLoaderData();
-  console.log("preview", preview, "contract", contract, "cycle");
+  console.log(
+    "preview",
+    preview,
+    "contract",
+    contract,
+    "cycle",
+    pastSkippedCycles,
+  );
   const [localLines, setLocalLines] = useState(contract?.lines?.edges || []);
   const [showInternalNotes, setShowInternalNotes] = useState(false);
   const [Internalnotes, setInternalNotes] = useState(internalNotes || "");
@@ -51,16 +59,48 @@ export default function SubscriptionDetail() {
   const [editingCycleIndex, setEditingCycleIndex] = useState(null);
   const [editDate, setEditDate] = useState("");
   const [visibleCyclesCount, setVisibleCyclesCount] = useState(5);
+  const [visiblePastCount, setVisiblePastCount] = useState(5);
+  const [showAddressForm, setShowAddressForm] = useState(false);
+  const [addressMode, setAddressMode] = useState("select");
+  const [selectedAddressId, setSelectedAddressId] = useState("");
+  const [addressError, setAddressError] = useState("");
+  const [manualAddress, setManualAddress] = useState({
+    firstName: "",
+    lastName: "",
+    address1: "",
+    address2: "",
+    city: "",
+    province: "",
+    zip: "",
+    country: "",
+    phone: "",
+  });
   const customerId = contract?.customer?.id?.split("/").pop();
   const shopHandle = shop?.replace(".myshopify.com", "");
   const { id } = useParams();
   const fetcher = useFetcher();
   const revalidator = useRevalidator();
+  const lastSubmittedTypeRef = useRef(null);
+
   useEffect(() => {
     if (fetcher.state === "idle" && fetcher.data != null) {
       revalidator.revalidate();
+
+      if (lastSubmittedTypeRef.current === "update_address") {
+        if (fetcher.data?.success) {
+          setShowAddressForm(false);
+          setAddressError("");
+        } else {
+          setAddressError(
+            fetcher.data?.error || "Address update failed, please try again.",
+          );
+        }
+      }
+
+      lastSubmittedTypeRef.current = null;
     }
   }, [fetcher.state, fetcher.data]);
+
   const isPending = fetcher.state !== "idle";
   const pendingFormData = isPending ? fetcher.formData : null;
   const pendingType = pendingFormData?.get("type") ?? null;
@@ -234,15 +274,81 @@ export default function SubscriptionDetail() {
     );
   };
 
+  const pastEntries = [
+    ...(pastOrders || []).map((order) => ({
+      type: "order",
+      date: order.processedAt,
+      order,
+    })),
+    ...(pastSkippedCycles || []).map((cycle) => ({
+      type: "skipped",
+      date: cycle.billingAttemptExpectedDate,
+      cycle,
+    })),
+  ].sort((a, b) => new Date(b.date) - new Date(a.date));
+  const customerAddresses = contract?.customer?.addresses || [];
+  const openAddressForm = () => {
+    if (showAddressForm) {
+      setShowAddressForm(false);
+      setAddressError("");
+      return;
+    }
+
+    const current = contract?.deliveryMethod?.address;
+    if (current) {
+      setManualAddress((prev) => ({
+        firstName: current.firstName || "",
+        lastName: current.lastName || "",
+        address1: current.address1 || "",
+        address2: current.address2 || "",
+        city: current.city || "",
+        province: current.province || "",
+        zip: current.zip || "",
+        country: current.country || "",
+        phone: prev.phone || "",
+      }));
+      setAddressMode("manual");
+    }
+    setAddressError("");
+    setShowAddressForm(true);
+  };
+
+  const handleUpdateAddress = () => {
+    setAddressError("");
+    lastSubmittedTypeRef.current = "update_address";
+
+    if (addressMode === "select") {
+      if (!selectedAddressId) {
+        lastSubmittedTypeRef.current = null;
+        return;
+      }
+      fetcher.submit(
+        {
+          type: "update_address",
+          mode: "select",
+          addressId: selectedAddressId,
+        },
+        { method: "post" },
+      );
+    } else {
+      fetcher.submit(
+        { type: "update_address", mode: "manual", ...manualAddress },
+        { method: "post" },
+      );
+    }
+  };
+
   useEffect(() => {
     setLocalLines(contract?.lines?.edges || []);
     setVisibleCyclesCount(5);
+    setVisiblePastCount(5);
+    setShowAddressForm(false);
+    setAddressError("");
   }, [contract]);
   useEffect(() => {
     setInternalNotes(internalNotes || "");
     setCustomerNotes(customerNotes || "");
   }, [internalNotes, customerNotes]);
-
   return (
     <>
       <Page backAction={{ onAction: backButton }} title={`${id}`}>
@@ -280,18 +386,24 @@ export default function SubscriptionDetail() {
             )}
           </>
         )}
-        {contract?.status !== "CANCELLED" ?  <Button
-          onClick={() => {
-            fetcher.submit(
-              { type: "charge_now", cycleIndex: nextCycleIndex },
-              { method: "post" },
-            );
-          }}
-          disabled={!!chargeDisabledReason || isThisActionPending("charge_now")}
-          loading={isThisActionPending("charge_now")}
-        >
-          Charge Now
-        </Button> : ""}
+        {contract?.status !== "CANCELLED" ? (
+          <Button
+            onClick={() => {
+              fetcher.submit(
+                { type: "charge_now", cycleIndex: nextCycleIndex },
+                { method: "post" },
+              );
+            }}
+            disabled={
+              !!chargeDisabledReason || isThisActionPending("charge_now")
+            }
+            loading={isThisActionPending("charge_now")}
+          >
+            Charge Now
+          </Button>
+        ) : (
+          ""
+        )}
         {contract?.status !== "CANCELLED" ? (
           <Button
             onClick={handleCancelSubscription}
@@ -311,8 +423,6 @@ export default function SubscriptionDetail() {
                 ? formateDate(nextCycleDate)
                 : "No upcoming billing cycle"}
             </p>
-            <br />
-
             {(contract?.billingPolicy?.minCycles != null ||
               contract?.billingPolicy?.maxCycles != null) && (
               <>
@@ -333,6 +443,7 @@ export default function SubscriptionDetail() {
         </div>
         <div>
           <b>Customer</b>
+          <br />
           <a
             href={`https://admin.shopify.com/store/${shopHandle}/customers/${customerId}`}
             target="_blank"
@@ -340,6 +451,17 @@ export default function SubscriptionDetail() {
           >
             Customers Page
           </a>
+          <br />
+          <a
+            href={`https://admin.shopify.com/store/${shopHandle}/orders?query=${encodeURIComponent(
+              contract?.customer?.defaultEmailAddress?.emailAddress || "",
+            )}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            View Customer Orders
+          </a>
+
           <p>
             <span>
               {contract?.customer?.firstName} {contract?.customer?.lastName}
@@ -349,6 +471,180 @@ export default function SubscriptionDetail() {
 
           <div>
             <b>Shipping address</b> <br />
+            <a
+              href={`https://admin.shopify.com/store/${shopHandle}/customers/${customerId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Manage Address by customer portal
+            </a>
+            <br />
+            <Button onClick={openAddressForm}>
+              {showAddressForm ? "Cancel" : "Change address"}
+            </Button><br/>
+            {showAddressForm && (
+              <div
+                style={{
+                  marginTop: "10px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "8px",
+                }}
+              >
+                <label>
+                  <input
+                    type="radio"
+                    checked={addressMode === "select"}
+                    onChange={() => setAddressMode("select")}
+                  />{" "}
+                  Customer ke saved address se select karo
+                </label>
+                {addressMode === "select" && (
+                  <select
+                    value={selectedAddressId}
+                    onChange={(e) => setSelectedAddressId(e.target.value)}
+                  >
+                    <option value="">-- select address --</option>
+                    {customerAddresses.map((addr) => (
+                      <option key={addr.id} value={addr.id}>
+                        {addr.address1}, {addr.city}, {addr.province} {addr.zip}
+                        , {addr.country}
+                      </option>
+                    ))}
+                  </select>
+                )}
+
+                <label>
+                  <input
+                    type="radio"
+                    checked={addressMode === "manual"}
+                    onChange={() => setAddressMode("manual")}
+                  />{" "}
+                  Manually address enter karo
+                </label>
+                {addressMode === "manual" && (
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "6px",
+                      maxWidth: "320px",
+                    }}
+                  >
+                    <input
+                      placeholder="First name"
+                      value={manualAddress.firstName}
+                      onChange={(e) =>
+                        setManualAddress({
+                          ...manualAddress,
+                          firstName: e.target.value,
+                        })
+                      }
+                    />
+                    <input
+                      placeholder="Last name"
+                      value={manualAddress.lastName}
+                      onChange={(e) =>
+                        setManualAddress({
+                          ...manualAddress,
+                          lastName: e.target.value,
+                        })
+                      }
+                    />
+                    <input
+                      placeholder="Address line 1"
+                      value={manualAddress.address1}
+                      onChange={(e) =>
+                        setManualAddress({
+                          ...manualAddress,
+                          address1: e.target.value,
+                        })
+                      }
+                    />
+                    <input
+                      placeholder="Address line 2"
+                      value={manualAddress.address2}
+                      onChange={(e) =>
+                        setManualAddress({
+                          ...manualAddress,
+                          address2: e.target.value,
+                        })
+                      }
+                    />
+                    <input
+                      placeholder="City"
+                      value={manualAddress.city}
+                      onChange={(e) =>
+                        setManualAddress({
+                          ...manualAddress,
+                          city: e.target.value,
+                        })
+                      }
+                    />
+                    <input
+                      placeholder="Province/State"
+                      value={manualAddress.province}
+                      onChange={(e) =>
+                        setManualAddress({
+                          ...manualAddress,
+                          province: e.target.value,
+                        })
+                      }
+                    />
+                    <input
+                      placeholder="Zip"
+                      value={manualAddress.zip}
+                      onChange={(e) =>
+                        setManualAddress({
+                          ...manualAddress,
+                          zip: e.target.value,
+                        })
+                      }
+                    />
+                    <input
+                      placeholder="Country"
+                      value={manualAddress.country}
+                      onChange={(e) =>
+                        setManualAddress({
+                          ...manualAddress,
+                          country: e.target.value,
+                        })
+                      }
+                    />
+                    <input
+                      placeholder="Phone (optional)"
+                      value={manualAddress.phone}
+                      onChange={(e) =>
+                        setManualAddress({
+                          ...manualAddress,
+                          phone: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                )}
+
+                <Button
+                  onClick={handleUpdateAddress}
+                  loading={isThisActionPending("update_address")}
+                  disabled={isThisActionPending("update_address")}
+                >
+                  {isThisActionPending("update_address")
+                    ? "Updating…"
+                    : "Save address"}
+                </Button>
+                {isThisActionPending("update_address") && (
+                  <p style={{ color: "gray", fontSize: "12px" }}>
+                    Address update please wait…
+                  </p>
+                )}
+                {!isPending && addressError && (
+                  <p style={{ color: "red", fontSize: "12px" }}>
+                    {addressError}
+                  </p>
+                )}
+              </div>
+            )}
             <span>
               {contract?.deliveryMethod?.address?.firstName}{" "}
               {contract?.deliveryMethod?.address?.lastName}
@@ -367,6 +663,14 @@ export default function SubscriptionDetail() {
 
           <div>
             <b>Payment Method</b> <br />
+            <a
+              href={`https://admin.shopify.com/store/${shopHandle}/customers/${customerId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Manage Address by customer portal
+            </a>
+            <br />
             <img
               src={getCardImage(
                 contract?.customerPaymentMethod?.instrument?.brand,
@@ -733,6 +1037,75 @@ export default function SubscriptionDetail() {
             )}
           </Card>
         )}
+        <Card>
+          <b>Past orders</b>
+          {pastEntries.length > 0 ? (
+            <>
+              {pastEntries.slice(0, visiblePastCount).map((entry, index) => (
+                <div
+                  key={
+                    entry.order?.id ??
+                    `skipped-${entry.cycle?.cycleIndex ?? index}`
+                  }
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginTop: "8px",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  {entry.type === "order" ? (
+                    <>
+                      <p>
+                        {entry.order.name} —{" "}
+                        {formateDate(entry.order.processedAt)}{" "}
+                        {entry.order.cancelledAt && <span>(Cancelled)</span>}
+                      </p>
+
+                      <a
+                        href={`https://admin.shopify.com/store/${shopHandle}/orders/${entry.order.id
+                          ?.split("/")
+                          .pop()}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        View
+                      </a>
+                    </>
+                  ) : (
+                    <>
+                      <p>
+                        {formateDate(entry.cycle.billingAttemptExpectedDate)}{" "}
+                        <span>(Skipped)</span>
+                      </p>
+                      <span style={{ color: "gray" }}>—</span>
+                    </>
+                  )}
+                </div>
+              ))}
+
+              {pastEntries.length > visiblePastCount && (
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "center",
+                    marginTop: "12px",
+                  }}
+                >
+                  <Button
+                    onClick={() => setVisiblePastCount((c) => c + 5)}
+                    plain
+                  >
+                    View more
+                  </Button>
+                </div>
+              )}
+            </>
+          ) : (
+            <p>No past orders yet.</p>
+          )}
+        </Card>
         <div>
           <b>Internal Notes</b>
           <br />
@@ -789,10 +1162,6 @@ export default function SubscriptionDetail() {
             </>
           )}
         </div>
-
-        <Card>
-          <h2>Past Orders</h2>
-        </Card>
       </Page>
     </>
   );
