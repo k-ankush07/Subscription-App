@@ -1,3 +1,5 @@
+
+
 // import React, { useCallback, useEffect, useState } from "react";
 // import {
 //   Page,
@@ -45,11 +47,10 @@
 //   RemoveFreeProdcut: false,
 //   removeFreeProducOrders: 1,
 //   freeProducts: [],
-//    Automation: false,
+//   Automation: false,
 //   automationCycles: [],
 //   MinimumQuanitity: false,
 //   MinimumQuanitityValue: 1,
-
 // };
 
 // function Template({ shop, editPlandData, dublicateData }) {
@@ -70,11 +71,11 @@
 //   const [keepDiscounts, setKeepDiscounts] = useState(true);
 //   const [selectedProducts, setSelectedProducts] = useState([]);
 //   const [productError, setProductError] = useState(false);
-//   //  Array of selling plans
 //   const [sellingPlans, setSellingPlans] = useState([{ ...defaultPlan }]);
-//   //  Edit load hote waqt jo IDs DB mein thi — delete detect karne ke liye
 //   const [existingSellingPlanIds, setExistingSellingPlanIds] = useState([]);
 //   const [planErrors, setPlanErrors] = useState({});
+//   const [isPersisted, setIsPersisted] = useState(!!editPlandData);
+//   const [planStatus, setPlanStatus] = useState(editPlandData?.status || "draft");
 
 //   const validateSellingPlans = (plans) => {
 //     const newErrors = {};
@@ -103,46 +104,46 @@
 
 //   //  Product picker handler
 //   const handleSelectProduct = useCallback(async () => {
-//   // Build selectionIds with both product AND variant IDs
-//   const selectionIds = selectedProducts.map((p) => ({
-//     id: p.id,
-//     variants: p.variants.map((v) => ({ id: v.variantsId })),
-//   }));
+//     // Build selectionIds with both product AND variant IDs
+//     const selectionIds = selectedProducts.map((p) => ({
+//       id: p.id,
+//       variants: p.variants.map((v) => ({ id: v.variantsId })),
+//     }));
 
-//   const selected = await shopify.resourcePicker({
-//     type: "product",
-//     multiple: true,
-//     action: "select",
-//     selectionIds,
-//   });
-
-//   if (selected) {
-//     setProductError(false);
-
-//     const incoming = selected.map((product) => {
-//       // Resource picker sirf wahi variants return karta hai jo user ne select kiye
-//       const selectedVariants = product.variants || [];
-
-//       return {
-//         id: product.id,
-//         title: product.title,
-//         ProductImage: product.images?.[0]?.originalSrc,
-//         selectedVariantCount: selectedVariants.length,
-//         totalVariantCount: product.totalVariants || selectedVariants.length,
-//         variants: selectedVariants.map((variant) => ({
-//           variantsId: variant.id,
-//           variantsTitle: variant.title,
-//         })),
-//       };
+//     const selected = await shopify.resourcePicker({
+//       type: "product",
+//       multiple: true,
+//       action: "select",
+//       selectionIds,
 //     });
 
-//     setSelectedProducts((prev) => {
-//       const incomingIds = new Set(incoming.map((p) => p.id));
-//       const kept = prev.filter((p) => !incomingIds.has(p.id));
-//       return [...kept, ...incoming];
-//     });
-//   }
-// }, [shopify, selectedProducts]);
+//     if (selected) {
+//       setProductError(false);
+
+//       const incoming = selected.map((product) => {
+//         // Resource picker sirf wahi variants return karta hai jo user ne select kiye
+//         const selectedVariants = product.variants || [];
+
+//         return {
+//           id: product.id,
+//           title: product.title,
+//           ProductImage: product.images?.[0]?.originalSrc,
+//           selectedVariantCount: selectedVariants.length,
+//           totalVariantCount: product.totalVariants || selectedVariants.length,
+//           variants: selectedVariants.map((variant) => ({
+//             variantsId: variant.id,
+//             variantsTitle: variant.title,
+//           })),
+//         };
+//       });
+
+//       setSelectedProducts((prev) => {
+//         const incomingIds = new Set(incoming.map((p) => p.id));
+//         const kept = prev.filter((p) => !incomingIds.has(p.id));
+//         return [...kept, ...incoming];
+//       });
+//     }
+//   }, [shopify, selectedProducts]);
 
 //   //  Edit / Duplicate data load — sellingPlans array mein set karo
 //   useEffect(() => {
@@ -153,6 +154,7 @@
 //     setWidget(data.widget || "");
 //     setSelectedProducts(data.products || []);
 //     setShopifyGroupId(editPlandData ? editPlandData.shopifyGroupId : null);
+//     setPlanStatus(editPlandData?.status || "draft");
 
 //     const cpc = data.customerProductChanges;
 //     setAllowProductSwaps(cpc?.allowProductSwaps ?? true);
@@ -214,11 +216,17 @@
 //     navigate("/app/plans");
 //   };
 
-//   const handleSubmit = async (e) => {
-//     e.preventDefault();
+//   //  mode: "draft" | "publish"
+//   //  draft  -> Shopify hit NAHI hoti, seedha apne Node DB me save (status: "draft")
+//   //  publish -> pehle jaisa flow (Shopify selling plan create/update, phir DB me status: "published")
+//   const handleSubmit = async (e, mode = "publish") => {
+//     e?.preventDefault?.();
+
 //     if (selectedProducts.length === 0) return setProductError(true);
 //     setProductError(false);
 //     if (!validateSellingPlans(sellingPlans)) return;
+
+//     const status = mode === "draft" ? "draft" : "published";
 
 //     const payload = {
 //       shop: shop || editPlandData?.shop || dublicateData?.shop,
@@ -227,6 +235,7 @@
 //       widget,
 //       products: selectedProducts,
 //       sellingPlans,
+//       status,
 //       ...(editPlandData && { shopifyGroupId }),
 //       ...(editPlandData && { existingSellingPlanIds }),
 //       customerProductChanges: {
@@ -237,13 +246,23 @@
 //       },
 //     };
 
+//     //  DRAFT: Shopify API bilkul hit nahi karni — seedha apne Node backend me save
+//     if (mode === "draft") {
+//       const draftPlanId = planId || `draft_${Date.now()}`;
+//       if (!planId) setPlanId(draftPlanId);
+
+//       await saveToNodeAPI({ ...payload, planId: draftPlanId });
+//       return;
+//     }
+
+//     //  PUBLISH: pehle jaisa hi — fetcher route action ke through Shopify GraphQL hit hogi
 //     fetcher.submit(payload, {
 //       method: "POST",
 //       encType: "application/json",
 //     });
 //   };
 
-//   //  Fetcher response handle
+//   //  Fetcher response handle (sirf PUBLISH flow ke liye — draft isko touch nahi karta)
 //   useEffect(() => {
 //     if (fetcher.state === "idle" && fetcher.data) {
 //       const actionData = fetcher.data;
@@ -257,8 +276,18 @@
 //       const rawGroupId = actionData.shopifyGroupId || "";
 //       const lastDigits = rawGroupId.split("/").pop();
 
-//       const newPlanId = editPlandData ? planId : lastDigits;
-//       if (!editPlandData) setPlanId(newPlanId);
+//       //  oldPlanId = state me abhi jo planId hai (DB me isi se record maujood hai)
+//       const oldPlanId = planId;
+//       //  Draft plans ka planId hamesha "draft_..." se start hota hai
+//       const wasDraft = !!oldPlanId && oldPlanId.startsWith("draft_");
+
+//       //  newPlanId decide karo:
+//       //  - bilkul naya plan (kabhi editPlandData nahi tha)      -> real Shopify id
+//       //  - draft tha, ab publish ho raha hai (editPlandData ke saath)  -> real Shopify id
+//       //  - already-published plan ka normal update              -> planId same rahega
+//       const newPlanId = !editPlandData || wasDraft ? lastDigits : oldPlanId;
+
+//       if (!editPlandData || wasDraft) setPlanId(newPlanId);
 
 //       //  sellingPlans array ke har plan mein shopifySellingPlanId update karo
 //       const updatedSellingPlans = sellingPlans.map((plan, i) => ({
@@ -271,12 +300,13 @@
 
 //       const payload = {
 //         shop,
-//         planId: newPlanId,
+//         planId: newPlanId, //  body me naya (real) planId jaayega
 //         planName,
 //         widget,
 //         products: selectedProducts,
 //         sellingPlans: updatedSellingPlans, //  array
 //         shopifyGroupId: actionData.shopifyGroupId,
+//         status: "published", //  publish hote hi status update
 //         customerProductChanges: {
 //           allowProductSwaps,
 //           allowVariantChanges,
@@ -285,11 +315,17 @@
 //         },
 //       };
 
-//       saveToNodeAPI(payload);
+//       //  DB me lookup PURANE planId se hoga (agar draft tha), taaki wahi
+//       //  document mile aur uska planId field naye real ID se rename ho jaaye.
+//       saveToNodeAPI(payload, oldPlanId);
 //     }
 //   }, [fetcher.state, fetcher.data]);
 
-//   const saveToNodeAPI = async (payload) => {
+//   //  lookupPlanId: DB me record dhoondhne ke liye planId — defaults to
+//   //  payload.planId (normal case). Draft-publish rename ke waqt purana
+//   //  draft_xxx id yahan explicitly pass hoga taaki correct doc mile,
+//   //  jabki payload.planId (body) naya real Shopify id le jaayega.
+//   const saveToNodeAPI = async (payload, lookupPlanId = payload.planId) => {
 //     try {
 //       const fixedSellingPlans = payload.sellingPlans.map((sp) => ({
 //         ...sp,
@@ -301,10 +337,13 @@
 //         ...payload,
 //         sellingPlans: fixedSellingPlans,
 //       };
-//       const url = editPlandData
-//         ? `${API}/plans/update/${payload.planId}`
+
+//       //  editPlandData ki jagah isPersisted use karo — taaki draft->draft save
+//       //  bhi 2nd baar se PUT (update) ho, POST (create) na ho.
+//       const url = isPersisted
+//         ? `${API}/plans/update/${lookupPlanId}`
 //         : `${API}/plans/create`;
-//       const method = editPlandData ? "PUT" : "POST";
+//       const method = isPersisted ? "PUT" : "POST";
 
 //       const response = await fetch(url, {
 //         method,
@@ -318,6 +357,8 @@
 //       console.log("Node API response:", data);
 
 //       if (data.success === true) {
+//         setIsPersisted(true);
+//         setPlanStatus(payload.status || "draft");
 //         setToastMessage(data.message);
 //         setToastActive(true);
 //         navigate("/app/plans", { replace: true });
@@ -358,8 +399,14 @@
 //         backAction={{ content: "Plans", onAction: handleBack }}
 //         primaryAction={{
 //           content: editPlandData ? "Update" : "Publish",
-//           onAction: handleSubmit,
+//           onAction: (e) => handleSubmit(e, "publish"),
 //         }}
+//         secondaryActions={[
+//           {
+//             content: "Save as draft",
+//             onAction: () => handleSubmit(null, "draft"),
+//           },
+//         ]}
 //       >
 //         {productError && (
 //           <Banner tone="critical" title="Validation error">
@@ -368,7 +415,7 @@
 //         )}
 
 //         <Card>
-//           <form onSubmit={handleSubmit}>
+//           <form onSubmit={(e) => handleSubmit(e, "publish")}>
 //             <TextField
 //               label="Plan name (internal)"
 //               value={planName}
@@ -909,12 +956,16 @@ function Template({ shop, editPlandData, dublicateData }) {
           content: editPlandData ? "Update" : "Publish",
           onAction: (e) => handleSubmit(e, "publish"),
         }}
-        secondaryActions={[
-          {
-            content: "Save as draft",
-            onAction: () => handleSubmit(null, "draft"),
-          },
-        ]}
+        secondaryActions={
+          planStatus === "published"
+            ? []
+            : [
+                {
+                  content: "Save as draft",
+                  onAction: () => handleSubmit(null, "draft"),
+                },
+              ]
+        }
       >
         {productError && (
           <Banner tone="critical" title="Validation error">
