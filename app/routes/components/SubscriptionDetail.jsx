@@ -1,4 +1,5 @@
 import { Banner, Button, Card, Page, Icon, Checkbox } from "@shopify/polaris";
+import { ClipboardIcon } from "@shopify/polaris-icons";
 import React, { useEffect, useState, useRef } from "react";
 import { currencySymbol } from "../utils/formatMoney.js";
 import {
@@ -468,6 +469,7 @@ export default function SubscriptionDetail() {
             </span>
           </p>
           <span>{contract?.customer?.defaultEmailAddress?.emailAddress}</span>
+          <Icon source={ClipboardIcon} tone="base" />
 
           <div>
             <b>Shipping address</b> <br />
@@ -481,7 +483,8 @@ export default function SubscriptionDetail() {
             <br />
             <Button onClick={openAddressForm}>
               {showAddressForm ? "Cancel" : "Change address"}
-            </Button><br/>
+            </Button>
+            <br />
             {showAddressForm && (
               <div
                 style={{
