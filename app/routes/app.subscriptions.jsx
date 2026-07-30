@@ -4,8 +4,7 @@ import {
   EmptyState,
   Tabs,
   TextField,
-  Pagination,
-  Text,
+
 } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
 import React, { useState, useCallback, useEffect } from "react";
@@ -24,78 +23,6 @@ export function shouldRevalidate({
   }
   return false;
 }
-
-// export async function loader({ request }) {
-//   const { admin } = await authenticate.admin(request);
-
-//   const res = await admin.graphql(
-//     `
-//     query getContracts {
-//       subscriptionContracts(first: 250) {
-//         edges {
-//           node {
-//             id
-//             status
-//             createdAt
-//             updatedAt
-//             nextBillingDate
-//             currencyCode
-//             customer {
-//               id
-//               firstName
-//               lastName
-//               email
-//             }
-//             deliveryPolicy {
-//               interval
-//               intervalCount
-//             }
-//             lines(first: 50) {
-//               edges {
-//                 node {
-//                   id
-//                   title
-//                   quantity
-//                   sellingPlanName
-//                   sellingPlanId
-//                   pricingPolicy {
-//                     cycleDiscounts {
-//                       afterCycle
-//                       adjustmentType
-//                       adjustmentValue {
-//                         ... on SellingPlanPricingPolicyPercentageValue {
-//                           percentage
-//                         }
-//                         ... on MoneyV2 {
-//                           amount
-//                           currencyCode
-//                         }
-//                       }
-//                       computedPrice {
-//                         amount
-//                         currencyCode
-//                       }
-//                     }
-//                   }
-//                   currentPrice {
-//                     amount
-//                     currencyCode
-//                   }
-//                 }
-//               }
-//             }
-//           }
-//         }
-//       }
-//     }`,
-//   );
-
-//   const data = await res.json();
-
-//   return {
-//     contracts: data.data.subscriptionContracts.edges.map((e) => e.node),
-//   };
-// }
 
 export async function loader({ request }) {
   const { admin } = await authenticate.admin(request);
@@ -183,13 +110,13 @@ export async function loader({ request }) {
   return { contracts: allContracts };
 }
 
+
 function Subscriptions() {
   const { contracts } = useLoaderData();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchValue, setSearchValue] = useState(searchParams.get("q") || "");
-  const currentStatus = searchParams.get("status") || "ALL";
-
+ const currentStatus = (searchParams.get("status") || "ALL").toUpperCase();
   // URL se current page nikal lo (default 1)
   const pageFromUrl = parseInt(searchParams.get("page") || "1", 10);
   const currentPage =
@@ -230,7 +157,6 @@ function Subscriptions() {
   const selectedTabIndex = tabs.findIndex((t) => t.status === currentStatus);
   const selected = selectedTabIndex === -1 ? 0 : selectedTabIndex;
 
-  // Helper: searchParams update karo, aur agar naya param page nahi hai to page ko 1 pe reset kar do
   const updateParams = useCallback(
     (updates, resetPage = true) => {
       const next = new URLSearchParams(searchParams);
@@ -249,13 +175,13 @@ function Subscriptions() {
     [searchParams, setSearchParams],
   );
 
-  const handleTabChange = useCallback(
-    (selectedTabIndexValue) => {
-      const newStatus = tabs[selectedTabIndexValue].status;
-      updateParams({ status: newStatus === "ALL" ? null : newStatus });
-    },
-    [updateParams],
-  );
+const handleTabChange = useCallback(
+  (selectedTabIndexValue) => {
+    const newStatus = tabs[selectedTabIndexValue].status;
+    updateParams({ status: newStatus === "ALL" ? null : newStatus.toLowerCase() });
+  },
+  [updateParams],
+);
 
   const handleSearchChange = useCallback(
     (value) => {
@@ -272,8 +198,6 @@ function Subscriptions() {
     [updateParams],
   );
 
-  // Status aur search dono client-side filter hote hain (saare 200 records me se),
-  // isliye tab switch instant hai — koi naya server call nahi
   const filteredContracts = contracts.filter((item) => {
     if (currentStatus !== "ALL" && item.status !== currentStatus) return false;
 
@@ -288,13 +212,13 @@ function Subscriptions() {
   const totalItems = reversedContracts.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
 
-  // Agar current page total pages se zyada ho gaya (e.g. search ke baad), page 1 pe le aao
+
   const safePage = currentPage > totalPages ? totalPages : currentPage;
   useEffect(() => {
     if (currentPage !== safePage) {
       handlePageChange(safePage === 1 ? null : safePage);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [totalPages]);
 
   const startIndex = (safePage - 1) * PAGE_SIZE;
@@ -363,7 +287,7 @@ function Subscriptions() {
                         >
                           {item.id.split("/").pop()}
                         </td>
-                        <td>{item.status}</td>
+                       <td style={{ textTransform: "lowercase" }}>{item.status}</td>
                         <td>
                           {item.customer?.firstName} {item.customer?.lastName}{" "}
                           <br />
