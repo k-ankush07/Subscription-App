@@ -1753,7 +1753,6 @@ const DRAFT_COMMIT_MUTATION = `
   }
 `;
 
-// addressInput: { firstName, lastName, address1, address2, city, province, zip, country, phone }
 async function updateContractAddress(admin, contractId, addressInput) {
   try {
     await clearAnyOpenDraft(admin, contractId);

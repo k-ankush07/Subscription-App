@@ -4,7 +4,7 @@ import { authenticate } from "../shopify.server";
 import React from "react";
 import { useLoaderData, useNavigate, useFetcher } from "react-router";
 import { DuplicateIcon, DeleteIcon } from "@shopify/polaris-icons";
-
+import { TitleBar } from "@shopify/app-bridge-react";
 const API = import.meta.env.VITE_API_URL;
 const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY
 
@@ -248,6 +248,7 @@ function Plans() {
   };
   const deletingId = fetcher.formData?.get("planId");
   return (
+     <s-page heading="Subscription Contracts">
     <Page
       title="Selling Plans"
       primaryAction={{ content: "Create Plan", onAction: handelPlan }}
@@ -360,6 +361,7 @@ function Plans() {
         </Card>
       )}
     </Page>
+    </s-page>
   );
 }
 
