@@ -1,10 +1,17 @@
-<div id="subscription-wrapper" style="display:none;">
 
-{% for block in section.blocks %}
-  {% if block.type == '@app' %}
-    {% render block %}
-  {% endif %}
-{% endfor %}
+
+
+{% schema %}
+{
+  "name": "subscription",
+  "target": "section",
+  "stylesheet": "subscription.css",
+  "javascript": "subscription.js",
+  "settings": []
+}
+{% endschema %}
+
+
 
 {% if product.selling_plan_groups.size > 0 %}
 <div class="subscription-widget" id="subscription-widget">
@@ -18,54 +25,22 @@
     <span>Subscribe &amp; Save</span>
   </label>
 
-  <div id="selling-plans-container" style="display:none; margin-top:10px;">
+  <div id="selling-plans-container" style="display:none; margin-top: 10px;">
     <select id="selling-plan-select" name="selling_plan">
-      {% for group in product.selling_plan_groups %}
-        <optgroup label="{{ group.name }}">
-          {% for plan in group.selling_plans %}
-            <option value="{{ plan.id | split: '/' | last }}">
-              {{ plan.name }}
-            </option>
-          {% endfor %}
-        </optgroup>
+  {% for group in product.selling_plan_groups %}
+    <optgroup  label="{{ group.name }}">
+      {% for plan in group.selling_plans %}
+        <option  value="{{ plan.id | split: '/' | last }}">{{ plan.name }}</option>
       {% endfor %}
-    </select>
+    </optgroup>
+  {% endfor %}
+</select>
   </div>
+
 </div>
 
-<div class="subscription_Outer" id="subscription_Outer">
-  <p class="Subscription_innerText" id="Subscription_innerText"></p>
-  <p class="subscription_discount"></p>
-</div>
+  <div class="subscription_Outer" id="subscription_Outer">
+        <p class="Subscription_innerText" id="Subscription_innerText"></p>
+        <p class="subscription_discount"></p>
+  </div>
 {% endif %}
-
-</div>
-
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-
-    const wrapper = document.getElementById("subscription-wrapper");
-
-    const appBlock = document.getElementById(
-        "shopify-block-AMGF2cW1ZaUlqVTU5V__13518577319026217862"
-    );
-    if (appBlock) {
-        wrapper.style.display = "block";
-        console.log("App block found");
-    } else {
-        wrapper.style.display = "none";
-        console.log("App block not found");
-    }
-
-});
-</script>
-
-{% schema %}
-{
-  "name": "subscription",
-  "target": "section",
-  "stylesheet": "subscription.css",
-  "javascript": "subscription.js",
-  "settings": []
-}
-{% endschema %}

@@ -1,36 +1,12 @@
 import '@shopify/ui-extensions/preact';
 import { render } from "preact";
 import { useState, useEffect, useCallback, useRef } from "preact/hooks";
-import { hideModalById, showModalById } from "./modalUtils";
-
-const API_BASE = "https://chancellor-suggestion-have-clubs.trycloudflare.com";
+import { hideModalById, showModalById } from "./Modalutils";
+const API_BASE = "https://home-lauren-archived-david.trycloudflare.com";
 
 export default async () => {
     render(<Extension />, document.body);
 };
-
-
-
-/* ----------------------------------------------------------------------- *
- * DATE HELPERS
- *
- * The bug: `new Date("2026-07-12")` parses the string as UTC midnight,
- * but `new Date("2026-07-13T11:00:00Z").toISOString()` still carries the
- * "11:00:00Z" time. If you build upcoming dates by incrementing a Date
- * object that started from a full timestamp (e.g. nextBillingDate with a
- * non-midnight time), then later call `.toISOString().split("T")[0]`,
- * the *calendar date* is still correct in UTC — but if anything upstream
- * (the date picker, or a user in a timezone behind UTC) treats that value
- * as a *local* date instead of a UTC one, you get an off-by-one day.
- *
- * Fix: never let a date-only value pick up a time-of-day. Do all
- * calendar-day math on Y/M/D integers directly, and only ever format
- * "YYYY-MM-DD" strings — never round-trip through `new Date(str)` +
- * `toISOString()` for values that are supposed to be pure calendar dates.
- * ----------------------------------------------------------------------- */
-
-// Extract just the "YYYY-MM-DD" part from any date-like input (string or Date),
-// treating it as a calendar date, not a timezone-sensitive instant.
 
 function toDateOnlyString(value) {
     if (!value) return value;
@@ -450,6 +426,9 @@ function SubscriptionDetail({ subscription, onBack, onRescheduled }) {
 
     return (
         <s-page heading="Manage subscription">
+
+
+          
             <s-section>
                 <s-button onClick={onBack} variant="tertiary">
                     ← Back
