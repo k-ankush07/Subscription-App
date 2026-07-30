@@ -6,7 +6,7 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Methods": "GET, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
-// nffrejfvfjqwwadxsadwqedwdewdasdcsadwdsafdsdfdsfdwedewfdsfdwsdad
+
 export const action = async ({ request }) => {
   if (request.method === "OPTIONS") {
     return new Response(null, { headers: CORS_HEADERS });
