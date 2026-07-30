@@ -1,4 +1,13 @@
-import { Banner, Button, Card, Page, Icon, Checkbox } from "@shopify/polaris";
+import {
+  Banner,
+  Button,
+  Card,
+  Page,
+  Icon,
+  Checkbox,
+  Toast,
+  Frame
+} from "@shopify/polaris";
 import { ClipboardIcon } from "@shopify/polaris-icons";
 import React, { useEffect, useState, useRef } from "react";
 import { currencySymbol } from "../utils/formatMoney.js";
@@ -76,6 +85,8 @@ export default function SubscriptionDetail() {
     country: "",
     phone: "",
   });
+  const [toastActive, setToastActive] = useState(false);
+  const toggleToast = () => setToastActive((active) => !active);
   const customerId = contract?.customer?.id?.split("/").pop();
   const shopHandle = shop?.replace(".myshopify.com", "");
   const { id } = useParams();
@@ -339,6 +350,18 @@ export default function SubscriptionDetail() {
     }
   };
 
+  const handleCopyEmail = () => {
+    const email = contract?.customer?.defaultEmailAddress?.emailAddress;
+    if (!email) return;
+    navigator.clipboard.writeText(email).then(() => {
+      setToastActive(true);
+    });
+  };
+const handleEmailClick = () => {
+  const email = contract?.customer?.defaultEmailAddress?.emailAddress;
+  if (!email) return;
+  navigate(`/app/subscriptions?q=${encodeURIComponent(email)}`);
+};
   useEffect(() => {
     setLocalLines(contract?.lines?.edges || []);
     setVisibleCyclesCount(5);
@@ -352,7 +375,11 @@ export default function SubscriptionDetail() {
   }, [internalNotes, customerNotes]);
   return (
     <>
+    <Frame>
       <Page backAction={{ onAction: backButton }} title={`${id}`}>
+         {toastActive && (
+      <Toast content="Email copied" onDismiss={toggleToast} duration={1500} />
+    )}
         {contract?.status === "CANCELLED" && (
           <Banner
             title="This subscription has been cancelled."
@@ -468,9 +495,36 @@ export default function SubscriptionDetail() {
               {contract?.customer?.firstName} {contract?.customer?.lastName}
             </span>
           </p>
-          <span>{contract?.customer?.defaultEmailAddress?.emailAddress}</span>
-          <Icon source={ClipboardIcon} tone="base" />
-
+          {/* <span
+            style={{ display: "inline-flex", alignItems: "center"}}
+          >
+            <span
+              onClick={handleCopyEmail}
+              style={{ cursor: "pointer", display: "inline-flex" }}
+              title="Copy email"
+            >
+              <Icon source={ClipboardIcon} tone="base" />
+            </span>
+            {contract?.customer?.defaultEmailAddress?.emailAddress}
+          </span> */}
+          <span
+  style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
+>
+  <span
+    onClick={handleCopyEmail}
+    style={{ cursor: "pointer", display: "inline-flex" }}
+    title="Copy email"
+  >
+    <Icon source={ClipboardIcon} tone="base" />
+  </span>
+  <span
+    onClick={handleEmailClick}
+    style={{ cursor: "pointer", textDecoration: "underline" }}
+    title="View all subscriptions for this email"
+  >
+    {contract?.customer?.defaultEmailAddress?.emailAddress}
+  </span>
+</span>
           <div>
             <b>Shipping address</b> <br />
             <a
@@ -1166,6 +1220,7 @@ export default function SubscriptionDetail() {
           )}
         </div>
       </Page>
+      </Frame>
     </>
   );
 }

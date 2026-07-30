@@ -1,93 +1,187 @@
-
-
-import { Page, Card, EmptyState, Tabs, TextField, Pagination, Text } from "@shopify/polaris";
+import {
+  Page,
+  Card,
+  EmptyState,
+  Tabs,
+  TextField,
+  Pagination,
+  Text,
+} from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
 import React, { useState, useCallback, useEffect } from "react";
 import { useLoaderData, useNavigate, useSearchParams } from "react-router";
 import { currencySymbol } from "./utils/formatMoney.js";
-
+import { PaginationBar } from "./components/PaginationBar";
 const PAGE_SIZE = 7;
 
-export function shouldRevalidate({ currentUrl, nextUrl, defaultShouldRevalidate }) {
+export function shouldRevalidate({
+  currentUrl,
+  nextUrl,
+  defaultShouldRevalidate,
+}) {
   if (currentUrl.pathname !== nextUrl.pathname) {
     return defaultShouldRevalidate;
   }
   return false;
 }
 
+// export async function loader({ request }) {
+//   const { admin } = await authenticate.admin(request);
+
+//   const res = await admin.graphql(
+//     `
+//     query getContracts {
+//       subscriptionContracts(first: 250) {
+//         edges {
+//           node {
+//             id
+//             status
+//             createdAt
+//             updatedAt
+//             nextBillingDate
+//             currencyCode
+//             customer {
+//               id
+//               firstName
+//               lastName
+//               email
+//             }
+//             deliveryPolicy {
+//               interval
+//               intervalCount
+//             }
+//             lines(first: 50) {
+//               edges {
+//                 node {
+//                   id
+//                   title
+//                   quantity
+//                   sellingPlanName
+//                   sellingPlanId
+//                   pricingPolicy {
+//                     cycleDiscounts {
+//                       afterCycle
+//                       adjustmentType
+//                       adjustmentValue {
+//                         ... on SellingPlanPricingPolicyPercentageValue {
+//                           percentage
+//                         }
+//                         ... on MoneyV2 {
+//                           amount
+//                           currencyCode
+//                         }
+//                       }
+//                       computedPrice {
+//                         amount
+//                         currencyCode
+//                       }
+//                     }
+//                   }
+//                   currentPrice {
+//                     amount
+//                     currencyCode
+//                   }
+//                 }
+//               }
+//             }
+//           }
+//         }
+//       }
+//     }`,
+//   );
+
+//   const data = await res.json();
+
+//   return {
+//     contracts: data.data.subscriptionContracts.edges.map((e) => e.node),
+//   };
+// }
+
 export async function loader({ request }) {
   const { admin } = await authenticate.admin(request);
 
-  const res = await admin.graphql(
-    `
-    query getContracts {
-      subscriptionContracts(first: 250) {
-        edges {
-          node {
-            id
-            status
-            createdAt
-            updatedAt
-            nextBillingDate
-            currencyCode
-            customer {
+  let allContracts = [];
+  let hasNextPage = true;
+  let cursor = null;
+
+  while (hasNextPage) {
+    const res = await admin.graphql(
+      `
+      query getContracts($cursor: String) {
+        subscriptionContracts(first: 50, after: $cursor) {
+          edges {
+            node {
               id
-              firstName
-              lastName
-              email
-            }
-            deliveryPolicy {
-              interval
-              intervalCount
-            }
-            lines(first: 50) {
-              edges {
-                node {
-                  id
-                  title
-                  quantity
-                  sellingPlanName
-                  sellingPlanId
-                  pricingPolicy {
-                    cycleDiscounts {
-                      afterCycle
-                      adjustmentType
-                      adjustmentValue {
-                        ... on SellingPlanPricingPolicyPercentageValue {
-                          percentage
+              status
+              createdAt
+              updatedAt
+              nextBillingDate
+              currencyCode
+              customer {
+                id
+                firstName
+                lastName
+                email
+              }
+              deliveryPolicy {
+                interval
+                intervalCount
+              }
+              lines(first: 50) {
+                edges {
+                  node {
+                    id
+                    title
+                    quantity
+                    sellingPlanName
+                    sellingPlanId
+                    pricingPolicy {
+                      cycleDiscounts {
+                        afterCycle
+                        adjustmentType
+                        adjustmentValue {
+                          ... on SellingPlanPricingPolicyPercentageValue {
+                            percentage
+                          }
+                          ... on MoneyV2 {
+                            amount
+                            currencyCode
+                          }
                         }
-                        ... on MoneyV2 {
+                        computedPrice {
                           amount
                           currencyCode
                         }
                       }
-                      computedPrice {
-                        amount
-                        currencyCode
-                      }
                     }
-                  }
-                  currentPrice {
-                    amount
-                    currencyCode
+                    currentPrice {
+                      amount
+                      currencyCode
+                    }
                   }
                 }
               }
             }
           }
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
         }
-      }
-    }`,
-  );
+      }`,
+      { variables: { cursor } },
+    );
 
-  const data = await res.json();
+    const data = await res.json();
+    const result = data.data.subscriptionContracts;
 
-  return {
-    contracts: data.data.subscriptionContracts.edges.map((e) => e.node),
-  };
+    allContracts = allContracts.concat(result.edges.map((e) => e.node));
+    hasNextPage = result.pageInfo.hasNextPage;
+    cursor = result.pageInfo.endCursor;
+  }
+
+  return { contracts: allContracts };
 }
-
-
 
 function Subscriptions() {
   const { contracts } = useLoaderData();
@@ -98,7 +192,8 @@ function Subscriptions() {
 
   // URL se current page nikal lo (default 1)
   const pageFromUrl = parseInt(searchParams.get("page") || "1", 10);
-  const currentPage = Number.isNaN(pageFromUrl) || pageFromUrl < 1 ? 1 : pageFromUrl;
+  const currentPage =
+    Number.isNaN(pageFromUrl) || pageFromUrl < 1 ? 1 : pageFromUrl;
 
   const formatDate = (date) => {
     return new Date(date).toLocaleDateString("en-US", {
@@ -294,27 +389,13 @@ function Subscriptions() {
                   })}
                 </tbody>
               </table>
-
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  padding: "12px 0",
-                }}
-              >
-                <Text variant="bodySm" tone="subdued">
-                  Showing {totalItems === 0 ? 0 : startIndex + 1}-
-                  {Math.min(startIndex + PAGE_SIZE, totalItems)} of {totalItems}
-                </Text>
-                <Pagination
-                  hasPrevious={safePage > 1}
-                  onPrevious={() => handlePageChange(safePage - 1)}
-                  hasNext={safePage < totalPages}
-                  onNext={() => handlePageChange(safePage + 1)}
-                  label={`Page ${safePage} of ${totalPages}`}
-                />
-              </div>
+              <PaginationBar
+                currentPage={safePage}
+                totalPages={totalPages}
+                totalItems={totalItems}
+                pageSize={PAGE_SIZE}
+                onPageChange={handlePageChange}
+              />
             </div>
           )}
         </Card>
