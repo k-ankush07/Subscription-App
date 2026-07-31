@@ -201,7 +201,6 @@ function Subscriptions() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchValue, setSearchValue] = useState(searchParams.get("q") || "");
   const currentStatus = (searchParams.get("status") || "ALL").toUpperCase();
-
   const [displayData, setDisplayData] = useState(loaderData);
   const [currentPage, setCurrentPage] = useState(loaderData.page || 1);
   const cursorMapRef = useRef(loaderData.cursors || { 1: null });
@@ -230,6 +229,11 @@ function Subscriptions() {
     }
 
   }, [fetcher.state, fetcher.data]);
+
+  const createSubscription= ()=>
+  {
+    navigate("/app/create-contract")
+  }
 
   const isNavLoading =
     navigation.state === "loading" &&
@@ -314,7 +318,7 @@ function Subscriptions() {
     };
   }, []);
 
-  // ---- SEARCH MODE ----
+
   if (loaderData.mode === "search") {
     const { contracts } = loaderData;
     const search = searchValue.trim().toLowerCase();
@@ -387,6 +391,7 @@ function Subscriptions() {
     handleSearchChange,
     isLoading,
     contracts,
+    createSubscription,
     formatDate,
     handelRowClick,
     getLinePriceWithoutIndex,
@@ -414,11 +419,14 @@ function renderPage({
   handelRowClick,
   getLinePriceWithoutIndex,
   pagination,
+  createSubscription
 }) {
   return (
     <Page
       title="Subscriptions"
-      primaryAction={{ content: "Create Subscription" }}
+      primaryAction={{ content: "Create Subscription",
+        action:createSubscription,
+       }}
       secondaryActions={[
         {
           content: "Import Subscription ",
