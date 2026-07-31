@@ -299,7 +299,7 @@ function CreateSubscription({ currencyCode }) {
             </>
           )}
         </div>
-{/* fdferfedwsdsdsdswwdwdwsddesdsafsefwdwddsdf dxsdsadsadsaewdsdseddesdcsefdef*/}
+{/* fdferfedwsdsdsdswwdwdwsddesdsafsefwdwddsddsdefeff dxsdsadsadsaewdsdseddesdcsefdef*/}
       </Card>
     </Page>
   )
