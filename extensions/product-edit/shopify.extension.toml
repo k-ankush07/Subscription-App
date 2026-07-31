@@ -4,7 +4,7 @@ api_version = "2025-10"
 name = "t:name"
 handle = "admin-update"
 type = "ui_extension"
-uid = "23a785b6-73c6-d8ee-a9ae-7d9a9bc5d051526a3cb5"
+uid = "9db01b0f-c1fe-4d0f-8833-c8f77dbf292f"
 
 [[extensions.targeting]]
 module = "./src/ProductExtension.jsx"
