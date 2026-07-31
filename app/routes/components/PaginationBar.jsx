@@ -2,14 +2,13 @@ import { Pagination, Text } from "@shopify/polaris";
  
 export function PaginationBar({ currentPage, totalPages, totalItems, pageSize, onPageChange }) {
   const startIndex = (currentPage - 1) * pageSize;
-  const endIndex = Math.min(startIndex + pageSize, totalItems);
+  // const endIndex = Math.min(startIndex + pageSize, totalItems);
 
   return (
     <div
       style={{
         display: "flex",
         justifyContent: "center",
-        alignItems: "center",
         padding: "12px 0",
       }}
     >

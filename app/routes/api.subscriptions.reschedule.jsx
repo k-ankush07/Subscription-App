@@ -37,10 +37,6 @@ export const action = async ({ request }) => {
         { status: 400, headers: CORS_HEADERS }
       );
     }
-
-    // What the customer actually asked for, as a plain calendar date string.
-    // Used later purely for comparison — never re-parsed through `new Date()`.
-    const requestedDateOnly = newDate; // e.g. "2026-07-12"
     const effectiveDateTime = `${newDate}T00:00:00.000Z`;
 
     const makeRequest = async (index, dateTime) => {
@@ -87,12 +83,6 @@ export const action = async ({ request }) => {
     const confirmedDateOnly = confirmedCycle?.billingAttemptExpectedDate
       ? confirmedCycle.billingAttemptExpectedDate.slice(0, 10)
       : null;
-
-    // THIS is the key diagnostic: does Shopify's own mutation response
-    // already differ from what we asked for? If so, Shopify adjusted it
-    // at write time (most likely a minimum-notice / cutoff rule, or the
-    // shop's fixed billing-attempt time-of-day) — it is not a bug in this
-    // route or in the extension.
     console.log(
       "subscriptionBillingCycleScheduleEdit result:",
       JSON.stringify(
@@ -123,10 +113,6 @@ export const action = async ({ request }) => {
 
     const dateWasAdjusted =
       confirmedDateOnly !== null && confirmedDateOnly !== requestedDateOnly;
-
-    // Always trust what Shopify confirmed (confirmedCycle), never what the
-    // customer requested, and tell the client explicitly if it changed so
-    // the UI can show an honest message instead of a silently-wrong date.
     return Response.json(
       {
         success: true,

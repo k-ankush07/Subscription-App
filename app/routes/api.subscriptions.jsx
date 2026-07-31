@@ -85,11 +85,6 @@ export const loader = async ({ request }) => {
 
     const { data, errors } = await res.json();
 
-    // ------------------------------------------------------------------
-    // TEMP DEBUG — remove once the empty-subscriptions issue is resolved.
-    // Prints exactly which shop + customerId were queried, and whether
-    // Shopify actually found a customer node for that ID.
-    // ------------------------------------------------------------------
     console.log(
       "DEBUG subscriptions lookup:",
       JSON.stringify(
@@ -152,18 +147,6 @@ export const loader = async ({ request }) => {
         }
       });
     }
-
-    // Fetch the REAL upcoming billing cycles for a contract, since
-    // `nextBillingDate` on the contract does not reliably reflect
-    // individual cycle edits made via subscriptionBillingCycleScheduleEdit.
-    //
-    // IMPORTANT: this API version requires the selector argument named
-    // exactly `billingCyclesDateRangeSelector`, typed as
-    // `SubscriptionBillingCyclesDateRangeSelector!` (NOT a bare
-    // `contractId` + `first`, and NOT `billingCyclesDateRange`). Passing
-    // just `contractId`/`first` throws:
-    //   "subscriptionBillingCycles requires exactly one of
-    //    billing_cycles_date_range_selector, billing_cycles_index_range_selector"
     async function fetchUpcomingBillingCycles(contractId) {
       const now = new Date();
       const startDate = now.toISOString();
@@ -211,8 +194,6 @@ export const loader = async ({ request }) => {
         const cycles =
           cyclesPayload.data?.subscriptionBillingCycles?.edges?.map((e) => e.node) ?? [];
 
-        // Defensive sort — API should already return these in order, but
-        // don't rely on it for something as important as "what's next."
         cycles.sort(
           (a, b) => new Date(a.billingAttemptExpectedDate) - new Date(b.billingAttemptExpectedDate)
         );
@@ -224,7 +205,6 @@ export const loader = async ({ request }) => {
       }
     }
 
-    // Har contract ke liye apna custom payment-policy rule merge karo (Prisma se)
     const enriched = await Promise.all(
       contracts.map(async (contract) => {
         const contractIdNumeric = contract.id.split("/").pop();
@@ -238,7 +218,7 @@ export const loader = async ({ request }) => {
           console.error("Policy lookup failed for", contractIdNumeric, e.message);
         }
 
-        // Line item totals se subtotal compute karo, plus attach product images
+
         const lines = contract.lines?.edges?.map((e) => {
           const node = e.node;
           return {
@@ -253,9 +233,6 @@ export const loader = async ({ request }) => {
 
         const upcomingCycles = await fetchUpcomingBillingCycles(contract.id);
 
-        // Use the first not-yet-billed, not-skipped cycle as the real
-        // "next billing date" — this reflects any per-cycle reschedule,
-        // unlike the stale `contract.nextBillingDate` scalar.
         const nextCycle =
           upcomingCycles.find((c) => !c.skipped && c.status !== "BILLED") ?? upcomingCycles[0];
 
@@ -266,7 +243,7 @@ export const loader = async ({ request }) => {
           lines: { edges: lines.map((line) => ({ node: line })) },
           nextBillingDate: realNextBillingDate,
           nextBillingCycleIndex: nextCycle?.cycleIndex ?? null,
-          upcomingCycles, // [{ cycleIndex, billingAttemptExpectedDate, status, skipped, edited }, ...]
+          upcomingCycles, 
           subtotal,
           currencyCode: lines[0]?.lineDiscountedPrice?.currencyCode ?? "INR",
           paymentsCompleted: policy?.paymentsCompleted ?? 0,

@@ -45,7 +45,7 @@ export const loader = async ({ request }) => {
 
   const { data } = await res.json();
   const baseUrl = data.shop.customerAccountsV2.url;
-  const targetUuid = process.env.CUSTOMER_ACCOUNT_EXTENSION_UUID;
+  const targetUuid = process.env.SHOPIFY_CUSTOMER_UID; // "Customer Portal Page"
 
   const myPage = data.customerAccountPages.nodes.find(
     (n) =>
@@ -53,9 +53,10 @@ export const loader = async ({ request }) => {
       n.appExtensionUuid === targetUuid,
   );
 
-  const portalUrl = myPage ? `${baseUrl}/pages/${myPage.handle}` : baseUrl;
+  const portalUrl = myPage
+    ? `${baseUrl}/pages/${myPage.handle}`
+    : baseUrl;
 
-  // checkoutProfiles.id GID format: gid://shopify/CheckoutProfile/1850638556
   const checkoutProfileId = data.checkoutProfiles.nodes[0]?.id.split("/").pop();
 
   const storeHandle = session.shop.replace(".myshopify.com", "");
@@ -70,11 +71,12 @@ export const loader = async ({ request }) => {
     checkoutEditorUrl,
   };
 };
+
 export default function CustomerPortal() {
-  const { portalUrl, shopDomain, foundExtension, checkoutEditorUrl} = useLoaderData();
+  const { portalUrl, shopDomain, foundExtension, checkoutEditorUrl } =
+    useLoaderData();
   const [copied, setCopied] = useState(false);
   const [showBanner, setShowBanner] = useState(true);
-
   const copyUrl = async () => {
     await navigator.clipboard.writeText(portalUrl);
     setCopied(true);
@@ -84,8 +86,6 @@ export default function CustomerPortal() {
   return (
     <Page title="Customer portal">
       <BlockStack gap="400">
-       
-
         <Card>
           <BlockStack gap="400">
             <BlockStack gap="100">
@@ -95,8 +95,8 @@ export default function CustomerPortal() {
               <Text tone="subdued" as="p">
                 To let customers manage subscriptions, enable it in{" "}
                 <Link url={checkoutEditorUrl} target="_blank">
-  Checkout settings
-</Link>
+                  Checkout settings
+                </Link>
                 .
               </Text>
             </BlockStack>
@@ -129,7 +129,7 @@ export default function CustomerPortal() {
                     wordBreak: "break-all",
                   }}
                 >
-                  {portalUrl}/1394a431-4663-d0ee-17c3-448fe106c4f5a514f9b0
+                  {portalUrl}
                 </span>
 
                 <InlineStack gap="200">
