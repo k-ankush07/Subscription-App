@@ -35,6 +35,11 @@ export const loader = async ({ request }) => {
           }
         }
       }
+      checkoutProfiles(first: 1, query: "is_published:true") {
+        nodes {
+          id
+        }
+      }
     }
   `);
 
@@ -50,15 +55,23 @@ export const loader = async ({ request }) => {
 
   const portalUrl = myPage ? `${baseUrl}/pages/${myPage.handle}` : baseUrl;
 
+  // checkoutProfiles.id GID format: gid://shopify/CheckoutProfile/1850638556
+  const checkoutProfileId = data.checkoutProfiles.nodes[0]?.id.split("/").pop();
+
+  const storeHandle = session.shop.replace(".myshopify.com", "");
+  const checkoutEditorUrl = checkoutProfileId
+    ? `https://admin.shopify.com/store/${storeHandle}/settings/checkout/editor/profiles/${checkoutProfileId}?page=profile&context=apps`
+    : `https://${session.shop}/admin/settings/checkout`;
+
   return {
     portalUrl,
     shopDomain: session.shop,
     foundExtension: Boolean(myPage),
+    checkoutEditorUrl,
   };
 };
-
 export default function CustomerPortal() {
-  const { portalUrl, shopDomain, foundExtension } = useLoaderData();
+  const { portalUrl, shopDomain, foundExtension, checkoutEditorUrl} = useLoaderData();
   const [copied, setCopied] = useState(false);
   const [showBanner, setShowBanner] = useState(true);
 
@@ -71,23 +84,7 @@ export default function CustomerPortal() {
   return (
     <Page title="Customer portal">
       <BlockStack gap="400">
-        {showBanner && (
-          <Banner tone="info" onDismiss={() => setShowBanner(false)}>
-            <Link
-              url="https://help.shopify.com/en/manual/customers/customer-accounts"
-              target="_blank"
-            >
-              Watch: How to let customers manage their own subscriptions
-            </Link>
-          </Banner>
-        )}
-
-        {!foundExtension && (
-          <Banner tone="warning">
-            Extension page abhi merchant ke checkout editor mein add nahi hua
-            hai, isliye fallback URL dikh raha hai. Neeche Step 3 follow karo.
-          </Banner>
-        )}
+       
 
         <Card>
           <BlockStack gap="400">
@@ -97,12 +94,9 @@ export default function CustomerPortal() {
               </Text>
               <Text tone="subdued" as="p">
                 To let customers manage subscriptions, enable it in{" "}
-                <Link
-                  url={`https://${shopDomain}/admin/settings/checkout`}
-                  target="_blank"
-                >
-                  Checkout settings
-                </Link>
+                <Link url={checkoutEditorUrl} target="_blank">
+  Checkout settings
+</Link>
                 .
               </Text>
             </BlockStack>

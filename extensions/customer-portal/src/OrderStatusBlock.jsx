@@ -2,7 +2,7 @@ import '@shopify/ui-extensions/preact';
 import { render } from "preact";
 import { useState, useEffect, useCallback, useRef } from "preact/hooks";
 import { hideModalById, showModalById } from "./Modalutils";
-const API_BASE = "https://home-lauren-archived-david.trycloudflare.com";
+const API_BASE = "https://bedroom-equilibrium-ten-wine.trycloudflare.com";
 
 export default async () => {
     render(<Extension />, document.body);
@@ -12,15 +12,9 @@ function toDateOnlyString(value) {
     if (!value) return value;
 
     if (typeof value === "string") {
-        // Already date-only, or has a time component — either way, the first
-        // 10 chars of an ISO-ish string are the calendar date. This avoids
-        // ever handing the string to `new Date()` and risking a UTC/local shift.
         const match = value.match(/^(\d{4}-\d{2}-\d{2})/);
         if (match) return match[1];
     }
-
-    // Fallback for Date objects: use UTC getters (not local getters) since
-    // all our source data is UTC-anchored (Shopify timestamps end in "Z").
     const d = value instanceof Date ? value : new Date(value);
     if (Number.isNaN(d.valueOf())) return null;
     const y = d.getUTCFullYear();
@@ -29,16 +23,11 @@ function toDateOnlyString(value) {
     return `${y}-${m}-${day}`;
 }
 
-// Build a UTC-midnight Date from a "YYYY-MM-DD" string, purely for display
-// formatting (e.g. toLocaleDateString). Never used for the value sent to
-// the server — that always stays a plain string.
 function dateOnlyToUTCDate(dateOnlyStr) {
     const [y, m, d] = dateOnlyStr.split("-").map(Number);
     return new Date(Date.UTC(y, m - 1, d));
 }
 
-// Add `count` of `interval` units to a "YYYY-MM-DD" string, doing the math
-// on the calendar fields directly so no timezone conversion can creep in.
 function addIntervalToDateOnly(dateOnlyStr, interval, count) {
     const [y, m, d] = dateOnlyStr.split("-").map(Number);
     const dt = new Date(Date.UTC(y, m - 1, d));
@@ -246,10 +235,6 @@ function SubscriptionDetail({ subscription, onBack, onRescheduled }) {
     const canCancel =
         subscription.minPaymentsRequired == null ||
         subscription.paymentsCompleted >= subscription.minPaymentsRequired;
-
-    // rescheduleDate is ALWAYS a plain "YYYY-MM-DD" string now — never a
-    // Date object, never a full ISO timestamp. This is the single source of
-    // truth that gets sent to the server, so there's nothing left to shift.
     const [rescheduleDate, setRescheduleDate] = useState(
         toDateOnlyString(subscription.nextBillingDate)
     );
@@ -282,9 +267,6 @@ function SubscriptionDetail({ subscription, onBack, onRescheduled }) {
     }, [subscription]);
 
     function computeUpcomingDates() {
-        // Prefer real cycles from Shopify (with real cycleIndex) over
-        // client-side date math, which has no way to know about reschedules,
-        // skips, or which cycle indices actually exist/are editable.
         if (Array.isArray(subscription.upcomingCycles) && subscription.upcomingCycles.length > 0) {
             return subscription.upcomingCycles
                 .filter((c) => !c.skipped)
@@ -294,9 +276,6 @@ function SubscriptionDetail({ subscription, onBack, onRescheduled }) {
                 }));
         }
 
-        // Fallback for contracts where the cycles query returned nothing —
-        // approximate as before, but flag cycleIndex as unknown (null) so the
-        // reschedule handler knows to fall back to its own default behavior.
         const dates = [];
         const interval = subscription.deliveryPolicy?.interval;
         const count = subscription.deliveryPolicy?.intervalCount ?? 1;
@@ -311,9 +290,6 @@ function SubscriptionDetail({ subscription, onBack, onRescheduled }) {
 
     const upcomingDates = computeUpcomingDates();
 
-    // The specific cycle the customer is targeting. Defaults to the
-    // subscription's real next-billing cycle index (from the API), not a
-    // hardcoded 0 — some contracts don't have an editable cycle at index 0.
     const [targetCycleIndex, setTargetCycleIndex] = useState(
         subscription.nextBillingCycleIndex ?? null
     );
@@ -330,8 +306,7 @@ function SubscriptionDetail({ subscription, onBack, onRescheduled }) {
 
         try {
             const token = await shopify.sessionToken.get();
-            // rescheduleDate is already a clean "YYYY-MM-DD" string — no
-            // `new Date(...).toISOString()` round trip, so no timezone shift.
+
             const dateOnly = rescheduleDate;
             console.log("handleConfirmReschedule sending", { subscriptionId: subscription.id, dateOnly, billingCycleIndex: 0 });
             const res = await fetch(`${API_BASE}/api/subscriptions/reschedule`, {
@@ -354,10 +329,6 @@ function SubscriptionDetail({ subscription, onBack, onRescheduled }) {
                 throw new Error(data.error || "Unable to reschedule this order right now.");
             }
 
-            // Shopify's confirmed billing cycle is the source of truth, not the
-            // date the customer picked. If Shopify adjusted it (usually due to a
-            // minimum-notice/cutoff rule, or the shop's fixed billing-attempt
-            // time), reflect that honestly instead of showing the requested date.
             const confirmedDate = data.billingCycle?.billingAttemptExpectedDate
                 ? toDateOnlyString(data.billingCycle.billingAttemptExpectedDate)
                 : dateOnly;
