@@ -201,6 +201,7 @@ function Subscriptions() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchValue, setSearchValue] = useState(searchParams.get("q") || "");
   const currentStatus = (searchParams.get("status") || "ALL").toUpperCase();
+
   const [displayData, setDisplayData] = useState(loaderData);
   const [currentPage, setCurrentPage] = useState(loaderData.page || 1);
   const cursorMapRef = useRef(loaderData.cursors || { 1: null });
@@ -229,11 +230,6 @@ function Subscriptions() {
     }
 
   }, [fetcher.state, fetcher.data]);
-
-  const createSubscription= ()=>
-  {
-    navigate("/app/create-contract")
-  }
 
   const isNavLoading =
     navigation.state === "loading" &&
@@ -288,7 +284,9 @@ function Subscriptions() {
     },
     [searchParams, setSearchParams],
   );
-
+const createSubscription = () => {
+  navigate("/app/create-contract");
+};
   const handleTabChange = useCallback(
     (selectedTabIndexValue) => {
       const newStatus = tabs[selectedTabIndexValue].status;
@@ -341,11 +339,12 @@ function Subscriptions() {
       handleTabChange,
       searchValue,
       handleSearchChange,
-      isLoading, // navigation loading (status/q change) yahan bhi lagega
+      isLoading, 
       contracts: paginated,
       formatDate,
       handelRowClick,
       getLinePriceWithoutIndex,
+      createSubscription,
       pagination: (
         <PaginationBar
           currentPage={safePage}
@@ -391,10 +390,10 @@ function Subscriptions() {
     handleSearchChange,
     isLoading,
     contracts,
-    createSubscription,
     formatDate,
     handelRowClick,
     getLinePriceWithoutIndex,
+    createSubscription,
     pagination: (
       <PaginationBar
         currentPage={currentPage}
@@ -419,38 +418,39 @@ function renderPage({
   handelRowClick,
   getLinePriceWithoutIndex,
   pagination,
-  createSubscription
+  createSubscription,
 }) {
   return (
     <Page
       title="Subscriptions"
-      primaryAction={{ content: "Create Subscription",
-        action:createSubscription,
-       }}
-      secondaryActions={[
-        {
-          content: "Import Subscription ",
-        },
-        {
-          content: "Export Subscription",
-        },
-      ]}
-      actionGroups={[
-        {
-          title: "More Action",
-          actions: [
-            {
-              content: "View Event",
-            },
-            {
-              content: "View Orders",
-            },
-            {
-              content: "View Customer",
-            },
-          ],
-        },
-      ]}
+       primaryAction={{
+        content: "Create Subscription",
+        onAction: createSubscription,   
+      }}
+      // secondaryActions={[
+      //   {
+      //     content: "Import Subscription ",
+      //   },
+      //   {
+      //     content: "Export Subscription",
+      //   },
+      // ]}
+      // actionGroups={[
+      //   {
+      //     title: "More Action",
+      //     actions: [
+      //       {
+      //         content: "View Event",
+      //       },
+      //       {
+      //         content: "View Orders",
+      //       },
+      //       {
+      //         content: "View Customer",
+      //       },
+      //     ],
+      //   },
+      // ]}
     >
       <Card>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
