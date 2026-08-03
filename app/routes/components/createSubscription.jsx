@@ -915,6 +915,10 @@ function CreateSubscription({ currencyCode, shop }) {
             value={deliveryFrequency}
             onChange={(value) => setDeliveryFrequency(value)}
           />
+        </div>
+
+        <div>
+          <h2>Delivery interval</h2>
           <select
             value={frequencyUnit}
             onChange={(e) => setFrequencyUnit(e.target.value)}
