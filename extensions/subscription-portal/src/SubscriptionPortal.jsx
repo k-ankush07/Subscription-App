@@ -2,7 +2,7 @@ import '@shopify/ui-extensions/preact';
 import { render } from "preact";
 import { useState, useEffect, useCallback, useRef } from "preact/hooks";
 import { hideModalById, showModalById } from "./Modalutils";
-const API_BASE = "https://rim-suddenly-angle-math.trycloudflare.com";
+const API_BASE = "https://mentor-solid-adrian-dealt.trycloudflare.com";
 
 export default async () => {
     render(<Extension />, document.body);
