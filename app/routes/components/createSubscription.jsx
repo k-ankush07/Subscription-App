@@ -466,7 +466,7 @@ function CreateSubscription({ currencyCode, shop }) {
             value={String(intervalCount)}
             disabled
           />
-          dxsadxsadadddsdsdds
+          dxsadxsadadddsdsddsdfdfdf
         </div>
         <div>
           <h2>Subscription orders</h2>
