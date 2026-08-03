@@ -45,9 +45,9 @@ function CreateSubscription({ currencyCode, shop }) {
 
   const [nextOrderDate, setNextOrderDate] = useState(minDate);
   const [nextOrderTime, setNextOrderTime] = useState(timeOptions[0].value);
-  const [sellingPlanType, setSellingPlanType] = useState('pay_as_you_go');
-  const [deliveryFrequency, setDeliveryFrequency] = useState('1');
-  const [frequencyUnit, setFrequencyUnit] = useState('weeks');
+  const [billingType, setBillingType] = useState('PAY_AS_YOU_GO');
+  const [intervalCount, setIntervalCount] = useState(1);
+  const [interval, setInterval] = useState('MONTH');
   const [minOrders, setMinOrders] = useState('');
   const [maxOrders, setMaxOrders] = useState('');
 
@@ -218,11 +218,11 @@ function CreateSubscription({ currencyCode, shop }) {
       nextOrderDate,
       nextOrderTime,
       currencyCode,
-      sellingPlanType,
-      deliveryFrequency,
-      frequencyUnit,
-      billingFrequency: deliveryFrequency, // 👈 billing frequency = delivery frequency (same value)
-      billingInterval: frequencyUnit, // 👈 billing interval = delivery interval (same unit) — SellingPlan.jsx jaisi naming
+      billingType,
+      intervalCount,
+      interval,
+      billingFrequency: intervalCount, // 👈 billing frequency = delivery frequency (same value)
+      billingInterval: interval, // 👈 billing interval = delivery interval (same unit) — SellingPlan.jsx jaisi naming
       minOrders,
       maxOrders,
 
@@ -323,10 +323,10 @@ function CreateSubscription({ currencyCode, shop }) {
         <div>
           <h2>Selling plan type</h2>
           <select
-            value={sellingPlanType}
-            onChange={(e) => setSellingPlanType(e.target.value)}
+            value={billingType}
+            onChange={(e) => setBillingType(e.target.value)}
           >
-            <option value="pay_as_you_go">Pay as you go</option>
+            <option value="PAY_AS_YOU_GO">Pay as you go</option>
           </select>
         </div>
 
@@ -335,21 +335,21 @@ function CreateSubscription({ currencyCode, shop }) {
             label="Delivery frequency"
             type="number"
             min={1}
-            value={deliveryFrequency}
-            onChange={(value) => setDeliveryFrequency(value)}
+            value={String(intervalCount)}
+            onChange={(value) => setIntervalCount(Number(value))}
           />
         </div>
 
         <div>
           <h2>Delivery interval</h2>
           <select
-            value={frequencyUnit}
-            onChange={(e) => setFrequencyUnit(e.target.value)}
+            value={interval}
+            onChange={(e) => setInterval(e.target.value)}
           >
-            <option value="days">Days</option>
-            <option value="weeks">Weeks</option>
-            <option value="months">Months</option>
-            <option value="years">Years</option>
+            <option value="DAY">Days</option>
+            <option value="WEEK">Weeks</option>
+            <option value="MONTH">Months</option>
+            <option value="YEAR">Years</option>
           </select>
         </div>
 
@@ -358,7 +358,7 @@ function CreateSubscription({ currencyCode, shop }) {
           <TextField
             label="Billing frequency"
             type="number"
-            value={deliveryFrequency}
+            value={String(intervalCount)}
             disabled
           />
         </div>
