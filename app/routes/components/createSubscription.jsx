@@ -1,7 +1,9 @@
-import React, { useState } from 'react'
-import { useNavigate, useFetcher } from 'react-router'
-import { Card, Page, TextField, Button, Banner, Checkbox, Select } from '@shopify/polaris';
 
+import React, { useState, useEffect } from 'react'
+import { useNavigate, useFetcher } from 'react-router'
+import { useAppBridge } from '@shopify/app-bridge-react'
+import { Card, Page, TextField, Button, Banner, Checkbox, Select } from '@shopify/polaris'
+import Product from './Product'
 
 function generateTimeOptions() {
   const times = [];
@@ -25,16 +27,21 @@ const discountTypeOptions = [
   { label: 'Fixed price', value: 'PRICE' },
 ];
 
-function CreateSubscription({ currencyCode }) {
+// yeh shop param CreateSubscription ko route se pass karna hoga (loader se session.shop bhej dena)
+function CreateSubscription({ currencyCode, shop }) {
   const navigate = useNavigate();
-  const fetcher = useFetcher();
+  const shopify = useAppBridge();
+  const API = import.meta.env.VITE_API_URL;
+  const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
+
+  // ---- customer search fetcher (isi route ke loader ko hit karega, ?customerSearch=... ke saath) ----
+  const customerSearchFetcher = useFetcher();
 
   const timeOptions = generateTimeOptions();
 
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
   const minDate = tomorrow.toISOString().split('T')[0];
-
 
   const [nextOrderDate, setNextOrderDate] = useState(minDate);
   const [nextOrderTime, setNextOrderTime] = useState(timeOptions[0].value);
@@ -43,7 +50,6 @@ function CreateSubscription({ currencyCode }) {
   const [frequencyUnit, setFrequencyUnit] = useState('weeks');
   const [minOrders, setMinOrders] = useState('');
   const [maxOrders, setMaxOrders] = useState('');
-
 
   const [giveDiscount, setGiveDiscount] = useState(false);
   const [discountAmount, setDiscountAmount] = useState('0');
@@ -54,6 +60,24 @@ function CreateSubscription({ currencyCode }) {
   const [discountAmount2, setDiscountAmount2] = useState('0');
   const [discountType2, setDiscountType2] = useState('PERCENTAGE');
 
+  // ---- Products state ----
+  const [selectedProducts, setSelectedProducts] = useState([]);
+  const [productError, setProductError] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // ---- Customer state ----
+  const [customerId, setCustomerId] = useState('');
+  const [customerEmail, setCustomerEmail] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [company, setCompany] = useState('');
+
+  // ---- Customer search UI state ----
+  const [showCustomerSearch, setShowCustomerSearch] = useState(false);
+  const [customerSearchTerm, setCustomerSearchTerm] = useState('');
 
   const handleDiscountAmountChange = (value, type, setter) => {
     if (type === 'PERCENTAGE') {
@@ -70,7 +94,6 @@ function CreateSubscription({ currencyCode }) {
     }
   };
 
-
   const handleDiscountTypeChange = (value, currentAmount, amountSetter, typeSetter) => {
     typeSetter(value);
     if (value === 'PERCENTAGE' && Number(currentAmount) > 100) {
@@ -84,30 +107,160 @@ function CreateSubscription({ currencyCode }) {
     navigate("/app/subscriptions")
   }
 
-  const handleSubmit = () => {
-    const formData = new FormData();
-    formData.append("nextOrderDate", nextOrderDate);
-    formData.append("nextOrderTime", nextOrderTime);
-    formData.append("currencyCode", currencyCode);
-    formData.append("sellingPlanType", sellingPlanType);
-    formData.append("deliveryFrequency", deliveryFrequency);
-    formData.append("frequencyUnit", frequencyUnit);
-    formData.append("minOrders", minOrders);
-    formData.append("maxOrders", maxOrders);
+  // ---- Customer picker (App Bridge resourcePicker 'customer' type support nahi karta, isliye Shopify Admin API se search) ----
+  const handleOpenCustomerSearch = () => {
+    setShowCustomerSearch(true);
+    setCustomerSearchTerm('');
+  };
 
-    formData.append("giveDiscount", giveDiscount);
-    formData.append("discountAmount", discountAmount);
-    formData.append("discountType", discountType);
+  const handleCustomerSearch = () => {
+    if (!customerSearchTerm.trim()) return;
+    // isi route ke loader ko ?customerSearch= ke saath call karta hai
+    customerSearchFetcher.load(`?customerSearch=${encodeURIComponent(customerSearchTerm)}`);
+  };
 
-    formData.append("changeDiscountAfterOrders", changeDiscountAfterOrders);
-    formData.append("afterOrders", afterOrders);
-    formData.append("discountAmount2", discountAmount2);
-    formData.append("discountType2", discountType2);
+  const handlePickCustomer = (customer) => {
+    setCustomerId(customer.id || '');
+    setCustomerEmail(customer.email || '');
+    setFirstName(customer.firstName || '');
+    setLastName(customer.lastName || '');
+    setPhoneNumber(customer.phone || '');
+    setCompany(customer.defaultAddress?.company || '');
 
-    fetcher.submit(formData, { method: "post" });
-  }
+    setShowCustomerSearch(false);
+    setCustomerSearchTerm('');
+  };
 
-  const isSubmitting = fetcher.state === "submitting";
+  const customerSearchResults = customerSearchFetcher.data?.customers || [];
+  const customerSearchLoading = customerSearchFetcher.state === 'loading';
+  const customerSearchError =
+    customerSearchFetcher.data && customerSearchFetcher.data.success === false
+      ? customerSearchFetcher.data.message
+      : null;
+
+  // ---- Product picker ----
+  const handleSelectProducts = async () => {
+    try {
+      const result = await shopify.resourcePicker({
+        type: 'product',
+        multiple: true,
+        selectionIds: selectedProducts.map((p) => ({
+          id: p.id,
+          variants: (p.variants || []).map((v) => ({ id: v.variantsId })),
+        })),
+      });
+
+      if (result) {
+        const mapped = result.map((product) => {
+          const rawVariants = product.variants || [];
+          const productImageUrl = product.images?.[0]?.originalSrc || product.images?.[0]?.src || "";
+          const existingProduct = selectedProducts.find((p) => p.id === product.id);
+
+          const variants = rawVariants.map((v) => {
+            const existingVariant = existingProduct?.variants?.find(
+              (ev) => ev.variantsId === v.id
+            );
+            return {
+              variantsId: v.id,
+              variantsTitle: v.title,
+              price: v.price,
+              variantImageUrl: v.image?.originalSrc || v.image?.url || productImageUrl,
+              variantImageAlt: v.image?.altText || v.title || product.title,
+              // per-variant order + discount fields (preserve if already set)
+              quantity: existingVariant?.quantity ?? "1",
+              unitPrice: existingVariant?.unitPrice ?? v.price ?? "0",
+              discountMode: existingVariant?.discountMode ?? "SELLING_PLAN",
+              discountAmount: existingVariant?.discountAmount ?? "0",
+              discountType: existingVariant?.discountType ?? "PERCENTAGE",
+              changeDiscountAfterOrders: existingVariant?.changeDiscountAfterOrders ?? false,
+              discountAmount2: existingVariant?.discountAmount2 ?? "0",
+              afterOrders: existingVariant?.afterOrders ?? "1",
+              discountType2: existingVariant?.discountType2 ?? "PERCENTAGE",
+            };
+          });
+
+          return {
+            id: product.id,
+            title: product.title,
+            ProductImage: productImageUrl,
+            selectedVariantCount: rawVariants.length,
+            totalVariantCount: product.totalVariants ?? rawVariants.length,
+            variants,
+          };
+        });
+        setSelectedProducts(mapped);
+        setProductError(false);
+      }
+    } catch (err) {
+      console.error("Product picker error:", err);
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (selectedProducts.length === 0) {
+      setProductError(true);
+      return;
+    }
+    setProductError(false);
+    setSaveError(null);
+
+    const payload = {
+      shop,
+
+      // ---- customer ----
+      customerId,
+      customerEmail,
+      firstName,
+      lastName,
+      phoneNumber,
+      company,
+
+      nextOrderDate,
+      nextOrderTime,
+      currencyCode,
+      sellingPlanType,
+      deliveryFrequency,
+      frequencyUnit,
+      minOrders,
+      maxOrders,
+
+      giveDiscount,
+      discountAmount,
+      discountType,
+
+      changeDiscountAfterOrders,
+      afterOrders,
+      discountAmount2,
+      discountType2,
+
+      products: selectedProducts,
+    };
+
+    setIsSaving(true);
+    try {
+      const response = await fetch(`${API}/specific-subscription/create`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": SECRET_KEY,
+        },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        setSaveSuccess(true);
+        navigate("/app/subscriptions");
+      } else {
+        setSaveError(data.message || "Something went wrong while saving.");
+      }
+    } catch (err) {
+      console.error("Save subscription error:", err);
+      setSaveError("Could not reach the server. Please try again.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <Page
@@ -118,14 +271,12 @@ function CreateSubscription({ currencyCode }) {
       }}
     >
       <Card>
-        {fetcher.data?.errors && (
+        {saveError && (
           <Banner tone="critical">
-            {fetcher.data.errors.map((err, i) => (
-              <p key={i}>{err.message}</p>
-            ))}
+            <p>{saveError}</p>
           </Banner>
         )}
-        {fetcher.data?.success && (
+        {saveSuccess && (
           <Banner tone="success">Subscription contract created successfully.</Banner>
         )}
 
@@ -212,7 +363,6 @@ function CreateSubscription({ currencyCode }) {
           />
         </div>
 
-        
         <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #e1e1e1' }}>
           <h2 style={{ fontWeight: 'bold' }}>Selling Plan Discount</h2>
 
@@ -298,6 +448,128 @@ function CreateSubscription({ currencyCode }) {
           )}
         </div>
       </Card>
+
+      {/* ---- Products section ---- */}
+      <div style={{ marginTop: '16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
+          <Button onClick={handleSelectProducts} variant="plain">
+            Select products
+          </Button>
+        </div>
+        <Product
+          selectedProducts={selectedProducts}
+          setSelectedProducts={setSelectedProducts}
+          editPlandData={false}
+          shop={shop}
+          productError={productError}
+          currencyCode={currencyCode}
+          showOrderOptions={true}
+        />
+      </div>
+
+      {/* ---- Customer section ---- */}
+      <Card>
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <h2>Customer</h2>
+          <Button onClick={handleOpenCustomerSearch} variant="plain">
+            Select customer
+          </Button>
+        </div>
+
+        {showCustomerSearch && (
+          <div style={{ marginBottom: '12px' }}>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input
+                type='text'
+                placeholder='Search by name, email or phone'
+                value={customerSearchTerm}
+                onChange={(e) => setCustomerSearchTerm(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleCustomerSearch();
+                }}
+              />
+              <Button onClick={handleCustomerSearch} loading={customerSearchLoading}>
+                Search
+              </Button>
+              <Button onClick={() => setShowCustomerSearch(false)} variant="plain">
+                Cancel
+              </Button>
+            </div>
+
+            {customerSearchError && (
+              <Banner tone="critical">
+                <p>{customerSearchError}</p>
+              </Banner>
+            )}
+
+            {customerSearchResults.length > 0 && (
+              <ul>
+                {customerSearchResults.map((customer) => (
+                  <li key={customer.id}>
+                    <button type="button" onClick={() => handlePickCustomer(customer)}>
+                      {(customer.firstName || '') + ' ' + (customer.lastName || '')} - {customer.email || customer.phone}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {!customerSearchLoading &&
+              customerSearchFetcher.data &&
+              customerSearchTerm &&
+              customerSearchResults.length === 0 &&
+              !customerSearchError && <p>No customers found.</p>}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <div style={{ flex: 1 }}>
+            <h2>Customer ID</h2>
+            <input type='text' value={customerId} disabled />
+          </div>
+          <div style={{ flex: 1 }}>
+            <h2>Customer email</h2>
+            <input
+              type='email'
+              value={customerEmail}
+              onChange={(e) => setCustomerEmail(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <div style={{ flex: 1 }}>
+            <h2>First name</h2>
+            <input type='text' value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <h2>Last name</h2>
+            <input type='text' value={lastName} onChange={(e) => setLastName(e.target.value)} />
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <div style={{ flex: 1 }}>
+            <h2>Phone number</h2>
+            <input
+              type='text'
+              placeholder='e.g. +1234567890'
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value)}
+            />
+          </div>
+          <div style={{ flex: 1 }}>
+            <h2>Company</h2>
+            <input type='text' value={company} onChange={(e) => setCompany(e.target.value)} />
+          </div>
+        </div>
+      </Card>
+
+      <div style={{ marginTop: '16px' }}>
+        <Button primary onClick={handleSubmit} loading={isSaving}>
+          Save
+        </Button>
+      </div>
     </Page>
   )
 }
