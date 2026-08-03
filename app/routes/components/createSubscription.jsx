@@ -468,8 +468,7 @@ function CreateSubscription({ currencyCode, shop }) {
           />
           
         </div>
-sssewqdwdwe
-        <div>s
+        <div>
           <h2>Subscription orders</h2>
           <TextField
             label="minimum number of order"
