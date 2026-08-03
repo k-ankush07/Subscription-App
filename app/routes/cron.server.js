@@ -7,9 +7,9 @@ export function startBillingCycleCron() {
   globalThis.__billingCronStarted = true;
   cron.schedule("* * * * *", async () => {
     console.log("[cron] Running process-billing-cycles...");
-    console.log("process.env https://telecharger-gain-technique-accepting.trycloudflare.com")
+    console.log("process.env https://mentor-solid-adrian-dealt.trycloudflare.com")
     try {
-      const res = await fetch(`https://telecharger-gain-technique-accepting.trycloudflare.com/api/process-billing-cycles`, {
+      const res = await fetch(`https://mentor-solid-adrian-dealt.trycloudflare.com/api/process-billing-cycles`, {
         method: "POST",
         headers: { "x-cron-secret": process.env.CRON_SECRET },
       });

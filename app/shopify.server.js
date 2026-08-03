@@ -9,7 +9,7 @@ import prisma from "./db.server";
 import {startBillingCycleCron} from "./routes/cron.server"
 
 
-// startBillingCycleCron()
+startBillingCycleCron()
 
 
 const shopify = shopifyApp({

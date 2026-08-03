@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useNavigate, useFetcher } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
+import { COUNTRIES } from "../utils/countries";
 import {
   Card,
   Page,
@@ -34,14 +35,27 @@ const discountTypeOptions = [
   { label: "Fixed price", value: "PRICE" },
 ];
 
-// yeh shop param CreateSubscription ko route se pass karna hoga (loader se session.shop bhej dena)
+// COUNTRIES ko Select ke liye {label, value} shape me normalize karo
+// (handles: array of strings, or array of objects with name/code or label/value)
+const countryOptions = [
+  { label: "Select country", value: "" },
+  ...COUNTRIES.map((c) => {
+    if (typeof c === "string") {
+      return { label: c, value: c };
+    }
+    return {
+      label: c.label || c.name || c.value || c.code || "",
+      value: c.value || c.name || c.code || c.label || "",
+    };
+  }),
+];
+
 function CreateSubscription({ currencyCode, shop }) {
   const navigate = useNavigate();
   const shopify = useAppBridge();
   const API = import.meta.env.VITE_API_URL;
   const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
 
-  // ---- customer search fetcher (isi route ke loader ko hit karega, ?customerSearch=... ke saath) ----
   const customerSearchFetcher = useFetcher();
 
   const timeOptions = generateTimeOptions();
@@ -68,18 +82,15 @@ function CreateSubscription({ currencyCode, shop }) {
   const [discountAmount2, setDiscountAmount2] = useState("0");
   const [discountType2, setDiscountType2] = useState("PERCENTAGE");
 
-  //  payment method
   const [paymentMethods, setPaymentMethods] = useState([]);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("");
 
-  // ---- Products state ----
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [productError, setProductError] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  // ---- Customer state ----
   const [customerId, setCustomerId] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
   const [firstName, setFirstName] = useState("");
@@ -87,9 +98,19 @@ function CreateSubscription({ currencyCode, shop }) {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [company, setCompany] = useState("");
 
-  // ---- Customer search UI state ----
   const [showCustomerSearch, setShowCustomerSearch] = useState(false);
   const [customerSearchTerm, setCustomerSearchTerm] = useState("");
+
+  const [isDigitalProduct, setIsDigitalProduct] = useState(false);
+  const [address1, setAddress1] = useState("");
+  const [address2, setAddress2] = useState("");
+  const [country, setCountry] = useState("");
+  const [province, setProvince] = useState("");
+  const [city, setCity] = useState("");
+  const [zip, setZip] = useState("");
+  const [deliveryPrice, setDeliveryPrice] = useState("0");
+  const [deliveryMethodTitle, setDeliveryMethodTitle] = useState("");
+  const [deliveryError, setDeliveryError] = useState(null);
 
   const handleDiscountAmountChange = (value, type, setter) => {
     if (type === "PERCENTAGE") {
@@ -124,7 +145,6 @@ function CreateSubscription({ currencyCode, shop }) {
     navigate("/app/subscriptions");
   };
 
-  // ---- Customer picker (App Bridge resourcePicker 'customer' type support nahi karta, isliye Shopify Admin API se search) ----
   const handleOpenCustomerSearch = () => {
     setShowCustomerSearch(true);
     setCustomerSearchTerm("");
@@ -132,7 +152,6 @@ function CreateSubscription({ currencyCode, shop }) {
 
   const handleCustomerSearch = () => {
     if (!customerSearchTerm.trim()) return;
-    // isi route ke loader ko ?customerSearch= ke saath call karta hai
     customerSearchFetcher.load(
       `?customerSearch=${encodeURIComponent(customerSearchTerm)}`,
     );
@@ -146,6 +165,13 @@ function CreateSubscription({ currencyCode, shop }) {
     setPhoneNumber(customer.phone || "");
     setCompany(customer.defaultAddress?.company || "");
 
+    setAddress1(customer.defaultAddress?.address1 || "");
+    setAddress2(customer.defaultAddress?.address2 || "");
+    setCity(customer.defaultAddress?.city || "");
+    setProvince(customer.defaultAddress?.province || "");
+    setZip(customer.defaultAddress?.zip || "");
+    setCountry(customer.defaultAddress?.country || "");
+
     const methods =
       customer.paymentMethods?.edges?.map((edge) => edge.node) || [];
 
@@ -154,8 +180,6 @@ function CreateSubscription({ currencyCode, shop }) {
     if (methods.length > 0) {
       setSelectedPaymentMethod(methods[0].id);
     }
-
-    console.log("Customer Payment Methods:", methods);
 
     setShowCustomerSearch(false);
     setCustomerSearchTerm("");
@@ -168,7 +192,6 @@ function CreateSubscription({ currencyCode, shop }) {
       ? customerSearchFetcher.data.message
       : null;
 
-  // ---- Product picker ----
   const handleSelectProducts = async () => {
     try {
       const result = await shopify.resourcePicker({
@@ -200,7 +223,6 @@ function CreateSubscription({ currencyCode, shop }) {
               variantImageUrl:
                 v.image?.originalSrc || v.image?.url || productImageUrl,
               variantImageAlt: v.image?.altText || v.title || product.title,
-              // per-variant order + discount fields (preserve if already set)
               quantity: existingVariant?.quantity ?? "1",
               unitPrice: existingVariant?.unitPrice ?? v.price ?? "0",
               discountMode: existingVariant?.discountMode ?? "SELLING_PLAN",
@@ -232,93 +254,119 @@ function CreateSubscription({ currencyCode, shop }) {
   };
 
   const handleSubmit = async () => {
-  if (selectedProducts.length === 0) {
-    setProductError(true);
-    return;
-  }
-  setProductError(false);
-  setSaveError(null);
-
-  const contractDetails = {
-    nextOrderDate,
-    nextOrderTime,
-    currencyCode,
-    billingType,
-    intervalCount,
-    interval,
-    billingFrequency: intervalCount,
-    billingInterval: interval,
-    minOrders,
-    maxOrders,
-
-    giveDiscount,
-    discountAmount,
-    discountType,
-
-    changeDiscountAfterOrders,
-    afterOrders,
-    discountAmount2,
-    discountType2,
-  };
-
-  // poora selected card object nikalo paymentMethods list se
-  const selectedCard = paymentMethods.find(
-    (pm) => pm.id === selectedPaymentMethod
-  );
-
-  const paymentMethod = selectedCard
-    ? {
-        id: selectedCard.id,
-        name: selectedCard.instrument?.name || "",
-        brand: selectedCard.instrument?.brand || "",
-        lastDigits: selectedCard.instrument?.lastDigits || "",
-        expiryMonth: selectedCard.instrument?.expiryMonth || "",
-        expiryYear: selectedCard.instrument?.expiryYear || "",
-      }
-    : null;
-
-  const customer = {
-    customerId,
-    customerEmail,
-    firstName,
-    lastName,
-    phoneNumber,
-    company,
-    paymentMethod, // 👈 ab poora card object jaayega, sirf ID nahi
-  };
-
-  const payload = {
-    shop,
-    contractDetails,
-    customer,
-    products: selectedProducts,
-  };
-
-  setIsSaving(true);
-  try {
-    const response = await fetch(`${API}/specific-subscription/create`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": SECRET_KEY,
-      },
-      body: JSON.stringify(payload),
-    });
-    const data = await response.json();
-
-    if (data.success) {
-      setSaveSuccess(true);
-      navigate("/app/subscriptions");
-    } else {
-      setSaveError(data.message || "Something went wrong while saving.");
+    if (selectedProducts.length === 0) {
+      setProductError(true);
+      return;
     }
-  } catch (err) {
-    console.error("Save subscription error:", err);
-    setSaveError("Could not reach the server. Please try again.");
-  } finally {
-    setIsSaving(false);
-  }
-};
+    setProductError(false);
+    setSaveError(null);
+    setDeliveryError(null);
+
+    if (isDigitalProduct) {
+      const missing =
+        !address1.trim() ||
+        !city.trim() ||
+        !province.trim() ||
+        !zip.trim() ||
+        !country.trim();
+
+      if (missing) {
+        const firstProductTitle = selectedProducts[0]?.title || "This product";
+        setDeliveryError(`"${firstProductTitle}" requires shipping information`);
+        return;
+      }
+    }
+
+    const contractDetails = {
+      nextOrderDate,
+      nextOrderTime,
+      currencyCode,
+      billingType,
+      intervalCount,
+      interval,
+      billingFrequency: intervalCount,
+      billingInterval: interval,
+      minOrders,
+      maxOrders,
+      giveDiscount,
+      discountAmount,
+      discountType,
+      changeDiscountAfterOrders,
+      afterOrders,
+      discountAmount2,
+      discountType2,
+    };
+
+    const selectedCard = paymentMethods.find(
+      (pm) => pm.id === selectedPaymentMethod,
+    );
+
+    const paymentMethod = selectedCard
+      ? {
+          id: selectedCard.id,
+          name: selectedCard.instrument?.name || "",
+          brand: selectedCard.instrument?.brand || "",
+          lastDigits: selectedCard.instrument?.lastDigits || "",
+          expiryMonth: selectedCard.instrument?.expiryMonth || "",
+          expiryYear: selectedCard.instrument?.expiryYear || "",
+        }
+      : null;
+
+    const customer = {
+      customerId,
+      customerEmail,
+      firstName,
+      lastName,
+      phoneNumber,
+      company,
+      paymentMethod,
+    };
+
+    const delivery = {
+      isDigitalProduct,
+      address1: isDigitalProduct ? address1 : "",
+      address2: isDigitalProduct ? address2 : "",
+      country: isDigitalProduct ? country : "",
+      province: isDigitalProduct ? province : "",
+      city: isDigitalProduct ? city : "",
+      zip: isDigitalProduct ? zip : "",
+      deliveryPrice,
+      deliveryMethodTitle,
+    };
+
+    const payload = {
+      shop,
+      contractDetails,
+      customer,
+      delivery,
+      products: selectedProducts,
+    };
+
+    setIsSaving(true);
+    try {
+      const response = await fetch(`${API}/specific-subscription/create`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": SECRET_KEY,
+        },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        setSaveSuccess(true);
+        navigate("/app/subscriptions");
+      } else {
+        setSaveError(data.message || "Something went wrong while saving.");
+      }
+    } catch (err) {
+      console.error("Save subscription error:", err);
+      setSaveError("Could not reach the server. Please try again.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <Page
@@ -344,9 +392,7 @@ function CreateSubscription({ currencyCode, shop }) {
         <div>
           <h2>Status</h2>
           <input type="text" value="pause" disabled />
-          <h2>
-            You will be able to activate the contract after it is created.
-          </h2>
+          <h2>You will be able to activate the contract after it is created.</h2>
         </div>
 
         <div>
@@ -413,7 +459,6 @@ function CreateSubscription({ currencyCode, shop }) {
           </select>
         </div>
 
-        {/* 👇 Billing frequency — delivery frequency ke value ko hi mirror karta hai, edit nahi hota */}
         <div>
           <TextField
             label="Billing frequency"
@@ -465,11 +510,7 @@ function CreateSubscription({ currencyCode, shop }) {
                     max={discountType === "PERCENTAGE" ? 100 : undefined}
                     value={discountAmount}
                     onChange={(value) =>
-                      handleDiscountAmountChange(
-                        value,
-                        discountType,
-                        setDiscountAmount,
-                      )
+                      handleDiscountAmountChange(value, discountType, setDiscountAmount)
                     }
                     suffix={suffixFor(discountType)}
                   />
@@ -500,9 +541,7 @@ function CreateSubscription({ currencyCode, shop }) {
               </div>
 
               {changeDiscountAfterOrders && (
-                <div
-                  style={{ display: "flex", gap: "12px", marginTop: "12px" }}
-                >
+                <div style={{ display: "flex", gap: "12px", marginTop: "12px" }}>
                   <div style={{ flex: 1 }}>
                     <TextField
                       label="Discount amount"
@@ -511,11 +550,7 @@ function CreateSubscription({ currencyCode, shop }) {
                       max={discountType2 === "PERCENTAGE" ? 100 : undefined}
                       value={discountAmount2}
                       onChange={(value) =>
-                        handleDiscountAmountChange(
-                          value,
-                          discountType2,
-                          setDiscountAmount2,
-                        )
+                        handleDiscountAmountChange(value, discountType2, setDiscountAmount2)
                       }
                       suffix={suffixFor(discountType2)}
                     />
@@ -551,7 +586,6 @@ function CreateSubscription({ currencyCode, shop }) {
         </div>
       </Card>
 
-      {/* ---- Products section ---- */}
       <div style={{ marginTop: "16px" }}>
         <div
           style={{
@@ -575,7 +609,6 @@ function CreateSubscription({ currencyCode, shop }) {
         />
       </div>
 
-      {/* ---- Customer section ---- */}
       <Card>
         <div style={{ display: "flex", justifyContent: "space-between" }}>
           <h2>Customer</h2>
@@ -596,16 +629,10 @@ function CreateSubscription({ currencyCode, shop }) {
                   if (e.key === "Enter") handleCustomerSearch();
                 }}
               />
-              <Button
-                onClick={handleCustomerSearch}
-                loading={customerSearchLoading}
-              >
+              <Button onClick={handleCustomerSearch} loading={customerSearchLoading}>
                 Search
               </Button>
-              <Button
-                onClick={() => setShowCustomerSearch(false)}
-                variant="plain"
-              >
+              <Button onClick={() => setShowCustomerSearch(false)} variant="plain">
                 Cancel
               </Button>
             </div>
@@ -620,14 +647,9 @@ function CreateSubscription({ currencyCode, shop }) {
               <ul>
                 {customerSearchResults.map((customer) => (
                   <li key={customer.id}>
-                    <button
-                      type="button"
-                      onClick={() => handlePickCustomer(customer)}
-                    >
-                      {(customer.firstName || "") +
-                        " " +
-                        (customer.lastName || "")}{" "}
-                      - {customer.email || customer.phone}
+                    <button type="button" onClick={() => handlePickCustomer(customer)}>
+                      {(customer.firstName || "") + " " + (customer.lastName || "")} -{" "}
+                      {customer.email || customer.phone}
                     </button>
                   </li>
                 ))}
@@ -641,10 +663,10 @@ function CreateSubscription({ currencyCode, shop }) {
               !customerSearchError && <p>No customers found.</p>}
           </div>
         )}
+
         {paymentMethods.length > 0 && (
           <div style={{ marginTop: "16px" }}>
             <h2>Payment Method</h2>
-
             <Select
               options={paymentMethods.map((pm) => ({
                 label: `${pm.instrument.name || "Card"} - •••• •••• •••• ${pm.instrument.lastDigits} (${pm.instrument.brand})`,
@@ -655,6 +677,7 @@ function CreateSubscription({ currencyCode, shop }) {
             />
           </div>
         )}
+
         <div style={{ display: "flex", gap: "12px" }}>
           <div style={{ flex: 1 }}>
             <h2>Customer ID</h2>
@@ -708,6 +731,104 @@ function CreateSubscription({ currencyCode, shop }) {
             />
           </div>
         </div>
+
+        <h2 style={{ fontWeight: "bold" }}>Delivery</h2>
+
+        <Checkbox
+          label="Digital product"
+          checked={isDigitalProduct}
+          onChange={(checked) => setIsDigitalProduct(checked)}
+        />
+
+        {isDigitalProduct && (
+          <>
+            <div style={{ display: "flex", gap: "12px", marginTop: "12px" }}>
+              <div style={{ flex: 1 }}>
+                <TextField
+                  label="Address 1"
+                  value={address1}
+                  onChange={(value) => setAddress1(value)}
+                  autoComplete="off"
+                />
+              </div>
+              <div style={{ flex: 1 }}>
+                <TextField
+                  label="Address 2"
+                  value={address2}
+                  onChange={(value) => setAddress2(value)}
+                  autoComplete="off"
+                />
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: "12px", marginTop: "12px" }}>
+              <div style={{ flex: 1 }}>
+                <Select
+                  label="Country"
+                  options={countryOptions}
+                  value={country}
+                  onChange={(value) => setCountry(value)}
+                />
+              </div>
+              <div style={{ flex: 1 }}>
+                <TextField
+                  label="Province"
+                  value={province}
+                  onChange={(value) => setProvince(value)}
+                  autoComplete="off"
+                />
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: "12px", marginTop: "12px" }}>
+              <div style={{ flex: 1 }}>
+                <TextField
+                  label="City"
+                  value={city}
+                  onChange={(value) => setCity(value)}
+                  autoComplete="off"
+                />
+              </div>
+              <div style={{ flex: 1 }}>
+                <TextField
+                  label="Zip"
+                  value={zip}
+                  onChange={(value) => setZip(value)}
+                  autoComplete="off"
+                />
+              </div>
+            </div>
+
+            {deliveryError && (
+              <div style={{ marginTop: "12px" }}>
+                <Banner tone="critical">
+                  <p>{deliveryError}</p>
+                </Banner>
+              </div>
+            )}
+
+            <div style={{ marginTop: "12px" }}>
+              <TextField
+                label="Delivery price"
+                type="number"
+                min={0}
+                prefix="₹"
+                value={deliveryPrice}
+                onChange={(value) => setDeliveryPrice(value)}
+                autoComplete="off"
+              />
+            </div>
+
+            <div style={{ marginTop: "12px" }}>
+              <TextField
+                label="Delivery method title"
+                value={deliveryMethodTitle}
+                onChange={(value) => setDeliveryMethodTitle(value)}
+                autoComplete="off"
+              />
+            </div>
+          </>
+        )}
       </Card>
 
       <div style={{ marginTop: "16px" }}>

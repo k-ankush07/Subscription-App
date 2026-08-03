@@ -6,6 +6,7 @@ import {
   Tabs,
   TextField,
   Spinner,
+  Banner,
 } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
 import React, { useState, useCallback, useEffect, useRef } from "react";
@@ -261,11 +262,12 @@ function Subscriptions() {
   }
 
   const tabs = [
-    { id: "all", content: "All", status: "ALL" },
-    { id: "active", content: "Active", status: "ACTIVE" },
-    { id: "paused", content: "Paused", status: "PAUSED" },
-    { id: "cancelled", content: "Cancelled", status: "CANCELLED" },
-  ];
+  { id: "all", content: "All", status: "ALL" },
+  { id: "active", content: "Active", status: "ACTIVE" },
+  { id: "paused", content: "Paused", status: "PAUSED" },
+  { id: "cancelled", content: "Cancelled", status: "CANCELLED" },
+  { id: "billing_issues", content: "Billing issues", status: "FAILED" },
+];
 
   const selectedTabIndex = tabs.findIndex((t) => t.status === currentStatus);
   const selected = selectedTabIndex === -1 ? 0 : selectedTabIndex;
@@ -336,6 +338,7 @@ const createSubscription = () => {
     return renderPage({
       tabs,
       selected,
+      currentStatus,
       handleTabChange,
       searchValue,
       handleSearchChange,
@@ -385,6 +388,7 @@ const createSubscription = () => {
   return renderPage({
     tabs,
     selected,
+    currentStatus,
     handleTabChange,
     searchValue,
     handleSearchChange,
@@ -409,6 +413,7 @@ const createSubscription = () => {
 function renderPage({
   tabs,
   selected,
+  currentStatus,
   handleTabChange,
   searchValue,
   handleSearchChange,
@@ -472,7 +477,7 @@ function renderPage({
           />
         </div>
 
-        {contracts.length === 0 ? (
+        {contracts.length === 0  && contracts.status !== "FAILED" ?(
           <EmptyState>
             <img src="https://subscriptions.kachingappz.app/images/empty-subscriptions-list-state.png" />
             <p>No Subscriptions</p>
