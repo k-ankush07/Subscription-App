@@ -23,6 +23,24 @@ export async function loader({ request }) {
               lastName
               email
               phone
+              paymentMethods(first: 10) {
+          edges {
+            node {
+              id
+              instrument {
+                __typename
+
+                ... on CustomerCreditCard {
+                name
+                  brand
+                  lastDigits
+                  expiryMonth
+                  expiryYear
+                }
+              }
+            }
+          }
+        }
               defaultAddress {
                 company
                 address1
