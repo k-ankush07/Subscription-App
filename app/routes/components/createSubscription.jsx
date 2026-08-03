@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { useNavigate, useFetcher } from 'react-router'
 import { Card, Page, TextField, Button, Banner, Checkbox, Select } from '@shopify/polaris';
 
-// ---- Time options generate karne ka function (12:00 AM - 11:30 PM, 30 min gap) ----
+
 function generateTimeOptions() {
   const times = [];
   for (let hour = 0; hour < 24; hour++) {
@@ -19,11 +19,10 @@ function generateTimeOptions() {
   return times;
 }
 
-// ---- Shopify SellingPlanPricingPolicyAdjustmentType ke matching options ----
 const discountTypeOptions = [
   { label: 'Percentage off', value: 'PERCENTAGE' },
   { label: 'Amount off', value: 'FIXED_AMOUNT' },
-  { label: 'Flat price', value: 'PRICE' },
+  { label: 'Fixed price', value: 'PRICE' },
 ];
 
 function CreateSubscription({ currencyCode }) {
@@ -32,12 +31,11 @@ function CreateSubscription({ currencyCode }) {
 
   const timeOptions = generateTimeOptions();
 
-  // ---- Kal ki date calculate karna (min attribute ke liye) ----
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
   const minDate = tomorrow.toISOString().split('T')[0];
 
-  // ---- Form state ----
+
   const [nextOrderDate, setNextOrderDate] = useState(minDate);
   const [nextOrderTime, setNextOrderTime] = useState(timeOptions[0].value);
   const [sellingPlanType, setSellingPlanType] = useState('pay_as_you_go');
@@ -46,7 +44,7 @@ function CreateSubscription({ currencyCode }) {
   const [minOrders, setMinOrders] = useState('');
   const [maxOrders, setMaxOrders] = useState('');
 
-  // ---- Selling Plan Discount state ----
+
   const [giveDiscount, setGiveDiscount] = useState(false);
   const [discountAmount, setDiscountAmount] = useState('0');
   const [discountType, setDiscountType] = useState('PERCENTAGE');
@@ -56,7 +54,7 @@ function CreateSubscription({ currencyCode }) {
   const [discountAmount2, setDiscountAmount2] = useState('0');
   const [discountType2, setDiscountType2] = useState('PERCENTAGE');
 
-  // ---- Discount amount change handler (% ho to 100 se jyada na ho) ----
+
   const handleDiscountAmountChange = (value, type, setter) => {
     if (type === 'PERCENTAGE') {
       if (value === '') {
@@ -72,7 +70,7 @@ function CreateSubscription({ currencyCode }) {
     }
   };
 
-  // ---- Discount type change hone par agar amount 100 se zyada tha to reset karna (PERCENTAGE select karte waqt) ----
+
   const handleDiscountTypeChange = (value, currentAmount, amountSetter, typeSetter) => {
     typeSetter(value);
     if (value === 'PERCENTAGE' && Number(currentAmount) > 100) {
@@ -214,7 +212,7 @@ function CreateSubscription({ currencyCode }) {
           />
         </div>
 
-        {/* ---- Selling Plan Discount ---- */}
+        
         <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #e1e1e1' }}>
           <h2 style={{ fontWeight: 'bold' }}>Selling Plan Discount</h2>
 

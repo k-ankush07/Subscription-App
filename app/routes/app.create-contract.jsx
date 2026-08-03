@@ -1,9 +1,8 @@
 import React from 'react'
 import { useLoaderData } from 'react-router'
-import { authenticate } from '../shopify.server'; // apka auth helper (path adjust karein)
+import { authenticate } from '../shopify.server'; 
 import CreateSubscription from "./components/createSubscription"
 
-// ---- LOADER: shop ki currency yahan se fetch hogi ----
 export async function loader({ request }) {
   const { admin } = await authenticate.admin(request);
 
@@ -23,7 +22,7 @@ export async function loader({ request }) {
   };
 }
 
-// ---- ACTION: form submit hone par yahan subscription contract create hoga ----
+
 export async function action({ request }) {
   const { admin } = await authenticate.admin(request);
   const formData = await request.formData();
