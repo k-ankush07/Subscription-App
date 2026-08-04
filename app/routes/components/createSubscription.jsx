@@ -1,4 +1,6 @@
-import React, { useState } from "react";
+
+
+import React, { useState, useEffect } from "react";
 import { useNavigate, useFetcher } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { COUNTRIES } from "../utils/countries";
@@ -35,8 +37,6 @@ const discountTypeOptions = [
   { label: "Fixed price", value: "PRICE" },
 ];
 
-// COUNTRIES ko Select ke liye {label, value} shape me normalize karo
-// (handles: array of strings, or array of objects with name/code or label/value)
 const countryOptions = [
   { label: "Select country", value: "" },
   ...COUNTRIES.map((c) => {
@@ -53,10 +53,9 @@ const countryOptions = [
 function CreateSubscription({ currencyCode, shop }) {
   const navigate = useNavigate();
   const shopify = useAppBridge();
-  const API = import.meta.env.VITE_API_URL;
-  const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
 
   const customerSearchFetcher = useFetcher();
+  const createFetcher = useFetcher(); 
 
   const timeOptions = generateTimeOptions();
 
@@ -253,6 +252,7 @@ function CreateSubscription({ currencyCode, shop }) {
     }
   };
 
+
   const handleSubmit = async () => {
     if (selectedProducts.length === 0) {
       setProductError(true);
@@ -343,30 +343,32 @@ function CreateSubscription({ currencyCode, shop }) {
     };
 
     setIsSaving(true);
-    try {
-      const response = await fetch(`${API}/specific-subscription/create`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": SECRET_KEY,
-        },
-        body: JSON.stringify(payload),
-      });
-      const data = await response.json();
-
-      if (data.success) {
-        setSaveSuccess(true);
-        navigate("/app/subscriptions");
-      } else {
-        setSaveError(data.message || "Something went wrong while saving.");
-      }
-    } catch (err) {
-      console.error("Save subscription error:", err);
-      setSaveError("Could not reach the server. Please try again.");
-    } finally {
-      setIsSaving(false);
-    }
+    createFetcher.submit(
+      { payload: JSON.stringify(payload) },
+      { method: "post" },
+    );
   };
+
+ 
+  useEffect(() => {
+    if (createFetcher.state !== "idle" || !createFetcher.data) return;
+
+    setIsSaving(false);
+
+    if (createFetcher.data.success) {
+      setSaveSuccess(true);
+      if (createFetcher.data.warning) {
+        // Shopify me contract ban gaya, lekin Node API store fail hua
+        setSaveError(createFetcher.data.warning);
+      }
+      navigate("/app/subscriptions");
+    } else {
+      const msg =
+        createFetcher.data.errors?.map((e) => e.message).join(", ") ||
+        "Something went wrong while saving.";
+      setSaveError(msg);
+    }
+  }, [createFetcher.state, createFetcher.data]);
 
   return (
     <Page
@@ -466,7 +468,6 @@ function CreateSubscription({ currencyCode, shop }) {
             value={String(intervalCount)}
             disabled
           />
-
         </div>
         <div>
           <h2>Subscription orders</h2>
