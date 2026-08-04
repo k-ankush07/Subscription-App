@@ -7,9 +7,9 @@ export function startBillingCycleCron() {
   globalThis.__billingCronStarted = true;
   cron.schedule("* * * * *", async () => {
     console.log("[cron] Running process-billing-cycles...");
-    console.log("process.env https://property-buying-actively-murray.trycloudflare.com")
+    console.log("process.env https://debut-medium-installations-nutrition.trycloudflare.com")
     try {
-      const res = await fetch(`https://property-buying-actively-murray.trycloudflare.com/api/process-billing-cycles`, {
+      const res = await fetch(`https://debut-medium-installations-nutrition.trycloudflare.com/api/process-billing-cycles`, {
         method: "POST",
         headers: { "x-cron-secret": process.env.CRON_SECRET },
       });

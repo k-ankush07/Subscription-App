@@ -2,7 +2,7 @@ import '@shopify/ui-extensions/preact';
 import { render } from "preact";
 import { useState, useEffect, useCallback, useRef } from "preact/hooks";
 import { hideModalById, showModalById } from "./Modalutils";
-const API_BASE = "https://property-buying-actively-murray.trycloudflare.com";
+const API_BASE = "https://debut-medium-installations-nutrition.trycloudflare.com";
 
 export default async () => {
     render(<Extension />, document.body);
