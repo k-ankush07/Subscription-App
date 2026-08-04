@@ -1,4 +1,3 @@
-
 import {
   Card,
   Button,
@@ -18,10 +17,9 @@ import React, { useCallback } from "react";
 import { ViewIcon } from "@shopify/polaris-icons";
 
 const discountModeOptions = [
-  // { label: "Use discounts from selling plan", value: "SELLING_PLAN" },
   { label: "None", value: "NONE" },
+   { label: "Use discounts from selling plan", value: "SELLING_PLAN" },
   { label: "Set custom discounts", value: "CUSTOM" },
-  
 ];
 
 const discountTypeOptions = [
@@ -37,7 +35,8 @@ function Product({
   shop,
   productError,
   currencyCode,
-  showOrderOptions = false, 
+  showOrderOptions = false,
+  sellingPlanDiscount = {},
 }) {
   const shopName = shop.split(".")[0];
 
@@ -45,22 +44,31 @@ function Product({
     setSelectedProducts((prev) => prev.filter((p) => p.id !== productId));
   }, []);
 
-  const updateVariantField = useCallback((productId, variantId, field, value) => {
-    setSelectedProducts((prev) =>
-      prev.map((p) =>
-        p.id === productId
-          ? {
-              ...p,
-              variants: (p.variants || []).map((v) =>
-                v.variantsId === variantId ? { ...v, [field]: value } : v
-              ),
-            }
-          : p
-      )
-    );
-  }, []);
+  const updateVariantField = useCallback(
+    (productId, variantId, field, value) => {
+      setSelectedProducts((prev) =>
+        prev.map((p) =>
+          p.id === productId
+            ? {
+                ...p,
+                variants: (p.variants || []).map((v) =>
+                  v.variantsId === variantId ? { ...v, [field]: value } : v,
+                ),
+              }
+            : p,
+        ),
+      );
+    },
+    [],
+  );
 
-  const handleDiscountAmountChange = (productId, variantId, field, type, value) => {
+  const handleDiscountAmountChange = (
+    productId,
+    variantId,
+    field,
+    type,
+    value,
+  ) => {
     if (type === "PERCENTAGE") {
       if (value === "") {
         updateVariantField(productId, variantId, field, "");
@@ -75,7 +83,14 @@ function Product({
     }
   };
 
-  const handleDiscountTypeChange = (productId, variantId, typeField, amountField, currentAmount, value) => {
+  const handleDiscountTypeChange = (
+    productId,
+    variantId,
+    typeField,
+    amountField,
+    currentAmount,
+    value,
+  ) => {
     updateVariantField(productId, variantId, typeField, value);
     if (value === "PERCENTAGE" && Number(currentAmount) > 100) {
       updateVariantField(productId, variantId, amountField, "100");
@@ -121,21 +136,20 @@ function Product({
                         />
                         <BlockStack gap="100">
                           {editPlandData ? (
-                             <>
-                             {product.title}
-                            <a
-                              href={`https://admin.shopify.com/store/${shopName}/products/${product.id.split("/").pop()}`}
-                              target="_top"
-                              style={{
-                                textDecoration: "none",
-                                color: "inherit",
-                                fontWeight: 600,
-                              }}
-                            >
-                              <Icon source={ViewIcon} tone="base" />
-                            </a>
-                             </>
-
+                            <>
+                              {product.title}
+                              <a
+                                href={`https://admin.shopify.com/store/${shopName}/products/${product.id.split("/").pop()}`}
+                                target="_top"
+                                style={{
+                                  textDecoration: "none",
+                                  color: "inherit",
+                                  fontWeight: 600,
+                                }}
+                              >
+                                <Icon source={ViewIcon} tone="base" />
+                              </a>
+                            </>
                           ) : (
                             <Text fontWeight="medium">{product.title}</Text>
                           )}
@@ -161,9 +175,12 @@ function Product({
                     {showOrderOptions && (
                       <div style={{ marginTop: "12px" }}>
                         {(product.variants || []).map((variant, vIndex) => {
-                          const vDiscountMode = variant.discountMode || "SELLING_PLAN";
-                          const vDiscountType = variant.discountType || "PERCENTAGE";
-                          const vDiscountType2 = variant.discountType2 || "PERCENTAGE";
+                          const vDiscountMode =
+                            variant.discountMode || "SELLING_PLAN";
+                          const vDiscountType =
+                            variant.discountType || "PERCENTAGE";
+                          const vDiscountType2 =
+                            variant.discountType2 || "PERCENTAGE";
 
                           return (
                             <div
@@ -171,13 +188,26 @@ function Product({
                               style={{
                                 marginTop: vIndex > 0 ? "12px" : 0,
                                 paddingTop: vIndex > 0 ? "12px" : 0,
-                                borderTop: vIndex > 0 ? "1px dashed #e1e1e1" : "none",
+                                borderTop:
+                                  vIndex > 0 ? "1px dashed #e1e1e1" : "none",
                               }}
                             >
-                              <InlineStack gap="200" blockAlign="center" wrap={false}>
+                              <InlineStack
+                                gap="200"
+                                blockAlign="center"
+                                wrap={false}
+                              >
                                 <Thumbnail
-                                  source={variant.variantImageUrl || product.ProductImage || ""}
-                                  alt={variant.variantImageAlt || variant.variantsTitle || product.title}
+                                  source={
+                                    variant.variantImageUrl ||
+                                    product.ProductImage ||
+                                    ""
+                                  }
+                                  alt={
+                                    variant.variantImageAlt ||
+                                    variant.variantsTitle ||
+                                    product.title
+                                  }
                                   size="extraSmall"
                                 />
                                 {variant.variantsTitle && (
@@ -187,7 +217,13 @@ function Product({
                                 )}
                               </InlineStack>
 
-                              <div style={{ display: "flex", gap: "12px", marginTop: "6px" }}>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  gap: "12px",
+                                  marginTop: "6px",
+                                }}
+                              >
                                 <div style={{ flex: 1 }}>
                                   <TextField
                                     label="Quantity"
@@ -195,7 +231,12 @@ function Product({
                                     min={1}
                                     value={variant.quantity ?? "1"}
                                     onChange={(value) =>
-                                      updateVariantField(product.id, variant.variantsId, "quantity", value)
+                                      updateVariantField(
+                                        product.id,
+                                        variant.variantsId,
+                                        "quantity",
+                                        value,
+                                      )
                                     }
                                   />
                                 </div>
@@ -204,10 +245,17 @@ function Product({
                                     label="Unit Price"
                                     type="number"
                                     min={0}
-                                    prefix={currencyCode === "INR" ? "₹" : undefined}
+                                    prefix={
+                                      currencyCode === "INR" ? "₹" : undefined
+                                    }
                                     value={variant.unitPrice ?? "0"}
                                     onChange={(value) =>
-                                      updateVariantField(product.id, variant.variantsId, "unitPrice", value)
+                                      updateVariantField(
+                                        product.id,
+                                        variant.variantsId,
+                                        "unitPrice",
+                                        value,
+                                      )
                                     }
                                   />
                                 </div>
@@ -217,21 +265,66 @@ function Product({
                                     options={discountModeOptions}
                                     value={vDiscountMode}
                                     onChange={(value) =>
-                                      updateVariantField(product.id, variant.variantsId, "discountMode", value)
+                                      updateVariantField(
+                                        product.id,
+                                        variant.variantsId,
+                                        "discountMode",
+                                        value,
+                                      )
                                     }
                                   />
                                 </div>
                               </div>
-
+                              {vDiscountMode === "SELLING_PLAN" && (
+                                <div style={{ marginTop: "12px" }}>
+                                  {sellingPlanDiscount?.giveDiscount ? (
+                                    <Text
+                                      as="p"
+                                      variant="bodySm"
+                                      tone="subdued"
+                                    >
+                                      Discount:{" "}
+                                      {sellingPlanDiscount.discountAmount}
+                                      {suffixFor(
+                                        sellingPlanDiscount.discountType,
+                                      )}{" "}
+                                      off
+                                      {sellingPlanDiscount.changeDiscountAfterOrders &&
+                                        ` → changes to ${sellingPlanDiscount.discountAmount2}${suffixFor(
+                                          sellingPlanDiscount.discountType2,
+                                        )} after ${sellingPlanDiscount.afterOrders} orders`}{" "}
+                                      (from selling plan)
+                                    </Text>
+                                  ) : (
+                                    <Text
+                                      as="p"
+                                      variant="bodySm"
+                                      tone="subdued"
+                                    >
+                                      No discount set on the selling plan
+                                    </Text>
+                                  )}
+                                </div>
+                              )}
                               {vDiscountMode === "CUSTOM" && (
                                 <>
-                                  <div style={{ display: "flex", gap: "12px", marginTop: "12px" }}>
+                                  <div
+                                    style={{
+                                      display: "flex",
+                                      gap: "12px",
+                                      marginTop: "12px",
+                                    }}
+                                  >
                                     <div style={{ flex: 1 }}>
                                       <TextField
                                         label="Discount amount"
                                         type="number"
                                         min={0}
-                                        max={vDiscountType === "PERCENTAGE" ? 100 : undefined}
+                                        max={
+                                          vDiscountType === "PERCENTAGE"
+                                            ? 100
+                                            : undefined
+                                        }
                                         value={variant.discountAmount ?? "0"}
                                         onChange={(value) =>
                                           handleDiscountAmountChange(
@@ -239,7 +332,7 @@ function Product({
                                             variant.variantsId,
                                             "discountAmount",
                                             vDiscountType,
-                                            value
+                                            value,
                                           )
                                         }
                                         suffix={suffixFor(vDiscountType)}
@@ -257,7 +350,7 @@ function Product({
                                             "discountType",
                                             "discountAmount",
                                             variant.discountAmount,
-                                            value
+                                            value,
                                           )
                                         }
                                       />
@@ -267,26 +360,38 @@ function Product({
                                   <div style={{ marginTop: "12px" }}>
                                     <Checkbox
                                       label="Change discount after specific number of orders"
-                                      checked={!!variant.changeDiscountAfterOrders}
+                                      checked={
+                                        !!variant.changeDiscountAfterOrders
+                                      }
                                       onChange={(checked) =>
                                         updateVariantField(
                                           product.id,
                                           variant.variantsId,
                                           "changeDiscountAfterOrders",
-                                          checked
+                                          checked,
                                         )
                                       }
                                     />
                                   </div>
 
                                   {variant.changeDiscountAfterOrders && (
-                                    <div style={{ display: "flex", gap: "12px", marginTop: "12px" }}>
+                                    <div
+                                      style={{
+                                        display: "flex",
+                                        gap: "12px",
+                                        marginTop: "12px",
+                                      }}
+                                    >
                                       <div style={{ flex: 1 }}>
                                         <TextField
                                           label="Discount amount"
                                           type="number"
                                           min={0}
-                                          max={vDiscountType2 === "PERCENTAGE" ? 100 : undefined}
+                                          max={
+                                            vDiscountType2 === "PERCENTAGE"
+                                              ? 100
+                                              : undefined
+                                          }
                                           value={variant.discountAmount2 ?? "0"}
                                           onChange={(value) =>
                                             handleDiscountAmountChange(
@@ -294,7 +399,7 @@ function Product({
                                               variant.variantsId,
                                               "discountAmount2",
                                               vDiscountType2,
-                                              value
+                                              value,
                                             )
                                           }
                                           suffix={suffixFor(vDiscountType2)}
@@ -311,7 +416,7 @@ function Product({
                                               product.id,
                                               variant.variantsId,
                                               "afterOrders",
-                                              value
+                                              value,
                                             )
                                           }
                                         />
@@ -328,7 +433,7 @@ function Product({
                                               "discountType2",
                                               "discountAmount2",
                                               variant.discountAmount2,
-                                              value
+                                              value,
                                             )
                                           }
                                         />

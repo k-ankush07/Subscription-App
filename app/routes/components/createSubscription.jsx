@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect } from "react";
 import { useNavigate, useFetcher } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
@@ -55,7 +53,7 @@ function CreateSubscription({ currencyCode, shop }) {
   const shopify = useAppBridge();
 
   const customerSearchFetcher = useFetcher();
-  const createFetcher = useFetcher(); 
+  const createFetcher = useFetcher();
 
   const timeOptions = generateTimeOptions();
 
@@ -252,7 +250,6 @@ function CreateSubscription({ currencyCode, shop }) {
     }
   };
 
-
   const handleSubmit = async () => {
     if (selectedProducts.length === 0) {
       setProductError(true);
@@ -272,7 +269,9 @@ function CreateSubscription({ currencyCode, shop }) {
 
       if (missing) {
         const firstProductTitle = selectedProducts[0]?.title || "This product";
-        setDeliveryError(`"${firstProductTitle}" requires shipping information`);
+        setDeliveryError(
+          `"${firstProductTitle}" requires shipping information`,
+        );
         return;
       }
     }
@@ -349,7 +348,6 @@ function CreateSubscription({ currencyCode, shop }) {
     );
   };
 
- 
   useEffect(() => {
     if (createFetcher.state !== "idle" || !createFetcher.data) return;
 
@@ -394,7 +392,9 @@ function CreateSubscription({ currencyCode, shop }) {
         <div>
           <h2>Status</h2>
           <input type="text" value="pause" disabled />
-          <h2>You will be able to activate the contract after it is created.</h2>
+          <h2>
+            You will be able to activate the contract after it is created.
+          </h2>
         </div>
 
         <div>
@@ -511,7 +511,11 @@ function CreateSubscription({ currencyCode, shop }) {
                     max={discountType === "PERCENTAGE" ? 100 : undefined}
                     value={discountAmount}
                     onChange={(value) =>
-                      handleDiscountAmountChange(value, discountType, setDiscountAmount)
+                      handleDiscountAmountChange(
+                        value,
+                        discountType,
+                        setDiscountAmount,
+                      )
                     }
                     suffix={suffixFor(discountType)}
                   />
@@ -542,7 +546,9 @@ function CreateSubscription({ currencyCode, shop }) {
               </div>
 
               {changeDiscountAfterOrders && (
-                <div style={{ display: "flex", gap: "12px", marginTop: "12px" }}>
+                <div
+                  style={{ display: "flex", gap: "12px", marginTop: "12px" }}
+                >
                   <div style={{ flex: 1 }}>
                     <TextField
                       label="Discount amount"
@@ -551,7 +557,11 @@ function CreateSubscription({ currencyCode, shop }) {
                       max={discountType2 === "PERCENTAGE" ? 100 : undefined}
                       value={discountAmount2}
                       onChange={(value) =>
-                        handleDiscountAmountChange(value, discountType2, setDiscountAmount2)
+                        handleDiscountAmountChange(
+                          value,
+                          discountType2,
+                          setDiscountAmount2,
+                        )
                       }
                       suffix={suffixFor(discountType2)}
                     />
@@ -607,6 +617,15 @@ function CreateSubscription({ currencyCode, shop }) {
           productError={productError}
           currencyCode={currencyCode}
           showOrderOptions={true}
+          sellingPlanDiscount={{
+            giveDiscount,
+            discountAmount,
+            discountType,
+            changeDiscountAfterOrders,
+            discountAmount2,
+            afterOrders,
+            discountType2,
+          }}
         />
       </div>
 
@@ -630,10 +649,16 @@ function CreateSubscription({ currencyCode, shop }) {
                   if (e.key === "Enter") handleCustomerSearch();
                 }}
               />
-              <Button onClick={handleCustomerSearch} loading={customerSearchLoading}>
+              <Button
+                onClick={handleCustomerSearch}
+                loading={customerSearchLoading}
+              >
                 Search
               </Button>
-              <Button onClick={() => setShowCustomerSearch(false)} variant="plain">
+              <Button
+                onClick={() => setShowCustomerSearch(false)}
+                variant="plain"
+              >
                 Cancel
               </Button>
             </div>
@@ -648,9 +673,14 @@ function CreateSubscription({ currencyCode, shop }) {
               <ul>
                 {customerSearchResults.map((customer) => (
                   <li key={customer.id}>
-                    <button type="button" onClick={() => handlePickCustomer(customer)}>
-                      {(customer.firstName || "") + " " + (customer.lastName || "")} -{" "}
-                      {customer.email || customer.phone}
+                    <button
+                      type="button"
+                      onClick={() => handlePickCustomer(customer)}
+                    >
+                      {(customer.firstName || "") +
+                        " " +
+                        (customer.lastName || "")}{" "}
+                      - {customer.email || customer.phone}
                     </button>
                   </li>
                 ))}
