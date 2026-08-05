@@ -1367,7 +1367,11 @@ async function getContractPreview(admin, contractId) {
 
   const variantDataMap = await fetchVariantsBatch(admin, allVariantIdsNeeded);
 
-  let effectiveBase = Number(firstLine?.pricingPolicy?.basePrice?.amount) || 0;
+  // let effectiveBase = Number(firstLine?.pricingPolicy?.basePrice?.amount) || 0;
+  let effectiveBase =
+  Number(firstLine?.pricingPolicy?.basePrice?.amount) ||
+  Number(firstLine?.currentPrice?.amount) ||
+  0;
 
   if (swapAction?.variantId) {
     const swappedInfo = variantDataMap[swapAction.variantId];
