@@ -189,56 +189,6 @@ function sortActionsForApply(actions) {
     return (ai === -1 ? ACTION_ORDER.length : ai) - (bi === -1 ? ACTION_ORDER.length : bi);
   });
 }
-// function resolveDiscountForCycle(settings, pricingPolicy, cycleIndex) {
-//   cycleIndex = Number(cycleIndex);
-
-//   const customActive =
-//     settings?.changeDiscountAfterOrders &&
-//     cycleIndex >= Number(settings.afterOrders) &&
-//     Number(settings.afterDiscountValue) > 0;
-
-//   if (customActive) {
-//     return {
-//       type: "DISCOUNT_CHANGE",
-//       adjustmentType: settings.afterDiscountType ?? "PERCENTAGE",
-//       adjustmentValue: Number(settings.afterDiscountValue) || 0,
-//       after: settings.afterOrders,
-//       __phase: "after",
-//     };
-//   }
-
-//   // Custom "after" discount isn't active (either not configured, or we haven't hit the threshold yet).
-//   // Fall back to the native selling-plan discount tier, unless the merchant explicitly removed it
-//   // for this contract.
-//   if (!settings?.beforeDiscountDisabled) {
-//     const nativeTier = getDiscountTierForCycle(pricingPolicy, cycleIndex);
-//     if (nativeTier) {
-//       const isPct = nativeTier.adjustmentType === "PERCENTAGE";
-//       const value = isPct
-//         ? Number(nativeTier.adjustmentValue?.percentage ?? 0)
-//         : Number(nativeTier.adjustmentValue?.amount ?? 0);
-//       if (value > 0) {
-//         return {
-//           type: "DISCOUNT_CHANGE",
-//           adjustmentType: nativeTier.adjustmentType,
-//           adjustmentValue: value,
-//           after: nativeTier.afterCycle,
-//           __phase: "before",
-//         };
-//       }
-//     }
-//   }
-
-//   return {
-//     type: "DISCOUNT_CHANGE",
-//     adjustmentType: "PERCENTAGE",
-//     adjustmentValue: 0,
-//     after: 0,
-//     __default: true,
-//     __phase: "none",
-//   };
-// }
-
 function resolveDiscountForCycle(settings, pricingPolicy, cycleIndex) {
   cycleIndex = Number(cycleIndex);
 
@@ -257,6 +207,9 @@ function resolveDiscountForCycle(settings, pricingPolicy, cycleIndex) {
     };
   }
 
+  // Custom "after" discount isn't active (either not configured, or we haven't hit the threshold yet).
+  // Fall back to the native selling-plan discount tier, unless the merchant explicitly removed it
+  // for this contract.
   if (!settings?.beforeDiscountDisabled) {
     const nativeTier = getDiscountTierForCycle(pricingPolicy, cycleIndex);
     if (nativeTier) {
@@ -274,19 +227,6 @@ function resolveDiscountForCycle(settings, pricingPolicy, cycleIndex) {
         };
       }
     }
-
-    if (
-      settings?.initialDiscountEnabled &&
-      Number(settings.initialDiscountValue) > 0
-    ) {
-      return {
-        type: "DISCOUNT_CHANGE",
-        adjustmentType: settings.initialDiscountType ?? "PERCENTAGE",
-        adjustmentValue: Number(settings.initialDiscountValue) || 0,
-        after: 0,
-        __phase: "before",
-      };
-    }
   }
 
   return {
@@ -298,35 +238,7 @@ function resolveDiscountForCycle(settings, pricingPolicy, cycleIndex) {
     __phase: "none",
   };
 }
-function resolveLineDiscountForCycle(lineSettings, cycleIndex) {
-  if (!lineSettings) return null;
-  cycleIndex = Number(cycleIndex);
 
-  const afterActive =
-    lineSettings.afterEnabled &&
-    cycleIndex >= Number(lineSettings.afterOrders) &&
-    Number(lineSettings.afterValue) > 0;
-
-  if (afterActive) {
-    return {
-      adjustmentType: lineSettings.afterType ?? "PERCENTAGE",
-      adjustmentValue: Number(lineSettings.afterValue) || 0,
-      after: lineSettings.afterOrders,
-      __phase: "after",
-    };
-  }
-
-  if (lineSettings.initialEnabled && Number(lineSettings.initialValue) > 0) {
-    return {
-      adjustmentType: lineSettings.initialType ?? "PERCENTAGE",
-      adjustmentValue: Number(lineSettings.initialValue) || 0,
-      after: 0,
-      __phase: "before",
-    };
-  }
-
-  return null;
-}
 function resolveShippingDiscountForCycle(settings, cycleIndex) {
   cycleIndex = Number(cycleIndex);
 
@@ -375,24 +287,7 @@ function collectActionsForCycle(settings, cycleIndex, pricingPolicy = null) {
 
   cycleIndex = Number(cycleIndex);
 
-  // actions.push(resolveDiscountForCycle(settings, pricingPolicy, cycleIndex));
-  if (settings?.lines) {
-    for (const [variantId, lineSettings] of Object.entries(settings.lines)) {
-      const resolved = resolveLineDiscountForCycle(lineSettings, cycleIndex);
-      if (resolved) {
-        actions.push({
-          type: "LINE_DISCOUNT_CHANGE",
-          sourceVariantId: variantId,
-          adjustmentType: resolved.adjustmentType,
-          adjustmentValue: resolved.adjustmentValue,
-          after: resolved.after,
-          __phase: resolved.__phase,
-        });
-      }
-    }
-  } else {
-    actions.push(resolveDiscountForCycle(settings, pricingPolicy, cycleIndex));
-  }
+  actions.push(resolveDiscountForCycle(settings, pricingPolicy, cycleIndex));
   actions.push(resolveShippingDiscountForCycle(settings, cycleIndex));
 
   if (
@@ -457,13 +352,8 @@ if (settings.Automation && Array.isArray(settings.automationCycles)) {
 );
 
 if (hasSwapAction) {
-  // return actions.filter(
-  //   (a) => a.type !== "DISCOUNT_CHANGE" &&
-  //          a.type !== "QUANTITY_CHANGE"
-  // );
   return actions.filter(
     (a) => a.type !== "DISCOUNT_CHANGE" &&
-           a.type !== "LINE_DISCOUNT_CHANGE" &&
            a.type !== "QUANTITY_CHANGE"
   );
 }
@@ -475,11 +365,8 @@ if (hasSwapAction) {
       a.__automationCycleIndex != null,
   );
 
-  // if (hasSwapAction || hasBaseLineRemoval) {
-  //   return actions.filter((a) => a.type !== "DISCOUNT_CHANGE");
-  // }
   if (hasSwapAction || hasBaseLineRemoval) {
-    return actions.filter((a) => a.type !== "DISCOUNT_CHANGE" && a.type !== "LINE_DISCOUNT_CHANGE");
+    return actions.filter((a) => a.type !== "DISCOUNT_CHANGE");
   }
 
   return actions;
@@ -788,7 +675,6 @@ async function applyActionsToCycle(
   pricingPolicy = null,
   cycleDate = null,
   deliveryPriceAmount = null, // original/current shipping price for this contract
-  linePricesByVariantId = {},
 ) {
   const openSelector = cycleDate ? { date: cycleDate } : { index: cycleIndex };
    console.log(`[applyActionsToCycle date ] contract=${contractId} selector=${JSON.stringify(openSelector)}`); // ADD THIS
@@ -800,9 +686,9 @@ async function applyActionsToCycle(
       ) {
         draft {
           id
-           lines(first: 50) {
-              edges { node { id quantity productId variantId sellingPlanId currentPrice { amount currencyCode } } }
-            }
+          lines(first: 50) {
+            edges { node { id quantity productId variantId  sellingPlanId } }
+          }
         }
         userErrors { field message  code }
       }
@@ -948,47 +834,6 @@ async function applyActionsToCycle(
         if (data.errors) throw new Error(`DISCOUNT_CHANGE failed (GraphQL): ${data.errors[0]?.message}`);
         const errors = data.data?.subscriptionDraftLineUpdate?.userErrors;
         if (errors?.length) throw new Error(`DISCOUNT_CHANGE failed: ${errors[0].message}`);
-      }
-      // ── LINE_DISCOUNT_CHANGE ── (per-variant discount, ad-hoc multi-line contracts)
-      if (action.type === "LINE_DISCOUNT_CHANGE") {
-        const targetLine = draftLines.find((l) => l.variantId === action.sourceVariantId);
-        if (!targetLine) {
-          console.warn(`[applyActionsToCycle] LINE_DISCOUNT_CHANGE skipped — variant ${action.sourceVariantId} not found on this contract's lines`);
-          action.__skippedReason = "Configured variant not found on this subscription's lines.";
-          continue;
-        }
-        if (removedLineIds.has(targetLine.id)) {
-          action.__skippedReason = "Target line was already removed by another action this cycle.";
-          continue;
-        }
-
-        const originalPrice =
-          Number(linePricesByVariantId?.[action.sourceVariantId]) ||
-          Number(targetLine.currentPrice?.amount) ||
-          0;
-
-        let newPrice = originalPrice;
-        if (action.adjustmentType === "PERCENTAGE") {
-          newPrice = originalPrice - (originalPrice * Number(action.adjustmentValue)) / 100;
-        } else {
-          newPrice = originalPrice - Number(action.adjustmentValue);
-        }
-        newPrice = Math.max(0, newPrice).toFixed(2);
-
-        const res = await admin.graphql(
-          `
-          mutation updateLineDiscountPrice($draftId: ID!, $lineId: ID!, $price: Decimal!) {
-            subscriptionDraftLineUpdate(draftId: $draftId, lineId: $lineId, input: { currentPrice: $price }) {
-              userErrors { field message }
-            }
-          }
-          `,
-          { variables: { draftId, lineId: targetLine.id, price: newPrice } },
-        );
-        const data = await res.json();
-        if (data.errors) throw new Error(`LINE_DISCOUNT_CHANGE failed (GraphQL): ${data.errors[0]?.message}`);
-        const errors = data.data?.subscriptionDraftLineUpdate?.userErrors;
-        if (errors?.length) throw new Error(`LINE_DISCOUNT_CHANGE failed: ${errors[0].message}`);
       }
       if (action.type === "SHIPPING_DISCOUNT_CHANGE") {
         if (action.__default) continue; // no shipping discount configured for this cycle
@@ -1362,7 +1207,7 @@ async function getContractPreview(admin, contractId) {
           emailAddress
           }
           }
-        lines(first: 50) {
+        lines(first: 5) {
           edges {
             node {
               id
@@ -1372,7 +1217,6 @@ async function getContractPreview(admin, contractId) {
               productId
               variantId
               currentPrice { amount currencyCode }
-              variantImage { url }
               pricingPolicy {
                 basePrice { amount currencyCode }
                 cycleDiscounts {
@@ -1437,12 +1281,6 @@ async function getContractPreview(admin, contractId) {
   }
 
   const extraSettings = await getContractSettingsSnapshot(admin, contractId);
-  // Ad-hoc multi-line contracts (settings.lines present) use a separate
-  // preview builder that shows ALL lines with correct per-line discounts.
-  if (extraSettings?.lines) {
-    const { buildAdhocMultiLinePreview } = await import("./adhoc-subscription.server.js");
-    return buildAdhocMultiLinePreview(admin, contract, extraSettings, cycleIndex, nextBillingDate);
-  }
   const settingsSource = extraSettings ? "contract_snapshot" : "no_snapshot_found";
 
   let cycleIndex = null;
@@ -1529,11 +1367,7 @@ async function getContractPreview(admin, contractId) {
 
   const variantDataMap = await fetchVariantsBatch(admin, allVariantIdsNeeded);
 
-  // let effectiveBase = Number(firstLine?.pricingPolicy?.basePrice?.amount) || 0;
-  let effectiveBase =
-  Number(firstLine?.pricingPolicy?.basePrice?.amount) ||
-  Number(firstLine?.currentPrice?.amount) ||
-  0;
+  let effectiveBase = Number(firstLine?.pricingPolicy?.basePrice?.amount) || 0;
 
   if (swapAction?.variantId) {
     const swappedInfo = variantDataMap[swapAction.variantId];
@@ -1976,7 +1810,6 @@ export {
   getContractPreview,
   collectActionsForCycle,
   resolveDiscountForCycle,
-  resolveLineDiscountForCycle,
   resolveShippingDiscountForCycle,
   applyShippingDiscountToPrice,
   applyActionsToCycle,

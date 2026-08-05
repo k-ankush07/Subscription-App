@@ -819,12 +819,10 @@ export async function action({ request, params }) {
           subscriptionContract(id: $contractId) {
             deliveryPrice { amount currencyCode }
              billingPolicy { maxCycles }
-            lines(first: 50) {
+            lines(first: 5) {
               edges {
                 node {
                   sellingPlanId
-                  variantId
-                  currentPrice { amount currencyCode }
                   pricingPolicy {
                     basePrice { amount currencyCode }
                     cycleDiscounts {
@@ -868,13 +866,6 @@ export async function action({ request, params }) {
 
       let skippedActions = [];
       if (actionsForThisCycle.length > 0) {
-         const linePricesByVariantId = {};
-      for (const { node: line } of contractData.data?.subscriptionContract?.lines?.edges || []) {
-        if (line.variantId) {
-          linePricesByVariantId[line.variantId] =
-            Number(line.pricingPolicy?.basePrice?.amount) || Number(line.currentPrice?.amount) || 0;
-        }
-      }
         const result = await applyActionsToCycle(
           admin,
           contractId,
@@ -884,7 +875,6 @@ export async function action({ request, params }) {
           pricingPolicy,
           null,
           deliveryPriceAmount,
-          linePricesByVariantId,
         );
         skippedActions = result?.skippedActions || [];
       }

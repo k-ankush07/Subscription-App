@@ -161,7 +161,7 @@ import React from "react";
 import { useLoaderData } from "react-router";
 import { authenticate } from "../shopify.server";
 import CreateSubscription from "./components/createSubscription";
-import { snapshotAdhocContractDiscounts } from "../lib/adhoc-subscription.server.js";
+
 export async function loader({ request }) {
   const { admin, session } = await authenticate.admin(request);
 
@@ -398,9 +398,7 @@ export async function action({ request }) {
     }
 
     const contract = data?.contract;
- if (contract?.id) {
-      await snapshotAdhocContractDiscounts(admin, contract.id, products, contractDetails);
-    }
+
     return {
       success: true,
       subscription: {
