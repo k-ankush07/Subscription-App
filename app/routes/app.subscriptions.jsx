@@ -266,7 +266,7 @@ function Subscriptions() {
   { id: "active", content: "Active", status: "ACTIVE" },
   { id: "paused", content: "Paused", status: "PAUSED" },
   { id: "cancelled", content: "Cancelled", status: "CANCELLED" },
-  { id: "billing_issues", content: "Billing issues", status: "FAILED" },
+  // { id: "billing_issues", content: "Billing issues", status: "FAILED" },
 ];
 
   const selectedTabIndex = tabs.findIndex((t) => t.status === currentStatus);
