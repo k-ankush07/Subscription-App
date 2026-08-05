@@ -2,7 +2,7 @@ import '@shopify/ui-extensions/preact';
 import { render } from "preact";
 import { useState, useEffect, useCallback, useRef } from "preact/hooks";
 import { hideModalById, showModalById } from "./Modalutils";
-const API_BASE = "https://debut-medium-installations-nutrition.trycloudflare.com";
+const API_BASE = "https://everyday-portion-attendance-varies.trycloudflare.com";
 
 export default async () => {
     render(<Extension />, document.body);
@@ -65,6 +65,7 @@ function Extension() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [selected, setSelected] = useState(null);
+    const [visibleCount, setVisibleCount] = useState(7);
 
     const fetchSubscriptions = useCallback(async () => {
         try {
@@ -178,17 +179,25 @@ function Extension() {
             />
         );
     }
-
-    return (
+return (
         <s-page heading="Subscriptions">
             <s-section>
                 {subscriptions.length === 0 ? (
                     <s-text>No subscriptions.....</s-text>
                 ) : (
                     <s-stack direction="block" gap="base">
-                        {subscriptions.map((sub) => (
+                        {subscriptions.slice(0, visibleCount).map((sub) => (
                             <SubscriptionCard key={sub.id} sub={sub} onClick={() => setSelected(sub)} />
                         ))}
+
+                        {visibleCount < subscriptions.length && (
+                            <s-button
+                                variant="secondary"
+                                onClick={() => setVisibleCount((prev) => prev + 7)}
+                            >
+                                View more
+                            </s-button>
+                        )}
                     </s-stack>
                 )}
             </s-section>
