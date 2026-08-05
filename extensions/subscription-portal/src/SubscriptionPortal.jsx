@@ -693,6 +693,7 @@ function SubscriptionDetail({
       setIsPausing(false);
     }
   }
+  console.log("djkfjdfjd",subscription)
 
   const isPaused = subscription.status === "PAUSED";
   const isActive = subscription.status === "ACTIVE";

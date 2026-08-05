@@ -64,7 +64,7 @@ export const loader = async ({ request }) => {
                   interval
                   intervalCount
                 }
-                lines(first: 10) {
+                lines(first: 50) {
                   edges {
                     node {
                       title
@@ -88,6 +88,7 @@ export const loader = async ({ request }) => {
                       title
                       presentmentTitle
                     }
+                      
                   }
                 }
               }
