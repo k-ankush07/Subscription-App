@@ -380,8 +380,6 @@ async function processShop(admin) {
                 node {
                   id
                   sellingPlanId
-                   variantId
-                  currentPrice { amount currencyCode }
                   pricingPolicy {
                     basePrice { amount currencyCode }
                     cycleDiscounts {
@@ -539,13 +537,6 @@ async function processShop(admin) {
         const actionsForUpcoming = collectActionsForCycle(settings, nextUpcoming.cycleIndex);
 
         if (actionsForUpcoming.length > 0) {
-          const linePricesByVariantId = {};
-        for (const { node: line } of contract.lines.edges) {
-          if (line.variantId) {
-            linePricesByVariantId[line.variantId] =
-              Number(line.pricingPolicy?.basePrice?.amount) || Number(line.currentPrice?.amount) || 0;
-          }
-        }
           try {
             const { skippedActions } = await applyActionsToCycle(
               admin,
@@ -556,7 +547,6 @@ async function processShop(admin) {
               pricingPolicy,
               nextUpcoming.billingAttemptExpectedDate, // still future here — date selector is valid
               deliveryPriceAmount,
-              linePricesByVariantId,
             );
             await markCycleProcessed(admin, shopId, processedCycles, editMarker);
             await appendAuditLog(admin, shopId, {
