@@ -665,9 +665,6 @@ function SubscriptionDetail({ subscription, onBack, onRescheduled, onStatusChang
                                 <s-stack direction="block" gap="tight">
                                     {isPaused ? (
                                         <>
-                                            <s-text tone="subdued">
-                                                This subscription is currently paused. No orders will be created until you resume it.
-                                            </s-text>
                                             <s-button
                                                 variant="primary"
                                                 onClick={handleResumeSubscription}
