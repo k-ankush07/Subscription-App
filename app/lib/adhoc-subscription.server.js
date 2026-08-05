@@ -1,70 +1,194 @@
-import { getContractPreview, snapshotContractSettings } from "./billing-preview.server";
+import {
+  getContractPreview,
+  snapshotContractSettings,
+  fetchVariantsBatch,
+  resolveLineDiscountForCycle,
+} from "./billing-preview.server";
 
-/**
- * Handles discount-settings snapshotting for subscriptions created via the
- * ad-hoc "Create subscription" admin UI (contractCreate.jsx) — these
- * contracts have no selling plan, so their discount config has to be stored
- * separately (same snapshot store the checkout-webhook flow uses), and it
- * needs to support BOTH tiers:
- *   - an "initial" discount active from the contract's real first cycle
- *   - an optional "after N orders" discount that overrides it later
- *
- * Kept in its own file so contractCreate.jsx stays a thin route file and
- * this logic can be reused/tested independently. Does NOT touch anything
- * used by the selling-plan / webhook flow.
- */
-export async function snapshotAdhocContractDiscounts(admin, contractId, contractDetails) {
-  if (!contractId) {
-    return { snapshotted: false, reason: "no contractId" };
+function buildLineSettingsFromVariant(variant, sellingPlanDiscount) {
+  const mode = variant.discountMode || "SELLING_PLAN";
+
+  if (mode === "NONE") {
+    return {
+      initialEnabled: false, initialType: "PERCENTAGE", initialValue: 0,
+      afterEnabled: false, afterOrders: 0, afterType: "PERCENTAGE", afterValue: 0,
+    };
   }
 
+  if (mode === "CUSTOM") {
+    return {
+      initialEnabled: Number(variant.discountAmount) > 0,
+      initialType: variant.discountType || "PERCENTAGE",
+      initialValue: Number(variant.discountAmount) || 0,
+      afterEnabled: !!variant.changeDiscountAfterOrders && Number(variant.discountAmount2) > 0,
+      afterOrders: Number(variant.afterOrders) || 0,
+      afterType: variant.discountType2 || "PERCENTAGE",
+      afterValue: Number(variant.discountAmount2) || 0,
+    };
+  }
+
+  const sp = sellingPlanDiscount || {};
+  return {
+    initialEnabled: !!sp.giveDiscount && Number(sp.discountAmount) > 0,
+    initialType: sp.discountType || "PERCENTAGE",
+    initialValue: Number(sp.discountAmount) || 0,
+    afterEnabled: !!sp.giveDiscount && !!sp.changeDiscountAfterOrders && Number(sp.discountAmount2) > 0,
+    afterOrders: Number(sp.afterOrders) || 0,
+    afterType: sp.discountType2 || "PERCENTAGE",
+    afterValue: Number(sp.discountAmount2) || 0,
+  };
+}
+
+export async function snapshotAdhocContractDiscounts(admin, contractId, products, contractDetails) {
+  if (!contractId) return { snapshotted: false, reason: "no contractId" };
+
   try {
-    // Shopify assigns the first billing cycle's index based on interval +
-    // chosen next-order date — it isn't always 0. Read it back so "after N
-    // orders" means N orders after the REAL first cycle, not a literal
-    // index that may not line up.
     const initialPreview = await getContractPreview(admin, contractId);
     const baselineCycleIndex = initialPreview?.nextOrder?.cycleIndex ?? 0;
 
-    const hasInitialDiscount =
-      !!contractDetails.giveDiscount &&
-      Number(contractDetails.discountAmount) > 0;
-    const hasAfterDiscount =
-      !!contractDetails.changeDiscountAfterOrders &&
-      Number(contractDetails.discountAmount2) > 0;
-
-    const settings = {
-      // Tier 1: active from the contract's real first cycle onward.
-      initialDiscountEnabled: hasInitialDiscount,
-      initialDiscountType: contractDetails.discountType || "PERCENTAGE",
-      initialDiscountValue: Number(contractDetails.discountAmount) || 0,
-
-      // Tier 2: overrides tier 1 once cycleIndex >= baseline + afterOrders.
-      changeDiscountAfterOrders: hasAfterDiscount,
-      afterOrders:
-        baselineCycleIndex + (Number(contractDetails.afterOrders) || 0),
-      afterDiscountType: contractDetails.discountType2 || "PERCENTAGE",
-      afterDiscountValue: Number(contractDetails.discountAmount2) || 0,
-
-      // Must stay false so resolveDiscountForCycle's initialDiscountEnabled
-      // fallback (used only when there's no native selling-plan pricing
-      // tier) actually gets evaluated for these ad-hoc contracts.
-      beforeDiscountDisabled: false,
+    const sellingPlanDiscount = {
+      giveDiscount: contractDetails.giveDiscount,
+      discountAmount: contractDetails.discountAmount,
+      discountType: contractDetails.discountType,
+      changeDiscountAfterOrders: contractDetails.changeDiscountAfterOrders,
+      discountAmount2: contractDetails.discountAmount2,
+      afterOrders: contractDetails.afterOrders,
+      discountType2: contractDetails.discountType2,
     };
 
+    const lines = {};
+    for (const product of products || []) {
+      for (const variant of product.variants || []) {
+        if (!variant.variantsId) continue;
+        const lineSettings = buildLineSettingsFromVariant(variant, sellingPlanDiscount);
+        lineSettings.afterOrders = baselineCycleIndex + lineSettings.afterOrders;
+        lines[variant.variantsId] = lineSettings;
+      }
+    }
+
+    const settings = { lines };
     const { snapshotted } = await snapshotContractSettings(admin, contractId, settings);
 
     console.log(
       snapshotted
-        ? `[adhoc-subscription] settings snapshotted for ${contractId} (baseline cycle ${baselineCycleIndex}):`
+        ? `[adhoc-subscription] multi-line settings snapshotted for ${contractId} (baseline cycle ${baselineCycleIndex}):`
         : `[adhoc-subscription] settings snapshot skipped for ${contractId} (no shop id resolved):`,
       JSON.stringify(settings),
     );
 
     return { snapshotted, baselineCycleIndex, settings };
   } catch (err) {
-    // Never let a snapshot failure break contract creation.
     console.error(`[adhoc-subscription] failed to snapshot settings for ${contractId}:`, err);
     return { snapshotted: false, error: String(err?.message || err) };
   }
+}
+
+export async function buildAdhocMultiLinePreview(admin, contract, extraSettings, cycleIndex, nextBillingDate) {
+  const lines = contract.lines?.edges?.map((e) => e.node) || [];
+  const variantIds = lines.map((l) => l.variantId).filter(Boolean);
+  const variantData = await fetchVariantsBatch(admin, variantIds);
+
+  const lineItems = lines.map((line) => {
+    const lineSettings = extraSettings.lines?.[line.variantId] || null;
+    const discount = resolveLineDiscountForCycle(lineSettings, cycleIndex);
+    const info = variantData[line.variantId];
+    const basePrice = Number(line.currentPrice?.amount) || Number(info?.price) || 0;
+    const currencyCode = line.currentPrice?.currencyCode || "INR";
+
+    let pricePerUnit = basePrice;
+    let discountLabel = null;
+    if (discount) {
+      pricePerUnit =
+        discount.adjustmentType === "PERCENTAGE"
+          ? Math.max(0, basePrice - (basePrice * discount.adjustmentValue) / 100)
+          : Math.max(0, basePrice - discount.adjustmentValue);
+      discountLabel =
+        discount.adjustmentType === "PERCENTAGE"
+          ? `${discount.adjustmentValue}% off`
+          : `${discount.adjustmentValue} off`;
+    }
+
+    const quantity = Number(line.quantity) || 1;
+
+    return {
+      title: line.title,
+      productId: line.productId,
+      variantId: line.variantId,
+      quantity,
+      imageUrl: line.variantImage?.url || info?.image?.url || null,
+      imageAlt: line.title,
+      pricePerUnit: { amount: pricePerUnit.toFixed(2), currencyCode },
+      itemTotal: { amount: (pricePerUnit * quantity).toFixed(2), currencyCode },
+      originalPricePerUnit: { amount: basePrice.toFixed(2), currencyCode },
+      originalItemTotal: { amount: (basePrice * quantity).toFixed(2), currencyCode },
+      isBaseLine: true,
+      automationCycleIndex: null,
+      automationActionIndex: null,
+      discountPhase: discount?.__phase ?? null,
+      discountLabel,
+    };
+  });
+
+  const currencyCode = lineItems[0]?.pricePerUnit.currencyCode || "INR";
+  const calculatedOrderTotal = {
+    amount: lineItems.reduce((s, li) => s + Number(li.itemTotal.amount), 0).toFixed(2),
+    currencyCode,
+  };
+  const originalOrderTotal = {
+    amount: lineItems.reduce((s, li) => s + Number(li.originalItemTotal.amount), 0).toFixed(2),
+    currencyCode,
+  };
+
+  const originalShippingPriceAmount = Number(contract.deliveryPrice?.amount ?? 0);
+  const shippingCurrency = contract.deliveryPrice?.currencyCode ?? currencyCode;
+  const shippingPreview = contract.deliveryPrice
+    ? {
+        originalPrice: { amount: originalShippingPriceAmount.toFixed(2), currencyCode: shippingCurrency },
+        calculatedPrice: { amount: originalShippingPriceAmount.toFixed(2), currencyCode: shippingCurrency },
+        discountLabel: null,
+      }
+    : null;
+
+  const willApplyActions = lineItems
+    .filter((li) => li.discountLabel)
+    .map((li) => ({
+      type: "LINE_DISCOUNT_CHANGE",
+      sourceVariantId: li.variantId,
+      discountLabel: li.discountLabel,
+      phase: li.discountPhase,
+    }));
+
+  return {
+    contractId: contract.id,
+    status: contract.status,
+    customer: contract.customer,
+    settingsSource: "contract_snapshot",
+    lineItem: {
+      id: lines[0]?.id,
+      title: lines[0]?.title,
+      quantity: lines[0]?.quantity,
+      price: lines[0]?.currentPrice,
+      productId: lines[0]?.productId,
+      variantId: lines[0]?.variantId,
+    },
+    planGroup: { id: null, name: null },
+    billingPolicy: {
+      minCycles: contract.billingPolicy?.minCycles ?? null,
+      maxCycles: contract.billingPolicy?.maxCycles ?? null,
+      summary: "Unlimited — runs until cancelled",
+    },
+    nextOrder: {
+      cycleIndex,
+      expectedDate: nextBillingDate,
+      lineItems,
+      calculatedOrderTotal,
+      originalOrderTotal,
+      shipping: shippingPreview,
+      willApply:
+        willApplyActions.length > 0
+          ? willApplyActions
+          : "No automatic changes configured for this cycle",
+    },
+    allExtraSettings: extraSettings,
+  };
 }
