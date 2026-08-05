@@ -375,7 +375,7 @@ async function processShop(admin) {
               minCycles
               maxCycles
             }
-            lines(first: 50) {
+            lines(first: 5) {
               edges {
                 node {
                   id
