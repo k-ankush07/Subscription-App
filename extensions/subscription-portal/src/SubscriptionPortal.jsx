@@ -1,8 +1,10 @@
+
 import '@shopify/ui-extensions/preact';
 import { render } from "preact";
 import { useState, useEffect, useCallback, useRef } from "preact/hooks";
 import { hideModalById, showModalById } from "./Modalutils";
 const API_BASE = "https://everyday-portion-attendance-varies.trycloudflare.com";
+const PAGE_SIZE = 7;
 
 export default async () => {
     render(<Extension />, document.body);
@@ -60,45 +62,77 @@ function formatShort(dateOnlyStr) {
     });
 }
 
+function SkeletonCard() {
+    return (
+        <s-box border="base" borderRadius="base" padding="base">
+            <s-stack direction="block" gap="tight">
+                <s-box inlineSize="60px" blockSize="20px" borderRadius="base" background="subdued" />
+                <s-stack direction="inline" gap="tight" alignItems="center">
+                    <s-box inlineSize="56px" blockSize="56px" borderRadius="base" background="subdued" />
+                    <s-box inlineSize="140px" blockSize="16px" borderRadius="base" background="subdued" />
+                </s-stack>
+                <s-box inlineSize="120px" blockSize="14px" borderRadius="base" background="subdued" />
+                <s-box inlineSize="160px" blockSize="14px" borderRadius="base" background="subdued" />
+            </s-stack>
+        </s-box>
+    );
+}
+
 function Extension() {
     const [subscriptions, setSubscriptions] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(true); // initial full-page load
+    const [loadingMore, setLoadingMore] = useState(false); // "View more" click load
     const [error, setError] = useState(null);
     const [selected, setSelected] = useState(null);
 
-    const fetchSubscriptions = useCallback(async () => {
-        try {
-            let customerId = shopify.authenticatedAccount.customer.current?.id;
+    // pagination state
+    const [cursor, setCursor] = useState(null);
+    const [hasMore, setHasMore] = useState(false);
+    const customerIdRef = useRef(null);
 
-            if (!customerId) {
-                customerId = await new Promise((resolve) => {
-                    const unsubscribe = shopify.authenticatedAccount.customer.subscribe((customer) => {
-                        if (customer?.id) {
-                            unsubscribe();
-                            resolve(customer.id);
-                        }
-                    });
+    const getCustomerId = useCallback(async () => {
+        if (customerIdRef.current) return customerIdRef.current;
+
+        let customerId = shopify.authenticatedAccount.customer.current?.id;
+
+        if (!customerId) {
+            customerId = await new Promise((resolve) => {
+                const unsubscribe = shopify.authenticatedAccount.customer.subscribe((customer) => {
+                    if (customer?.id) {
+                        unsubscribe();
+                        resolve(customer.id);
+                    }
                 });
-            }
+            });
+        }
 
-            console.log("Customer ID from extension:", customerId);
+        customerIdRef.current = customerId;
+        return customerId;
+    }, []);
+
+    // fetchPage: reset=true => replace list (page 1). reset=false => append (next page)
+    const fetchPage = useCallback(async ({ afterCursor = null, reset = true } = {}) => {
+        try {
+            const customerId = await getCustomerId();
 
             if (!customerId) {
                 setError("Customer ID not found");
-                setLoading(false);
-                return [];
+                return null;
             }
 
             const token = await shopify.sessionToken.get();
 
-            const res = await fetch(
-                `${API_BASE}/api/subscriptions?customerId=${encodeURIComponent(customerId)}`,
-                {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
-                }
-            );
+            const params = new URLSearchParams({
+                customerId,
+                limit: String(PAGE_SIZE),
+            });
+            if (afterCursor) params.set("cursor", afterCursor);
+
+            const res = await fetch(`${API_BASE}/api/subscriptions?${params.toString()}`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
 
             if (!res.ok) {
                 const text = await res.text();
@@ -106,23 +140,42 @@ function Extension() {
             }
 
             const data = await res.json();
-            const subscriptions = data.subscriptions || [];
-            setSubscriptions(subscriptions);
-            return subscriptions;
+            const newSubs = data.subscriptions || [];
+            const pageInfo = data.pageInfo || { hasNextPage: false, endCursor: null };
+
+            setSubscriptions((prev) => (reset ? newSubs : [...prev, ...newSubs]));
+            setHasMore(!!pageInfo.hasNextPage);
+            setCursor(pageInfo.endCursor || null);
+
+            return reset ? newSubs : [...subscriptions, ...newSubs];
         } catch (err) {
             console.error("Failed to load subscriptions", err);
             setError(err.message);
-            return [];
-        } finally {
-            setLoading(false);
+            return null;
         }
+    }, [getCustomerId, subscriptions]);
+
+    // initial load
+    useEffect(() => {
+        (async () => {
+            setLoading(true);
+            await fetchPage({ afterCursor: null, reset: true });
+            setLoading(false);
+        })();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    useEffect(() => {
-        fetchSubscriptions();
-    }, [fetchSubscriptions]);
+    async function handleViewMore() {
+        if (!hasMore || loadingMore) return;
+        setLoadingMore(true);
+        await fetchPage({ afterCursor: cursor, reset: false });
+        setLoadingMore(false);
+    }
 
-   
+    // Refetch first page only (used after reschedule/cancel/pause/resume to refresh currently-loaded subscription)
+    const refreshFirstPage = useCallback(async () => {
+        return fetchPage({ afterCursor: null, reset: true });
+    }, [fetchPage]);
 
     if (error) {
         return (
@@ -136,7 +189,7 @@ function Extension() {
 
     async function handleSubscriptionRescheduled(subscriptionId, nextBillingDate) {
         console.log("handleSubscriptionRescheduled called", { subscriptionId, nextBillingDate });
-        const updatedSubscriptions = await fetchSubscriptions();
+        const updatedSubscriptions = (await refreshFirstPage()) || [];
         const updated = updatedSubscriptions.find((sub) => sub.id === subscriptionId);
         console.log("handleSubscriptionRescheduled fetched subscriptions", { updated, updatedSubscriptionsCount: updatedSubscriptions.length });
         if (updated) {
@@ -161,12 +214,25 @@ function Extension() {
         }
     }
 
+    // NEW: called after pause/resume succeeds — updates status everywhere
+    function handleSubscriptionStatusChanged(subscriptionId, newStatus) {
+        setSelected((prev) =>
+            prev?.id === subscriptionId ? { ...prev, status: newStatus } : prev
+        );
+        setSubscriptions((prev) =>
+            prev.map((sub) =>
+                sub.id === subscriptionId ? { ...sub, status: newStatus } : sub
+            )
+        );
+    }
+
     if (selected) {
         return (
             <SubscriptionDetail
                 subscription={selected}
                 onBack={() => setSelected(null)}
                 onRescheduled={handleSubscriptionRescheduled}
+                onStatusChanged={handleSubscriptionStatusChanged}
             />
         );
     }
@@ -174,13 +240,30 @@ function Extension() {
     return (
         <s-page heading="Subscriptions">
             <s-section>
-                {subscriptions.length === 0 ? (
+                {loading ? (
+                    <s-stack direction="block" gap="base">
+                        {Array.from({ length: PAGE_SIZE }).map((_, i) => (
+                            <SkeletonCard key={i} />
+                        ))}
+                    </s-stack>
+                ) : subscriptions.length === 0 ? (
                     <s-text>No subscriptions.....</s-text>
                 ) : (
                     <s-stack direction="block" gap="base">
                         {subscriptions.map((sub) => (
                             <SubscriptionCard key={sub.id} sub={sub} onClick={() => setSelected(sub)} />
                         ))}
+
+                        {loadingMore &&
+                            Array.from({ length: PAGE_SIZE }).map((_, i) => (
+                                <SkeletonCard key={`more-${i}`} />
+                            ))}
+
+                        {hasMore && !loadingMore && (
+                            <s-button variant="secondary" onClick={handleViewMore}>
+                                View more
+                            </s-button>
+                        )}
                     </s-stack>
                 )}
             </s-section>
@@ -200,7 +283,15 @@ function SubscriptionCard({ sub, onClick }) {
         <s-clickable onClick={onClick}>
             <s-box border="base" borderRadius="base" padding="base">
                 <s-stack direction="block" gap="tight">
-                    <s-badge tone={sub.status === "ACTIVE" ? "success" : "neutral"}>
+                    <s-badge
+                        tone={
+                            sub.status === "ACTIVE"
+                                ? "success"
+                                : sub.status === "PAUSED"
+                                ? "warning"
+                                : "neutral"
+                        }
+                    >
                         {sub.status}
                     </s-badge>
                     <s-stack direction="inline" gap="tight" alignItems="center">
@@ -221,7 +312,7 @@ function SubscriptionCard({ sub, onClick }) {
     );
 }
 
-function SubscriptionDetail({ subscription, onBack, onRescheduled }) {
+function SubscriptionDetail({ subscription, onBack, onRescheduled, onStatusChanged }) {
     const lines = subscription.lines?.edges?.map((e) => e.node) ?? [];
     const shippingTitle = subscription.deliveryMethod?.shippingOption?.title;
     const canCancel =
@@ -237,6 +328,11 @@ function SubscriptionDetail({ subscription, onBack, onRescheduled }) {
     const [rescheduleError, setRescheduleError] = useState(null);
     const [rescheduled, setRescheduled] = useState(false);
     const [rescheduleAdjustedNote, setRescheduleAdjustedNote] = useState(null);
+
+    // NEW: pause/resume state
+    const [isPausing, setIsPausing] = useState(false);
+    const [pauseError, setPauseError] = useState(null);
+
     const previousSubscriptionRef = useRef({
         id: subscription.id,
         nextBillingDate: subscription.nextBillingDate,
@@ -300,7 +396,6 @@ function SubscriptionDetail({ subscription, onBack, onRescheduled }) {
             const token = await shopify.sessionToken.get();
 
             const dateOnly = rescheduleDate;
-            console.log("handleConfirmReschedule sending", { subscriptionId: subscription.id, dateOnly, billingCycleIndex: 0 });
             const res = await fetch(`${API_BASE}/api/subscriptions/reschedule`, {
                 method: "POST",
                 headers: {
@@ -315,7 +410,6 @@ function SubscriptionDetail({ subscription, onBack, onRescheduled }) {
             });
 
             const data = await res.json().catch(() => ({}));
-            console.log("handleConfirmReschedule response", { ok: res.ok, status: res.status, data });
 
             if (!res.ok) {
                 throw new Error(data.error || "Unable to reschedule this order right now.");
@@ -387,11 +481,93 @@ function SubscriptionDetail({ subscription, onBack, onRescheduled }) {
         }
     }
 
+    // NEW: pause subscription
+    async function handlePauseSubscription() {
+        if (!subscription?.id) {
+            setPauseError("Subscription ID is missing.");
+            return;
+        }
+
+        setIsPausing(true);
+        setPauseError(null);
+
+        try {
+            const token = await shopify.sessionToken.get();
+            const res = await fetch(`${API_BASE}/api/subscriptions/pause`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ subscriptionContractId: subscription.id }),
+            });
+
+            const data = await res.json().catch(() => ({}));
+
+            if (!res.ok) {
+                throw new Error(data.error || "Unable to pause subscription right now.");
+            }
+
+            const newStatus = data.contract?.status || "PAUSED";
+            shopify.toast.show("Subscription paused");
+
+            if (typeof onStatusChanged === "function") {
+                onStatusChanged(subscription.id, newStatus);
+            }
+        } catch (err) {
+            console.error("Failed to pause subscription", err);
+            setPauseError(err.message || "Unable to pause subscription right now.");
+        } finally {
+            setIsPausing(false);
+        }
+    }
+
+    // NEW: resume subscription
+    async function handleResumeSubscription() {
+        if (!subscription?.id) {
+            setPauseError("Subscription ID is missing.");
+            return;
+        }
+
+        setIsPausing(true);
+        setPauseError(null);
+
+        try {
+            const token = await shopify.sessionToken.get();
+            const res = await fetch(`${API_BASE}/api/subscriptions/resume`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ subscriptionContractId: subscription.id }),
+            });
+
+            const data = await res.json().catch(() => ({}));
+
+            if (!res.ok) {
+                throw new Error(data.error || "Unable to resume subscription right now.");
+            }
+
+            const newStatus = data.contract?.status || "ACTIVE";
+            shopify.toast.show("Subscription resumed");
+
+            if (typeof onStatusChanged === "function") {
+                onStatusChanged(subscription.id, newStatus);
+            }
+        } catch (err) {
+            console.error("Failed to resume subscription", err);
+            setPauseError(err.message || "Unable to resume subscription right now.");
+        } finally {
+            setIsPausing(false);
+        }
+    }
+
+    const isPaused = subscription.status === "PAUSED";
+    const isActive = subscription.status === "ACTIVE";
+
     return (
         <s-page heading="Manage subscription">
-
-
-          
             <s-section>
                 <s-button onClick={onBack} variant="tertiary">
                     ← Back
@@ -416,7 +592,7 @@ function SubscriptionDetail({ subscription, onBack, onRescheduled }) {
                                     </s-link>
                                 </s-stack>
 
-                                <s-button command="--show" commandfor="reschedule-modal" variant="secondary">
+                                <s-button command="--show" commandfor="reschedule-modal" variant="secondary" disabled={isPaused}>
                                     Reschedule
                                 </s-button>
                             </s-stack>
@@ -482,6 +658,37 @@ function SubscriptionDetail({ subscription, onBack, onRescheduled }) {
                                 </s-stack>
                             </s-stack>
                         </s-box>
+
+                        {/* NEW: Pause / Resume block */}
+                        {!cancelled && (isActive || isPaused) && (
+                            <s-box border="base" borderRadius="base" padding="base">
+                                <s-stack direction="block" gap="tight">
+                                    {isPaused ? (
+                                        <>
+                                            <s-text tone="subdued">
+                                                This subscription is currently paused. No orders will be created until you resume it.
+                                            </s-text>
+                                            <s-button
+                                                variant="primary"
+                                                onClick={handleResumeSubscription}
+                                                disabled={isPausing}
+                                            >
+                                                {isPausing ? "Resuming..." : "Resume subscription"}
+                                            </s-button>
+                                        </>
+                                    ) : (
+                                        <s-button
+                                            variant="secondary"
+                                            onClick={handlePauseSubscription}
+                                            disabled={isPausing}
+                                        >
+                                            {isPausing ? "Pausing..." : "Pause subscription"}
+                                        </s-button>
+                                    )}
+                                    {pauseError && <s-text tone="critical">{pauseError}</s-text>}
+                                </s-stack>
+                            </s-box>
+                        )}
 
                         {!canCancel && (
                             <s-box border="base" borderRadius="base" padding="base">

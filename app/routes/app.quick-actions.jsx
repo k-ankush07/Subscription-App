@@ -1,136 +1,3 @@
-// import {
-//   Page,
-//   Card,
-//   BlockStack,
-//   Text,
-//   InlineStack,
-//   Button,
-// } from "@shopify/polaris";
-// import { authenticate } from "../shopify.server";
-// import PortalNav from "./components/PortalNav";
-
-// export const loader = async ({ request }) => {
-//   await authenticate.admin(request);
-//   // TODO: load quick actions data here
-//   return {};
-// };
-
-// export default function QuickActions() {
-//   return (
-//     <Page title="Quick actions">
-//       <BlockStack gap="400">
-//         <PortalNav />
-
-//         <Card>
-//           <BlockStack gap="200">
-//             <Card>
-//               <h2>Pause subscription</h2>
-//               <p>
-//                 Send customers a direct link to pause their subscription.
-//                 Clicking it opens the portal with a pause confirmation prompt.
-//               </p>
-//               <div
-//                 style={{
-//                   display: "flex",
-//                   alignItems: "center",
-//                   justifyContent: "space-between",
-//                   gap: "12px",
-//                   border: "1px solid #d1d5db",
-//                   borderRadius: "8px",
-//                   padding: "10px 14px",
-//                   background: "#f9fafb",
-//                 }}
-//               >
-//                 <span
-//                   style={{
-//                     fontFamily: "monospace",
-//                     fontSize: "13px",
-//                     wordBreak: "break-all",
-//                   }}
-//                 >
-//                   https://shopify.com/73325314260/account/pages/7c4a25d5-0da8-4259-bf5f-40ed6112e4d6
-//                 </span>
-
-//                 <InlineStack gap="200">
-//                   <Button>Copy</Button>
-//                 </InlineStack>
-//               </div>
-//               <p>Email variable: <span>{`{{ pause_subscription_url }}`}</span></p>
-//             </Card>
-//              <Card>
-//               <h2>Cancel subscription</h2>
-//               <p>
-//                 Send customers a direct link to cancel their subscription. Clicking it opens the portal with a cancellation confirmation prompt
-//               </p>
-//               <div
-//                 style={{
-//                   display: "flex",
-//                   alignItems: "center",
-//                   justifyContent: "space-between",
-//                   gap: "12px",
-//                   border: "1px solid #d1d5db",
-//                   borderRadius: "8px",
-//                   padding: "10px 14px",
-//                   background: "#f9fafb",
-//                 }}
-//               >
-//                 <span
-//                   style={{
-//                     fontFamily: "monospace",
-//                     fontSize: "13px",
-//                     wordBreak: "break-all",
-//                   }}
-//                 >
-//                   https://shopify.com/73325314260/account/pages/7c4a25d5-0da8-4259-bf5f-40ed6112e4d6
-//                 </span>
-
-//                 <InlineStack gap="200">
-//                   <Button>Copy</Button>
-//                 </InlineStack>
-//               </div>
-//               <p>Email variable: <span>{`{{ cancel_subscription_url }}`}</span></p>
-//             </Card>
-//              <Card>
-//               <h2>Resume subscription</h2>
-//               <p>
-//                Send customers a direct link to resume their paused subscription. Clicking it opens the portal with a resume confirmation prompt.
-//               </p>
-//               <div
-//                 style={{
-//                   display: "flex",
-//                   alignItems: "center",
-//                   justifyContent: "space-between",
-//                   gap: "12px",
-//                   border: "1px solid #d1d5db",
-//                   borderRadius: "8px",
-//                   padding: "10px 14px",
-//                   background: "#f9fafb",
-//                 }}
-//               >
-//                 <span
-//                   style={{
-//                     fontFamily: "monospace",
-//                     fontSize: "13px",
-//                     wordBreak: "break-all",
-//                   }}
-//                 >
-//                   https://shopify.com/73325314260/account/pages/7c4a25d5-0da8-4259-bf5f-40ed6112e4d6
-//                 </span>
-
-//                 <InlineStack gap="200">
-//                   <Button>Copy</Button>
-//                 </InlineStack>
-//               </div>
-//               <p>Email variable: <span>{`{{ resume_subscription_url  }}`}</span></p>
-//             </Card>
-            
-//           </BlockStack>
-//         </Card>
-//       </BlockStack>
-//     </Page>
-//   );
-// }
-
 
 
 // app/routes/app.quick-actions.jsx
@@ -203,7 +70,9 @@ export default function QuickActions() {
   const copy = async (text) => {
     await navigator.clipboard.writeText(text);
   };
-
+const trimUrl = (url, maxLength = 50) => {
+  return url.length > maxLength ? `${url.slice(0, maxLength)}...` : url;
+};
   return (
     <Page title="Quick actions">
       <BlockStack gap="400">
@@ -218,7 +87,7 @@ export default function QuickActions() {
               </p>
               <div style={{ /* same styles as before */ }}>
                 <span style={{ fontFamily: "monospace", fontSize: "13px" }}>
-                  {pauseUrl}
+                  {trimUrl(pauseUrl)}
                 </span>
                 <InlineStack gap="200">
                   <Button onClick={() => copy(pauseUrl)}>Copy</Button>
@@ -235,7 +104,7 @@ export default function QuickActions() {
               <p>Send customers a direct link to cancel their subscription.</p>
               <div style={{ /* same styles */ }}>
                 <span style={{ fontFamily: "monospace", fontSize: "13px" }}>
-                  {cancelUrl}
+                  {trimUrl(cancelUrl)}
                 </span>
                 <InlineStack gap="200">
                   <Button onClick={() => copy(cancelUrl)}>Copy</Button>
@@ -252,7 +121,7 @@ export default function QuickActions() {
               <p>Send customers a direct link to resume their subscription.</p>
               <div style={{ /* same styles */ }}>
                 <span style={{ fontFamily: "monospace", fontSize: "13px" }}>
-                  {resumeUrl}
+                  {trimUrl(resumeUrl)}
                 </span>
                 <InlineStack gap="200">
                   <Button onClick={() => copy(resumeUrl)}>Copy</Button>

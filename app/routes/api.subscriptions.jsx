@@ -1,3 +1,4 @@
+
 import { authenticate, unauthenticated } from "../shopify.server";
 import prisma from "../db.server";
 
@@ -6,6 +7,9 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Methods": "GET, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
+
+const DEFAULT_LIMIT = 7;
+const MAX_LIMIT = 50;
 
 export const action = async ({ request }) => {
   if (request.method === "OPTIONS") {
@@ -23,6 +27,12 @@ export const loader = async ({ request }) => {
     const url = new URL(request.url);
     let customerId = url.searchParams.get("customerId");
 
+    // --- pagination params ---
+    const cursor = url.searchParams.get("cursor") || null; // endCursor from previous page
+    let limit = parseInt(url.searchParams.get("limit"), 10);
+    if (!Number.isFinite(limit) || limit <= 0) limit = DEFAULT_LIMIT;
+    if (limit > MAX_LIMIT) limit = MAX_LIMIT;
+
     if (!customerId || customerId === "undefined" || customerId === "null") {
       return Response.json(
         { error: "customerId missing or invalid" },
@@ -36,10 +46,15 @@ export const loader = async ({ request }) => {
 
     const res = await admin.graphql(
       `#graphql
-      query GetCustomerSubscriptions($customerId: ID!) {
+      query GetCustomerSubscriptions($customerId: ID!, $first: Int!, $after: String) {
         customer(id: $customerId) {
-          subscriptionContracts(first: 30) {
+          subscriptionContracts(first: $first, after: $after,reverse: true) {
+            pageInfo {
+              hasNextPage
+              endCursor
+            }
             edges {
+              cursor
               node {
                 id
                 status
@@ -80,7 +95,7 @@ export const loader = async ({ request }) => {
           }
         }
       }`,
-      { variables: { customerId } }
+      { variables: { customerId, first: limit, after: cursor } }
     );
 
     const { data, errors } = await res.json();
@@ -91,8 +106,9 @@ export const loader = async ({ request }) => {
         {
           shop,
           queriedCustomerId: customerId,
+          limit,
+          cursor,
           customerFound: data?.customer !== null && data?.customer !== undefined,
-          rawCustomer: data?.customer,
         },
         null,
         2
@@ -104,7 +120,9 @@ export const loader = async ({ request }) => {
       return Response.json({ error: errors }, { status: 500, headers: CORS_HEADERS });
     }
 
-    const contracts = data?.customer?.subscriptionContracts?.edges?.map((e) => e.node) ?? [];
+    const connection = data?.customer?.subscriptionContracts;
+    const contracts = connection?.edges?.map((e) => e.node) ?? [];
+    const pageInfo = connection?.pageInfo ?? { hasNextPage: false, endCursor: null };
 
     const productIds = [
       ...new Set(
@@ -147,6 +165,7 @@ export const loader = async ({ request }) => {
         }
       });
     }
+
     async function fetchUpcomingBillingCycles(contractId) {
       const now = new Date();
       const startDate = now.toISOString();
@@ -218,7 +237,6 @@ export const loader = async ({ request }) => {
           console.error("Policy lookup failed for", contractIdNumeric, e.message);
         }
 
-
         const lines = contract.lines?.edges?.map((e) => {
           const node = e.node;
           return {
@@ -243,7 +261,7 @@ export const loader = async ({ request }) => {
           lines: { edges: lines.map((line) => ({ node: line })) },
           nextBillingDate: realNextBillingDate,
           nextBillingCycleIndex: nextCycle?.cycleIndex ?? null,
-          upcomingCycles, 
+          upcomingCycles,
           subtotal,
           currencyCode: lines[0]?.lineDiscountedPrice?.currencyCode ?? "INR",
           paymentsCompleted: policy?.paymentsCompleted ?? 0,
@@ -252,7 +270,16 @@ export const loader = async ({ request }) => {
       })
     );
 
-    return Response.json({ subscriptions: enriched }, { headers: CORS_HEADERS });
+    return Response.json(
+      {
+        subscriptions: enriched,
+        pageInfo: {
+          hasNextPage: pageInfo.hasNextPage,
+          endCursor: pageInfo.endCursor,
+        },
+      },
+      { headers: CORS_HEADERS }
+    );
   } catch (err) {
     console.error("api.subscriptions error:", err.message, err.stack);
     return Response.json(
