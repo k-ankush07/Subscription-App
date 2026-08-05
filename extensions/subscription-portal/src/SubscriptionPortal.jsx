@@ -7,7 +7,7 @@ const PAGE_SIZE = 7;
 
 export default async () => {
   render(<Extension />, document.body);
-};fregfuyfgusdfgudsfdfvdfvbfgbdfgbdfegtresrfefcesdfdsfdaerwqdwdewsdsaeddfcdsfgvrtfgvfdgv
+}
 
 function getNumericId(gid) {
   if (!gid) return null;
