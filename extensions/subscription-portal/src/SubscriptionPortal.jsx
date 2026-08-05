@@ -2,7 +2,7 @@ import "@shopify/ui-extensions/preact";
 import { render } from "preact";
 import { useState, useEffect, useCallback, useRef } from "preact/hooks";
 import { hideModalById, showModalById } from "./Modalutils";
-const API_BASE = "https://billy-pushed-settings-berkeley.trycloudflare.com";
+const API_BASE = "https://ton-product-assure-penalties.trycloudflare.com";
 const PAGE_SIZE = 7;
 
 export default async () => {
