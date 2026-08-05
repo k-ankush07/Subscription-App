@@ -65,7 +65,6 @@ function Extension() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [selected, setSelected] = useState(null);
-    const [visibleCount, setVisibleCount] = useState(7);
 
     const fetchSubscriptions = useCallback(async () => {
         try {
@@ -123,15 +122,7 @@ function Extension() {
         fetchSubscriptions();
     }, [fetchSubscriptions]);
 
-    if (loading) {
-        return (
-            <s-page heading="Subscriptions">
-                <s-section>
-                    <s-text>Loading...</s-text>
-                </s-section>
-            </s-page>
-        );
-    }
+   
 
     if (error) {
         return (
@@ -179,25 +170,17 @@ function Extension() {
             />
         );
     }
-return (
+
+    return (
         <s-page heading="Subscriptions">
             <s-section>
                 {subscriptions.length === 0 ? (
                     <s-text>No subscriptions.....</s-text>
                 ) : (
                     <s-stack direction="block" gap="base">
-                        {subscriptions.slice(0, visibleCount).map((sub) => (
+                        {subscriptions.map((sub) => (
                             <SubscriptionCard key={sub.id} sub={sub} onClick={() => setSelected(sub)} />
                         ))}
-
-                        {visibleCount < subscriptions.length && (
-                            <s-button
-                                variant="secondary"
-                                onClick={() => setVisibleCount((prev) => prev + 7)}
-                            >
-                                View more
-                            </s-button>
-                        )}
                     </s-stack>
                 )}
             </s-section>
