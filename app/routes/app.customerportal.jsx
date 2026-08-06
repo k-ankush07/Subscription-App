@@ -196,7 +196,7 @@ export const loader = async ({ request }) => {
 
   const { data } = await res.json();
   const baseUrl = data.shop.customerAccountsV2.url;
-  const targetUuid = process.env.SHOPIFY_CUSTOMER_UID; // "Customer Portal Page"
+  const targetUuid = process.env.SHOPIFY_CUSTOMER_UID; 
 
   const myPage = data.customerAccountPages.nodes.find(
     (n) =>

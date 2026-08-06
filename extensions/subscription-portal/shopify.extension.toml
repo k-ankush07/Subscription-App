@@ -6,18 +6,18 @@
 api_version = "2026-07"
 
 [[extensions]]
-name = "subscritpion managment"
-handle = "subscritpion-managment"
+name = "subscription-portal"
+handle = "subscription-portal"
 type = "ui_extension"
-uid = "33244e8d-8efc-8200-174d-dbb5f582b5f79b3e62da"
+uid = "eff27c16-b5da-5b4a-762c-c49dde455125b9cbaafe"
 
 # Controls where in Shopify your extension will be injected,
 # and the file that contains your extension’s source code. Learn more:
 # https://shopify.dev/docs/api/customer-account-ui-extensions/unstable/extension-targets-overview
 
 [[extensions.targeting]]
-module = "./src/OrderStatusBlock.jsx"
-target = "customer-account.order-status.block.render"
+module = "./src/SubscriptionPortal.jsx"
+target = "customer-account.page.render"
 
 [extensions.capabilities]
 # Gives your extension access to directly query Shopify’s storefront API.
@@ -27,4 +27,4 @@ api_access = true
 # Gives your extension access to make external network calls, using the
 # JavaScript `fetch()` API. Learn more:
 # https://shopify.dev/docs/api/customer-account-ui-extensions/unstable/configuration#network-access
-# network_access = true
+ network_access = true
