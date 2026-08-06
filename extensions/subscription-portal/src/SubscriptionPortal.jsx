@@ -405,7 +405,9 @@ function SubscriptionDetail({ sub, onBack }) {
                     </s-text>
                   </s-stack>
 
-                  
+                  <div>
+                    <s-button>Skip</s-button>
+                  </div>
 
                   {cycles.length > 0 && (
                     <s-link command="--show" commandFor={modalId}>
