@@ -3,7 +3,7 @@ import { render } from "preact";
 import { useState, useEffect, useCallback, useRef } from "preact/hooks";
 
 const API_BASE =
-  "https://computed-conservative-scoring-xhtml.trycloudflare.com";
+  "https://sufficient-biological-subject-referral.trycloudflare.com";
 const PAGE_SIZE = 7;
 
 export default async () => {

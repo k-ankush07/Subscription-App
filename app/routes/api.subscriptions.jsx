@@ -1,5 +1,5 @@
 import { authenticate, unauthenticated } from "../shopify.server";
-import { getContractPreview } from "../lib/billing-preview.server";
+import { getContractPreview ,getShopCurrency } from "../lib/billing-preview.server";
 import prisma from "../db.server";
 
 const CORS_HEADERS = {
@@ -23,6 +23,7 @@ export const loader = async ({ request }) => {
     const { sessionToken } = await authenticate.public.customerAccount(request);
     const shop = sessionToken.dest.replace("https://", "");
     const { admin } = await unauthenticated.admin(shop);
+    const shopCurrency = await getShopCurrency(admin); 
 
     const url = new URL(request.url);
     let customerId = url.searchParams.get("customerId");
@@ -288,7 +289,7 @@ export const loader = async ({ request }) => {
         let preview = null;
         if (contract.status === "ACTIVE" || contract.status === "PAUSED") {
           try {
-            preview = await getContractPreview(admin, contract.id);
+            preview = await getContractPreview(admin, contract.id,shopCurrency);
           } catch (e) {
             console.error(
               `getContractPreview failed for ${contract.id}:`,
@@ -336,7 +337,11 @@ export const loader = async ({ request }) => {
             preview?.nextOrder?.cycleIndex ?? nextCycle?.cycleIndex ?? null,
           upcomingCycles,
           subtotal,
-          currencyCode: lines[0]?.lineDiscountedPrice?.currencyCode ?? "INR",
+          // currencyCode: lines[0]?.lineDiscountedPrice?.currencyCode ?? "INR",
+          currencyCode:
+  lines[0]?.lineDiscountedPrice?.currencyCode ??
+  preview?.nextOrder?.calculatedOrderTotal?.currencyCode ??
+  shopCurrency,
           paymentsCompleted: policy?.paymentsCompleted ?? 0,
           minPaymentsRequired: policy?.minPaymentsRequired ?? null,
         };

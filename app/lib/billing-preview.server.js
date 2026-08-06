@@ -130,36 +130,16 @@ function normalizeAutomationAction(action, afterOrders) {
       dests: allDests,
       after: afterOrders,
     });
-    // for (let i = 1; i < flatVariants.length; i++) {
-    //   results.push({
-    //     type: "ADD_PRODUCT",
-    //     variantId: flatVariants[i].variantId,
-    //     quantity: action.quantity ?? 1,
-    //     sourceProductId: action.sourceProductId,
-    //     destProductId: flatVariants[i].dest?.id ?? null,
-    //     after: afterOrders,
-    //   });
-    // }
-
     for (let i = 1; i < flatVariants.length; i++) {
-  const dest = flatVariants[i].dest;
-  const variantId = flatVariants[i].variantId;
-  const variantIdx = dest?.variantIds?.indexOf(variantId) ?? -1;
-  const variantName = variantIdx >= 0 ? dest?.variantNames?.[variantIdx] ?? null : null;
-  const variantImage = variantIdx >= 0 ? dest?.variantImages?.[variantIdx] ?? null : null;
-
-  results.push({
-    type: "ADD_PRODUCT",
-    variantId,
-    quantity: action.quantity ?? 1,
-    sourceProductId: action.sourceProductId,
-    destProductId: dest?.id ?? null,
-    productName: dest?.name ?? null,        
-    variantName: variantName ?? null,      
-    imageUrl: variantImage ?? dest?.imageUrl ?? null,
-    after: afterOrders,
-  });
-}
+      results.push({
+        type: "ADD_PRODUCT",
+        variantId: flatVariants[i].variantId,
+        quantity: action.quantity ?? 1,
+        sourceProductId: action.sourceProductId,
+        destProductId: flatVariants[i].dest?.id ?? null,
+        after: afterOrders,
+      });
+    }
 
     return results;
   }
