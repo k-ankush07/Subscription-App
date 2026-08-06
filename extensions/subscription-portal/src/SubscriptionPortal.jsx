@@ -47,6 +47,15 @@ function formatShort(dateOnlyStr) {
     timeZone: "UTC",
   });
 }
+function formatShortWithYear(dateOnlyStr) {
+  if (!dateOnlyStr) return "-";
+  const d = dateOnlyToUTCDate(dateOnlyStr);
+  const opts = { day: "numeric", month: "short", timeZone: "UTC" };
+  if (d.getUTCFullYear() !== new Date().getUTCFullYear()) {
+    opts.year = "numeric";
+  }
+  return d.toLocaleDateString("en-GB", opts);
+}
 
 function SkeletonCard() {
   return (
@@ -381,33 +390,76 @@ function SubscriptionDetail({ sub, onBack }) {
           >
             Status: {sub.status}
           </s-badge>
+          {(() => {
+            const numericId = getNumericId(sub.id);
+            const modalId = `upcoming-orders-modal-${numericId}`;
+            const cycles = sub.upcomingCycles ?? [];
 
-         <s-box border="base" borderRadius="base" padding="base">
-  <s-stack direction="block" gap="base">
-    <s-stack direction="block" gap="tight">
-      <s-text fontWeight="bold">Upcoming order</s-text>
-      <s-text tone="subdued">
-        {formatShort(toDateOnlyString(sub.nextBillingDate))}
-      </s-text>
-    </s-stack>
+            return (
+              <s-box border="base" borderRadius="base" padding="base">
+                <s-stack direction="block" gap="base">
+                  <s-stack direction="block" gap="tight">
+                    <s-text fontWeight="bold">Upcoming order</s-text>
+                    <s-text tone="subdued">
+                      {formatShort(toDateOnlyString(sub.nextBillingDate))}
+                    </s-text>
+                  </s-stack>
 
-    <s-stack direction="inline" gap="tight">
-      <s-button
-        variant="secondary"
-        onClick={() => handleSkip(sub.id)}
-      >
-        Skip
-      </s-button>
+                  
 
-      <s-button
-        variant="primary"
-        onClick={() => handleReschedule(sub.id)}
-      >
-        Reschedule
-      </s-button>
-    </s-stack>
-  </s-stack>
-</s-box>
+                  {cycles.length > 0 && (
+                    <s-link command="--show" commandFor={modalId}>
+                      Show upcoming orders
+                    </s-link>
+                  )}
+                </s-stack>
+
+                {/* Upcoming orders modal */}
+                <s-modal id={modalId} heading="Upcoming orders">
+                  <s-stack direction="block" gap="base">
+                    {cycles.map((cycle) => (
+                      <s-stack
+                        key={cycle.cycleIndex}
+                        direction="inline"
+                        gap="base"
+                        alignItems="center"
+                        justifyContent="space-between"
+                      >
+                        <s-text>
+                          {formatShortWithYear(
+                            toDateOnlyString(cycle.billingAttemptExpectedDate),
+                          )}
+                        </s-text>
+                        <s-stack direction="inline" gap="20">
+                          <s-link
+                            onClick={() =>
+                              handleReschedule(sub.id, cycle.cycleIndex)
+                            }
+                          >
+                            Reschedule
+                          </s-link>
+                          <s-link
+                            onClick={() => handleSkip(sub.id, cycle.cycleIndex)}
+                          >
+                            Skip
+                          </s-link>
+                        </s-stack>
+                      </s-stack>
+                    ))}
+                  </s-stack>
+
+                  <s-button
+                    variant="primary"
+                    command="--hide"
+                    commandFor={modalId}
+                    slot="primary-action"
+                  >
+                    Close
+                  </s-button>
+                </s-modal>
+              </s-box>
+            );
+          })()}
 
           <s-box border="base" borderRadius="base" padding="base">
             <s-stack direction="block" gap="tight">
