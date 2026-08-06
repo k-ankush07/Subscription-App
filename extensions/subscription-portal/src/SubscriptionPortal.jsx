@@ -265,7 +265,15 @@ function Extension() {
   }
 
   if (selectedSub) {
-    return <SubscriptionDetail sub={selectedSub} onBack={handleBack} />;
+    return <SubscriptionDetail sub={selectedSub} onBack={handleBack}
+     refreshSubscriptions={async () => {
+    const list = await fetchPage({ afterCursor: null, reset: true });
+    const updated = list?.find((s) => s.id === selectedSub.id);
+    if (updated) {
+      setSelectedSub(updated);
+    }
+  }}
+    />;
   }
 
   return (
@@ -354,7 +362,7 @@ function SubscriptionCard({ sub, onClick }) {
   );
 }
 
-function SubscriptionDetail({ sub, onBack }) {
+function SubscriptionDetail({ sub, onBack,refreshSubscriptions  }) {
   const [upcomingCycles, setUpcomingCycles] = useState(
   sub.upcomingCycles ?? []
 );
@@ -404,6 +412,9 @@ const nextCycle = updatedCycles.find(
 if (nextCycle) {
   setNextBillingDate(nextCycle.billingAttemptExpectedDate);
 }
+
+await refreshSubscriptions();
+
 
     shopify.toast.show("Order skipped");
   } catch (err) {
