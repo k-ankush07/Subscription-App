@@ -946,12 +946,6 @@ export async function action({ request, params }) {
 
         try {
           let cancelPayload = null;
-          // Shopify's charge mutation returns before the billing attempt is
-          // fully processed — clearing/cancelling right after can fail with
-          // "incomplete billing attempts in progress". Retry a few times
-          // with increasing waits instead of giving up after one try. If it
-          // still hasn't settled after this, the cron job's own auto-cancel
-          // check (which runs on a schedule) will catch it on a later pass.
           const WAIT_STEPS_MS = [2000, 4000, 6000];
 
           for (let attempt = 0; attempt <= WAIT_STEPS_MS.length; attempt++) {
