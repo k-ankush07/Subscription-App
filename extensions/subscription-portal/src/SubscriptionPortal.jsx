@@ -29,6 +29,7 @@ function dateOnlyToUTCDate(dateOnlyStr) {
 }
 
 function formatShort(dateOnlyStr) {
+  if (!dateOnlyStr) return "-";
   return dateOnlyToUTCDate(dateOnlyStr).toLocaleDateString("en-GB", {
     day: "numeric",
     month: "short",
@@ -40,13 +41,38 @@ function SkeletonCard() {
   return (
     <s-box border="base" borderRadius="base" padding="base">
       <s-stack direction="block" gap="tight">
-        <s-box inlineSize="60px" blockSize="20px" borderRadius="base" background="subdued" />
+        <s-box
+          inlineSize="60px"
+          blockSize="20px"
+          borderRadius="base"
+          background="subdued"
+        />
         <s-stack direction="inline" gap="tight" alignItems="center">
-          <s-box inlineSize="56px" blockSize="56px" borderRadius="base" background="subdued" />
-          <s-box inlineSize="140px" blockSize="16px" borderRadius="base" background="subdued" />
+          <s-box
+            inlineSize="56px"
+            blockSize="56px"
+            borderRadius="base"
+            background="subdued"
+          />
+          <s-box
+            inlineSize="140px"
+            blockSize="16px"
+            borderRadius="base"
+            background="subdued"
+          />
         </s-stack>
-        <s-box inlineSize="120px" blockSize="14px" borderRadius="base" background="subdued" />
-        <s-box inlineSize="160px" blockSize="14px" borderRadius="base" background="subdued" />
+        <s-box
+          inlineSize="120px"
+          blockSize="14px"
+          borderRadius="base"
+          background="subdued"
+        />
+        <s-box
+          inlineSize="160px"
+          blockSize="14px"
+          borderRadius="base"
+          background="subdued"
+        />
       </s-stack>
     </s-box>
   );
@@ -57,9 +83,9 @@ function Extension() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(null);
-
   const [cursor, setCursor] = useState(null);
   const [hasMore, setHasMore] = useState(false);
+  const [selectedSub, setSelectedSub] = useState(null);
   const customerIdRef = useRef(null);
 
   const getCustomerId = useCallback(async () => {
@@ -163,6 +189,15 @@ function Extension() {
     );
   }
 
+  if (selectedSub) {
+    return (
+      <SubscriptionDetail
+        sub={selectedSub}
+        onBack={() => setSelectedSub(null)}
+      />
+    );
+  }
+
   return (
     <s-page heading="Subscriptions">
       <s-section>
@@ -177,7 +212,11 @@ function Extension() {
         ) : (
           <s-stack direction="block" gap="base">
             {subscriptions.map((sub) => (
-              <SubscriptionCard key={sub.id} sub={sub} />
+              <SubscriptionCard
+                key={sub.id}
+                sub={sub}
+                onClick={() => setSelectedSub(sub)}
+              />
             ))}
 
             {loadingMore &&
@@ -197,14 +236,14 @@ function Extension() {
   );
 }
 
-function getLineImageUrl(line) {
-  return line?.imageUrl || null;
-}
+function SubscriptionCard({ sub, onClick }) {
+  // List me sirf PEHLA product dikhana hai (displayLine agar backend se aaya hai,
+  // warna fallback contract ki base line)
+  const line = sub.displayLine || sub.lines?.edges?.[0]?.node;
+  const imageUrl = line?.imageUrl || null;
 
-function SubscriptionCard({ sub }) {
-  const line = sub.lines?.edges?.[0]?.node;
-  const imageUrl = getLineImageUrl(line);
-
+  // NOTE: s-box onClick support nahi karta (ye sirf layout container hai).
+  // Click ke liye actual interactive component (s-button) chahiye.
   return (
     <s-box border="base" borderRadius="base" padding="base">
       <s-stack direction="block" gap="tight">
@@ -237,7 +276,146 @@ function SubscriptionCard({ sub }) {
           Delivery every {sub.deliveryPolicy?.intervalCount}{" "}
           {sub.deliveryPolicy?.interval?.toLowerCase()}
         </s-text>
+        <s-button variant="secondary" onClick={onClick}>
+          View details
+        </s-button>
       </s-stack>
     </s-box>
+  );
+}
+
+function SubscriptionDetail({ sub, onBack }) {
+  // Detail me SAARE products dikhane hain (base line + automation se add hue items).
+  // Backend se nextOrderLineItems bhejna zaroori hai (getContractPreview ka nextOrder.lineItems).
+  const items = sub.nextOrderLineItems?.length
+    ? sub.nextOrderLineItems
+    : (sub.lines?.edges?.map((e) => e.node) ?? []);
+
+  const address = sub.deliveryMethod?.address ?? null;
+  const total = sub.nextOrderTotal;
+  const shipping = sub.nextOrderShipping;
+  const grandTotal =
+    total != null
+      ? (
+          Number(total.amount) + Number(shipping?.calculatedPrice?.amount ?? 0)
+        ).toFixed(2)
+      : null;
+
+  return (
+    <s-page heading="Manage subscription">
+      <s-section>
+        <s-stack direction="block" gap="base">
+          <s-stack direction="inline" gap="tight" alignItems="center">
+            <s-button variant="tertiary" onClick={onBack}>
+              ← Back
+            </s-button>
+          </s-stack>
+
+          <s-badge
+            tone={
+              sub.status === "ACTIVE"
+                ? "success"
+                : sub.status === "PAUSED"
+                  ? "warning"
+                  : "neutral"
+            }
+          >
+            Status: {sub.status}
+          </s-badge>
+
+          <s-box border="base" borderRadius="base" padding="base">
+            <s-stack direction="block" gap="tight">
+              <s-text fontWeight="bold">Upcoming order</s-text>
+              <s-text tone="subdued">
+                {formatShort(toDateOnlyString(sub.nextBillingDate))}
+              </s-text>
+            </s-stack>
+          </s-box>
+
+          <s-box border="base" borderRadius="base" padding="base">
+            <s-stack direction="block" gap="tight">
+              <s-text fontWeight="bold">Delivery frequency</s-text>
+              <s-text tone="subdued">
+                Delivery every {sub.deliveryPolicy?.intervalCount}{" "}
+                {sub.deliveryPolicy?.interval?.toLowerCase()}
+              </s-text>
+
+              {address && (
+                <>
+                  <s-text fontWeight="bold">Shipping address</s-text>
+                  <s-text tone="subdued">
+                    {address.name}
+                    {address.address1 ? `, ${address.address1}` : ""}
+                    {address.address2 ? `, ${address.address2}` : ""}
+                    {address.city ? `, ${address.city}` : ""}
+                    {address.provinceCode ? `, ${address.provinceCode}` : ""}{" "}
+                    {address.zip ?? ""}
+                    {address.country ? `, ${address.country}` : ""}
+                  </s-text>
+                </>
+              )}
+            </s-stack>
+          </s-box>
+
+          <s-box border="base" borderRadius="base" padding="base">
+            <s-stack direction="block" gap="base">
+              {items.map((item, i) => (
+                <s-stack
+                  key={item.variantId ?? item.id ?? i}
+                  direction="inline"
+                  gap="tight"
+                  alignItems="center"
+                >
+                  <s-box
+                    inlineSize="56px"
+                    blockSize="56px"
+                    borderRadius="base"
+                    overflow="hidden"
+                  >
+                    <s-image
+                      src={item.imageUrl}
+                      alt={item.title || "Product image"}
+                    />
+                  </s-box>
+                  <s-stack direction="block" gap="none">
+                    <s-text fontWeight="bold">{item.title}</s-text>
+                    <s-text tone="subdued">Qty {item.quantity}</s-text>
+                  </s-stack>
+                  <s-text>
+                    {item.itemTotal?.currencyCode} {item.itemTotal?.amount}
+                  </s-text>
+                </s-stack>
+              ))}
+
+              {total && (
+                <s-stack direction="block" gap="tight">
+                  <s-stack direction="inline" gap="tight">
+                    <s-text>Subtotal</s-text>
+                    <s-text>
+                      {total.currencyCode} {total.amount}
+                    </s-text>
+                  </s-stack>
+                  {shipping && (
+                    <s-stack direction="inline" gap="tight">
+                      <s-text>Shipping</s-text>
+                      <s-text>
+                        {shipping.calculatedPrice?.currencyCode}{" "}
+                        {shipping.calculatedPrice?.amount}
+                      </s-text>
+                    </s-stack>
+                  )}
+                  <s-stack direction="inline" gap="tight">
+                    <s-text fontWeight="bold">Total</s-text>
+                    <s-text fontWeight="bold">
+                      {total.currencyCode} {grandTotal}
+                    </s-text>
+                  </s-stack>
+                </s-stack>
+              )}
+            </s-stack>
+          </s-box>
+        </s-stack>
+      </s-section>
+    </s-page>
   );
 }

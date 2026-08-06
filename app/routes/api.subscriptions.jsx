@@ -1,5 +1,5 @@
-
 import { authenticate, unauthenticated } from "../shopify.server";
+import { getContractPreview } from "../lib/billing-preview.server";
 import prisma from "../db.server";
 
 const CORS_HEADERS = {
@@ -36,7 +36,7 @@ export const loader = async ({ request }) => {
     if (!customerId || customerId === "undefined" || customerId === "null") {
       return Response.json(
         { error: "customerId missing or invalid" },
-        { status: 400, headers: CORS_HEADERS }
+        { status: 400, headers: CORS_HEADERS },
       );
     }
 
@@ -88,6 +88,15 @@ export const loader = async ({ request }) => {
                       title
                       presentmentTitle
                     }
+                        address {
+                        name
+                        address1
+                        address2
+                        city
+                        provinceCode
+                        zip
+                        country
+                      }
                       
                   }
                 }
@@ -96,7 +105,7 @@ export const loader = async ({ request }) => {
           }
         }
       }`,
-      { variables: { customerId, first: limit, after: cursor } }
+      { variables: { customerId, first: limit, after: cursor } },
     );
 
     const { data, errors } = await res.json();
@@ -109,27 +118,37 @@ export const loader = async ({ request }) => {
           queriedCustomerId: customerId,
           limit,
           cursor,
-          customerFound: data?.customer !== null && data?.customer !== undefined,
+          customerFound:
+            data?.customer !== null && data?.customer !== undefined,
         },
         null,
-        2
-      )
+        2,
+      ),
     );
 
     if (errors) {
       console.error("GraphQL errors:", JSON.stringify(errors, null, 2));
-      return Response.json({ error: errors }, { status: 500, headers: CORS_HEADERS });
+      return Response.json(
+        { error: errors },
+        { status: 500, headers: CORS_HEADERS },
+      );
     }
 
     const connection = data?.customer?.subscriptionContracts;
     const contracts = connection?.edges?.map((e) => e.node) ?? [];
-    const pageInfo = connection?.pageInfo ?? { hasNextPage: false, endCursor: null };
+    const pageInfo = connection?.pageInfo ?? {
+      hasNextPage: false,
+      endCursor: null,
+    };
 
     const productIds = [
       ...new Set(
-        contracts.flatMap((contract) =>
-          contract.lines?.edges?.map((edge) => edge.node.productId).filter(Boolean) ?? []
-        )
+        contracts.flatMap(
+          (contract) =>
+            contract.lines?.edges
+              ?.map((edge) => edge.node.productId)
+              .filter(Boolean) ?? [],
+        ),
       ),
     ];
 
@@ -154,7 +173,7 @@ export const loader = async ({ request }) => {
             }
           }
         }`,
-        { variables: { ids: productIds } }
+        { variables: { ids: productIds } },
       );
 
       const imagesData = await imagesRes.json();
@@ -162,7 +181,9 @@ export const loader = async ({ request }) => {
       nodes.forEach((node) => {
         if (node?.id) {
           productImagesMap[node.id] =
-            node.images?.edges?.[0]?.node?.url || node.featuredImage?.url || null;
+            node.images?.edges?.[0]?.node?.url ||
+            node.featuredImage?.url ||
+            null;
         }
       });
     }
@@ -171,7 +192,7 @@ export const loader = async ({ request }) => {
       const now = new Date();
       const startDate = now.toISOString();
       const endDate = new Date(
-        now.getTime() + 90 * 24 * 60 * 60 * 1000 // look 90 days ahead
+        now.getTime() + 90 * 24 * 60 * 60 * 1000, // look 90 days ahead
       ).toISOString();
 
       try {
@@ -199,28 +220,35 @@ export const loader = async ({ request }) => {
               contractId,
               rangeSelector: { startDate, endDate },
             },
-          }
+          },
         );
 
         const cyclesPayload = await cyclesRes.json();
         if (cyclesPayload.errors) {
           console.error(
             `subscriptionBillingCycles query errors for ${contractId}:`,
-            JSON.stringify(cyclesPayload.errors, null, 2)
+            JSON.stringify(cyclesPayload.errors, null, 2),
           );
           return [];
         }
 
         const cycles =
-          cyclesPayload.data?.subscriptionBillingCycles?.edges?.map((e) => e.node) ?? [];
+          cyclesPayload.data?.subscriptionBillingCycles?.edges?.map(
+            (e) => e.node,
+          ) ?? [];
 
         cycles.sort(
-          (a, b) => new Date(a.billingAttemptExpectedDate) - new Date(b.billingAttemptExpectedDate)
+          (a, b) =>
+            new Date(a.billingAttemptExpectedDate) -
+            new Date(b.billingAttemptExpectedDate),
         );
 
         return cycles;
       } catch (e) {
-        console.error(`Failed to fetch billing cycles for ${contractId}:`, e.message);
+        console.error(
+          `Failed to fetch billing cycles for ${contractId}:`,
+          e.message,
+        );
         return [];
       }
     }
@@ -235,40 +263,83 @@ export const loader = async ({ request }) => {
             where: { subscriptionContractId: contractIdNumeric },
           });
         } catch (e) {
-          console.error("Policy lookup failed for", contractIdNumeric, e.message);
+          console.error(
+            "Policy lookup failed for",
+            contractIdNumeric,
+            e.message,
+          );
         }
 
-        const lines = contract.lines?.edges?.map((e) => {
-          const node = e.node;
-          return {
-            ...node,
-            imageUrl: node.productId ? productImagesMap[node.productId] || null : null,
-          };
-        }) ?? [];
+        const lines =
+          contract.lines?.edges?.map((e) => {
+            const node = e.node;
+            return {
+              ...node,
+              imageUrl: node.productId
+                ? productImagesMap[node.productId] || null
+                : null,
+            };
+          }) ?? [];
         const subtotal = lines.reduce(
-          (sum, line) => sum + parseFloat(line.lineDiscountedPrice?.amount ?? 0),
-          0
+          (sum, line) =>
+            sum + parseFloat(line.lineDiscountedPrice?.amount ?? 0),
+          0,
         );
+        let preview = null;
+        if (contract.status === "ACTIVE" || contract.status === "PAUSED") {
+          try {
+            preview = await getContractPreview(admin, contract.id);
+          } catch (e) {
+            console.error(
+              `getContractPreview failed for ${contract.id}:`,
+              e.message,
+            );
+          }
+        }
 
+        const resolvedLine =
+          preview?.nextOrder?.lineItems?.find((li) => li.isBaseLine) ??
+          preview?.nextOrder?.lineItems?.[0] ??
+          null;
+
+        const displayLine = resolvedLine
+          ? {
+              title: resolvedLine.title,
+              imageUrl: resolvedLine.imageUrl,
+              productId: resolvedLine.productId,
+              variantId: resolvedLine.variantId,
+              quantity: resolvedLine.quantity,
+              priceAmount: resolvedLine.pricePerUnit?.amount,
+              currencyCode: resolvedLine.pricePerUnit?.currencyCode,
+            }
+          : null; // fallback widget me lines[0] use kar lega
         const upcomingCycles = await fetchUpcomingBillingCycles(contract.id);
 
         const nextCycle =
-          upcomingCycles.find((c) => !c.skipped && c.status !== "BILLED") ?? upcomingCycles[0];
+          upcomingCycles.find((c) => !c.skipped && c.status !== "BILLED") ??
+          upcomingCycles[0];
 
-        const realNextBillingDate = nextCycle?.billingAttemptExpectedDate ?? contract.nextBillingDate;
+        const realNextBillingDate =
+          nextCycle?.billingAttemptExpectedDate ?? contract.nextBillingDate;
 
         return {
           ...contract,
           lines: { edges: lines.map((line) => ({ node: line })) },
-          nextBillingDate: realNextBillingDate,
-          nextBillingCycleIndex: nextCycle?.cycleIndex ?? null,
+          displayLine, // list card ke liye — sirf pehla product
+          nextOrderLineItems: preview?.nextOrder?.lineItems ?? [], // detail view ke liye — SAARE products
+          nextOrderTotal: preview?.nextOrder?.calculatedOrderTotal ?? null,
+          nextOrderShipping: preview?.nextOrder?.shipping ?? null,
+          nextBillingDate:
+            preview?.nextOrder?.expectedDate ?? realNextBillingDate,
+          nextBillingCycleIndex:
+            preview?.nextOrder?.cycleIndex ?? nextCycle?.cycleIndex ?? null,
           upcomingCycles,
           subtotal,
           currencyCode: lines[0]?.lineDiscountedPrice?.currencyCode ?? "INR",
           paymentsCompleted: policy?.paymentsCompleted ?? 0,
           minPaymentsRequired: policy?.minPaymentsRequired ?? null,
         };
-      })
+      }),
     );
 
     return Response.json(
@@ -279,13 +350,13 @@ export const loader = async ({ request }) => {
           endCursor: pageInfo.endCursor,
         },
       },
-      { headers: CORS_HEADERS }
+      { headers: CORS_HEADERS },
     );
   } catch (err) {
     console.error("api.subscriptions error:", err.message, err.stack);
     return Response.json(
       { error: err.message || "Unknown error" },
-      { status: 500, headers: CORS_HEADERS }
+      { status: 500, headers: CORS_HEADERS },
     );
   }
 };
