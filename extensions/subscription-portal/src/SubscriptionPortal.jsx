@@ -355,6 +355,57 @@ function SubscriptionCard({ sub, onClick }) {
 }
 
 function SubscriptionDetail({ sub, onBack }) {
+  const [upcomingCycles, setUpcomingCycles] = useState(
+  sub.upcomingCycles ?? []
+);
+
+const [nextBillingDate, setNextBillingDate] = useState(
+  sub.nextBillingDate
+);
+
+const [skipLoading, setSkipLoading] = useState(false);
+async function handleSkip(contractId, cycleIndex) {
+  try {
+    setSkipLoading(true);
+
+    const token = await shopify.sessionToken.get();
+
+    const res = await fetch(`${API_BASE}/api/subscriptions/skip`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        contractId,
+        cycleIndex,
+      }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || "Skip failed");
+    }
+
+    const updatedCycles = upcomingCycles.filter(
+      (c) => c.cycleIndex !== cycleIndex
+    );
+
+    setUpcomingCycles(updatedCycles);
+
+    if (updatedCycles.length > 0) {
+      setNextBillingDate(updatedCycles[0].billingAttemptExpectedDate);
+    }
+
+    shopify.toast.show("Order skipped");
+  } catch (err) {
+    console.error(err);
+    shopify.toast.show(err.message);
+  } finally {
+    setSkipLoading(false);
+  }
+}
   const items = sub.nextOrderLineItems?.length
     ? sub.nextOrderLineItems
     : (sub.lines?.edges?.map((e) => e.node) ?? []);
@@ -394,7 +445,8 @@ function SubscriptionDetail({ sub, onBack }) {
           {(() => {
             const numericId = getNumericId(sub.id);
             const modalId = `upcoming-orders-modal-${numericId}`;
-            const cycles = sub.upcomingCycles ?? [];
+            // const cycles = sub.upcomingCycles ?? [];
+            const cycles = upcomingCycles;
 
             return (
               <s-box border="base" borderRadius="base" padding="base">
@@ -402,16 +454,19 @@ function SubscriptionDetail({ sub, onBack }) {
                   <s-stack direction="block" gap="tight">
                     <s-text fontWeight="bold">Upcoming order</s-text>
                     <s-text tone="subdued">
-                      {formatShort(toDateOnlyString(sub.nextBillingDate))}
+                      {/* {formatShort(toDateOnlyString(sub.nextBillingDate))} */}
+                      {formatShort(toDateOnlyString(nextBillingDate))}
                     </s-text>
                   </s-stack>
 
                   <s-stack direction="inline" gap="tight">
                     <s-button
-                      variant="secondary"
-                    >
-                      Skip
-                    </s-button>
+  variant="secondary"
+  disabled={!cycles.length || skipLoading}
+  onClick={() => handleSkip(sub.id, cycles[0].cycleIndex)}
+>
+  {skipLoading ? "Skipping..." : "Skip"}
+</s-button>
                     
                   </s-stack>
 
@@ -447,10 +502,11 @@ function SubscriptionDetail({ sub, onBack }) {
                             Reschedule
                           </s-link>
                           <s-link
-                            onClick={() => handleSkip(sub.id, cycle.cycleIndex)}
-                          >
-                            Skip
-                          </s-link>
+  disabled={skipLoading}
+  onClick={() => handleSkip(sub.id, cycle.cycleIndex)}
+>
+  {skipLoading ? "Skipping..." : "Skip"}
+</s-link>
                         </s-stack>
                       </s-stack>
                     ))}
