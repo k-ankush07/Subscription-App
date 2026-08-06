@@ -130,16 +130,36 @@ function normalizeAutomationAction(action, afterOrders) {
       dests: allDests,
       after: afterOrders,
     });
+    // for (let i = 1; i < flatVariants.length; i++) {
+    //   results.push({
+    //     type: "ADD_PRODUCT",
+    //     variantId: flatVariants[i].variantId,
+    //     quantity: action.quantity ?? 1,
+    //     sourceProductId: action.sourceProductId,
+    //     destProductId: flatVariants[i].dest?.id ?? null,
+    //     after: afterOrders,
+    //   });
+    // }
+
     for (let i = 1; i < flatVariants.length; i++) {
-      results.push({
-        type: "ADD_PRODUCT",
-        variantId: flatVariants[i].variantId,
-        quantity: action.quantity ?? 1,
-        sourceProductId: action.sourceProductId,
-        destProductId: flatVariants[i].dest?.id ?? null,
-        after: afterOrders,
-      });
-    }
+  const dest = flatVariants[i].dest;
+  const variantId = flatVariants[i].variantId;
+  const variantIdx = dest?.variantIds?.indexOf(variantId) ?? -1;
+  const variantName = variantIdx >= 0 ? dest?.variantNames?.[variantIdx] ?? null : null;
+  const variantImage = variantIdx >= 0 ? dest?.variantImages?.[variantIdx] ?? null : null;
+
+  results.push({
+    type: "ADD_PRODUCT",
+    variantId,
+    quantity: action.quantity ?? 1,
+    sourceProductId: action.sourceProductId,
+    destProductId: dest?.id ?? null,
+    productName: dest?.name ?? null,        
+    variantName: variantName ?? null,      
+    imageUrl: variantImage ?? dest?.imageUrl ?? null,
+    after: afterOrders,
+  });
+}
 
     return results;
   }
@@ -1473,6 +1493,9 @@ let swappedTitle ;
   if (calculatedPricePerUnit && !isBaseLineRemoved) {
     lineItems.push({
       title: swapAction?.variantId ? swappedTitle : firstLine?.title,
+      variantTitle: swapAction?.variantId            
+      ? (variantDataMap[swapAction.variantId]?.title ?? null)
+      : (originalVariantInfo?.title ?? null),
       productId: swapAction?.variantId
         ? (swapAction?.dests?.length ? swapAction.dests[0]?.id ?? null : null)
         : firstLine?.productId,
@@ -1533,12 +1556,9 @@ let swappedTitle ;
     const originalPriceValue =
       knownPrice != null ? knownPrice : isSwapGenerated ? effectiveBase : pricePerUnit;
 
-    // FIX: this label depends ONLY on the add-product action's own discount config —
-    // it must NOT be gated on the base line's discount action being "non-default".
-    // Previously `action.discountEnabled && !discountAction.__default` meant this label
-    // silently disappeared whenever the base line had no active discount of its own.
     lineItems.push({
       title: action.productName ?? action.variantName ?? "Added product",
+      variantTitle: variantInfo?.title ?? null,
       productId: action.productId ?? action.destProductId ?? null,
       variantId: action.variantId,
       quantity: qty,

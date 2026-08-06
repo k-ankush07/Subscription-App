@@ -2,12 +2,24 @@ import "@shopify/ui-extensions/preact";
 import { render } from "preact";
 import { useState, useEffect, useCallback, useRef } from "preact/hooks";
 
-const API_BASE = "https://patrol-miscellaneous-tunes-gnu.trycloudflare.com";
+const API_BASE =
+  "https://computed-conservative-scoring-xhtml.trycloudflare.com";
 const PAGE_SIZE = 7;
 
 export default async () => {
   render(<Extension />, document.body);
 };
+
+function getNumericId(gid) {
+  if (!gid) return null;
+  return gid.split("/").pop();
+}
+
+function parseSubscriptionIdFromUrl(url) {
+  if (!url) return null;
+  const match = url.match(/\/subscriptions\/([^/?#]+)/);
+  return match ? match[1] : null;
+}
 
 function toDateOnlyString(value) {
   if (!value) return value;
@@ -110,6 +122,36 @@ function Extension() {
     return customerId;
   }, []);
 
+  // Route sync: URL se ID nikaal ke, ya to navigate() ke saath pass ki hui state se,
+  // ya subscriptions list me match karke selectedSub set karta hai.
+  // Ye back/forward button aur direct-URL open dono handle karta hai.
+  useEffect(() => {
+    function syncFromEntry(entry) {
+      const id = parseSubscriptionIdFromUrl(entry?.url);
+      if (!id) {
+        setSelectedSub(null);
+        return;
+      }
+      const stateSub = entry.getState?.();
+      if (stateSub) {
+        setSelectedSub(stateSub);
+        return;
+      }
+      const found = subscriptions.find((s) => getNumericId(s.id) === id);
+      if (found) setSelectedSub(found);
+    }
+
+    syncFromEntry(shopify.navigation.currentEntry);
+
+    function onChange() {
+      syncFromEntry(shopify.navigation.currentEntry);
+    }
+
+    shopify.navigation.addEventListener("currententrychange", onChange);
+    return () =>
+      shopify.navigation.removeEventListener("currententrychange", onChange);
+  }, [subscriptions]);
+
   const fetchPage = useCallback(
     async ({ afterCursor = null, reset = true } = {}) => {
       try {
@@ -179,6 +221,31 @@ function Extension() {
     setLoadingMore(false);
   }
 
+  // setSelectedSub PEHLE call karo — turant view switch. Fir navigate() jo browser URL
+  // ko "/subscriptions/{id}" banata hai. navigate() try/catch me hai taaki state
+  // serialize fail hone par bhi UI switch hone se na ruke.
+  function handleSelect(sub) {
+    setSelectedSub(sub);
+    const numericId = getNumericId(sub.id);
+    try {
+      shopify.navigation.navigate(`extension://subscriptions/${numericId}`, {
+        history: "push",
+        state: sub,
+      });
+    } catch (err) {
+      console.error("navigation.navigate failed:", err);
+    }
+  }
+
+  function handleBack() {
+    setSelectedSub(null);
+    try {
+      shopify.navigation.navigate("extension:/", { history: "push" });
+    } catch (err) {
+      console.error("navigation.navigate failed:", err);
+    }
+  }
+
   if (error) {
     return (
       <s-page heading="Subscriptions">
@@ -190,12 +257,7 @@ function Extension() {
   }
 
   if (selectedSub) {
-    return (
-      <SubscriptionDetail
-        sub={selectedSub}
-        onBack={() => setSelectedSub(null)}
-      />
-    );
+    return <SubscriptionDetail sub={selectedSub} onBack={handleBack} />;
   }
 
   return (
@@ -215,7 +277,7 @@ function Extension() {
               <SubscriptionCard
                 key={sub.id}
                 sub={sub}
-                onClick={() => setSelectedSub(sub)}
+                onClick={() => handleSelect(sub)}
               />
             ))}
 
@@ -285,8 +347,6 @@ function SubscriptionCard({ sub, onClick }) {
 }
 
 function SubscriptionDetail({ sub, onBack }) {
-  // Detail me SAARE products dikhane hain (base line + automation se add hue items).
-  // Backend se nextOrderLineItems bhejna zaroori hai (getContractPreview ka nextOrder.lineItems).
   const items = sub.nextOrderLineItems?.length
     ? sub.nextOrderLineItems
     : (sub.lines?.edges?.map((e) => e.node) ?? []);
@@ -348,7 +408,9 @@ function SubscriptionDetail({ sub, onBack }) {
                     {address.address1 ? `, ${address.address1}` : ""}
                     {address.address2 ? `, ${address.address2}` : ""}
                     {address.city ? `, ${address.city}` : ""}
-                    {address.provinceCode ? `, ${address.provinceCode}` : ""}{" "}
+                    {address.provinceCode
+                      ? `, ${address.provinceCode}`
+                      : ""}{" "}
                     {address.zip ?? ""}
                     {address.country ? `, ${address.country}` : ""}
                   </s-text>
@@ -379,6 +441,10 @@ function SubscriptionDetail({ sub, onBack }) {
                   </s-box>
                   <s-stack direction="block" gap="none">
                     <s-text fontWeight="bold">{item.title}</s-text>
+                    {item.variantTitle &&
+                      item.variantTitle !== "Default Title" && (
+                        <s-text tone="subdued">{item.variantTitle}</s-text>
+                      )}
                     <s-text tone="subdued">Qty {item.quantity}</s-text>
                   </s-stack>
                   <s-text>

@@ -305,6 +305,7 @@ export const loader = async ({ request }) => {
         const displayLine = resolvedLine
           ? {
               title: resolvedLine.title,
+               variantTitle: resolvedLine.variantTitle ?? lines[0]?.variantTitle ?? null,
               imageUrl: resolvedLine.imageUrl,
               productId: resolvedLine.productId,
               variantId: resolvedLine.variantId,
