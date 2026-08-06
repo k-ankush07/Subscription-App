@@ -137,6 +137,7 @@ function normalizeAutomationAction(action, afterOrders) {
         quantity: action.quantity ?? 1,
         sourceProductId: action.sourceProductId,
         destProductId: flatVariants[i].dest?.id ?? null,
+        productName: flatVariants[i].dest?.name ?? null,
         after: afterOrders,
       });
     }
@@ -445,7 +446,7 @@ async function fetchVariantsBatch(admin, variantIds) {
             title
             price
             image { url altText }
-            product { featuredImage { url altText } }
+            product {  title featuredImage { url altText } }
           }
         }
       }
@@ -466,6 +467,7 @@ async function fetchVariantsBatch(admin, variantIds) {
       map[node.id] = {
         price: node.price != null ? Number(node.price) : null,
         title: node.title ?? null, 
+        productTitle: node.product?.title ?? null, 
         image: imageUrl ? { url: imageUrl, altText: imageAlt } : null,
       };
     }
@@ -501,6 +503,38 @@ function applyCustomDiscountAction(basePrice, discountAction) {
   }
   return Math.max(0, base - Number(discountAction.adjustmentValue));
 }
+// function computeLinePriceFromKnownPrice(
+//   variantPrice,
+//   { isSwapGenerated, discountEnabled, discountType, discountValue },
+//   effectiveBasePrice,
+//   discountTierForCycle,
+//   customDiscountAction = null,
+// ) {
+//   const basePriceForLine = variantPrice ?? effectiveBasePrice ?? 0;
+
+//   if (isSwapGenerated) {
+//     if (customDiscountAction) {
+//       return applyCustomDiscountAction(basePriceForLine, customDiscountAction);
+//     }
+//     return applyDiscountTierToPrice(basePriceForLine, discountTierForCycle);
+//   }
+
+//   if (discountEnabled) {
+//   const type = String(discountType).toLowerCase();
+//   if (type === "percentage") {
+//     return Math.max(0, basePriceForLine - (basePriceForLine * Number(discountValue || 0)) / 100);
+//   }
+//   if (type === "fixed_amount") {
+//     // "fixed_amount" = final price directly set to this value
+//     return Math.max(0, Number(discountValue || 0));
+//   }
+//   // "amount" = subtract this much from base price
+//   return Math.max(0, basePriceForLine - Number(discountValue || 0));
+// }
+
+//   return basePriceForLine;
+// }
+
 function computeLinePriceFromKnownPrice(
   variantPrice,
   { isSwapGenerated, discountEnabled, discountType, discountValue },
@@ -510,14 +544,27 @@ function computeLinePriceFromKnownPrice(
 ) {
   const basePriceForLine = variantPrice ?? effectiveBasePrice ?? 0;
 
+  // Discount sirf tabhi apply hoga jab is action pe explicitly discountEnabled = true ho.
+  // Agar disabled hai, to koi tier discount ya global customDiscountAction fallback bhi
+  // nahi lagna chahiye — plain base price hi return hoga.
+  if (!discountEnabled) {
+    return basePriceForLine;
+  }
+
   if (isSwapGenerated) {
     if (customDiscountAction) {
       return applyCustomDiscountAction(basePriceForLine, customDiscountAction);
     }
-    return applyDiscountTierToPrice(basePriceForLine, discountTierForCycle);
+    if (discountTierForCycle) {
+      return applyDiscountTierToPrice(basePriceForLine, discountTierForCycle);
+    }
+    // discountEnabled hai lekin apply karne layak koi tier/custom action nahi mila
+    return applyCustomDiscountAction(basePriceForLine, {
+      adjustmentType: discountType,
+      adjustmentValue: discountValue,
+    });
   }
 
-  if (discountEnabled) {
   const type = String(discountType).toLowerCase();
   if (type === "percentage") {
     return Math.max(0, basePriceForLine - (basePriceForLine * Number(discountValue || 0)) / 100);
@@ -528,9 +575,6 @@ function computeLinePriceFromKnownPrice(
   }
   // "amount" = subtract this much from base price
   return Math.max(0, basePriceForLine - Number(discountValue || 0));
-}
-
-  return basePriceForLine;
 }
 function getActionTargetIds(action) {
   const targetProductIds = [];
@@ -775,6 +819,12 @@ async function applyActionsToCycle(
         const basePriceForThisSwap = ownVariantPrice != null ? ownVariantPrice : effectiveBasePrice;
 
         let recalculatedPrice = null;
+        if (action.discountEnabled && basePriceForThisSwap != null) {
+  recalculatedPrice = applyCustomDiscountAction(basePriceForThisSwap, {
+    adjustmentType: action.discountType,
+    adjustmentValue: action.discountValue,
+  }).toFixed(2);
+}
         if (!hasCustomDiscountChange && basePriceForThisSwap != null) {
           recalculatedPrice = applyDiscountTierToPrice(basePriceForThisSwap, discountTierForCycle).toFixed(2);
         }
@@ -1369,27 +1419,56 @@ async function getContractPreview(admin, contractId) {
 
   let effectiveBase = Number(firstLine?.pricingPolicy?.basePrice?.amount) || 0;
 
-  if (swapAction?.variantId) {
-    const swappedInfo = variantDataMap[swapAction.variantId];
-    if (swappedInfo?.price != null) {
-      effectiveBase = swappedInfo.price;
-      const tier = getDiscountTierForCycle(firstLine?.pricingPolicy, cycleIndex);
-      calculatedPricePerUnit = {
-        amount: applyDiscountTierToPrice(effectiveBase, tier).toFixed(2),
-        currencyCode:
-          firstLine?.pricingPolicy?.basePrice?.currencyCode ??
-          firstLine?.currentPrice?.currencyCode,
-      };
-    } else {
-      console.warn(
-        `[preview] swap target variant (${swapAction.variantId}) price fetch failed — ` +
-          `falling back to original product's price for calculations (may be inaccurate).`,
-      );
-    }
-  }
+  // if (swapAction?.variantId) {
+  //   const swappedInfo = variantDataMap[swapAction.variantId];
+  //   if (swappedInfo?.price != null) {
+  //     effectiveBase = swappedInfo.price;
+  //     const tier = getDiscountTierForCycle(firstLine?.pricingPolicy, cycleIndex);
+  //     calculatedPricePerUnit = {
+  //       amount: applyDiscountTierToPrice(effectiveBase, tier).toFixed(2),
+  //       currencyCode:
+  //         firstLine?.pricingPolicy?.basePrice?.currencyCode ??
+  //         firstLine?.currentPrice?.currencyCode,
+  //     };
+  //   } else {
+  //     console.warn(
+  //       `[preview] swap target variant (${swapAction.variantId}) price fetch failed — ` +
+  //         `falling back to original product's price for calculations (may be inaccurate).`,
+  //     );
+  //   }
+  // }
 
   // Unified discount for the base line — either "before" (native selling-plan tier) or
   // "after" (merchant's custom afterOrders override). Never both, never a stray "0% off".
+  
+  if (swapAction?.variantId) {
+  const swappedInfo = variantDataMap[swapAction.variantId];
+  if (swappedInfo?.price != null) {
+    effectiveBase = swappedInfo.price;
+
+    if (swapAction.discountEnabled) {
+      calculatedPricePerUnit = {
+        amount: applyCustomDiscountAction(effectiveBase, {
+          adjustmentType: swapAction.discountType,
+          adjustmentValue: swapAction.discountValue,
+        }).toFixed(2),
+        currencyCode: firstLine?.pricingPolicy?.basePrice?.currencyCode ?? firstLine?.currentPrice?.currencyCode,
+      };
+    } else {
+      // koi discount config nahi hai → swap product apni full price pe rahega
+      calculatedPricePerUnit = {
+        amount: effectiveBase.toFixed(2),
+        currencyCode: firstLine?.pricingPolicy?.basePrice?.currencyCode ?? firstLine?.currentPrice?.currencyCode,
+      };
+    }
+  } else {
+    console.warn(
+      `[preview] swap target variant (${swapAction.variantId}) price fetch failed — ` +
+        `falling back to original product's price for calculations (may be inaccurate).`,
+    );
+  }
+}
+  
   const discountAction = Array.isArray(actionsForNextCycle)
     ? actionsForNextCycle.find((a) => a.type === "DISCOUNT_CHANGE")
     : null;

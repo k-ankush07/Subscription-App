@@ -9,7 +9,7 @@ import prisma from "./db.server";
 import {startBillingCycleCron} from "./routes/cron.server"
 
 
-startBillingCycleCron()
+// startBillingCycleCron()
 
 
 const shopify = shopifyApp({
@@ -21,6 +21,7 @@ const shopify = shopifyApp({
   authPathPrefix: "/auth",
   sessionStorage: new PrismaSessionStorage(prisma),
   distribution: AppDistribution.SingleMerchant,
+  useOnlineTokens: true,
   future: {
     expiringOfflineAccessTokens: true,
   },

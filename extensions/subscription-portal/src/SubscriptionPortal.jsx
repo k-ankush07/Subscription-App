@@ -2,8 +2,7 @@ import "@shopify/ui-extensions/preact";
 import { render } from "preact";
 import { useState, useEffect, useCallback, useRef } from "preact/hooks";
 
-const API_BASE =
-  "https://sufficient-biological-subject-referral.trycloudflare.com";
+const API_BASE = "https://lions-network-ethics-outer.trycloudflare.com";
 const PAGE_SIZE = 7;
 
 export default async () => {
@@ -383,14 +382,32 @@ function SubscriptionDetail({ sub, onBack }) {
             Status: {sub.status}
           </s-badge>
 
-          <s-box border="base" borderRadius="base" padding="base">
-            <s-stack direction="block" gap="tight">
-              <s-text fontWeight="bold">Upcoming order</s-text>
-              <s-text tone="subdued">
-                {formatShort(toDateOnlyString(sub.nextBillingDate))}
-              </s-text>
-            </s-stack>
-          </s-box>
+         <s-box border="base" borderRadius="base" padding="base">
+  <s-stack direction="block" gap="base">
+    <s-stack direction="block" gap="tight">
+      <s-text fontWeight="bold">Upcoming order</s-text>
+      <s-text tone="subdued">
+        {formatShort(toDateOnlyString(sub.nextBillingDate))}
+      </s-text>
+    </s-stack>
+
+    <s-stack direction="inline" gap="tight">
+      <s-button
+        variant="secondary"
+        onClick={() => handleSkip(sub.id)}
+      >
+        Skip
+      </s-button>
+
+      <s-button
+        variant="primary"
+        onClick={() => handleReschedule(sub.id)}
+      >
+        Reschedule
+      </s-button>
+    </s-stack>
+  </s-stack>
+</s-box>
 
           <s-box border="base" borderRadius="base" padding="base">
             <s-stack direction="block" gap="tight">

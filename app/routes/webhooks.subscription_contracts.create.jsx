@@ -7,7 +7,7 @@ async function getContractSellingPlanId(admin, contractId) {
     `
     query getContractLine($id: ID!) {
       subscriptionContract(id: $id) {
-        lines(first: 1) {
+        lines(first: 50) {
           edges {
             node {
               sellingPlanId
