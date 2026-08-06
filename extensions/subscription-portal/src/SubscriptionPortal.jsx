@@ -9,17 +9,6 @@ export default async () => {
   render(<Extension />, document.body);
 };
 
-function getNumericId(gid) {
-  if (!gid) return null;
-  return gid.split("/").pop();
-}
-
-function parseSubscriptionIdFromUrl(url) {
-  if (!url) return null;
-  const match = url.match(/\/subscriptions\/([^/?#]+)/);
-  return match ? match[1] : null;
-}
-
 function toDateOnlyString(value) {
   if (!value) return value;
   if (typeof value === "string") {
@@ -68,7 +57,6 @@ function Extension() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(null);
-  const [selected, setSelected] = useState(null);
 
   const [cursor, setCursor] = useState(null);
   const [hasMore, setHasMore] = useState(false);
@@ -95,33 +83,6 @@ function Extension() {
     customerIdRef.current = customerId;
     return customerId;
   }, []);
-
-  useEffect(() => {
-    function syncFromEntry(entry) {
-      const id = parseSubscriptionIdFromUrl(entry?.url);
-      if (!id) {
-        setSelected(null);
-        return;
-      }
-      const stateSub = entry.getState?.();
-      if (stateSub) {
-        setSelected(stateSub);
-        return;
-      }
-      const found = subscriptions.find((s) => getNumericId(s.id) === id);
-      if (found) setSelected(found);
-    }
-
-    syncFromEntry(shopify.navigation.currentEntry);
-
-    function onChange() {
-      syncFromEntry(shopify.navigation.currentEntry);
-    }
-
-    shopify.navigation.addEventListener("currententrychange", onChange);
-    return () =>
-      shopify.navigation.removeEventListener("currententrychange", onChange);
-  }, [subscriptions]);
 
   const fetchPage = useCallback(
     async ({ afterCursor = null, reset = true } = {}) => {
@@ -192,15 +153,6 @@ function Extension() {
     setLoadingMore(false);
   }
 
-  function handleSelect(sub) {
-    const numericId = getNumericId(sub.id);
-    shopify.navigation.navigate(`extension://subscriptions/${numericId}`, {
-      history: "push",
-      state: sub,
-    });
-    setSelected(sub);
-  }
-
   if (error) {
     return (
       <s-page heading="Subscriptions">
@@ -209,10 +161,6 @@ function Extension() {
         </s-section>
       </s-page>
     );
-  }
-
-  if (selected) {
-    return <SubscriptionDetail subscription={selected} />;
   }
 
   return (
@@ -229,11 +177,7 @@ function Extension() {
         ) : (
           <s-stack direction="block" gap="base">
             {subscriptions.map((sub) => (
-              <SubscriptionCard
-                key={sub.id}
-                sub={sub}
-                onClick={() => handleSelect(sub)}
-              />
+              <SubscriptionCard key={sub.id} sub={sub} />
             ))}
 
             {loadingMore &&
@@ -257,158 +201,43 @@ function getLineImageUrl(line) {
   return line?.imageUrl || null;
 }
 
-function SubscriptionCard({ sub, onClick }) {
+function SubscriptionCard({ sub }) {
   const line = sub.lines?.edges?.[0]?.node;
   const imageUrl = getLineImageUrl(line);
 
   return (
-    <s-clickable onClick={onClick}>
-      <s-box border="base" borderRadius="base" padding="base">
-        <s-stack direction="block" gap="tight">
-          <s-badge
-            tone={
-              sub.status === "ACTIVE"
-                ? "success"
-                : sub.status === "PAUSED"
-                  ? "warning"
-                  : "neutral"
-            }
+    <s-box border="base" borderRadius="base" padding="base">
+      <s-stack direction="block" gap="tight">
+        <s-badge
+          tone={
+            sub.status === "ACTIVE"
+              ? "success"
+              : sub.status === "PAUSED"
+                ? "warning"
+                : "neutral"
+          }
+        >
+          {sub.status}
+        </s-badge>
+        <s-stack direction="inline" gap="tight" alignItems="center">
+          <s-box
+            inlineSize="56px"
+            blockSize="56px"
+            borderRadius="base"
+            overflow="hidden"
           >
-            {sub.status}
-          </s-badge>
-          <s-stack direction="inline" gap="tight" alignItems="center">
-            <s-box
-              inlineSize="56px"
-              blockSize="56px"
-              borderRadius="base"
-              overflow="hidden"
-            >
-              <s-image src={imageUrl} alt={line?.title || "Product image"} />
-            </s-box>
-            <s-text fontWeight="bold">{line?.title ?? "Subscription"}</s-text>
-          </s-stack>
-          <s-text tone="subdued">
-            Next order: {formatShort(toDateOnlyString(sub.nextBillingDate))}
-          </s-text>
-          <s-text tone="subdued">
-            Delivery every {sub.deliveryPolicy?.intervalCount}{" "}
-            {sub.deliveryPolicy?.interval?.toLowerCase()}
-          </s-text>
+            <s-image src={imageUrl} alt={line?.title || "Product image"} />
+          </s-box>
+          <s-text fontWeight="bold">{line?.title ?? "Subscription"}</s-text>
         </s-stack>
-      </s-box>
-    </s-clickable>
-  );
-}
-
-function SubscriptionDetail({ subscription }) {
-  function handleBack() {
-    shopify.navigation.navigate("extension:/", {
-      history: "push",
-    });
-  }
-
-  const lines = subscription.lines?.edges?.map((e) => e.node) ?? [];
-  const shippingTitle = subscription.deliveryMethod?.shippingOption?.title;
-
-  return (
-    <s-page heading="Manage subscription">
-      <s-section>
-        <s-button onClick={handleBack} variant="tertiary">
-          ← Back
-        </s-button>
-
-        <s-stack direction="block" gap="tight">
-          <s-text tone="subdued">Status: {subscription.status}</s-text>
-        </s-stack>
-
-        <s-grid gridTemplateColumns="2fr 1fr" gap="base">
-          {/* LEFT COLUMN */}
-          <s-stack direction="block" gap="base">
-            <s-box border="base" borderRadius="base" padding="base">
-              <s-stack
-                direction="inline"
-                justifyContent="space-between"
-                blockAlignment="center"
-              >
-                <s-stack direction="block" gap="tight">
-                  <s-text fontWeight="bold">Upcoming order</s-text>
-                  <s-text tone="subdued">
-                    {formatShort(toDateOnlyString(subscription.nextBillingDate))}
-                  </s-text>
-                </s-stack>
-              </s-stack>
-            </s-box>
-
-            <s-box border="base" borderRadius="base" padding="base">
-              <s-grid gridTemplateColumns="1fr 1fr" gap="base">
-                <s-stack direction="block" gap="tight">
-                  <s-text fontWeight="bold">Delivery frequency</s-text>
-                  <s-text tone="subdued">
-                    Delivery: every {subscription.deliveryPolicy?.intervalCount}{" "}
-                    {subscription.deliveryPolicy?.interval?.toLowerCase()}
-                  </s-text>
-                </s-stack>
-                <s-stack direction="block" gap="tight">
-                  <s-text fontWeight="bold">Shipping method</s-text>
-                  <s-text tone="subdued">{shippingTitle ?? "Standard"}</s-text>
-                </s-stack>
-              </s-grid>
-            </s-box>
-          </s-stack>
-
-          {/* RIGHT COLUMN */}
-          <s-stack direction="block" gap="base">
-            <s-box border="base" borderRadius="base" padding="base">
-              <s-stack direction="block" gap="base">
-                {lines.map((line, i) => {
-                  const imageUrl = getLineImageUrl(line);
-                  return (
-                    <s-stack
-                      key={i}
-                      direction="inline"
-                      justifyContent="space-between"
-                    >
-                      <s-stack direction="inline" gap="base" alignItems="center">
-                        <s-image
-                          src={imageUrl}
-                          alt={line?.title || "Product image"}
-                          inlineSize="56px"
-                          blockSize="56px"
-                        />
-                        <s-stack direction="block" gap="tight">
-                          <s-text fontWeight="bold">{line.title}</s-text>
-                          {line.variantTitle && (
-                            <s-text tone="subdued">{line.variantTitle}</s-text>
-                          )}
-                          <s-text tone="subdued">Qty: {line.quantity}</s-text>
-                        </s-stack>
-                      </s-stack>
-                      <s-text>
-                        {line.lineDiscountedPrice?.currencyCode}{" "}
-                        {line.lineDiscountedPrice?.amount}
-                      </s-text>
-                    </s-stack>
-                  );
-                })}
-
-                <s-stack direction="inline" justifyContent="space-between">
-                  <s-text>Subtotal</s-text>
-                  <s-text>
-                    {subscription.currencyCode} {subscription.subtotal?.toFixed(2)}
-                  </s-text>
-                </s-stack>
-
-                <s-stack direction="inline" justifyContent="space-between">
-                  <s-text fontWeight="bold">Total</s-text>
-                  <s-text fontWeight="bold">
-                    {subscription.currencyCode} {subscription.subtotal?.toFixed(2)}
-                  </s-text>
-                </s-stack>
-              </s-stack>
-            </s-box>
-          </s-stack>
-        </s-grid>
-      </s-section>
-    </s-page>
+        <s-text tone="subdued">
+          Next order: {formatShort(toDateOnlyString(sub.nextBillingDate))}
+        </s-text>
+        <s-text tone="subdued">
+          Delivery every {sub.deliveryPolicy?.intervalCount}{" "}
+          {sub.deliveryPolicy?.interval?.toLowerCase()}
+        </s-text>
+      </s-stack>
+    </s-box>
   );
 }
