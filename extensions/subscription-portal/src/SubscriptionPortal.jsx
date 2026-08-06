@@ -355,65 +355,13 @@ function SubscriptionCard({ sub, onClick }) {
 }
 
 function SubscriptionDetail({ sub, onBack }) {
+  const items = sub.nextOrderLineItems?.length
+    ? sub.nextOrderLineItems
+    : (sub.lines?.edges?.map((e) => e.node) ?? []);
 
-  const [subState, setSubState] = useState(sub);
-  const [skipping, setSkipping] = useState(null); // cycleIndex currently skipping
-
-  useEffect(() => {
-    setSubState(sub);
-  }, [sub]);
-
-  async function callBackend(path, body) {
-    const token = await shopify.sessionToken.get();
-    const res = await fetch(`${API_BASE}${path}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(body),
-    });
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`API ${res.status}: ${text}`);
-    }
-    return res.json();
-  }
-
-  // Ek hi function dono jagah (top button + modal ke har row) ke liye use hoga.
-  // Har cycle apna khud ka cycleIndex bhejta hai isliye apna hi skip hoga.
-  async function handleSkip(contractId, cycleIndex) {
-    if (skipping !== null || cycleIndex == null) return;
-    setSkipping(cycleIndex);
-    try {
-      await callBackend("/api/subscriptions/skip", { contractId, cycleIndex });
-
-      setSubState((prev) => {
-        const wasNext = prev.upcomingCycles?.[0]?.cycleIndex === cycleIndex;
-        const remaining = (prev.upcomingCycles || []).filter(
-          (c) => c.cycleIndex !== cycleIndex,
-        );
-        return {
-          ...prev,
-          upcomingCycles: remaining,
-          nextBillingDate: wasNext
-            ? (remaining[0]?.billingAttemptExpectedDate ?? prev.nextBillingDate)
-            : prev.nextBillingDate,
-        };
-      });
-    } catch (err) {
-      console.error("Skip failed:", err);
-    } finally {
-      setSkipping(null);
-    }
-  }
- const items = subState.nextOrderLineItems?.length
-  ? subState.nextOrderLineItems
-  : (subState.lines?.edges?.map((e) => e.node) ?? []);
-
-const address = subState.deliveryMethod?.address ?? null;
-const total = subState.nextOrderTotal;
-const shipping = subState.nextOrderShipping;
+  const address = sub.deliveryMethod?.address ?? null;
+  const total = sub.nextOrderTotal;
+  const shipping = sub.nextOrderShipping;
   const grandTotal =
     total != null
       ? (
@@ -433,19 +381,19 @@ const shipping = subState.nextOrderShipping;
 
           <s-badge
             tone={
-              subState.status === "ACTIVE"
+              sub.status === "ACTIVE"
                 ? "success"
-                :  subState.status === "PAUSED"
+                : sub.status === "PAUSED"
                   ? "warning"
                   : "neutral"
             }
           >
-            Status: {subState.status}
+            Status: {sub.status}
           </s-badge>
           {(() => {
             const numericId = getNumericId(sub.id);
             const modalId = `upcoming-orders-modal-${numericId}`;
-            const cycles = subState.upcomingCycles ?? [];
+            const cycles = sub.upcomingCycles ?? [];
 
             return (
               <s-box border="base" borderRadius="base" padding="base">
@@ -453,18 +401,17 @@ const shipping = subState.nextOrderShipping;
                   <s-stack direction="block" gap="tight">
                     <s-text fontWeight="bold">Upcoming order</s-text>
                     <s-text tone="subdued">
-                      {formatShort(toDateOnlyString(subState.nextBillingDate))}
+                      {formatShort(toDateOnlyString(sub.nextBillingDate))}
                     </s-text>
                   </s-stack>
 
                   <s-stack direction="inline" gap="tight">
-                   <s-button
-  variant="secondary"
-  disabled={!cycles.length || skipping !== null}
-  onClick={() => handleSkip(subState.id, cycles[0]?.cycleIndex)}
->
-  {skipping === cycles[0]?.cycleIndex ? "Skipping…" : "Skip"}
-</s-button>
+                    <s-button
+                      variant="secondary"
+s
+                    >
+                      Skip
+                    </s-button>
                     
                   </s-stack>
 
@@ -493,12 +440,14 @@ const shipping = subState.nextOrderShipping;
                         </s-text>
                         <s-stack direction="inline" gap="20">
                           <s-link
-                           
+                            onClick={() =>
+                              handleReschedule(sub.id, cycle.cycleIndex)
+                            }
                           >
                             Reschedule
                           </s-link>
                           <s-link
-                            onClick={() => handleSkip(subState.id, cycle.cycleIndex)}
+                            onClick={() => handleSkip(sub.id, cycle.cycleIndex)}
                           >
                             Skip
                           </s-link>
@@ -524,8 +473,8 @@ const shipping = subState.nextOrderShipping;
             <s-stack direction="block" gap="tight">
               <s-text fontWeight="bold">Delivery frequency</s-text>
               <s-text tone="subdued">
-                Delivery every {subState.deliveryPolicy?.intervalCount}{" "}
-{subState.deliveryPolicy?.interval?.toLowerCase()}
+                Delivery every {sub.deliveryPolicy?.intervalCount}{" "}
+                {sub.deliveryPolicy?.interval?.toLowerCase()}
               </s-text>
 
               {address && (

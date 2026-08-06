@@ -79,9 +79,6 @@ export const action = async ({ request }) => {
       );
     }
 
-    // --- ownership check: is contract ka customer wahi hai jiska session token hai ---
-    // Customer Account session token me customer id "sub" claim me aata hai
-    // (e.g. "gid://shopify/Customer/123..." ya numeric id, Shopify config par depend karta hai).
     const ownerRes = await admin.graphql(CONTRACT_OWNER_QUERY, {
       variables: { contractId },
     });
