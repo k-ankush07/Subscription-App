@@ -331,8 +331,7 @@ export const loader = async ({ request }) => {
           nextOrderLineItems: preview?.nextOrder?.lineItems ?? [], // detail view ke liye — SAARE products
           nextOrderTotal: preview?.nextOrder?.calculatedOrderTotal ?? null,
           nextOrderShipping: preview?.nextOrder?.shipping ?? null,
-          nextBillingDate:
-            preview?.nextOrder?.expectedDate ?? realNextBillingDate,
+          nextBillingDate: realNextBillingDate,
           nextBillingCycleIndex:
             preview?.nextOrder?.cycleIndex ?? nextCycle?.cycleIndex ?? null,
           upcomingCycles,

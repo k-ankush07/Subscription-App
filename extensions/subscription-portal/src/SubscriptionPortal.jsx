@@ -388,15 +388,22 @@ async function handleSkip(contractId, cycleIndex) {
       throw new Error(data.error || "Skip failed");
     }
 
-    const updatedCycles = upcomingCycles.filter(
-      (c) => c.cycleIndex !== cycleIndex
-    );
+    const updatedCycles = upcomingCycles.map((c) =>
+  c.cycleIndex === cycleIndex
+    ? { ...c, skipped: true }
+    : c
+);
 
-    setUpcomingCycles(updatedCycles);
+setUpcomingCycles(updatedCycles);
 
-    if (updatedCycles.length > 0) {
-      setNextBillingDate(updatedCycles[0].billingAttemptExpectedDate);
-    }
+// Next order = first non-skipped cycle
+const nextCycle = updatedCycles.find(
+  (c) => !c.skipped && c.status !== "BILLED"
+);
+
+if (nextCycle) {
+  setNextBillingDate(nextCycle.billingAttemptExpectedDate);
+}
 
     shopify.toast.show("Order skipped");
   } catch (err) {
@@ -488,11 +495,19 @@ async function handleSkip(contractId, cycleIndex) {
                         alignItems="center"
                         justifyContent="space-between"
                       >
-                        <s-text>
-                          {formatShortWithYear(
-                            toDateOnlyString(cycle.billingAttemptExpectedDate),
-                          )}
-                        </s-text>
+                        <s-stack direction="inline" gap="tight" alignItems="center">
+  <s-text>
+    {formatShortWithYear(
+      toDateOnlyString(cycle.billingAttemptExpectedDate)
+    )}
+  </s-text>
+
+  {cycle.skipped && (
+    <s-badge tone="warning">
+      Skipped
+    </s-badge>
+  )}
+</s-stack>
                         <s-stack direction="inline" gap="20">
                           <s-link
                             onClick={() =>
@@ -501,12 +516,14 @@ async function handleSkip(contractId, cycleIndex) {
                           >
                             Reschedule
                           </s-link>
-                          <s-link
-  disabled={skipLoading}
-  onClick={() => handleSkip(sub.id, cycle.cycleIndex)}
->
-  {skipLoading ? "Skipping..." : "Skip"}
-</s-link>
+                     {!cycle.skipped && (
+  <s-link
+    disabled={skipLoading}
+    onClick={() => handleSkip(sub.id, cycle.cycleIndex)}
+  >
+    {skipLoading ? "Skipping..." : "Skip"}
+  </s-link>
+)}
                         </s-stack>
                       </s-stack>
                     ))}
