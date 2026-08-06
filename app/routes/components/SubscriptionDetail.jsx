@@ -714,8 +714,7 @@ const handleEmailClick = () => {
             <br />
             <span>{contract?.deliveryMethod?.address?.zip}</span>{" "}
             <span>{contract?.deliveryMethod?.address?.city}</span>{" "}
-            {/* <span>{contract?.deliveryMethod?.address?.province}</span>{" "} */}
-            <span>{contract?.deliveryMethod?.address?.provinceCode}</span>{" "}
+            <span>{contract?.deliveryMethod?.address?.province}</span>{" "}
             <span>{contract?.deliveryMethod?.address?.country}</span>
           </div>
 
