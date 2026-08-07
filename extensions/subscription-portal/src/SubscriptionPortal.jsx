@@ -852,19 +852,17 @@ function SubscriptionDetail({
                     {address.zip ?? ""}
                     {address.country ? `, ${address.country}` : ""}
                   </s-text>
-                  <s-link
-                    command="--show"
-                    commandFor={addressModalId}
-                    onClick={openAddressModal}
-                  >
-                    <s-stack
-                      direction="inline"
-                      gap="extra-tight"
-                      alignItems="center"
+                  <s-stack direction="inline" gap="tight" alignItems="center">
+                    <s-text tone="subdued">
+                    </s-text>
+                    <s-link
+                      command="--show"
+                      commandFor={addressModalId}
+                      onClick={openAddressModal}
                     >
                       <s-icon type="edit" />
-                    </s-stack>
-                  </s-link>
+                    </s-link>
+                  </s-stack>
                 </>
               )}
             </s-stack>
