@@ -1,8 +1,5 @@
 import { getContractPreview } from "./billing-preview.server";
 
-// deliveryMethod address aur payment method — ye getContractPreview me nahi hai,
-// isliye alag se ek chhota query lagta hai. Isme line items nahi hain, to
-// wahi purani "image field galat" wali dikkat yahan nahi ayegi.
 const CONTRACT_SHIPPING_QUERY = `#graphql
   query GetContractShippingInfo($id: ID!) {
     subscriptionContract(id: $id) {
@@ -23,6 +20,7 @@ const CONTRACT_SHIPPING_QUERY = `#graphql
         instrument {
           ... on CustomerCreditCard {
             lastDigits
+            brand
           }
         }
       }
@@ -50,8 +48,7 @@ const PORTAL_URL_QUERY = `#graphql
   }
 `;
 
-// CustomerPortal admin loader jaisi hi logic — customer account base URL + is app ke
-// extension page ka handle dhundh ke portal ka base URL banata hai.
+
 export async function getCustomerPortalBaseUrl(admin) {
   const res = await admin.graphql(PORTAL_URL_QUERY, {
     variables: { pageCount: 50 },
@@ -79,17 +76,13 @@ const SHOP_NAME_QUERY = `#graphql
   }
 `;
 
-// email ke "From" display name ke liye actual shop ka naam Shopify se hi le lo
+
 export async function getShopName(admin) {
   const res = await admin.graphql(SHOP_NAME_QUERY);
   const { data } = await res.json();
   return data?.shop?.name || null;
 }
 
-// email banane ke liye zaroori sab kuch — customer, saare line items (image samet),
-// subtotal/shipping/total, next order date — sab getContractPreview() se hi aata hai
-// (already tested/working, jaisa portal preview me dikhta hai). Sirf shipping address
-// + payment last4 alag se query karna padta hai.
 export async function getContractEmailData(admin, contractId) {
   const [preview, shippingRes] = await Promise.all([
     getContractPreview(admin, contractId),
@@ -100,10 +93,6 @@ export async function getContractEmailData(admin, contractId) {
 
   const { data: shippingData } = await shippingRes.json();
   const contract = shippingData?.subscriptionContract;
-
-  // next order ke saare line items use karo (base line + automation se add hue products).
-  // agar khali hai (sab remove ho gaye / preview me kuch nahi bacha) to purane single
-  // preview.lineItem pe fallback karo taaki email kabhi khali na jaye.
   const rawLineItems = preview.nextOrder?.lineItems?.length
     ? preview.nextOrder.lineItems
     : preview.lineItem
@@ -138,12 +127,11 @@ export async function getContractEmailData(admin, contractId) {
     nextOrderDate: preview.nextOrder?.expectedDate,
     shippingAddress: contract?.deliveryMethod?.address || null,
     paymentLast4: contract?.customerPaymentMethod?.instrument?.lastDigits || null,
-    // naye fields — email template me multiple items + summary render karne ke liye
+    paymentBrand: contract?.customerPaymentMethod?.instrument?.brand || null,
     lineItems,
     subtotal,
     shipping,
     total,
-    // purana single-item field bhi rakha hai backward-compat ke liye (agar kahin aur use ho raha ho)
     lineItem: lineItems[0] || null,
   };
 }

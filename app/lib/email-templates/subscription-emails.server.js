@@ -1,3 +1,27 @@
+
+function getCardBrandBadge(brand) {
+  const brandMap = {
+    visa: { label: "VISA", bg: "#1a1f71" },
+    mastercard: { label: "MC", bg: "#eb001b" },
+    amex: { label: "AMEX", bg: "#2671b6" },
+    bogus: { label: "B", bg: "#f59e0b" },
+  };
+  return brandMap[String(brand || "").toLowerCase()] || brandMap["bogus"];
+}
+
+function paymentBadgeHtml(brand, last4) {
+  if (!last4) return "-";
+  const { label, bg } = getCardBrandBadge(brand);
+  return `
+    <span style="display:inline-flex;align-items:center;gap:8px;">
+      <span style="display:inline-block;background:${bg};color:#ffffff;font-size:11px;
+                   font-weight:bold;padding:3px 8px;border-radius:4px;line-height:1.4;">
+        ${label}
+      </span>
+      <span style="font-size:13px;color:#555;">Ending in ${last4}</span>
+    </span>`;
+}
+
 function formatAddress(address) {
   if (!address) return "";
   const parts = [
@@ -21,12 +45,20 @@ function baseWrapper(innerHtml) {
   </div>`;
 }
 
+
+function productThumbHtml(item) {
+  if (item.imageUrl) {
+    return `<img src="${item.imageUrl}" alt="${item.title || "Product"}" width="56" height="56" style="display:block;border-radius:4px;object-fit:cover;" />`;
+  }
+  return `<div style="width:56px;height:56px;border-radius:4px;background:#e5e7eb;"></div>`;
+}
+
 function lineItemHtml(item) {
   return `
     <table style="width:100%;background:#f3f4f6;border-radius:6px;margin:8px 0;" cellpadding="0" cellspacing="0">
       <tr>
         <td style="padding:16px;width:64px;">
-          <img src="${item.imageUrl || ""}" alt="${item.title || "Product"}" width="56" height="56" style="border-radius:4px;object-fit:cover;" />
+          ${productThumbHtml(item)}
         </td>
         <td style="padding:16px 0;">
           <div style="font-size:14px;color:#111;">${item.title || ""}</div>
@@ -39,8 +71,6 @@ function lineItemHtml(item) {
     </table>`;
 }
 
-// ek saath saare products render karo — cancel/skip email me ab sirf base product nahi,
-// automation se add hue products bhi dikhne chahiye (jaisa customer portal preview me dikhta hai)
 function lineItemsListHtml(lineItems) {
   if (!lineItems || lineItems.length === 0) return "";
   return lineItems.map((item) => lineItemHtml(item)).join("");
@@ -69,7 +99,7 @@ function orderSummaryHtml({ subtotal, shipping, total }) {
     </table>`;
 }
 
-function addressBlockHtml({ shippingAddress, billingAddress, nextOrderDate, paymentLast4 }) {
+function addressBlockHtml({ shippingAddress, billingAddress, nextOrderDate, paymentLast4, paymentBrand }) {
   return `
     <table style="width:100%;margin-top:16px;" cellpadding="0" cellspacing="0">
       <tr>
@@ -90,7 +120,7 @@ function addressBlockHtml({ shippingAddress, billingAddress, nextOrderDate, paym
             </td>
             <td style="padding-top:16px;vertical-align:top;">
               <div style="font-weight:bold;font-size:13px;color:#111;margin-bottom:6px;">Payment Method</div>
-              <div style="font-size:13px;color:#555;">${paymentLast4 ? `Ending in ${paymentLast4}` : "-"}</div>
+              <div>${paymentBadgeHtml(paymentBrand, paymentLast4)}</div>
             </td></tr>`
           : ""
       }
@@ -106,7 +136,6 @@ function manageButtonHtml(manageUrl) {
     </a>`;
 }
 
-// caller purana single `lineItem` bheje ya naya `lineItems` array — dono handle ho jayenge
 function resolveLineItems({ lineItems, lineItem }) {
   if (lineItems && lineItems.length > 0) return lineItems;
   if (lineItem) return [lineItem];
@@ -126,6 +155,7 @@ export function buildSkipEmail({
   shippingAddress,
   billingAddress,
   paymentLast4,
+  paymentBrand,
   manageUrl,
 }) {
   const items = resolveLineItems({ lineItems, lineItem });
@@ -140,7 +170,7 @@ export function buildSkipEmail({
     ${manageButtonHtml(manageUrl)}
     ${lineItemsListHtml(items)}
     ${orderSummaryHtml({ subtotal, shipping, total })}
-    ${addressBlockHtml({ shippingAddress, billingAddress, nextOrderDate, paymentLast4 })}
+    ${addressBlockHtml({ shippingAddress, billingAddress, nextOrderDate, paymentLast4, paymentBrand })}
   `);
   return { subject, html };
 }
@@ -156,6 +186,7 @@ export function buildCancelEmail({
   shippingAddress,
   billingAddress,
   paymentLast4,
+  paymentBrand,
   manageUrl,
 }) {
   const items = resolveLineItems({ lineItems, lineItem });
@@ -167,7 +198,7 @@ export function buildCancelEmail({
     ${manageButtonHtml(manageUrl)}
     ${lineItemsListHtml(items)}
     ${orderSummaryHtml({ subtotal, shipping, total })}
-    ${addressBlockHtml({ shippingAddress, billingAddress, paymentLast4 })}
+    ${addressBlockHtml({ shippingAddress, billingAddress, paymentLast4, paymentBrand })}
   `);
   return { subject, html };
 }
