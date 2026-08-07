@@ -98,7 +98,7 @@ export const loader = async ({ request }) => {
                         address1
                         address2
                         city
-                        provinceCode
+                       province
                         zip
                         country
                       }
@@ -328,7 +328,8 @@ export const loader = async ({ request }) => {
         const displayLine = resolvedLine
           ? {
               title: resolvedLine.title,
-               variantTitle: resolvedLine.variantTitle ?? lines[0]?.variantTitle ?? null,
+              variantTitle:
+                resolvedLine.variantTitle ?? lines[0]?.variantTitle ?? null,
               imageUrl: resolvedLine.imageUrl,
               productId: resolvedLine.productId,
               variantId: resolvedLine.variantId,
