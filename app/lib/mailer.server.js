@@ -4,7 +4,9 @@ let transporter = null;
 
 function getTransporter() {
   if (transporter) return transporter;
-  console.log("Creating new nodemailer transporter...",process.env.SMTP_HOST)
+
+  console.log("[mailer] SMTP_HOST from process.env is:", JSON.stringify(process.env.SMTP_HOST));
+
   transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
     port: Number(process.env.SMTP_PORT || 587),
