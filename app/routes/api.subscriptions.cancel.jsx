@@ -75,8 +75,6 @@
 //   }
 // };
 
-
-
 import { authenticate, unauthenticated } from "../shopify.server";
 import { sendMail } from "../lib/mailer.server";
 import { buildCancelEmail } from "../lib/email-templates/subscription-emails.server";
@@ -103,7 +101,10 @@ export const action = async ({ request }) => {
   }
 
   if (request.method !== "POST") {
-    return new Response("Method not allowed", { status: 405, headers: CORS_HEADERS });
+    return new Response("Method not allowed", {
+      status: 405,
+      headers: CORS_HEADERS,
+    });
   }
 
   try {
@@ -117,7 +118,7 @@ export const action = async ({ request }) => {
     if (!subscriptionContractId) {
       return Response.json(
         { error: "subscriptionContractId is required" },
-        { status: 400, headers: CORS_HEADERS }
+        { status: 400, headers: CORS_HEADERS },
       );
     }
 
@@ -142,21 +143,27 @@ export const action = async ({ request }) => {
           }
         }
       }`,
-      { variables: { subscriptionContractId } }
+      { variables: { subscriptionContractId } },
     );
 
     const { data, errors } = await res.json();
 
     if (errors) {
-      console.error("Cancel subscription GraphQL errors:", JSON.stringify(errors, null, 2));
-      return Response.json({ error: errors }, { status: 500, headers: CORS_HEADERS });
+      console.error(
+        "Cancel subscription GraphQL errors:",
+        JSON.stringify(errors, null, 2),
+      );
+      return Response.json(
+        { error: errors },
+        { status: 500, headers: CORS_HEADERS },
+      );
     }
 
     const userErrors = data?.subscriptionContractCancel?.userErrors ?? [];
     if (userErrors.length > 0) {
       return Response.json(
         { error: userErrors[0].message || "Unable to cancel subscription" },
-        { status: 400, headers: CORS_HEADERS }
+        { status: 400, headers: CORS_HEADERS },
       );
     }
 
@@ -171,14 +178,22 @@ export const action = async ({ request }) => {
         if (portalBaseUrl) {
           const { subject, html } = buildCancelEmail({
             customerName: emailData.customerName,
-            lineItem: emailData.lineItem,
+            lineItems: emailData.lineItems, // was: lineItem: emailData.lineItem
+            subtotal: emailData.subtotal, // naya
+            shipping: emailData.shipping, // naya
+            total: emailData.total, // naya
             shippingAddress: emailData.shippingAddress,
             billingAddress: emailData.shippingAddress,
             paymentLast4: emailData.paymentLast4,
             manageUrl: `${portalBaseUrl}/subscriptions/${getNumericId(subscriptionContractId)}`,
           });
 
-          await sendMail({ to: emailData.email, subject, html, fromName: shopName });
+          await sendMail({
+            to: emailData.email,
+            subject,
+            html,
+            fromName: shopName,
+          });
         } else {
           console.warn("[cancel] portal base URL not resolved — email skipped");
         }
@@ -188,14 +203,17 @@ export const action = async ({ request }) => {
     }
 
     return Response.json(
-      { success: true, subscription: data?.subscriptionContractCancel?.contract },
-      { headers: CORS_HEADERS }
+      {
+        success: true,
+        subscription: data?.subscriptionContractCancel?.contract,
+      },
+      { headers: CORS_HEADERS },
     );
   } catch (err) {
     console.error("api.subscriptions.cancel error:", err.message, err.stack);
     return Response.json(
       { error: err.message || "Unknown error" },
-      { status: 500, headers: CORS_HEADERS }
+      { status: 500, headers: CORS_HEADERS },
     );
   }
 };

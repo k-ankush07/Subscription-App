@@ -168,7 +168,6 @@
 //   });
 // };
 
-
 import { authenticate, unauthenticated } from "../shopify.server";
 import { sendMail } from "../lib/mailer.server";
 import { buildSkipEmail } from "../lib/email-templates/subscription-emails.server";
@@ -346,16 +345,26 @@ export const action = async ({ request }) => {
       if (emailData?.email && portalBaseUrl) {
         const { subject, html } = buildSkipEmail({
           customerName: emailData.customerName,
-          skippedDate: formatDateDisplay(payload.billingCycle.billingAttemptExpectedDate),
+          skippedDate: formatDateDisplay(
+            payload.billingCycle.billingAttemptExpectedDate,
+          ),
           nextOrderDate: formatDateDisplay(emailData.nextOrderDate),
-          lineItem: emailData.lineItem,
+          lineItems: emailData.lineItems, // was: lineItem: emailData.lineItem
+          subtotal: emailData.subtotal, // naya
+          shipping: emailData.shipping, // naya
+          total: emailData.total, // naya
           shippingAddress: emailData.shippingAddress,
           billingAddress: emailData.shippingAddress, // billing address alag se store nahi ho rahi abhi
           paymentLast4: emailData.paymentLast4,
           manageUrl: `${portalBaseUrl}/subscriptions/${getNumericId(contractId)}`,
         });
 
-        await sendMail({ to: emailData.email, subject, html, fromName: shopName });
+        await sendMail({
+          to: emailData.email,
+          subject,
+          html,
+          fromName: shopName,
+        });
       } else if (emailData?.email && !portalBaseUrl) {
         console.warn("[skip] portal base URL not resolved — email skipped");
       }
