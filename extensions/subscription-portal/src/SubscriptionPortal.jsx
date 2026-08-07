@@ -743,9 +743,10 @@ function SubscriptionDetail({ sub, onBack, refreshSubscriptions }) {
                     {address.name}
                     {address.address1 ? `, ${address.address1}` : ""}
                     {address.address2 ? `, ${address.address2}` : ""}
+                    {address.zip ?? ""}
                     {address.city ? `, ${address.city}` : ""}
                     {address.province ? `, ${address.province}` : ""}{" "}
-                    {address.zip ?? ""}
+                    
                     {address.country ? `, ${address.country}` : ""}
                   </s-text>
                 </>
