@@ -57,18 +57,10 @@ function formatShortWithYear(dateOnlyStr) {
   return d.toLocaleDateString("en-GB", opts);
 }
 
-// Cycles array me se pehla aisa cycle jo skip nahi hua aur bill bhi nahi hua —
-// yahi hamesha "next order" / quick-skip button ka target hona chahiye.
-// cycles[0] hardcode karna hi original bug tha (already-skipped cycle ko
-// baar baar target karta tha).
 function getNextActionableCycle(cycles) {
   return cycles.find((c) => !c.skipped && c.status !== "BILLED") ?? null;
 }
 
-// "Upcoming orders" modal me hamesha sirf pehle 6 hi cycles dikhane hain.
-// Backend zyada (60) fetch karta hai taaki 6 skip hone ke baad bhi 7th
-// cycle ki asli date pata chal sake, lekin wo 7th+ list me kabhi nahi
-// dikhega — sirf "Upcoming order" card ke date field me use hoga.
 const VISIBLE_CYCLES_LIMIT = 6;
 
 function SkeletonCard() {
@@ -143,12 +135,6 @@ function Extension() {
     customerIdRef.current = customerId;
     return customerId;
   }, []);
-
-  // Route sync: URL se ID nikaal ke subscriptions me match karke selectedSub
-  // set karta hai. IMPORTANT: fresh `subscriptions` list ko hamesha priority
-  // di jaati hai — history state (`entry.getState()`) sirf fallback hai
-  // (jab list abhi load hi na hui ho). Pehle iska ulta tha, isliye skip/unskip
-  // ke baad reload/back-forward par purana (stale) snapshot wapas dikh jaata tha.
   useEffect(() => {
     function syncFromEntry(entry) {
       const id = parseSubscriptionIdFromUrl(entry?.url);
@@ -239,7 +225,6 @@ function Extension() {
       await fetchPage({ afterCursor: null, reset: true });
       setLoading(false);
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function handleViewMore() {
@@ -270,10 +255,6 @@ function Extension() {
       console.error("navigation.navigate failed:", err);
     }
   }
-
-  // Server se fresh data laata hai AUR navigation history state ko bhi
-  // replace karta hai — warna agla back/forward navigation phir se purana
-  // (skip/unskip se pehle wala) snapshot utha lega.
   const refreshSubscriptions = useCallback(async () => {
     const list = await fetchPage({ afterCursor: null, reset: true });
     const current = selectedSub;
@@ -308,11 +289,7 @@ function Extension() {
   if (selectedSub) {
     return (
       <SubscriptionDetail
-        // key = subscription id: jab tum ek subscription se doosre subscription
-        // par jaate ho tab component fresh mount hoga (local upcomingCycles state
-        // sahi se re-init hoga). Same subscription ke andar refresh hone par
-        // (skip/unskip) key nahi badalta, isliye optimistic UI bina flicker/reset
-        // ke bani rehti hai.
+
         key={getNumericId(selectedSub.id)}
         sub={selectedSub}
         onBack={handleBack}
@@ -409,18 +386,10 @@ function SubscriptionDetail({ sub, onBack, refreshSubscriptions }) {
   );
   const [nextBillingDate, setNextBillingDate] = useState(sub.nextBillingDate);
   const [hasMoreCycles, setHasMoreCycles] = useState(sub.hasMoreCycles ?? false);
-
-  // Boolean ki jagah cycleIndex store karte hain — taaki sirf wahi button/link
-  // disable ho jise user ne click kiya hai, baaki sab usable rahe.
   const [loadingCycleIndex, setLoadingCycleIndex] = useState(null);
-  const [loadingAction, setLoadingAction] = useState(null); // "skip" | "unskip"
+  const [loadingAction, setLoadingAction] = useState(null);
+   
 
-  // `sub` prop jab bhi badalta hai (refreshSubscriptions ke baad ek NAYA sub
-  // object aata hai), local state ko usi se re-sync karo. Pehle yeh sirf mount
-  // par ek baar hota tha, isliye server se aaya updated hasMoreCycles /
-  // nextBillingDate kabhi UI tak nahi pahochta tha. Optimistic update
-  // (applyCycleUpdate) turant UI update kar deta hai, aur yeh effect fir
-  // asli/authoritative server data se reconcile kar deta hai.
   useEffect(() => {
     setUpcomingCycles(sub.upcomingCycles ?? []);
     setNextBillingDate(sub.nextBillingDate);
@@ -433,10 +402,6 @@ function SubscriptionDetail({ sub, onBack, refreshSubscriptions }) {
         c.cycleIndex === cycleIndex ? { ...c, ...patch } : c,
       );
 
-      // "Next order" date sirf pehle VISIBLE_CYCLES_LIMIT (6) cycles me se
-      // dhoondo — modal me jitne dikhte hain sirf unhi me se. Agar wo saare
-      // skip ho chuke hain, toh AAGE (7th cycle onwards, jo modal me kabhi
-      // nahi dikhta) se agli date le lo, sirf display ke liye.
       const visible = updated.slice(0, VISIBLE_CYCLES_LIMIT);
       const next = getNextActionableCycle(visible);
       if (next) {
@@ -475,11 +440,6 @@ function SubscriptionDetail({ sub, onBack, refreshSubscriptions }) {
 
       applyCycleUpdate(cycleIndex, { skipped: true });
       shopify.toast.show("Order skipped");
-
-      // Poori subscriptions list ka refresh bahut heavy hai (7 contracts x
-      // preview + 60 billing cycles), isliye ise AWAIT nahi karte — spinner
-      // yahin turant hat jaata hai, aur yeh background me chup-chaap
-      // authoritative data se reconcile kar deta hai.
       refreshSubscriptions().catch((err) =>
         console.error("Background refresh after skip failed:", err),
       );
@@ -515,8 +475,6 @@ function SubscriptionDetail({ sub, onBack, refreshSubscriptions }) {
 
       applyCycleUpdate(cycleIndex, { skipped: false });
       shopify.toast.show("Order un-skipped");
-
-      // Isi tarah background me — await nahi karte.
       refreshSubscriptions().catch((err) =>
         console.error("Background refresh after unskip failed:", err),
       );
@@ -529,7 +487,6 @@ function SubscriptionDetail({ sub, onBack, refreshSubscriptions }) {
     }
   }
 
-  // Reschedule abhi implement nahi hai — placeholder taaki click par crash na ho.
   function handleReschedule(contractId, cycleIndex) {
     console.log("TODO: implement reschedule for", contractId, cycleIndex);
   }
@@ -552,19 +509,12 @@ function SubscriptionDetail({ sub, onBack, refreshSubscriptions }) {
   const modalId = `upcoming-orders-modal-${numericId}`;
   const cycles = upcomingCycles;
 
-  // Modal me sirf pehle 6 cycles dikhne hain — backend zyada fetch karta hai
-  // (7th+ ke liye), lekin list yahi tak limited rehti hai.
   const visibleCycles = cycles.slice(0, VISIBLE_CYCLES_LIMIT);
 
-  // Quick "Skip" button hamesha isi cycle ko target karega — pehla cycle jo
-  // abhi tak skip nahi hua, VISIBLE list ke andar hi. Yehi wo fix hai jo
-  // "sirf pehli date skip hoti hai" wale bug ko theek karta hai (pehle
-  // hardcoded cycles[0] use hota tha).
+
   const nextActionable = getNextActionableCycle(visibleCycles);
 
-  // Visible 6 me se koi bhi actionable nahi bacha -> max skip limit hit ho
-  // gayi, Skip button disable karna hai (7th+ cycle ko is button se target
-  // nahi karne dena, chahe wo data available ho).
+
   const maxSkipReached =
     visibleCycles.length === VISIBLE_CYCLES_LIMIT && !nextActionable;
 
@@ -626,20 +576,12 @@ function SubscriptionDetail({ sub, onBack, refreshSubscriptions }) {
                   Show upcoming orders
                 </s-link>
               )}
-
-              {/* Visible 6 cycles saare skip ho chuke hain — chahe backend
-                  ke paas 7th+ cycle ki date ho (upar "Upcoming order" me
-                  wahi dikh rahi hai), Skip button yahi tak limited hai
-                  isliye yeh message dikhao. */}
               {maxSkipReached && (
                 <s-text tone="subdued">
                   The maximum number of orders have been skipped
                 </s-text>
               )}
             </s-stack>
-
-            {/* Upcoming orders modal — hamesha sirf pehle 6 (visibleCycles)
-                dikhate hain, 7th+ kabhi list me nahi aata. */}
             <s-modal id={modalId} heading="Upcoming orders">
               <s-stack direction="block" gap="base">
                 {visibleCycles.map((cycle) => {
@@ -670,11 +612,6 @@ function SubscriptionDetail({ sub, onBack, refreshSubscriptions }) {
                       <s-stack direction="inline" gap="tight" alignItems="center">
                         {!cycle.skipped &&
                           (isAnyLoading ? (
-                            // Koi action chal raha hai (chahe isi row ka ho
-                            // ya kisi aur row ka) — Reschedule ko plain
-                            // subdued text bana do taaki visually bhi
-                            // disabled dikhe, sirf onClick hata dena kaafi
-                            // nahi tha.
                             <s-text tone="subdued">Reschedule</s-text>
                           ) : (
                             <s-link
@@ -687,8 +624,7 @@ function SubscriptionDetail({ sub, onBack, refreshSubscriptions }) {
                           ))}
 
                         {isThisLoading ? (
-                          // Isi row ka skip/unskip chal raha hai — text ke
-                          // bajaye spinner dikhao.
+
                           <s-spinner size="small" />
                         ) : cycle.skipped ? (
                           isAnyLoading ? (
