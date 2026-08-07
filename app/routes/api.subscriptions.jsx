@@ -295,7 +295,7 @@ export const loader = async ({ request }) => {
         );
         const [preview, cyclesResult] = await Promise.all([
           (async () => {
-            if (contract.status === "ACTIVE" || contract.status === "PAUSED") {
+            if (contract.status === "ACTIVE" || contract.status === "PAUSED" || contract.status === "CANCELLED") {
               try {
                 return await getContractPreview(admin, contract.id);
               } catch (e) {
