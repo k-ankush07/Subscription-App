@@ -1245,11 +1245,7 @@ function SubscriptionDetail({ sub, onBack, refreshSubscriptions }) {
               <s-stack direction="inline" gap="tight">
                 <s-button
                   variant="secondary"
-                  disabled={
-                    !nextActionable ||
-                    (loadingCycleIndex != null &&
-                      loadingCycleIndex === nextActionable?.cycleIndex)
-                  }
+                  disabled={!nextActionable || loadingCycleIndex != null}
                   onClick={() =>
                     nextActionable &&
                     handleSkip(sub.id, nextActionable.cycleIndex)
