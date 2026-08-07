@@ -135,6 +135,7 @@ function Extension() {
     customerIdRef.current = customerId;
     return customerId;
   }, []);
+
   useEffect(() => {
     function syncFromEntry(entry) {
       const id = parseSubscriptionIdFromUrl(entry?.url);
@@ -225,6 +226,7 @@ function Extension() {
       await fetchPage({ afterCursor: null, reset: true });
       setLoading(false);
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function handleViewMore() {
@@ -255,6 +257,7 @@ function Extension() {
       console.error("navigation.navigate failed:", err);
     }
   }
+
   const refreshSubscriptions = useCallback(async () => {
     const list = await fetchPage({ afterCursor: null, reset: true });
     const current = selectedSub;
@@ -289,11 +292,11 @@ function Extension() {
   if (selectedSub) {
     return (
       <SubscriptionDetail
-
         key={getNumericId(selectedSub.id)}
         sub={selectedSub}
         onBack={handleBack}
         refreshSubscriptions={refreshSubscriptions}
+        getCustomerId={getCustomerId}
       />
     );
   }
@@ -380,20 +383,76 @@ function SubscriptionCard({ sub, onClick }) {
   );
 }
 
-function SubscriptionDetail({ sub, onBack, refreshSubscriptions }) {
+const INDIAN_STATES = [
+  "Andhra Pradesh",
+  "Arunachal Pradesh",
+  "Assam",
+  "Bihar",
+  "Chhattisgarh",
+  "Goa",
+  "Gujarat",
+  "Haryana",
+  "Himachal Pradesh",
+  "Jharkhand",
+  "Karnataka",
+  "Kerala",
+  "Madhya Pradesh",
+  "Maharashtra",
+  "Manipur",
+  "Meghalaya",
+  "Mizoram",
+  "Nagaland",
+  "Odisha",
+  "Punjab",
+  "Rajasthan",
+  "Sikkim",
+  "Tamil Nadu",
+  "Telangana",
+  "Tripura",
+  "Uttar Pradesh",
+  "Uttarakhand",
+  "West Bengal",
+  "Andaman and Nicobar Islands",
+  "Chandigarh",
+  "Dadra and Nagar Haveli and Daman and Diu",
+  "Delhi",
+  "Jammu and Kashmir",
+  "Ladakh",
+  "Lakshadweep",
+  "Puducherry",
+];
+
+function SubscriptionDetail({ sub, onBack, refreshSubscriptions, getCustomerId }) {
   const [upcomingCycles, setUpcomingCycles] = useState(
     sub.upcomingCycles ?? [],
   );
   const [nextBillingDate, setNextBillingDate] = useState(sub.nextBillingDate);
   const [hasMoreCycles, setHasMoreCycles] = useState(sub.hasMoreCycles ?? false);
+
   const [loadingCycleIndex, setLoadingCycleIndex] = useState(null);
   const [loadingAction, setLoadingAction] = useState(null);
-   
+
+  const [address, setAddress] = useState(sub.deliveryMethod?.address ?? null);
+
+  const [addressForm, setAddressForm] = useState({
+    firstName: "",
+    lastName: "",
+    address1: "",
+    address2: "",
+    city: "",
+    province: "",
+    zip: "",
+    country: "India",
+    phone: "",
+  });
+  const [addressSaving, setAddressSaving] = useState(false);
+  const [addressError, setAddressError] = useState(null);
 
   useEffect(() => {
     setUpcomingCycles(sub.upcomingCycles ?? []);
     setNextBillingDate(sub.nextBillingDate);
     setHasMoreCycles(sub.hasMoreCycles ?? false);
+    setAddress(sub.deliveryMethod?.address ?? null);
   }, [sub]);
 
   function applyCycleUpdate(cycleIndex, patch) {
@@ -440,6 +499,7 @@ function SubscriptionDetail({ sub, onBack, refreshSubscriptions }) {
 
       applyCycleUpdate(cycleIndex, { skipped: true });
       shopify.toast.show("Order skipped");
+
       refreshSubscriptions().catch((err) =>
         console.error("Background refresh after skip failed:", err),
       );
@@ -475,6 +535,7 @@ function SubscriptionDetail({ sub, onBack, refreshSubscriptions }) {
 
       applyCycleUpdate(cycleIndex, { skipped: false });
       shopify.toast.show("Order un-skipped");
+
       refreshSubscriptions().catch((err) =>
         console.error("Background refresh after unskip failed:", err),
       );
@@ -491,11 +552,95 @@ function SubscriptionDetail({ sub, onBack, refreshSubscriptions }) {
     console.log("TODO: implement reschedule for", contractId, cycleIndex);
   }
 
+  function splitName(fullName) {
+    if (!fullName) return { firstName: "", lastName: "" };
+    const parts = fullName.trim().split(" ");
+    return {
+      firstName: parts[0] || "",
+      lastName: parts.slice(1).join(" ") || "",
+    };
+  }
+
+  function openAddressModal() {
+    const a = address ?? {};
+    const { firstName, lastName } = splitName(a.name);
+    setAddressForm({
+      firstName,
+      lastName,
+      address1: a.address1 || "",
+      address2: a.address2 || "",
+      city: a.city || "",
+      province: a.province || "",
+      zip: a.zip || "",
+      country: a.country || "India",
+      phone: a.phone || "",
+    });
+    setAddressError(null);
+    shopify.modal?.show?.(`edit-address-modal-${numericId}`);
+  }
+
+  async function handleSaveAddress() {
+    if (!addressForm.address1 || !addressForm.city || !addressForm.country) {
+      setAddressError("Address, city aur country zaroori hain");
+      return;
+    }
+    try {
+      setAddressSaving(true);
+      setAddressError(null);
+
+      const token = await shopify.sessionToken.get();
+      const customerId = await getCustomerId();
+
+      const res = await fetch(
+        `${API_BASE}/api/subscriptions/update-address`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            contractId: sub.id,
+            customerId,
+            address: addressForm,
+          }),
+        },
+      );
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Address update failed");
+      }
+
+      setAddress({
+        name: `${addressForm.firstName} ${addressForm.lastName}`.trim(),
+        address1: addressForm.address1,
+        address2: addressForm.address2,
+        city: addressForm.city,
+        province: addressForm.province,
+        zip: addressForm.zip,
+        country: addressForm.country,
+        phone: addressForm.phone,
+      });
+
+      shopify.toast.show("Address updated");
+      shopify.modal?.hide?.(`edit-address-modal-${numericId}`);
+
+      refreshSubscriptions().catch((err) =>
+        console.error("Background refresh after address update failed:", err),
+      );
+    } catch (err) {
+      console.error(err);
+      setAddressError(err.message);
+    } finally {
+      setAddressSaving(false);
+    }
+  }
+
   const items = sub.nextOrderLineItems?.length
     ? sub.nextOrderLineItems
     : (sub.lines?.edges?.map((e) => e.node) ?? []);
 
-  const address = sub.deliveryMethod?.address ?? null;
   const total = sub.nextOrderTotal;
   const shipping = sub.nextOrderShipping;
   const grandTotal =
@@ -507,13 +652,12 @@ function SubscriptionDetail({ sub, onBack, refreshSubscriptions }) {
 
   const numericId = getNumericId(sub.id);
   const modalId = `upcoming-orders-modal-${numericId}`;
+  const addressModalId = `edit-address-modal-${numericId}`;
   const cycles = upcomingCycles;
 
   const visibleCycles = cycles.slice(0, VISIBLE_CYCLES_LIMIT);
 
-
   const nextActionable = getNextActionableCycle(visibleCycles);
-
 
   const maxSkipReached =
     visibleCycles.length === VISIBLE_CYCLES_LIMIT && !nextActionable;
@@ -576,12 +720,14 @@ function SubscriptionDetail({ sub, onBack, refreshSubscriptions }) {
                   Show upcoming orders
                 </s-link>
               )}
+
               {maxSkipReached && (
                 <s-text tone="subdued">
                   The maximum number of orders have been skipped
                 </s-text>
               )}
             </s-stack>
+
             <s-modal id={modalId} heading="Upcoming orders">
               <s-stack direction="block" gap="base">
                 {visibleCycles.map((cycle) => {
@@ -624,7 +770,6 @@ function SubscriptionDetail({ sub, onBack, refreshSubscriptions }) {
                           ))}
 
                         {isThisLoading ? (
-
                           <s-spinner size="small" />
                         ) : cycle.skipped ? (
                           isAnyLoading ? (
@@ -679,15 +824,161 @@ function SubscriptionDetail({ sub, onBack, refreshSubscriptions }) {
                     {address.name}
                     {address.address1 ? `, ${address.address1}` : ""}
                     {address.address2 ? `, ${address.address2}` : ""}
-                    {address.zip ?? ""}
                     {address.city ? `, ${address.city}` : ""}
                     {address.province ? `, ${address.province}` : ""}{" "}
-                    
+                    {address.zip ?? ""}
                     {address.country ? `, ${address.country}` : ""}
                   </s-text>
+                  <s-link command="--show" commandFor={addressModalId} onClick={openAddressModal}>
+                    Change address
+                  </s-link>
                 </>
               )}
             </s-stack>
+
+            <s-modal id={addressModalId} heading="Edit shipping address">
+              <s-stack direction="block" gap="base">
+                {addressError && (
+                  <s-text tone="critical">{addressError}</s-text>
+                )}
+
+                <s-select
+                  label="Country/region"
+                  value={addressForm.country}
+                  onChange={(e) =>
+                    setAddressForm({ ...addressForm, country: e.target.value })
+                  }
+                >
+                  <s-option value="India">India</s-option>
+                </s-select>
+
+                <s-stack direction="inline" gap="base">
+                  <s-text-field
+                    label="First name"
+                    value={addressForm.firstName}
+                    onInput={(e) =>
+                      setAddressForm({
+                        ...addressForm,
+                        firstName: e.target.value,
+                      })
+                    }
+                  />
+                  <s-text-field
+                    label="Last name"
+                    value={addressForm.lastName}
+                    onInput={(e) =>
+                      setAddressForm({
+                        ...addressForm,
+                        lastName: e.target.value,
+                      })
+                    }
+                  />
+                </s-stack>
+
+                <s-text-field
+                  label="Address"
+                  value={addressForm.address1}
+                  onInput={(e) =>
+                    setAddressForm({ ...addressForm, address1: e.target.value })
+                  }
+                />
+                <s-text-field
+                  label="Apartment, suite, etc (optional)"
+                  value={addressForm.address2}
+                  onInput={(e) =>
+                    setAddressForm({ ...addressForm, address2: e.target.value })
+                  }
+                />
+
+                <s-stack direction="inline" gap="base">
+                  <s-text-field
+                    label="City"
+                    value={addressForm.city}
+                    onInput={(e) =>
+                      setAddressForm({ ...addressForm, city: e.target.value })
+                    }
+                  />
+                  <s-select
+                    label="State"
+                    value={addressForm.province}
+                    onChange={(e) =>
+                      setAddressForm({
+                        ...addressForm,
+                        province: e.target.value,
+                      })
+                    }
+                  >
+                    <s-option value="">Select state</s-option>
+                    {INDIAN_STATES.map((state) => (
+                      <s-option key={state} value={state}>
+                        {state}
+                      </s-option>
+                    ))}
+                  </s-select>
+                  <s-text-field
+                    label="PIN code"
+                    value={addressForm.zip}
+                    onInput={(e) =>
+                      setAddressForm({ ...addressForm, zip: e.target.value })
+                    }
+                  />
+                </s-stack>
+
+                <s-box
+                  border="base"
+                  borderRadius="base"
+                  padding="tight"
+                >
+                  <s-stack
+                    direction="inline"
+                    gap="tight"
+                    alignItems="center"
+                    justifyContent="space-between"
+                  >
+                    <s-stack direction="block" gap="none">
+                      <s-text tone="subdued" fontSize="small">
+                        Phone
+                      </s-text>
+                      <s-text-field
+                        value={addressForm.phone}
+                        placeholder="+91"
+                        onInput={(e) =>
+                          setAddressForm({
+                            ...addressForm,
+                            phone: e.target.value,
+                          })
+                        }
+                      />
+                    </s-stack>
+                    <s-stack
+                      direction="inline"
+                      gap="extra-tight"
+                      alignItems="center"
+                    >
+                      <s-text>🇮🇳</s-text>
+                      <s-text tone="subdued">▾</s-text>
+                    </s-stack>
+                  </s-stack>
+                </s-box>
+              </s-stack>
+
+              <s-button
+                slot="primary-action"
+                variant="primary"
+                disabled={addressSaving}
+                onClick={handleSaveAddress}
+              >
+                {addressSaving ? <s-spinner size="small" /> : "Continue"}
+              </s-button>
+              <s-button
+                slot="secondary-actions"
+                command="--hide"
+                commandFor={addressModalId}
+                disabled={addressSaving}
+              >
+                Cancel
+              </s-button>
+            </s-modal>
           </s-box>
 
           <s-box border="base" borderRadius="base" padding="base">
