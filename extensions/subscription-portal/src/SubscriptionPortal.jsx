@@ -858,7 +858,6 @@ function SubscriptionDetail({
                       alignItems="center"
                     >
                       <s-icon type="edit" />
-                      <s-text>Change address</s-text>
                     </s-stack>
                   </s-link>
                 </>
