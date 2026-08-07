@@ -11,10 +11,6 @@ const CORS_HEADERS = {
 const DEFAULT_LIMIT = 7;
 const MAX_LIMIT = 50;
 
-// Modal sirf 6 dikhata hai; thoda buffer (7th cycle ki date "Upcoming
-// order" card pe dikhane ke liye) rakhne ke liye 20 fetch karte hain.
-// Pehle 60 tha — jitna zyada fetch karoge utni GraphQL query slow hoti hai,
-// aur 60 ki zaroorat hi nahi thi.
 const BILLING_CYCLES_FETCH_LIMIT = 20;
 
 export const action = async ({ request }) => {
@@ -104,6 +100,17 @@ export const loader = async ({ request }) => {
                       }
                       
                   }
+                       customerPaymentMethod {
+    id
+    instrument {
+      ... on CustomerCreditCard {
+        brand
+        lastDigits
+        expiryMonth
+        expiryYear
+        name
+      }
+    }
                 }
               }
             }
@@ -345,8 +352,8 @@ export const loader = async ({ request }) => {
         return {
           ...contract,
           lines: { edges: lines.map((line) => ({ node: line })) },
-          displayLine, // list card ke liye — sirf pehla product
-          nextOrderLineItems: preview?.nextOrder?.lineItems ?? [], // detail view ke liye — SAARE products
+          displayLine,
+          nextOrderLineItems: preview?.nextOrder?.lineItems ?? [], 
           nextOrderTotal: preview?.nextOrder?.calculatedOrderTotal ?? null,
           nextOrderShipping: preview?.nextOrder?.shipping ?? null,
           nextBillingDate: realNextBillingDate,
@@ -358,6 +365,19 @@ export const loader = async ({ request }) => {
           currencyCode: lines[0]?.lineDiscountedPrice?.currencyCode,
           paymentsCompleted: policy?.paymentsCompleted ?? 0,
           minPaymentsRequired: policy?.minPaymentsRequired ?? null,
+           shippingMethodTitle:
+    contract.deliveryMethod?.shippingOption?.presentmentTitle ||
+    contract.deliveryMethod?.shippingOption?.title ||
+    null,
+  paymentMethod: contract.customerPaymentMethod?.instrument
+    ? {
+        brand: contract.customerPaymentMethod.instrument.brand ?? null,
+        lastDigits: contract.customerPaymentMethod.instrument.lastDigits ?? null,
+        expiryMonth: contract.customerPaymentMethod.instrument.expiryMonth ?? null,
+        expiryYear: contract.customerPaymentMethod.instrument.expiryYear ?? null,
+        cardHolderName: contract.customerPaymentMethod.instrument.name ?? null,
+      }
+    : null,
         };
       }),
     );

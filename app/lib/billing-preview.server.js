@@ -1355,13 +1355,47 @@ async function getContractPreview(admin, contractId) {
     let cycleData = await cycleRes.json();
     let cycle = cycleData.data?.subscriptionBillingCycle;
 
+    // if (cycle) {
+    //   cycleIndex = cycle.cycleIndex;
+    //   nextBillingDate = cycle.billingAttemptExpectedDate || nextBillingDate;
+    //   cycleStatus = cycle.status;
+
+    //   let safetyCounter = 0;
+    //   while (cycleStatus === "BILLED" && safetyCounter < 20) {
+    //     cycleIndex += 1;
+    //     safetyCounter += 1;
+
+    //     const nextCycleRes = await admin.graphql(
+    //       `
+    //       query getCycleByIndex($contractId: ID!, $index: Int!) {
+    //         subscriptionBillingCycle(billingCycleInput: { contractId: $contractId, selector: { index: $index } }) {
+    //           cycleIndex
+    //           billingAttemptExpectedDate
+    //           status
+    //           skipped
+    //         }
+    //       }
+    //       `,
+    //       { variables: { contractId, index: cycleIndex } },
+    //     );
+
+    //     const nextCycleData = await nextCycleRes.json();
+    //     const nextCycle = nextCycleData.data?.subscriptionBillingCycle;
+    //     if (!nextCycle) break;
+
+    //     cycleIndex = nextCycle.cycleIndex;
+    //     nextBillingDate = nextCycle.billingAttemptExpectedDate || nextBillingDate;
+    //     cycleStatus = nextCycle.status;
+    //   }
+    // }
     if (cycle) {
       cycleIndex = cycle.cycleIndex;
       nextBillingDate = cycle.billingAttemptExpectedDate || nextBillingDate;
       cycleStatus = cycle.status;
+      let cycleSkipped = cycle.skipped; // naya — properly declared
 
       let safetyCounter = 0;
-      while (cycleStatus === "BILLED" && safetyCounter < 20) {
+      while ((cycleStatus === "BILLED" || cycleSkipped) && safetyCounter < 20) {
         cycleIndex += 1;
         safetyCounter += 1;
 
@@ -1386,6 +1420,7 @@ async function getContractPreview(admin, contractId) {
         cycleIndex = nextCycle.cycleIndex;
         nextBillingDate = nextCycle.billingAttemptExpectedDate || nextBillingDate;
         cycleStatus = nextCycle.status;
+        cycleSkipped = nextCycle.skipped;
       }
     }
   }

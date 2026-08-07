@@ -1154,6 +1154,38 @@ function SubscriptionDetail({
                   {sub.deliveryPolicy?.interval?.toLowerCase()}
                 </s-text>
 
+                 <s-stack
+      direction="inline"
+      gap="base"
+      alignItems="start"
+      justifyContent="space-between"
+    >
+      <s-stack direction="block" gap="tight">
+        <s-text fontWeight="bold">Shipping method</s-text>
+        <s-text tone="subdued">{sub.shippingMethodTitle || "-"}</s-text>
+      </s-stack>
+
+      {sub.paymentMethod && (
+        <s-stack direction="block" gap="tight">
+          <s-stack direction="inline" gap="extra-tight" alignItems="center">
+            <s-text fontWeight="bold">Payment details</s-text>
+            <s-icon type="edit" />
+          </s-stack>
+          <s-text tone="subdued">
+            Credit card: •••• •••• ••••{" "}
+            {sub.paymentMethod.lastDigits || "----"}
+          </s-text>
+          <s-text tone="subdued">
+            Card holder name: {sub.paymentMethod.cardHolderName || "-"}
+          </s-text>
+          <s-text tone="subdued">
+            Card expires: {sub.paymentMethod.expiryMonth}/
+            {sub.paymentMethod.expiryYear}
+          </s-text>
+        </s-stack>
+      )}
+    </s-stack>
+
                 {address && (
                   <>
                     <s-text fontWeight="bold">Shipping address</s-text>
