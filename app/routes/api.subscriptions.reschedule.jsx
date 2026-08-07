@@ -1,7 +1,3 @@
-
-
-
-
 import { authenticate, unauthenticated } from "../shopify.server";
 
 const CORS_HEADERS = {
@@ -10,13 +6,51 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
+const RESCHEDULE_MUTATION = `#graphql
+  mutation SubscriptionBillingCycleScheduleEdit(
+    $billingCycleInput: SubscriptionBillingCycleInput!
+    $input: SubscriptionBillingCycleScheduleEditInput!
+  ) {
+    subscriptionBillingCycleScheduleEdit(
+      billingCycleInput: $billingCycleInput
+      input: $input
+    ) {
+      billingCycle {
+        cycleIndex
+        billingAttemptExpectedDate
+        skipped
+        edited
+        status
+      }
+      userErrors {
+        field
+        message
+        code
+      }
+    }
+  }
+`;
+
+const CONTRACT_OWNER_QUERY = `#graphql
+  query GetContractOwner($contractId: ID!) {
+    subscriptionContract(id: $contractId) {
+      id
+      customer {
+        id
+      }
+    }
+  }
+`;
+
 export const action = async ({ request }) => {
   if (request.method === "OPTIONS") {
     return new Response(null, { headers: CORS_HEADERS });
   }
-
   if (request.method !== "POST") {
-    return new Response("Method not allowed", { status: 405, headers: CORS_HEADERS });
+    return new Response("Method not allowed", {
+      status: 405,
+      headers: CORS_HEADERS,
+    });
   }
 
   try {
@@ -25,110 +59,138 @@ export const action = async ({ request }) => {
     const { admin } = await unauthenticated.admin(shop);
 
     const body = await request.json();
-    const subscriptionContractId = body.subscriptionContractId;
-    const billingCycleIndex = Number.isFinite(Number(body.billingCycleIndex))
-      ? Number(body.billingCycleIndex)
-      : 0;
-    const newDate = body.newDate;
+    let { contractId, cycleIndex, newDate } = body || {};
 
-    if (!subscriptionContractId || !newDate) {
+    if (!contractId) {
       return Response.json(
-        { error: "subscriptionContractId and newDate are required" },
-        { status: 400, headers: CORS_HEADERS }
+        { success: false, error: "contractId missing" },
+        { status: 400, headers: CORS_HEADERS },
       );
     }
-    const effectiveDateTime = `${newDate}T00:00:00.000Z`;
 
-    const makeRequest = async (index, dateTime) => {
-      return admin.graphql(
-        `#graphql
-        mutation RescheduleSubscriptionCycle($subscriptionContractId: ID!, $index: Int!, $newDate: DateTime!) {
-          subscriptionBillingCycleScheduleEdit(
-            billingCycleInput: { contractId: $subscriptionContractId, selector: { index: $index } }
-            input: { billingDate: $newDate, reason: BUYER_INITIATED }
-          ) {
-            billingCycle {
-              cycleIndex
-              billingAttemptExpectedDate
-            }
-            userErrors {
-              field
-              message
-            }
-          }
-        }`,
-        { variables: { subscriptionContractId, index, newDate: dateTime } }
+    if (/^\d+$/.test(String(contractId))) {
+      contractId = `gid://shopify/SubscriptionContract/${contractId}`;
+    }
+
+    cycleIndex = parseInt(cycleIndex, 10);
+    if (Number.isNaN(cycleIndex)) {
+      return Response.json(
+        { success: false, error: "Invalid billing cycle index" },
+        { status: 400, headers: CORS_HEADERS },
       );
-    };
+    }
 
-    let res = await makeRequest(billingCycleIndex, effectiveDateTime);
-    let payload = await res.json();
+    if (!newDate) {
+      return Response.json(
+        { success: false, error: "newDate missing" },
+        { status: 400, headers: CORS_HEADERS },
+      );
+    }
 
-    const userErrors1 = payload?.data?.subscriptionBillingCycleScheduleEdit?.userErrors ?? [];
-    const indexOutOfRange = userErrors1.some((error) =>
-      /outside of index range/i.test(error?.message || "")
-    );
+    const isoDate = new Date(newDate).toISOString();
+    if (Number.isNaN(new Date(isoDate).valueOf())) {
+      return Response.json(
+        { success: false, error: "Invalid date" },
+        { status: 400, headers: CORS_HEADERS },
+      );
+    }
 
-    if (indexOutOfRange && billingCycleIndex !== 1) {
+    // ownership check — skip.js / unskip.js jaisa hi
+    const ownerRes = await admin.graphql(CONTRACT_OWNER_QUERY, {
+      variables: { contractId },
+    });
+    const ownerData = await ownerRes.json();
+    const contractCustomerId =
+      ownerData?.data?.subscriptionContract?.customer?.id;
+
+    if (!contractCustomerId) {
+      return Response.json(
+        { success: false, error: "Subscription contract not found" },
+        { status: 404, headers: CORS_HEADERS },
+      );
+    }
+
+    const tokenCustomerId = sessionToken.sub?.startsWith("gid://")
+      ? sessionToken.sub
+      : `gid://shopify/Customer/${sessionToken.sub}`;
+
+    if (tokenCustomerId !== contractCustomerId) {
       console.warn(
-        `billingCycleIndex ${billingCycleIndex} out of range for contract ${subscriptionContractId} (likely already elapsed/locked). Falling back to index 1, the next editable cycle.`
+        `[reschedule] ownership mismatch: token=${tokenCustomerId} contractOwner=${contractCustomerId}`,
       );
-      res = await makeRequest(1, effectiveDateTime);
-      payload = await res.json();
+      return Response.json(
+        { success: false, error: "Not authorized to modify this subscription" },
+        { status: 403, headers: CORS_HEADERS },
+      );
     }
 
-    const { data, errors } = payload;
-
-    const confirmedCycle = data?.subscriptionBillingCycleScheduleEdit?.billingCycle;
-    const confirmedDateOnly = confirmedCycle?.billingAttemptExpectedDate
-      ? confirmedCycle.billingAttemptExpectedDate.slice(0, 10)
-      : null;
-    console.log(
-      "subscriptionBillingCycleScheduleEdit result:",
-      JSON.stringify(
-        {
-          requestedDateOnly,
-          requestedIndex: billingCycleIndex,
-          confirmedBillingCycle: confirmedCycle,
-          dateWasAdjusted: confirmedDateOnly !== null && confirmedDateOnly !== requestedDateOnly,
-          userErrors: data?.subscriptionBillingCycleScheduleEdit?.userErrors,
+    // --- actual reschedule ---
+    const res = await admin.graphql(RESCHEDULE_MUTATION, {
+      variables: {
+        billingCycleInput: {
+          contractId,
+          selector: { index: cycleIndex },
         },
-        null,
-        2
-      )
-    );
+        input: {
+          billingDate: isoDate,
+          reason: "CUSTOMER_INITIATED",
+        },
+      },
+    });
+
+    const { data, errors } = await res.json();
 
     if (errors) {
-      console.error("Reschedule subscription GraphQL errors:", JSON.stringify(errors, null, 2));
-      return Response.json({ error: errors }, { status: 500, headers: CORS_HEADERS });
-    }
-
-    const userErrors = data?.subscriptionBillingCycleScheduleEdit?.userErrors ?? [];
-    if (userErrors.length > 0) {
+      console.error(
+        "[reschedule] GraphQL errors:",
+        JSON.stringify(errors, null, 2),
+      );
       return Response.json(
-        { error: userErrors[0].message || "Unable to reschedule this order" },
-        { status: 400, headers: CORS_HEADERS }
+        { success: false, error: errors },
+        { status: 500, headers: CORS_HEADERS },
       );
     }
 
-    const dateWasAdjusted =
-      confirmedDateOnly !== null && confirmedDateOnly !== requestedDateOnly;
+    const payload = data?.subscriptionBillingCycleScheduleEdit;
+
+    if (!payload || payload.userErrors?.length) {
+      console.error("[reschedule] userErrors:", payload?.userErrors);
+      return Response.json(
+        {
+          success: false,
+          error:
+            payload?.userErrors?.map((e) => e.message).join(", ") ||
+            "Reschedule failed",
+        },
+        { status: 400, headers: CORS_HEADERS },
+      );
+    }
+
     return Response.json(
       {
         success: true,
-        billingCycle: confirmedCycle,
-        requestedDate: requestedDateOnly,
-        dateWasAdjusted,
+        cycleIndex: payload.billingCycle.cycleIndex,
+        billingAttemptExpectedDate:
+          payload.billingCycle.billingAttemptExpectedDate,
       },
-      { headers: CORS_HEADERS }
+      { headers: CORS_HEADERS },
     );
   } catch (err) {
-    console.error("api.subscriptions.reschedule error:", err.message, err.stack);
+    console.error(
+      "api.subscriptions.reschedule error:",
+      err.message,
+      err.stack,
+    );
     return Response.json(
-      { error: err.message || "Unknown error" },
-      { status: 500, headers: CORS_HEADERS }
+      { success: false, error: err.message || "Unknown error" },
+      { status: 500, headers: CORS_HEADERS },
     );
   }
 };
 
-
+export const loader = async () => {
+  return new Response("Method not allowed", {
+    status: 405,
+    headers: CORS_HEADERS,
+  });
+};

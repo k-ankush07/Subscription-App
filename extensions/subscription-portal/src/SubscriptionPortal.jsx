@@ -456,6 +456,11 @@ function SubscriptionDetail({
   });
   const [addressSaving, setAddressSaving] = useState(false);
   const [addressError, setAddressError] = useState(null);
+  const [rescheduleCycle, setRescheduleCycle] = useState(null);
+  const [rescheduleDate, setRescheduleDate] = useState("");
+  const [rescheduleSaving, setRescheduleSaving] = useState(false);
+  const [rescheduleError, setRescheduleError] = useState(null);
+  const rescheduleModalRef = useRef(null);
 
   useEffect(() => {
     setUpcomingCycles(sub.upcomingCycles ?? []);
@@ -557,8 +562,59 @@ function SubscriptionDetail({
     }
   }
 
-  function handleReschedule(contractId, cycleIndex) {
-    console.log("TODO: implement reschedule for", contractId, cycleIndex);
+  function openRescheduleModal(cycle) {
+    if (!cycle || loadingCycleIndex != null) return;
+    setRescheduleCycle(cycle);
+    setRescheduleDate(toDateOnlyString(cycle.billingAttemptExpectedDate) || "");
+    setRescheduleError(null);
+  }
+
+  async function handleSaveReschedule() {
+    if (!rescheduleCycle || !rescheduleDate || rescheduleSaving) return;
+    const cycleIndex = rescheduleCycle.cycleIndex;
+
+    try {
+      setRescheduleSaving(true);
+      setRescheduleError(null);
+
+      const token = await shopify.sessionToken.get();
+      const res = await fetch(`${API_BASE}/api/subscriptions/reschedule`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contractId: sub.id,
+          cycleIndex,
+          newDate: rescheduleDate,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Reschedule failed");
+      }
+
+      applyCycleUpdate(cycleIndex, {
+        billingAttemptExpectedDate:
+          data.billingAttemptExpectedDate || rescheduleDate,
+        edited: true,
+      });
+
+      shopify.toast.show("Order rescheduled");
+      rescheduleModalRef.current?.hide?.();
+      setRescheduleCycle(null);
+
+      refreshSubscriptions().catch((err) =>
+        console.error("Background refresh after reschedule failed:", err),
+      );
+    } catch (err) {
+      console.error(err);
+      setRescheduleError(err.message);
+    } finally {
+      setRescheduleSaving(false);
+    }
   }
 
   function splitName(fullName) {
@@ -670,6 +726,7 @@ function SubscriptionDetail({
   const numericId = getNumericId(sub.id);
   const modalId = `upcoming-orders-modal-${numericId}`;
   const addressModalId = `edit-address-modal-${numericId}`;
+  const rescheduleModalId = `reschedule-modal-${numericId}`;
   const cycles = upcomingCycles;
 
   const visibleCycles = cycles.slice(0, VISIBLE_CYCLES_LIMIT);
@@ -715,6 +772,16 @@ function SubscriptionDetail({
               </s-stack>
 
               <s-stack direction="inline" gap="tight">
+                <s-button
+                  variant="secondary"
+                  command="--show"
+                  commandFor={rescheduleModalId}
+                  disabled={!nextActionable || loadingCycleIndex != null}
+                  onClick={() => openRescheduleModal(nextActionable)}
+                >
+                  Reschedule
+                </s-button>
+
                 <s-button
                   variant="secondary"
                   disabled={!nextActionable || loadingCycleIndex != null}
@@ -784,9 +851,9 @@ function SubscriptionDetail({
                             <s-text tone="subdued">Reschedule</s-text>
                           ) : (
                             <s-link
-                              onClick={() =>
-                                handleReschedule(sub.id, cycle.cycleIndex)
-                              }
+                              command="--show"
+                              commandFor={rescheduleModalId}
+                              onClick={() => openRescheduleModal(cycle)}
                             >
                               Reschedule
                             </s-link>
@@ -1009,6 +1076,42 @@ function SubscriptionDetail({
                 Cancel
               </s-button>
             </s-modal>
+
+
+            <s-modal
+  id={rescheduleModalId}
+  ref={rescheduleModalRef}
+  heading="Reschedule order"
+>
+  <s-stack direction="block" gap="base">
+    {rescheduleError && (
+      <s-text tone="critical">{rescheduleError}</s-text>
+    )}
+    <s-text-field
+      label="New date"
+      type="date"
+      value={rescheduleDate}
+      onInput={(e) => setRescheduleDate(e.target.value)}
+    />
+  </s-stack>
+
+  <s-button
+    slot="primary-action"
+    variant="primary"
+    disabled={rescheduleSaving || !rescheduleDate}
+    onClick={handleSaveReschedule}
+  >
+    {rescheduleSaving ? <s-spinner size="small" /> : "Save"}
+  </s-button>
+  <s-button
+    slot="secondary-actions"
+    command="--hide"
+    commandFor={rescheduleModalId}
+    disabled={rescheduleSaving}
+  >
+    Cancel
+  </s-button>
+</s-modal>
           </s-box>
 
           <s-box border="base" borderRadius="base" padding="base">

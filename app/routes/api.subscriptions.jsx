@@ -193,17 +193,11 @@ export const loader = async ({ request }) => {
       });
     }
 
-    // Ab pageInfo.hasNextPage bhi return karta hai — isse pata chalta hai ki
-    // fetched window (90 din / BILLING_CYCLES_FETCH_LIMIT cycles) ke AAGE bhi
-    // aur cycles maujood hain ya nahi. Agar saare fetched cycles skip/billed
-    // ho chuke hon aur hasNextPage=true ho, toh humein pata hai ki asli agla
-    // order abhi bhi "unknown lekin exists" hai — hum galat/purani date show
-    // nahi karenge.
     async function fetchUpcomingBillingCycles(contractId) {
       const now = new Date();
       const startDate = now.toISOString();
       const endDate = new Date(
-        now.getTime() + 90 * 24 * 60 * 60 * 1000, // look 90 days ahead
+        now.getTime() + 90 * 24 * 60 * 60 * 1000, 
       ).toISOString();
 
       try {
@@ -299,9 +293,6 @@ export const loader = async ({ request }) => {
             sum + parseFloat(line.lineDiscountedPrice?.amount ?? 0),
           0,
         );
-        // Yeh do heavy GraphQL calls (order preview + billing cycles) pehle
-        // sequentially (ek ke baad ek) chalte the — Promise.all se parallel
-        // kar diya, isse har contract ka processing time ~aadha ho jaata hai.
         const [preview, cyclesResult] = await Promise.all([
           (async () => {
             if (contract.status === "ACTIVE" || contract.status === "PAUSED") {
@@ -345,14 +336,6 @@ export const loader = async ({ request }) => {
           (c) => !c.skipped && c.status !== "BILLED",
         );
 
-        // Agar current window me koi actionable cycle NAHI mila:
-        //  - hasMoreCycles === true  -> aage aur cycles maujood hain, sirf
-        //    fetch nahi hue. Galat/purani `contract.nextBillingDate` show
-        //    karne ke bajaye null bhejo — frontend "maximum orders skipped
-        //    in this period" jaisa message dikhayega.
-        //  - hasMoreCycles === false -> genuinely window me koi aage cycle
-        //    hi nahi hai, tabhi raw contract.nextBillingDate par fallback
-        //    theek hai.
         const realNextBillingDate = nextCycle
           ? nextCycle.billingAttemptExpectedDate
           : hasMoreCycles
