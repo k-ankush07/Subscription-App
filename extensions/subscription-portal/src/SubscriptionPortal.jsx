@@ -461,7 +461,7 @@ function SubscriptionDetail({
   const [rescheduleDate, setRescheduleDate] = useState("");
   const [rescheduleSaving, setRescheduleSaving] = useState(false);
   const [rescheduleError, setRescheduleError] = useState(null);
-  const rescheduleModalRef = useRef(null);
+  const rescheduleModalRef = useRef(null); // outer top-level "Reschedule" button ke liye
   const upcomingModalRef = useRef(null);
 
   useEffect(() => {
@@ -571,21 +571,28 @@ function SubscriptionDetail({
     setRescheduleError(null);
   }
 
-  // Modal ke andar wale "Reschedule" link ke liye — pehle "Upcoming orders"
-  // modal ko hide karo, phir reschedule modal show karo. Do modals ek saath
-  // open nahi ho sakte (Shopify runtime error deta hai), isliye command/
-  // commandFor use nahi kiya — manual show/hide.
-  function openRescheduleFromUpcomingModal(cycle) {
-    upcomingModalRef.current?.hide?.();
+  // "Upcoming orders" modal ke andar wale reschedule link ke liye —
+  // NAYA modal open nahi karte, wahi modal ka content switch kar dete hain
+  // list se date-picker view me. Isse "multiple modal" conflict hi nahi aata.
+  function openRescheduleInsideUpcomingModal(cycle) {
     openRescheduleModal(cycle);
-    setTimeout(() => {
-      rescheduleModalRef.current?.show?.();
-    }, 0);
+  }
+
+  function closeUpcomingModal() {
+    upcomingModalRef.current?.hide?.();
+    setRescheduleCycle(null);
+    setRescheduleError(null);
+  }
+
+  function backToUpcomingList() {
+    setRescheduleCycle(null);
+    setRescheduleError(null);
   }
 
   async function handleSaveReschedule() {
     if (!rescheduleCycle || !rescheduleDate || rescheduleSaving) return;
     const cycleIndex = rescheduleCycle.cycleIndex;
+    const wasFromUpcomingModal = rescheduleCycle.__fromUpcomingModal;
 
     try {
       setRescheduleSaving(true);
@@ -617,8 +624,14 @@ function SubscriptionDetail({
       });
 
       shopify.toast.show("Order rescheduled");
-      rescheduleModalRef.current?.hide?.();
-      setRescheduleCycle(null);
+
+      if (wasFromUpcomingModal) {
+        // wapas list view dikhado usi modal me
+        setRescheduleCycle(null);
+      } else {
+        rescheduleModalRef.current?.hide?.();
+        setRescheduleCycle(null);
+      }
 
       refreshSubscriptions().catch((err) =>
         console.error("Background refresh after reschedule failed:", err),
@@ -750,6 +763,10 @@ function SubscriptionDetail({
   const maxSkipReached =
     visibleCycles.length === VISIBLE_CYCLES_LIMIT && !nextActionable;
 
+  // "Upcoming orders" modal ke andar dikha rahe hain ki nahi (list ya reschedule view)
+  const isRescheduleViewInUpcomingModal =
+    rescheduleCycle && rescheduleCycle.__fromUpcomingModal;
+
   return (
     <s-page heading="Manage subscription">
       <s-section>
@@ -814,7 +831,14 @@ function SubscriptionDetail({
               </s-stack>
 
               {visibleCycles.length > 0 && (
-                <s-link command="--show" commandFor={modalId}>
+                <s-link
+                  command="--show"
+                  commandFor={modalId}
+                  onClick={() => {
+                    setRescheduleCycle(null);
+                    setRescheduleError(null);
+                  }}
+                >
                   Show upcoming orders
                 </s-link>
               )}
@@ -826,90 +850,138 @@ function SubscriptionDetail({
               )}
             </s-stack>
 
-            <s-modal id={modalId} ref={upcomingModalRef} heading="Upcoming orders">
-              <s-stack direction="block" gap="base">
-                {visibleCycles.map((cycle) => {
-                  const isThisLoading = loadingCycleIndex === cycle.cycleIndex;
-                  const isAnyLoading = loadingCycleIndex != null;
-                  return (
-                    <s-stack
-                      key={cycle.cycleIndex}
-                      direction="inline"
-                      gap="base"
-                      alignItems="center"
-                      justifyContent="space-between"
-                    >
-                      <s-stack
-                        direction="inline"
-                        gap="tight"
-                        alignItems="center"
-                      >
-                        <s-text>
-                          {formatShortWithYear(
-                            toDateOnlyString(cycle.billingAttemptExpectedDate),
-                          )}
-                        </s-text>
+            {/* ===== Upcoming orders modal — content switches between list / reschedule ===== */}
+            <s-modal
+              id={modalId}
+              ref={upcomingModalRef}
+              heading={
+                isRescheduleViewInUpcomingModal
+                  ? "Reschedule order"
+                  : "Upcoming orders"
+              }
+            >
+              {isRescheduleViewInUpcomingModal ? (
+                <>
+                  <s-stack direction="block" gap="base">
+                    {rescheduleError && (
+                      <s-text tone="critical">{rescheduleError}</s-text>
+                    )}
+                    <s-date-picker
+                      selected={rescheduleDate}
+                      onChange={(e) => setRescheduleDate(e.target.value)}
+                    />
+                  </s-stack>
 
-                        {cycle.skipped && (
-                          <s-badge tone="warning">Skipped</s-badge>
-                        )}
-                      </s-stack>
-
-                      <s-stack
-                        direction="inline"
-                        gap="tight"
-                        alignItems="center"
-                      >
-                        {!cycle.skipped &&
-                          (isAnyLoading ? (
-                            <s-text tone="subdued">Reschedule</s-text>
-                          ) : (
-                            <s-link
-                              onClick={() =>
-                                openRescheduleFromUpcomingModal(cycle)
-                              }
-                            >
-                              Reschedule
-                            </s-link>
-                          ))}
-
-                        {isThisLoading ? (
-                          <s-spinner size="small" />
-                        ) : cycle.skipped ? (
-                          isAnyLoading ? (
-                            <s-text tone="subdued">Unskip</s-text>
-                          ) : (
-                            <s-link
-                              onClick={() =>
-                                handleUnskip(sub.id, cycle.cycleIndex)
-                              }
-                            >
-                              Unskip
-                            </s-link>
-                          )
-                        ) : isAnyLoading ? (
-                          <s-text tone="subdued">Skip</s-text>
-                        ) : (
-                          <s-link
-                            onClick={() => handleSkip(sub.id, cycle.cycleIndex)}
+                  <s-button
+                    slot="primary-action"
+                    variant="primary"
+                    disabled={rescheduleSaving || !rescheduleDate}
+                    onClick={handleSaveReschedule}
+                  >
+                    {rescheduleSaving ? <s-spinner size="small" /> : "Save"}
+                  </s-button>
+                  <s-button
+                    slot="secondary-actions"
+                    disabled={rescheduleSaving}
+                    onClick={backToUpcomingList}
+                  >
+                    Back
+                  </s-button>
+                </>
+              ) : (
+                <>
+                  <s-stack direction="block" gap="base">
+                    {visibleCycles.map((cycle) => {
+                      const isThisLoading =
+                        loadingCycleIndex === cycle.cycleIndex;
+                      const isAnyLoading = loadingCycleIndex != null;
+                      return (
+                        <s-stack
+                          key={cycle.cycleIndex}
+                          direction="inline"
+                          gap="base"
+                          alignItems="center"
+                          justifyContent="space-between"
+                        >
+                          <s-stack
+                            direction="inline"
+                            gap="tight"
+                            alignItems="center"
                           >
-                            Skip
-                          </s-link>
-                        )}
-                      </s-stack>
-                    </s-stack>
-                  );
-                })}
-              </s-stack>
+                            <s-text>
+                              {formatShortWithYear(
+                                toDateOnlyString(
+                                  cycle.billingAttemptExpectedDate,
+                                ),
+                              )}
+                            </s-text>
 
-              <s-button
-                variant="primary"
-                command="--hide"
-                commandFor={modalId}
-                slot="primary-action"
-              >
-                Close
-              </s-button>
+                            {cycle.skipped && (
+                              <s-badge tone="warning">Skipped</s-badge>
+                            )}
+                          </s-stack>
+
+                          <s-stack
+                            direction="inline"
+                            gap="base"
+                            alignItems="center"
+                          >
+                            {!cycle.skipped &&
+                              (isAnyLoading ? (
+                                <s-text tone="subdued">Reschedule</s-text>
+                              ) : (
+                                <s-link
+                                  onClick={() =>
+                                    openRescheduleInsideUpcomingModal({
+                                      ...cycle,
+                                      __fromUpcomingModal: true,
+                                    })
+                                  }
+                                >
+                                  Reschedule
+                                </s-link>
+                              ))}
+
+                            {isThisLoading ? (
+                              <s-spinner size="small" />
+                            ) : cycle.skipped ? (
+                              isAnyLoading ? (
+                                <s-text tone="subdued">Unskip</s-text>
+                              ) : (
+                                <s-link
+                                  onClick={() =>
+                                    handleUnskip(sub.id, cycle.cycleIndex)
+                                  }
+                                >
+                                  Unskip
+                                </s-link>
+                              )
+                            ) : isAnyLoading ? (
+                              <s-text tone="subdued">Skip</s-text>
+                            ) : (
+                              <s-link
+                                onClick={() =>
+                                  handleSkip(sub.id, cycle.cycleIndex)
+                                }
+                              >
+                                Skip
+                              </s-link>
+                            )}
+                          </s-stack>
+                        </s-stack>
+                      );
+                    })}
+                  </s-stack>
+
+                  <s-button
+                    variant="primary"
+                    slot="primary-action"
+                    onClick={closeUpcomingModal}
+                  >
+                    Close
+                  </s-button>
+                </>
+              )}
             </s-modal>
           </s-box>
 
@@ -1091,13 +1163,14 @@ function SubscriptionDetail({
               </s-button>
             </s-modal>
 
+            {/* ===== Top-level "Reschedule" button ka standalone modal — koi conflict nahi kyunki alag se open hota hai ===== */}
             <s-modal
               id={rescheduleModalId}
               ref={rescheduleModalRef}
               heading="Reschedule order"
             >
               <s-stack direction="block" gap="base">
-                {rescheduleError && (
+                {!isRescheduleViewInUpcomingModal && rescheduleError && (
                   <s-text tone="critical">{rescheduleError}</s-text>
                 )}
                 <s-date-picker
@@ -1119,6 +1192,7 @@ function SubscriptionDetail({
                 command="--hide"
                 commandFor={rescheduleModalId}
                 disabled={rescheduleSaving}
+                onClick={() => setRescheduleCycle(null)}
               >
                 Cancel
               </s-button>
