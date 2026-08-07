@@ -441,6 +441,7 @@ function SubscriptionDetail({
   const [loadingAction, setLoadingAction] = useState(null);
 
   const [address, setAddress] = useState(sub.deliveryMethod?.address ?? null);
+  const addressModalRef = useRef(null);
 
   const [addressForm, setAddressForm] = useState({
     firstName: "",
@@ -571,7 +572,10 @@ function SubscriptionDetail({
 
   function openAddressModal() {
     const a = address ?? {};
-    const { firstName, lastName } = splitName(a.name);
+    const { firstName, lastName } =
+      a.firstName != null || a.lastName != null
+        ? { firstName: a.firstName || "", lastName: a.lastName || "" }
+        : splitName(a.name);
     const matchedCountry = COUNTRIES.find(
       (c) => c.label === a.country || c.value === a.country,
     );
@@ -587,7 +591,6 @@ function SubscriptionDetail({
       phone: a.phone || "",
     });
     setAddressError(null);
-    shopify.modal?.show?.(`edit-address-modal-${numericId}`);
   }
 
   async function handleSaveAddress() {
@@ -625,6 +628,8 @@ function SubscriptionDetail({
       }
 
       setAddress({
+        firstName: addressForm.firstName,
+        lastName: addressForm.lastName,
         name: `${addressForm.firstName} ${addressForm.lastName}`.trim(),
         address1: addressForm.address1,
         address2: addressForm.address2,
@@ -636,7 +641,7 @@ function SubscriptionDetail({
       });
 
       shopify.toast.show("Address updated");
-      shopify.modal?.hide?.(`edit-address-modal-${numericId}`);
+      addressModalRef.current?.hide?.();
 
       refreshSubscriptions().catch((err) =>
         console.error("Background refresh after address update failed:", err),
@@ -864,7 +869,11 @@ function SubscriptionDetail({
               )}
             </s-stack>
 
-            <s-modal id={addressModalId} heading="Edit shipping address">
+            <s-modal
+              id={addressModalId}
+              ref={addressModalRef}
+              heading="Edit shipping address"
+            >
               <s-stack direction="block" gap="base">
                 {addressError && (
                   <s-text tone="critical">{addressError}</s-text>
