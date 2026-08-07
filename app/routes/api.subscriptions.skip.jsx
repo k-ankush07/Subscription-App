@@ -174,7 +174,6 @@ import { sendMail } from "../lib/mailer.server";
 import { buildSkipEmail } from "../lib/email-templates/subscription-emails.server";
 import {
   getContractEmailData,
-  getNextBillingDate,
   getCustomerPortalBaseUrl,
   getShopName,
 } from "../lib/email-helpers.server";
@@ -338,9 +337,8 @@ export const action = async ({ request }) => {
 
     // --- email bhejna (best-effort — fail ho bhi jaye to skip response fail nahi hona chahiye) ---
     try {
-      const [emailData, nextDate, portalBaseUrl, shopName] = await Promise.all([
+      const [emailData, portalBaseUrl, shopName] = await Promise.all([
         getContractEmailData(admin, contractId),
-        getNextBillingDate(admin, contractId, cycleIndex),
         getCustomerPortalBaseUrl(admin),
         getShopName(admin),
       ]);
@@ -349,7 +347,7 @@ export const action = async ({ request }) => {
         const { subject, html } = buildSkipEmail({
           customerName: emailData.customerName,
           skippedDate: formatDateDisplay(payload.billingCycle.billingAttemptExpectedDate),
-          nextOrderDate: formatDateDisplay(nextDate),
+          nextOrderDate: formatDateDisplay(emailData.nextOrderDate),
           lineItem: emailData.lineItem,
           shippingAddress: emailData.shippingAddress,
           billingAddress: emailData.shippingAddress, // billing address alag se store nahi ho rahi abhi

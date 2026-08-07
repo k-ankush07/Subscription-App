@@ -1,12 +1,11 @@
-const CONTRACT_EMAIL_QUERY = `#graphql
-  query GetContractForEmail($id: ID!) {
+import { getContractPreview } from "./billing-preview.server";
+
+// deliveryMethod address aur payment method — ye getContractPreview me nahi hai,
+// isliye alag se ek chhota query lagta hai. Isme line items nahi hain, to
+// wahi purani "image field galat" wali dikkat yahan nahi ayegi.
+const CONTRACT_SHIPPING_QUERY = `#graphql
+  query GetContractShippingInfo($id: ID!) {
     subscriptionContract(id: $id) {
-      id
-      customer {
-        email
-        firstName
-        lastName
-      }
       deliveryMethod {
         ... on SubscriptionDeliveryMethodShipping {
           address {
@@ -24,21 +23,6 @@ const CONTRACT_EMAIL_QUERY = `#graphql
         instrument {
           ... on CustomerCreditCard {
             lastDigits
-          }
-        }
-      }
-      lines(first: 5) {
-        edges {
-          node {
-            title
-            quantity
-            currentPrice {
-              amount
-              currencyCode
-            }
-            image {
-              url
-            }
           }
         }
       }
@@ -68,7 +52,6 @@ const PORTAL_URL_QUERY = `#graphql
 
 // CustomerPortal admin loader jaisi hi logic — customer account base URL + is app ke
 // extension page ka handle dhundh ke portal ka base URL banata hai.
-// Result cache kiya ja sakta hai per-request agar zaroorat pade (abhi fresh query karta hai).
 export async function getCustomerPortalBaseUrl(admin) {
   const res = await admin.graphql(PORTAL_URL_QUERY, {
     variables: { pageCount: 50 },
@@ -88,16 +71,6 @@ export async function getCustomerPortalBaseUrl(admin) {
   return myPage ? `${baseUrl}/pages/${myPage.handle}` : baseUrl;
 }
 
-const NEXT_CYCLE_QUERY = `#graphql
-  query GetNextBillingCycle($contractId: ID!, $index: Int!) {
-    subscriptionBillingCycle(
-      billingCycleInput: { contractId: $contractId, selector: { index: $index } }
-    ) {
-      billingAttemptExpectedDate
-    }
-  }
-`;
-
 const SHOP_NAME_QUERY = `#graphql
   query GetShopName {
     shop {
@@ -113,50 +86,37 @@ export async function getShopName(admin) {
   return data?.shop?.name || null;
 }
 
-// contract + customer + address + line item — email banane ke liye zaroori sab kuch
+// email banane ke liye zaroori sab kuch — customer, line item (image samet),
+// next order date — sab getContractPreview() se hi aata hai (already tested/working).
+// Sirf shipping address + payment last4 alag se query karna padta hai.
 export async function getContractEmailData(admin, contractId) {
-  const res = await admin.graphql(CONTRACT_EMAIL_QUERY, {
-    variables: { id: contractId },
-  });
-  const { data } = await res.json();
-  const contract = data?.subscriptionContract;
-  if (!contract) return null;
+  const [preview, shippingRes] = await Promise.all([
+    getContractPreview(admin, contractId),
+    admin.graphql(CONTRACT_SHIPPING_QUERY, { variables: { id: contractId } }),
+  ]);
 
-  const line = contract.lines?.edges?.[0]?.node;
+  if (!preview) return null;
+
+  const { data: shippingData } = await shippingRes.json();
+  const contract = shippingData?.subscriptionContract;
+
+  // next order ka pehla line item use karo; agar khali hai (sab remove ho gaye) to base lineItem pe fallback
+  const line = preview.nextOrder?.lineItems?.[0] || preview.lineItem;
 
   return {
-    email: contract.customer?.email,
-    customerName: [contract.customer?.firstName, contract.customer?.lastName]
-      .filter(Boolean)
-      .join(" "),
-    shippingAddress: contract.deliveryMethod?.address
-      ? {
-          name: contract.deliveryMethod.address.name,
-          address1: contract.deliveryMethod.address.address1,
-          address2: contract.deliveryMethod.address.address2,
-          city: contract.deliveryMethod.address.city,
-          province: contract.deliveryMethod.address.province,
-          zip: contract.deliveryMethod.address.zip,
-          country: contract.deliveryMethod.address.country,
-        }
-      : null,
-    paymentLast4: contract.customerPaymentMethod?.instrument?.lastDigits || null,
+    email: preview.customer?.defaultEmailAddress?.emailAddress,
+    customerName: preview.customer?.displayName,
+    nextOrderDate: preview.nextOrder?.expectedDate,
+    shippingAddress: contract?.deliveryMethod?.address || null,
+    paymentLast4: contract?.customerPaymentMethod?.instrument?.lastDigits || null,
     lineItem: line
       ? {
           title: line.title,
           quantity: line.quantity,
-          imageUrl: line.image?.url,
-          currencyCode: line.currentPrice?.currencyCode,
-          amount: line.currentPrice?.amount,
+          imageUrl: line.imageUrl,
+          currencyCode: line.itemTotal?.currencyCode || line.price?.currencyCode,
+          amount: line.itemTotal?.amount || line.price?.amount,
         }
       : null,
   };
-}
-
-export async function getNextBillingDate(admin, contractId, afterCycleIndex) {
-  const res = await admin.graphql(NEXT_CYCLE_QUERY, {
-    variables: { contractId, index: afterCycleIndex + 1 },
-  });
-  const { data } = await res.json();
-  return data?.subscriptionBillingCycle?.billingAttemptExpectedDate || null;
 }
