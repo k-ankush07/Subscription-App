@@ -1,6 +1,7 @@
 import "@shopify/ui-extensions/preact";
 import { render } from "preact";
 import { useState, useEffect, useCallback, useRef } from "preact/hooks";
+import { COUNTRIES } from "../../../app/routes/utils/countries";
 
 const API_BASE = "https://most-premiere-holidays-rounds.trycloudflare.com";
 const PAGE_SIZE = 7;
@@ -442,7 +443,7 @@ function SubscriptionDetail({ sub, onBack, refreshSubscriptions, getCustomerId }
     city: "",
     province: "",
     zip: "",
-    country: "India",
+    country: "IN",
     phone: "",
   });
   const [addressSaving, setAddressSaving] = useState(false);
@@ -564,6 +565,9 @@ function SubscriptionDetail({ sub, onBack, refreshSubscriptions, getCustomerId }
   function openAddressModal() {
     const a = address ?? {};
     const { firstName, lastName } = splitName(a.name);
+    const matchedCountry = COUNTRIES.find(
+      (c) => c.label === a.country || c.value === a.country,
+    );
     setAddressForm({
       firstName,
       lastName,
@@ -572,7 +576,7 @@ function SubscriptionDetail({ sub, onBack, refreshSubscriptions, getCustomerId }
       city: a.city || "",
       province: a.province || "",
       zip: a.zip || "",
-      country: a.country || "India",
+      country: matchedCountry ? matchedCountry.value : "IN",
       phone: a.phone || "",
     });
     setAddressError(null);
@@ -591,6 +595,10 @@ function SubscriptionDetail({ sub, onBack, refreshSubscriptions, getCustomerId }
       const token = await shopify.sessionToken.get();
       const customerId = await getCustomerId();
 
+      const countryLabel =
+        COUNTRIES.find((c) => c.value === addressForm.country)?.label ||
+        addressForm.country;
+
       const res = await fetch(
         `${API_BASE}/api/subscriptions/update-address`,
         {
@@ -602,7 +610,7 @@ function SubscriptionDetail({ sub, onBack, refreshSubscriptions, getCustomerId }
           body: JSON.stringify({
             contractId: sub.id,
             customerId,
-            address: addressForm,
+            address: { ...addressForm, country: countryLabel },
           }),
         },
       );
@@ -619,7 +627,7 @@ function SubscriptionDetail({ sub, onBack, refreshSubscriptions, getCustomerId }
         city: addressForm.city,
         province: addressForm.province,
         zip: addressForm.zip,
-        country: addressForm.country,
+        country: countryLabel,
         phone: addressForm.phone,
       });
 
@@ -846,10 +854,18 @@ function SubscriptionDetail({ sub, onBack, refreshSubscriptions, getCustomerId }
                   label="Country/region"
                   value={addressForm.country}
                   onChange={(e) =>
-                    setAddressForm({ ...addressForm, country: e.target.value })
+                    setAddressForm({
+                      ...addressForm,
+                      country: e.target.value,
+                      province: "",
+                    })
                   }
                 >
-                  <s-option value="India">India</s-option>
+                  {COUNTRIES.map((c) => (
+                    <s-option key={c.value} value={c.value}>
+                      {c.label}
+                    </s-option>
+                  ))}
                 </s-select>
 
                 <s-stack direction="inline" gap="base">
@@ -898,23 +914,36 @@ function SubscriptionDetail({ sub, onBack, refreshSubscriptions, getCustomerId }
                       setAddressForm({ ...addressForm, city: e.target.value })
                     }
                   />
-                  <s-select
-                    label="State"
-                    value={addressForm.province}
-                    onChange={(e) =>
-                      setAddressForm({
-                        ...addressForm,
-                        province: e.target.value,
-                      })
-                    }
-                  >
-                    <s-option value="">Select state</s-option>
-                    {INDIAN_STATES.map((state) => (
-                      <s-option key={state} value={state}>
-                        {state}
-                      </s-option>
-                    ))}
-                  </s-select>
+                  {addressForm.country === "IN" ? (
+                    <s-select
+                      label="State"
+                      value={addressForm.province}
+                      onChange={(e) =>
+                        setAddressForm({
+                          ...addressForm,
+                          province: e.target.value,
+                        })
+                      }
+                    >
+                      <s-option value="">Select state</s-option>
+                      {INDIAN_STATES.map((state) => (
+                        <s-option key={state} value={state}>
+                          {state}
+                        </s-option>
+                      ))}
+                    </s-select>
+                  ) : (
+                    <s-text-field
+                      label="State/Province"
+                      value={addressForm.province}
+                      onInput={(e) =>
+                        setAddressForm({
+                          ...addressForm,
+                          province: e.target.value,
+                        })
+                      }
+                    />
+                  )}
                   <s-text-field
                     label="PIN code"
                     value={addressForm.zip}
@@ -924,42 +953,14 @@ function SubscriptionDetail({ sub, onBack, refreshSubscriptions, getCustomerId }
                   />
                 </s-stack>
 
-                <s-box
-                  border="base"
-                  borderRadius="base"
-                  padding="tight"
-                >
-                  <s-stack
-                    direction="inline"
-                    gap="tight"
-                    alignItems="center"
-                    justifyContent="space-between"
-                  >
-                    <s-stack direction="block" gap="none">
-                      <s-text tone="subdued" fontSize="small">
-                        Phone
-                      </s-text>
-                      <s-text-field
-                        value={addressForm.phone}
-                        placeholder="+91"
-                        onInput={(e) =>
-                          setAddressForm({
-                            ...addressForm,
-                            phone: e.target.value,
-                          })
-                        }
-                      />
-                    </s-stack>
-                    <s-stack
-                      direction="inline"
-                      gap="extra-tight"
-                      alignItems="center"
-                    >
-                      <s-text>🇮🇳</s-text>
-                      <s-text tone="subdued">▾</s-text>
-                    </s-stack>
-                  </s-stack>
-                </s-box>
+                <s-text-field
+                  label="Phone"
+                  type="tel"
+                  value={addressForm.phone}
+                  onInput={(e) =>
+                    setAddressForm({ ...addressForm, phone: e.target.value })
+                  }
+                />
               </s-stack>
 
               <s-button
