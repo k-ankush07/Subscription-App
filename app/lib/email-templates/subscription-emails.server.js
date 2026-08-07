@@ -1,4 +1,6 @@
-
+// Admin page (SubscriptionDetail.jsx) me getCardImage() brand -> svg logo match karta hai.
+// Email clients aksar external/hotlinked SVG images block/skip kar dete hain, isliye email me
+// wahi brand ek chhote colored letter-badge se dikhate hain (jaisa screenshot me chahiye tha).
 function getCardBrandBadge(brand) {
   const brandMap = {
     visa: { label: "VISA", bg: "#1a1f71" },
@@ -45,6 +47,9 @@ function baseWrapper(innerHtml) {
   </div>`;
 }
 
+// empty/missing src="" par email clients (Gmail/Outlook waghera) broken-image icon dikhate hain
+// aur kabhi kabhi surrounding text ko hi "image" ki tarah reload/stack kar dete hain — isliye
+// img tag tabhi likho jab imageUrl sach me maujood ho, warna neutral placeholder box do.
 function productThumbHtml(item) {
   if (item.imageUrl) {
     return `<img src="${item.imageUrl}" alt="${item.title || "Product"}" width="56" height="56" style="display:block;border-radius:4px;object-fit:cover;" />`;
@@ -71,6 +76,8 @@ function lineItemHtml(item) {
     </table>`;
 }
 
+// ek saath saare products render karo — cancel/skip email me ab sirf base product nahi,
+// automation se add hue products bhi dikhne chahiye (jaisa customer portal preview me dikhta hai)
 function lineItemsListHtml(lineItems) {
   if (!lineItems || lineItems.length === 0) return "";
   return lineItems.map((item) => lineItemHtml(item)).join("");
@@ -88,7 +95,7 @@ function summaryRowHtml(label, value, { bold = false } = {}) {
     </tr>`;
 }
 
-
+// Subtotal / Shipping / Total block — Image 2 wale customer-portal preview jaisa
 function orderSummaryHtml({ subtotal, shipping, total }) {
   if (!subtotal && !shipping && !total) return "";
   return `
@@ -112,18 +119,20 @@ function addressBlockHtml({ shippingAddress, billingAddress, nextOrderDate, paym
           <div style="font-size:13px;color:#555;line-height:1.5;">${formatAddress(billingAddress)}</div>
         </td>
       </tr>
-      ${
-        nextOrderDate
-          ? `<tr><td style="padding-top:16px;vertical-align:top;">
-              <div style="font-weight:bold;font-size:13px;color:#111;margin-bottom:6px;">Next Order Date</div>
-              <div style="font-size:13px;color:#555;">${nextOrderDate}</div>
-            </td>
-            <td style="padding-top:16px;vertical-align:top;">
-              <div style="font-weight:bold;font-size:13px;color:#111;margin-bottom:6px;">Payment Method</div>
-              <div>${paymentBadgeHtml(paymentBrand, paymentLast4)}</div>
-            </td></tr>`
-          : ""
-      }
+      <tr>
+        <td style="padding-top:16px;vertical-align:top;">
+          ${
+            nextOrderDate
+              ? `<div style="font-weight:bold;font-size:13px;color:#111;margin-bottom:6px;">Next Order Date</div>
+                 <div style="font-size:13px;color:#555;">${nextOrderDate}</div>`
+              : ""
+          }
+        </td>
+        <td style="padding-top:16px;vertical-align:top;">
+          <div style="font-weight:bold;font-size:13px;color:#111;margin-bottom:6px;">Payment Method</div>
+          <div>${paymentBadgeHtml(paymentBrand, paymentLast4)}</div>
+        </td>
+      </tr>
     </table>`;
 }
 
@@ -136,13 +145,14 @@ function manageButtonHtml(manageUrl) {
     </a>`;
 }
 
+// caller purana single `lineItem` bheje ya naya `lineItems` array — dono handle ho jayenge
 function resolveLineItems({ lineItems, lineItem }) {
   if (lineItems && lineItems.length > 0) return lineItems;
   if (lineItem) return [lineItem];
   return [];
 }
 
-//  SKIP EMAIL 
+// ---------- SKIP EMAIL ----------
 export function buildSkipEmail({
   customerName,
   skippedDate,
@@ -175,7 +185,7 @@ export function buildSkipEmail({
   return { subject, html };
 }
 
-// CANCEL EMAIL 
+// ---------- CANCEL EMAIL ----------
 export function buildCancelEmail({
   customerName,
   lineItem,
