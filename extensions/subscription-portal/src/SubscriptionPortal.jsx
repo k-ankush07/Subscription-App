@@ -423,12 +423,19 @@ const INDIAN_STATES = [
   "Puducherry",
 ];
 
-function SubscriptionDetail({ sub, onBack, refreshSubscriptions, getCustomerId }) {
+function SubscriptionDetail({
+  sub,
+  onBack,
+  refreshSubscriptions,
+  getCustomerId,
+}) {
   const [upcomingCycles, setUpcomingCycles] = useState(
     sub.upcomingCycles ?? [],
   );
   const [nextBillingDate, setNextBillingDate] = useState(sub.nextBillingDate);
-  const [hasMoreCycles, setHasMoreCycles] = useState(sub.hasMoreCycles ?? false);
+  const [hasMoreCycles, setHasMoreCycles] = useState(
+    sub.hasMoreCycles ?? false,
+  );
 
   const [loadingCycleIndex, setLoadingCycleIndex] = useState(null);
   const [loadingAction, setLoadingAction] = useState(null);
@@ -599,21 +606,18 @@ function SubscriptionDetail({ sub, onBack, refreshSubscriptions, getCustomerId }
         COUNTRIES.find((c) => c.value === addressForm.country)?.label ||
         addressForm.country;
 
-      const res = await fetch(
-        `${API_BASE}/api/subscriptions/update-address`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            contractId: sub.id,
-            customerId,
-            address: { ...addressForm, country: countryLabel },
-          }),
+      const res = await fetch(`${API_BASE}/api/subscriptions/update-address`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
-      );
+        body: JSON.stringify({
+          contractId: sub.id,
+          customerId,
+          address: { ...addressForm, country: countryLabel },
+        }),
+      });
 
       const data = await res.json();
       if (!res.ok || !data.success) {
@@ -760,10 +764,16 @@ function SubscriptionDetail({ sub, onBack, refreshSubscriptions, getCustomerId }
                           )}
                         </s-text>
 
-                        {cycle.skipped && <s-badge tone="warning">Skipped</s-badge>}
+                        {cycle.skipped && (
+                          <s-badge tone="warning">Skipped</s-badge>
+                        )}
                       </s-stack>
 
-                      <s-stack direction="inline" gap="tight" alignItems="center">
+                      <s-stack
+                        direction="inline"
+                        gap="tight"
+                        alignItems="center"
+                      >
                         {!cycle.skipped &&
                           (isAnyLoading ? (
                             <s-text tone="subdued">Reschedule</s-text>
@@ -837,8 +847,19 @@ function SubscriptionDetail({ sub, onBack, refreshSubscriptions, getCustomerId }
                     {address.zip ?? ""}
                     {address.country ? `, ${address.country}` : ""}
                   </s-text>
-                  <s-link command="--show" commandFor={addressModalId} onClick={openAddressModal}>
-                    Change address
+                  <s-link
+                    command="--show"
+                    commandFor={addressModalId}
+                    onClick={openAddressModal}
+                  >
+                    <s-stack
+                      direction="inline"
+                      gap="extra-tight"
+                      alignItems="center"
+                    >
+                      <s-icon type="edit" />
+                      <s-text>Change address</s-text>
+                    </s-stack>
                   </s-link>
                 </>
               )}
