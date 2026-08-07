@@ -909,13 +909,7 @@ function SubscriptionDetail({
 
               {address && (
                 <>
-                  <s-text fontWeight="bold">Shipping address <s-stack
-                      direction="inline"
-                      gap="extra-tight"
-                      alignItems="center"
-                    >
-                      <s-icon type="edit" />
-                    </s-stack></s-text>
+                  <s-text fontWeight="bold">Shipping address</s-text>
                   <s-text tone="subdued">
                     {address.name}
                     {address.address1 ? `, ${address.address1}` : ""}
@@ -930,7 +924,13 @@ function SubscriptionDetail({
                     commandFor={addressModalId}
                     onClick={openAddressModal}
                   >
-                    
+                    <s-stack
+                      direction="inline"
+                      gap="extra-tight"
+                      alignItems="center"
+                    >
+                      <s-icon type="edit" />
+                    </s-stack>
                   </s-link>
                 </>
               )}
