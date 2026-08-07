@@ -1741,36 +1741,6 @@ let swappedTitle ;
     },
     allExtraSettings: extraSettings,
   };
-
-  console.log(` Contract: ${preview.contractId}`);
-  console.log(`   Status: ${preview.status}`);
-  console.log(
-    `   Customer: ${preview.customer?.displayName || preview.customer?.id || "unknown"}`,
-  );
- console.log(
-  `   Product: ${
-    preview.lineItem?.title ?? "N/A"
-  } (qty ${
-    preview.lineItem?.quantity ?? "-"
-  }, ${
-    preview.lineItem?.price?.amount ?? "-"
-  } ${
-    preview.lineItem?.price?.currencyCode ?? ""
-  })`,
-);
-  console.log(
-    `   Plan: ${preview.planGroup.name || "unknown"} (${preview.planGroup.id || "no group matched"})`,
-  );
-  console.log(`   Settings source: ${preview.settingsSource}`);
-  console.log(`   Billing policy: ${preview.billingPolicy.summary}`);
-  console.log(`   Next order date: ${preview.nextOrder.expectedDate}`);
-  console.log(`   Next order cycle #: ${preview.nextOrder.cycleIndex}`);
-  console.log(`   Next order line items:`, JSON.stringify(preview.nextOrder.lineItems));
-  console.log(
-    `   Next order calculated ORDER total: ${preview.nextOrder.calculatedOrderTotal?.amount} ${preview.nextOrder.calculatedOrderTotal?.currencyCode}`,
-  );
-  console.log(`Will apply on next order:`, preview.nextOrder.willApply);
-
   return preview;
 }
 

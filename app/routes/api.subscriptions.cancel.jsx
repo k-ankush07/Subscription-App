@@ -121,8 +121,6 @@ export const action = async ({ request }) => {
       );
     }
 
-    // email ke liye contract details cancel se PEHLE fetch kar lo
-    // (cancel ke baad kuch fields access na den to bhi email data safe rahe)
     let emailData = null;
     try {
       emailData = await getContractEmailData(admin, subscriptionContractId);

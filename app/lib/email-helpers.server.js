@@ -86,9 +86,10 @@ export async function getShopName(admin) {
   return data?.shop?.name || null;
 }
 
-// email banane ke liye zaroori sab kuch — customer, line item (image samet),
-// next order date — sab getContractPreview() se hi aata hai (already tested/working).
-// Sirf shipping address + payment last4 alag se query karna padta hai.
+// email banane ke liye zaroori sab kuch — customer, saare line items (image samet),
+// subtotal/shipping/total, next order date — sab getContractPreview() se hi aata hai
+// (already tested/working, jaisa portal preview me dikhta hai). Sirf shipping address
+// + payment last4 alag se query karna padta hai.
 export async function getContractEmailData(admin, contractId) {
   const [preview, shippingRes] = await Promise.all([
     getContractPreview(admin, contractId),
@@ -100,8 +101,36 @@ export async function getContractEmailData(admin, contractId) {
   const { data: shippingData } = await shippingRes.json();
   const contract = shippingData?.subscriptionContract;
 
-  // next order ka pehla line item use karo; agar khali hai (sab remove ho gaye) to base lineItem pe fallback
-  const line = preview.nextOrder?.lineItems?.[0] || preview.lineItem;
+  // next order ke saare line items use karo (base line + automation se add hue products).
+  // agar khali hai (sab remove ho gaye / preview me kuch nahi bacha) to purane single
+  // preview.lineItem pe fallback karo taaki email kabhi khali na jaye.
+  const rawLineItems = preview.nextOrder?.lineItems?.length
+    ? preview.nextOrder.lineItems
+    : preview.lineItem
+      ? [preview.lineItem]
+      : [];
+
+  const lineItems = rawLineItems.map((li) => ({
+    title: li.title,
+    quantity: li.quantity,
+    imageUrl: li.imageUrl,
+    currencyCode: li.itemTotal?.currencyCode || li.price?.currencyCode,
+    amount: li.itemTotal?.amount || li.price?.amount,
+  }));
+
+  const subtotal = preview.nextOrder?.calculatedOrderTotal || null;
+  const shipping = preview.nextOrder?.shipping?.calculatedPrice || null;
+
+  const currencyCode =
+    subtotal?.currencyCode || shipping?.currencyCode || lineItems[0]?.currencyCode || null;
+
+  const total =
+    subtotal && shipping
+      ? {
+          amount: (Number(subtotal.amount) + Number(shipping.amount)).toFixed(2),
+          currencyCode,
+        }
+      : subtotal;
 
   return {
     email: preview.customer?.defaultEmailAddress?.emailAddress,
@@ -109,14 +138,12 @@ export async function getContractEmailData(admin, contractId) {
     nextOrderDate: preview.nextOrder?.expectedDate,
     shippingAddress: contract?.deliveryMethod?.address || null,
     paymentLast4: contract?.customerPaymentMethod?.instrument?.lastDigits || null,
-    lineItem: line
-      ? {
-          title: line.title,
-          quantity: line.quantity,
-          imageUrl: line.imageUrl,
-          currencyCode: line.itemTotal?.currencyCode || line.price?.currencyCode,
-          amount: line.itemTotal?.amount || line.price?.amount,
-        }
-      : null,
+    // naye fields — email template me multiple items + summary render karne ke liye
+    lineItems,
+    subtotal,
+    shipping,
+    total,
+    // purana single-item field bhi rakha hai backward-compat ke liye (agar kahin aur use ho raha ho)
+    lineItem: lineItems[0] || null,
   };
 }
