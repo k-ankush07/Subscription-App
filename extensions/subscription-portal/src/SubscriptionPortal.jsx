@@ -2,7 +2,7 @@ import "@shopify/ui-extensions/preact";
 import { render } from "preact";
 import { useState, useEffect, useCallback, useRef } from "preact/hooks";
 
-const API_BASE = "https://lions-network-ethics-outer.trycloudflare.com";
+const API_BASE = "https://most-premiere-holidays-rounds.trycloudflare.com";
 const PAGE_SIZE = 7;
 
 export default async () => {
