@@ -891,64 +891,65 @@ function SubscriptionDetail({
             Status: {status}
           </s-badge>
           {status !== "CANCELLED" && status !== "EXPIRED" && (
-    <s-stack direction="inline" gap="tight">
-      {status === "PAUSED" ? (
-        <s-button
-          variant="secondary"
-          disabled={pauseResumeLoading}
-          onClick={handleResume}
-        >
-          {pauseResumeLoading ? <s-spinner size="small" /> : "Resume"}
-        </s-button>
-      ) : (
-        <s-button
-          variant="secondary"
-          disabled={pauseResumeLoading}
-          onClick={handlePause}
-        >
-          {pauseResumeLoading ? <s-spinner size="small" /> : "Pause"}
-        </s-button>
-      )}
+            <s-stack direction="inline" gap="tight">
+              {status === "PAUSED" ? (
+                <s-button
+                  variant="secondary"
+                  disabled={pauseResumeLoading}
+                  onClick={handleResume}
+                >
+                  {pauseResumeLoading ? <s-spinner size="small" /> : "Resume"}
+                </s-button>
+              ) : (
+                <s-button
+                  variant="secondary"
+                  disabled={pauseResumeLoading}
+                  onClick={handlePause}
+                >
+                  {pauseResumeLoading ? <s-spinner size="small" /> : "Pause"}
+                </s-button>
+              )}
 
-      <s-button
-        variant="tertiary"
-        tone="critical"
-        command="--show"
-        commandFor={`cancel-modal-${numericId}`}
-        disabled={pauseResumeLoading || cancelLoading}
-      >
-        Cancel subscription
-      </s-button>
-    </s-stack>
-)}
+              <s-button
+                variant="tertiary"
+                tone="critical"
+                command="--show"
+                commandFor={`cancel-modal-${numericId}`}
+                disabled={pauseResumeLoading || cancelLoading}
+              >
+                Cancel subscription
+              </s-button>
+            </s-stack>
+          )}
 
-<s-modal
-    id={`cancel-modal-${numericId}`}
-    ref={cancelModalRef}
-    heading="Cancel subscription"
->
-    <s-text>
-      Are you sure you want to cancel this subscription? This action can't be undone.
-    </s-text>
+          <s-modal
+            id={`cancel-modal-${numericId}`}
+            ref={cancelModalRef}
+            heading="Cancel subscription"
+          >
+            <s-text>
+              Are you sure you want to cancel this subscription? This action
+              can't be undone.
+            </s-text>
 
-    <s-button
-      slot="primary-action"
-      variant="primary"
-      tone="critical"
-      disabled={cancelLoading}
-      onClick={handleCancel}
-    >
-      {cancelLoading ? <s-spinner size="small" /> : "Yes, cancel"}
-    </s-button>
-    <s-button
-      slot="secondary-actions"
-      command="--hide"
-      commandFor={`cancel-modal-${numericId}`}
-      disabled={cancelLoading}
-    >
-      Keep subscription
-    </s-button>
-</s-modal>
+            <s-button
+              slot="primary-action"
+              variant="primary"
+              tone="critical"
+              disabled={cancelLoading}
+              onClick={handleCancel}
+            >
+              {cancelLoading ? <s-spinner size="small" /> : "Yes, cancel"}
+            </s-button>
+            <s-button
+              slot="secondary-actions"
+              command="--hide"
+              commandFor={`cancel-modal-${numericId}`}
+              disabled={cancelLoading}
+            >
+              Keep subscription
+            </s-button>
+          </s-modal>
           <s-box border="base" borderRadius="base" padding="base">
             <s-stack direction="block" gap="base">
               <s-stack direction="block" gap="tight">
@@ -1144,220 +1145,227 @@ function SubscriptionDetail({
               )}
             </s-modal>
           </s-box>
+          {status !== "CANCELLED" && status !== "EXPIRED" && (
+            <s-box border="base" borderRadius="base" padding="base">
+              <s-stack direction="block" gap="tight">
+                <s-text fontWeight="bold">Delivery frequency</s-text>
+                <s-text tone="subdued">
+                  Delivery every {sub.deliveryPolicy?.intervalCount}{" "}
+                  {sub.deliveryPolicy?.interval?.toLowerCase()}
+                </s-text>
 
-          <s-box border="base" borderRadius="base" padding="base">
-            <s-stack direction="block" gap="tight">
-              <s-text fontWeight="bold">Delivery frequency</s-text>
-              <s-text tone="subdued">
-                Delivery every {sub.deliveryPolicy?.intervalCount}{" "}
-                {sub.deliveryPolicy?.interval?.toLowerCase()}
-              </s-text>
-
-              {address && (
-                <>
-                  <s-text fontWeight="bold">Shipping address</s-text>
-                  <s-text tone="subdued">
-                    {address.name}
-                    {address.address1 ? `, ${address.address1}` : ""}
-                    {address.address2 ? `, ${address.address2}` : ""}
-                    {address.city ? `, ${address.city}` : ""}
-                    {address.province ? `, ${address.province}` : ""}{" "}
-                    {address.zip ?? ""}
-                    {address.country ? `, ${address.country}` : ""}
-                  </s-text>
-                  <s-link
-                    command="--show"
-                    commandFor={addressModalId}
-                    onClick={openAddressModal}
-                  >
-                    <s-stack
-                      direction="inline"
-                      gap="extra-tight"
-                      alignItems="center"
+                {address && (
+                  <>
+                    <s-text fontWeight="bold">Shipping address</s-text>
+                    <s-text tone="subdued">
+                      {address.name}
+                      {address.address1 ? `, ${address.address1}` : ""}
+                      {address.address2 ? `, ${address.address2}` : ""}
+                      {address.city ? `, ${address.city}` : ""}
+                      {address.province ? `, ${address.province}` : ""}{" "}
+                      {address.zip ?? ""}
+                      {address.country ? `, ${address.country}` : ""}
+                    </s-text>
+                    <s-link
+                      command="--show"
+                      commandFor={addressModalId}
+                      onClick={openAddressModal}
                     >
-                      <s-icon type="edit" />
-                    </s-stack>
-                  </s-link>
-                </>
-              )}
-            </s-stack>
-
-            <s-modal
-              id={addressModalId}
-              ref={addressModalRef}
-              heading="Edit shipping address"
-            >
-              <s-stack direction="block" gap="base">
-                {addressError && (
-                  <s-text tone="critical">{addressError}</s-text>
+                      <s-stack
+                        direction="inline"
+                        gap="extra-tight"
+                        alignItems="center"
+                      >
+                        <s-icon type="edit" />
+                      </s-stack>
+                    </s-link>
+                  </>
                 )}
+              </s-stack>
 
-                <s-select
-                  label="Country/region"
-                  value={addressForm.country}
-                  onChange={(e) =>
-                    setAddressForm({
-                      ...addressForm,
-                      country: e.target.value,
-                      province: "",
-                    })
-                  }
-                >
-                  {COUNTRIES.map((c) => (
-                    <s-option key={c.value} value={c.value}>
-                      {c.label}
-                    </s-option>
-                  ))}
-                </s-select>
+              <s-modal
+                id={addressModalId}
+                ref={addressModalRef}
+                heading="Edit shipping address"
+              >
+                <s-stack direction="block" gap="base">
+                  {addressError && (
+                    <s-text tone="critical">{addressError}</s-text>
+                  )}
 
-                <s-stack direction="inline" gap="base">
-                  <s-text-field
-                    label="First name"
-                    value={addressForm.firstName}
-                    onInput={(e) =>
+                  <s-select
+                    label="Country/region"
+                    value={addressForm.country}
+                    onChange={(e) =>
                       setAddressForm({
                         ...addressForm,
-                        firstName: e.target.value,
+                        country: e.target.value,
+                        province: "",
                       })
                     }
-                  />
-                  <s-text-field
-                    label="Last name"
-                    value={addressForm.lastName}
-                    onInput={(e) =>
-                      setAddressForm({
-                        ...addressForm,
-                        lastName: e.target.value,
-                      })
-                    }
-                  />
-                </s-stack>
+                  >
+                    {COUNTRIES.map((c) => (
+                      <s-option key={c.value} value={c.value}>
+                        {c.label}
+                      </s-option>
+                    ))}
+                  </s-select>
 
-                <s-text-field
-                  label="Address"
-                  value={addressForm.address1}
-                  onInput={(e) =>
-                    setAddressForm({ ...addressForm, address1: e.target.value })
-                  }
-                />
-                <s-text-field
-                  label="Apartment, suite, etc (optional)"
-                  value={addressForm.address2}
-                  onInput={(e) =>
-                    setAddressForm({ ...addressForm, address2: e.target.value })
-                  }
-                />
-
-                <s-stack direction="inline" gap="base">
-                  <s-text-field
-                    label="City"
-                    value={addressForm.city}
-                    onInput={(e) =>
-                      setAddressForm({ ...addressForm, city: e.target.value })
-                    }
-                  />
-                  {addressForm.country === "IN" ? (
-                    <s-select
-                      label="State"
-                      value={addressForm.province}
-                      onChange={(e) =>
-                        setAddressForm({
-                          ...addressForm,
-                          province: e.target.value,
-                        })
-                      }
-                    >
-                      <s-option value="">Select state</s-option>
-                      {INDIAN_STATES.map((state) => (
-                        <s-option key={state} value={state}>
-                          {state}
-                        </s-option>
-                      ))}
-                    </s-select>
-                  ) : (
+                  <s-stack direction="inline" gap="base">
                     <s-text-field
-                      label="State/Province"
-                      value={addressForm.province}
+                      label="First name"
+                      value={addressForm.firstName}
                       onInput={(e) =>
                         setAddressForm({
                           ...addressForm,
-                          province: e.target.value,
+                          firstName: e.target.value,
                         })
                       }
                     />
-                  )}
+                    <s-text-field
+                      label="Last name"
+                      value={addressForm.lastName}
+                      onInput={(e) =>
+                        setAddressForm({
+                          ...addressForm,
+                          lastName: e.target.value,
+                        })
+                      }
+                    />
+                  </s-stack>
+
                   <s-text-field
-                    label="PIN code"
-                    value={addressForm.zip}
+                    label="Address"
+                    value={addressForm.address1}
                     onInput={(e) =>
-                      setAddressForm({ ...addressForm, zip: e.target.value })
+                      setAddressForm({
+                        ...addressForm,
+                        address1: e.target.value,
+                      })
+                    }
+                  />
+                  <s-text-field
+                    label="Apartment, suite, etc (optional)"
+                    value={addressForm.address2}
+                    onInput={(e) =>
+                      setAddressForm({
+                        ...addressForm,
+                        address2: e.target.value,
+                      })
+                    }
+                  />
+
+                  <s-stack direction="inline" gap="base">
+                    <s-text-field
+                      label="City"
+                      value={addressForm.city}
+                      onInput={(e) =>
+                        setAddressForm({ ...addressForm, city: e.target.value })
+                      }
+                    />
+                    {addressForm.country === "IN" ? (
+                      <s-select
+                        label="State"
+                        value={addressForm.province}
+                        onChange={(e) =>
+                          setAddressForm({
+                            ...addressForm,
+                            province: e.target.value,
+                          })
+                        }
+                      >
+                        <s-option value="">Select state</s-option>
+                        {INDIAN_STATES.map((state) => (
+                          <s-option key={state} value={state}>
+                            {state}
+                          </s-option>
+                        ))}
+                      </s-select>
+                    ) : (
+                      <s-text-field
+                        label="State/Province"
+                        value={addressForm.province}
+                        onInput={(e) =>
+                          setAddressForm({
+                            ...addressForm,
+                            province: e.target.value,
+                          })
+                        }
+                      />
+                    )}
+                    <s-text-field
+                      label="PIN code"
+                      value={addressForm.zip}
+                      onInput={(e) =>
+                        setAddressForm({ ...addressForm, zip: e.target.value })
+                      }
+                    />
+                  </s-stack>
+
+                  <s-text-field
+                    label="Phone"
+                    type="tel"
+                    value={addressForm.phone}
+                    onInput={(e) =>
+                      setAddressForm({ ...addressForm, phone: e.target.value })
                     }
                   />
                 </s-stack>
 
-                <s-text-field
-                  label="Phone"
-                  type="tel"
-                  value={addressForm.phone}
-                  onInput={(e) =>
-                    setAddressForm({ ...addressForm, phone: e.target.value })
-                  }
-                />
-              </s-stack>
+                <s-button
+                  slot="primary-action"
+                  variant="primary"
+                  disabled={addressSaving}
+                  onClick={handleSaveAddress}
+                >
+                  {addressSaving ? <s-spinner size="small" /> : "Continue"}
+                </s-button>
+                <s-button
+                  slot="secondary-actions"
+                  command="--hide"
+                  commandFor={addressModalId}
+                  disabled={addressSaving}
+                >
+                  Cancel
+                </s-button>
+              </s-modal>
 
-              <s-button
-                slot="primary-action"
-                variant="primary"
-                disabled={addressSaving}
-                onClick={handleSaveAddress}
+              {/* ===== Top-level "Reschedule" button ka standalone modal — koi conflict nahi kyunki alag se open hota hai ===== */}
+              <s-modal
+                id={rescheduleModalId}
+                ref={rescheduleModalRef}
+                heading="Reschedule order"
               >
-                {addressSaving ? <s-spinner size="small" /> : "Continue"}
-              </s-button>
-              <s-button
-                slot="secondary-actions"
-                command="--hide"
-                commandFor={addressModalId}
-                disabled={addressSaving}
-              >
-                Cancel
-              </s-button>
-            </s-modal>
+                <s-stack direction="block" gap="base">
+                  {!isRescheduleViewInUpcomingModal && rescheduleError && (
+                    <s-text tone="critical">{rescheduleError}</s-text>
+                  )}
+                  <s-date-picker
+                    selected={rescheduleDate}
+                    onChange={(e) => setRescheduleDate(e.target.value)}
+                  />
+                </s-stack>
 
-            {/* ===== Top-level "Reschedule" button ka standalone modal — koi conflict nahi kyunki alag se open hota hai ===== */}
-            <s-modal
-              id={rescheduleModalId}
-              ref={rescheduleModalRef}
-              heading="Reschedule order"
-            >
-              <s-stack direction="block" gap="base">
-                {!isRescheduleViewInUpcomingModal && rescheduleError && (
-                  <s-text tone="critical">{rescheduleError}</s-text>
-                )}
-                <s-date-picker
-                  selected={rescheduleDate}
-                  onChange={(e) => setRescheduleDate(e.target.value)}
-                />
-              </s-stack>
-
-              <s-button
-                slot="primary-action"
-                variant="primary"
-                disabled={rescheduleSaving || !rescheduleDate}
-                onClick={handleSaveReschedule}
-              >
-                {rescheduleSaving ? <s-spinner size="small" /> : "Save"}
-              </s-button>
-              <s-button
-                slot="secondary-actions"
-                command="--hide"
-                commandFor={rescheduleModalId}
-                disabled={rescheduleSaving}
-                onClick={() => setRescheduleCycle(null)}
-              >
-                Cancel
-              </s-button>
-            </s-modal>
-          </s-box>
+                <s-button
+                  slot="primary-action"
+                  variant="primary"
+                  disabled={rescheduleSaving || !rescheduleDate}
+                  onClick={handleSaveReschedule}
+                >
+                  {rescheduleSaving ? <s-spinner size="small" /> : "Save"}
+                </s-button>
+                <s-button
+                  slot="secondary-actions"
+                  command="--hide"
+                  commandFor={rescheduleModalId}
+                  disabled={rescheduleSaving}
+                  onClick={() => setRescheduleCycle(null)}
+                >
+                  Cancel
+                </s-button>
+              </s-modal>
+            </s-box>
+          )}
 
           <s-box border="base" borderRadius="base" padding="base">
             <s-stack direction="block" gap="base">
