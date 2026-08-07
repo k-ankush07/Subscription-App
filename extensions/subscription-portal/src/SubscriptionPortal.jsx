@@ -1464,6 +1464,12 @@ function SubscriptionDetail({
           </s-box>
         </s-stack>
       </s-section>
+      <div>
+        <Card>
+          <h2>Past orders</h2>
+          
+        </Card>
+      </div>
     </s-page>
   );
 }
