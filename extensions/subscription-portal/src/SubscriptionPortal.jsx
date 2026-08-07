@@ -568,6 +568,7 @@ function SubscriptionDetail({
       setLoadingAction(null);
     }
   }
+
   async function handlePause() {
     if (pauseResumeLoading) return;
     try {
@@ -602,6 +603,7 @@ function SubscriptionDetail({
       setPauseResumeLoading(false);
     }
   }
+
   async function handleResume() {
     if (pauseResumeLoading) return;
     try {
@@ -678,6 +680,9 @@ function SubscriptionDetail({
     setRescheduleError(null);
   }
 
+  // "Upcoming orders" modal ke andar wale reschedule link ke liye —
+  // NAYA modal open nahi karte, wahi modal ka content switch kar dete hain
+  // list se date-picker view me. Isse "multiple modal" conflict hi nahi aata.
   function openRescheduleInsideUpcomingModal(cycle) {
     openRescheduleModal(cycle);
   }
@@ -867,8 +872,11 @@ function SubscriptionDetail({
   const maxSkipReached =
     visibleCycles.length === VISIBLE_CYCLES_LIMIT && !nextActionable;
 
+  // "Upcoming orders" modal ke andar dikha rahe hain ki nahi (list ya reschedule view)
   const isRescheduleViewInUpcomingModal =
     rescheduleCycle && rescheduleCycle.__fromUpcomingModal;
+
+  const isCancelledOrExpired = status === "CANCELLED" || status === "EXPIRED";
 
   return (
     <s-page heading="Manage subscription">
@@ -879,6 +887,7 @@ function SubscriptionDetail({
               ← Back
             </s-button>
           </s-stack>
+
           <s-badge
             tone={
               status === "ACTIVE"
@@ -890,7 +899,8 @@ function SubscriptionDetail({
           >
             Status: {status}
           </s-badge>
-          {status !== "CANCELLED" && status !== "EXPIRED" && (
+
+          {!isCancelledOrExpired && (
             <s-stack direction="inline" gap="tight">
               {status === "PAUSED" ? (
                 <s-button
@@ -922,6 +932,7 @@ function SubscriptionDetail({
             </s-stack>
           )}
 
+          {/* Modal declaration stays regardless of status — it's only ever opened via the button above, which is itself hidden once cancelled/expired */}
           <s-modal
             id={`cancel-modal-${numericId}`}
             ref={cancelModalRef}
@@ -950,222 +961,228 @@ function SubscriptionDetail({
               Keep subscription
             </s-button>
           </s-modal>
-          <s-box border="base" borderRadius="base" padding="base">
-            <s-stack direction="block" gap="base">
-              <s-stack direction="block" gap="tight">
-                <s-text fontWeight="bold">Upcoming order</s-text>
-                {nextBillingDate ? (
+
+          {/* ===== "Upcoming order" box — ONLY when subscription is not cancelled/expired ===== */}
+          {!isCancelledOrExpired && (
+            <s-box border="base" borderRadius="base" padding="base">
+              <s-stack direction="block" gap="base">
+                <s-stack direction="block" gap="tight">
+                  <s-text fontWeight="bold">Upcoming order</s-text>
+                  {nextBillingDate ? (
+                    <s-text tone="subdued">
+                      {formatShort(toDateOnlyString(nextBillingDate))}
+                    </s-text>
+                  ) : (
+                    <s-text tone="subdued">-</s-text>
+                  )}
+                </s-stack>
+
+                <s-stack direction="inline" gap="tight">
+                  <s-button
+                    variant="secondary"
+                    command="--show"
+                    commandFor={rescheduleModalId}
+                    disabled={!nextActionable || loadingCycleIndex != null}
+                    onClick={() => openRescheduleModal(nextActionable)}
+                  >
+                    Reschedule
+                  </s-button>
+
+                  <s-button
+                    variant="secondary"
+                    disabled={!nextActionable || loadingCycleIndex != null}
+                    onClick={() =>
+                      nextActionable &&
+                      handleSkip(sub.id, nextActionable.cycleIndex)
+                    }
+                  >
+                    {loadingAction === "skip" &&
+                    loadingCycleIndex === nextActionable?.cycleIndex ? (
+                      <s-spinner size="small" />
+                    ) : (
+                      "Skip"
+                    )}
+                  </s-button>
+                </s-stack>
+
+                {visibleCycles.length > 0 && (
+                  <s-link
+                    command="--show"
+                    commandFor={modalId}
+                    onClick={() => {
+                      setRescheduleCycle(null);
+                      setRescheduleError(null);
+                    }}
+                  >
+                    Show upcoming orders
+                  </s-link>
+                )}
+
+                {maxSkipReached && (
                   <s-text tone="subdued">
-                    {formatShort(toDateOnlyString(nextBillingDate))}
+                    The maximum number of orders have been skipped
                   </s-text>
-                ) : (
-                  <s-text tone="subdued">-</s-text>
                 )}
               </s-stack>
 
-              <s-stack direction="inline" gap="tight">
-                <s-button
-                  variant="secondary"
-                  command="--show"
-                  commandFor={rescheduleModalId}
-                  disabled={!nextActionable || loadingCycleIndex != null}
-                  onClick={() => openRescheduleModal(nextActionable)}
-                >
-                  Reschedule
-                </s-button>
+              {/* ===== Upcoming orders modal — content switches between list / reschedule ===== */}
+              <s-modal
+                id={modalId}
+                ref={upcomingModalRef}
+                heading={
+                  isRescheduleViewInUpcomingModal
+                    ? "Reschedule order"
+                    : "Upcoming orders"
+                }
+              >
+                {isRescheduleViewInUpcomingModal ? (
+                  <>
+                    <s-stack direction="block" gap="base">
+                      {rescheduleError && (
+                        <s-text tone="critical">{rescheduleError}</s-text>
+                      )}
+                      <s-date-picker
+                        selected={rescheduleDate}
+                        onChange={(e) => setRescheduleDate(e.target.value)}
+                      />
+                    </s-stack>
 
-                <s-button
-                  variant="secondary"
-                  disabled={!nextActionable || loadingCycleIndex != null}
-                  onClick={() =>
-                    nextActionable &&
-                    handleSkip(sub.id, nextActionable.cycleIndex)
-                  }
-                >
-                  {loadingAction === "skip" &&
-                  loadingCycleIndex === nextActionable?.cycleIndex ? (
-                    <s-spinner size="small" />
-                  ) : (
-                    "Skip"
-                  )}
-                </s-button>
-              </s-stack>
-
-              {visibleCycles.length > 0 && (
-                <s-link
-                  command="--show"
-                  commandFor={modalId}
-                  onClick={() => {
-                    setRescheduleCycle(null);
-                    setRescheduleError(null);
-                  }}
-                >
-                  Show upcoming orders
-                </s-link>
-              )}
-
-              {maxSkipReached && (
-                <s-text tone="subdued">
-                  The maximum number of orders have been skipped
-                </s-text>
-              )}
-            </s-stack>
-
-            {/* ===== Upcoming orders modal — content switches between list / reschedule ===== */}
-            <s-modal
-              id={modalId}
-              ref={upcomingModalRef}
-              heading={
-                isRescheduleViewInUpcomingModal
-                  ? "Reschedule order"
-                  : "Upcoming orders"
-              }
-            >
-              {isRescheduleViewInUpcomingModal ? (
-                <>
-                  <s-stack direction="block" gap="base">
-                    {rescheduleError && (
-                      <s-text tone="critical">{rescheduleError}</s-text>
-                    )}
-                    <s-date-picker
-                      selected={rescheduleDate}
-                      onChange={(e) => setRescheduleDate(e.target.value)}
-                    />
-                  </s-stack>
-
-                  <s-button
-                    slot="primary-action"
-                    variant="primary"
-                    disabled={rescheduleSaving || !rescheduleDate}
-                    onClick={handleSaveReschedule}
-                  >
-                    {rescheduleSaving ? <s-spinner size="small" /> : "Save"}
-                  </s-button>
-                  <s-button
-                    slot="secondary-actions"
-                    disabled={rescheduleSaving}
-                    onClick={backToUpcomingList}
-                  >
-                    Back
-                  </s-button>
-                </>
-              ) : (
-                <>
-                  <s-stack direction="block" gap="base">
-                    {visibleCycles.map((cycle) => {
-                      const isThisLoading =
-                        loadingCycleIndex === cycle.cycleIndex;
-                      const isAnyLoading = loadingCycleIndex != null;
-                      return (
-                        <s-stack
-                          key={cycle.cycleIndex}
-                          direction="inline"
-                          gap="base"
-                          alignItems="center"
-                          justifyContent="space-between"
-                        >
+                    <s-button
+                      slot="primary-action"
+                      variant="primary"
+                      disabled={rescheduleSaving || !rescheduleDate}
+                      onClick={handleSaveReschedule}
+                    >
+                      {rescheduleSaving ? <s-spinner size="small" /> : "Save"}
+                    </s-button>
+                    <s-button
+                      slot="secondary-actions"
+                      disabled={rescheduleSaving}
+                      onClick={backToUpcomingList}
+                    >
+                      Back
+                    </s-button>
+                  </>
+                ) : (
+                  <>
+                    <s-stack direction="block" gap="base">
+                      {visibleCycles.map((cycle) => {
+                        const isThisLoading =
+                          loadingCycleIndex === cycle.cycleIndex;
+                        const isAnyLoading = loadingCycleIndex != null;
+                        return (
                           <s-stack
-                            direction="inline"
-                            gap="tight"
-                            alignItems="center"
-                          >
-                            <s-text>
-                              {formatShortWithYear(
-                                toDateOnlyString(
-                                  cycle.billingAttemptExpectedDate,
-                                ),
-                              )}
-                            </s-text>
-
-                            {cycle.skipped && (
-                              <s-badge tone="warning">Skipped</s-badge>
-                            )}
-                          </s-stack>
-
-                          <s-stack
+                            key={cycle.cycleIndex}
                             direction="inline"
                             gap="base"
                             alignItems="center"
+                            justifyContent="space-between"
                           >
-                            {!cycle.skipped &&
-                              (isAnyLoading ? (
-                                <s-text tone="subdued">Reschedule</s-text>
-                              ) : (
-                                <s-link
-                                  onClick={() =>
-                                    openRescheduleInsideUpcomingModal({
-                                      ...cycle,
-                                      __fromUpcomingModal: true,
-                                    })
-                                  }
-                                >
-                                  Reschedule
-                                </s-link>
-                              ))}
+                            <s-stack
+                              direction="inline"
+                              gap="tight"
+                              alignItems="center"
+                            >
+                              <s-text>
+                                {formatShortWithYear(
+                                  toDateOnlyString(
+                                    cycle.billingAttemptExpectedDate,
+                                  ),
+                                )}
+                              </s-text>
 
-                            {isThisLoading ? (
-                              <s-spinner size="small" />
-                            ) : cycle.skipped ? (
-                              isAnyLoading ? (
-                                <s-text tone="subdued">Unskip</s-text>
+                              {cycle.skipped && (
+                                <s-badge tone="warning">Skipped</s-badge>
+                              )}
+                            </s-stack>
+
+                            <s-stack
+                              direction="inline"
+                              gap="base"
+                              alignItems="center"
+                            >
+                              {!cycle.skipped &&
+                                (isAnyLoading ? (
+                                  <s-text tone="subdued">Reschedule</s-text>
+                                ) : (
+                                  <s-link
+                                    onClick={() =>
+                                      openRescheduleInsideUpcomingModal({
+                                        ...cycle,
+                                        __fromUpcomingModal: true,
+                                      })
+                                    }
+                                  >
+                                    Reschedule
+                                  </s-link>
+                                ))}
+
+                              {isThisLoading ? (
+                                <s-spinner size="small" />
+                              ) : cycle.skipped ? (
+                                isAnyLoading ? (
+                                  <s-text tone="subdued">Unskip</s-text>
+                                ) : (
+                                  <s-link
+                                    onClick={() =>
+                                      handleUnskip(sub.id, cycle.cycleIndex)
+                                    }
+                                  >
+                                    Unskip
+                                  </s-link>
+                                )
+                              ) : isAnyLoading ? (
+                                <s-text tone="subdued">Skip</s-text>
                               ) : (
                                 <s-link
                                   onClick={() =>
-                                    handleUnskip(sub.id, cycle.cycleIndex)
+                                    handleSkip(sub.id, cycle.cycleIndex)
                                   }
                                 >
-                                  Unskip
+                                  Skip
                                 </s-link>
-                              )
-                            ) : isAnyLoading ? (
-                              <s-text tone="subdued">Skip</s-text>
-                            ) : (
-                              <s-link
-                                onClick={() =>
-                                  handleSkip(sub.id, cycle.cycleIndex)
-                                }
-                              >
-                                Skip
-                              </s-link>
-                            )}
+                              )}
+                            </s-stack>
                           </s-stack>
-                        </s-stack>
-                      );
-                    })}
-                  </s-stack>
+                        );
+                      })}
+                    </s-stack>
 
-                  <s-button
-                    variant="primary"
-                    slot="primary-action"
-                    onClick={closeUpcomingModal}
-                  >
-                    Close
-                  </s-button>
-                </>
-              )}
-            </s-modal>
-          </s-box>
-          {status !== "CANCELLED" && status !== "EXPIRED" && (
-            <s-box border="base" borderRadius="base" padding="base">
-              <s-stack direction="block" gap="tight">
-                <s-text fontWeight="bold">Delivery frequency</s-text>
-                <s-text tone="subdued">
-                  Delivery every {sub.deliveryPolicy?.intervalCount}{" "}
-                  {sub.deliveryPolicy?.interval?.toLowerCase()}
-                </s-text>
+                    <s-button
+                      variant="primary"
+                      slot="primary-action"
+                      onClick={closeUpcomingModal}
+                    >
+                      Close
+                    </s-button>
+                  </>
+                )}
+              </s-modal>
+            </s-box>
+          )}
 
-                {address && (
-                  <>
-                    <s-text fontWeight="bold">Shipping address</s-text>
-                    <s-text tone="subdued">
-                      {address.name}
-                      {address.address1 ? `, ${address.address1}` : ""}
-                      {address.address2 ? `, ${address.address2}` : ""}
-                      {address.city ? `, ${address.city}` : ""}
-                      {address.province ? `, ${address.province}` : ""}{" "}
-                      {address.zip ?? ""}
-                      {address.country ? `, ${address.country}` : ""}
-                    </s-text>
+          {/* ===== "Delivery frequency" / Address box — ALWAYS shown, regardless of status ===== */}
+          <s-box border="base" borderRadius="base" padding="base">
+            <s-stack direction="block" gap="tight">
+              <s-text fontWeight="bold">Delivery frequency</s-text>
+              <s-text tone="subdued">
+                Delivery every {sub.deliveryPolicy?.intervalCount}{" "}
+                {sub.deliveryPolicy?.interval?.toLowerCase()}
+              </s-text>
+
+              {address && (
+                <>
+                  <s-text fontWeight="bold">Shipping address</s-text>
+                  <s-text tone="subdued">
+                    {address.name}
+                    {address.address1 ? `, ${address.address1}` : ""}
+                    {address.address2 ? `, ${address.address2}` : ""}
+                    {address.city ? `, ${address.city}` : ""}
+                    {address.province ? `, ${address.province}` : ""}{" "}
+                    {address.zip ?? ""}
+                    {address.country ? `, ${address.country}` : ""}
+                  </s-text>
+                  {!isCancelledOrExpired && (
                     <s-link
                       command="--show"
                       commandFor={addressModalId}
@@ -1179,194 +1196,195 @@ function SubscriptionDetail({
                         <s-icon type="edit" />
                       </s-stack>
                     </s-link>
-                  </>
+                  )}
+                </>
+              )}
+            </s-stack>
+
+            <s-modal
+              id={addressModalId}
+              ref={addressModalRef}
+              heading="Edit shipping address"
+            >
+              <s-stack direction="block" gap="base">
+                {addressError && (
+                  <s-text tone="critical">{addressError}</s-text>
                 )}
+
+                <s-select
+                  label="Country/region"
+                  value={addressForm.country}
+                  onChange={(e) =>
+                    setAddressForm({
+                      ...addressForm,
+                      country: e.target.value,
+                      province: "",
+                    })
+                  }
+                >
+                  {COUNTRIES.map((c) => (
+                    <s-option key={c.value} value={c.value}>
+                      {c.label}
+                    </s-option>
+                  ))}
+                </s-select>
+
+                <s-stack direction="inline" gap="base">
+                  <s-text-field
+                    label="First name"
+                    value={addressForm.firstName}
+                    onInput={(e) =>
+                      setAddressForm({
+                        ...addressForm,
+                        firstName: e.target.value,
+                      })
+                    }
+                  />
+                  <s-text-field
+                    label="Last name"
+                    value={addressForm.lastName}
+                    onInput={(e) =>
+                      setAddressForm({
+                        ...addressForm,
+                        lastName: e.target.value,
+                      })
+                    }
+                  />
+                </s-stack>
+
+                <s-text-field
+                  label="Address"
+                  value={addressForm.address1}
+                  onInput={(e) =>
+                    setAddressForm({
+                      ...addressForm,
+                      address1: e.target.value,
+                    })
+                  }
+                />
+                <s-text-field
+                  label="Apartment, suite, etc (optional)"
+                  value={addressForm.address2}
+                  onInput={(e) =>
+                    setAddressForm({
+                      ...addressForm,
+                      address2: e.target.value,
+                    })
+                  }
+                />
+
+                <s-stack direction="inline" gap="base">
+                  <s-text-field
+                    label="City"
+                    value={addressForm.city}
+                    onInput={(e) =>
+                      setAddressForm({ ...addressForm, city: e.target.value })
+                    }
+                  />
+                  {addressForm.country === "IN" ? (
+                    <s-select
+                      label="State"
+                      value={addressForm.province}
+                      onChange={(e) =>
+                        setAddressForm({
+                          ...addressForm,
+                          province: e.target.value,
+                        })
+                      }
+                    >
+                      <s-option value="">Select state</s-option>
+                      {INDIAN_STATES.map((state) => (
+                        <s-option key={state} value={state}>
+                          {state}
+                        </s-option>
+                      ))}
+                    </s-select>
+                  ) : (
+                    <s-text-field
+                      label="State/Province"
+                      value={addressForm.province}
+                      onInput={(e) =>
+                        setAddressForm({
+                          ...addressForm,
+                          province: e.target.value,
+                        })
+                      }
+                    />
+                  )}
+                  <s-text-field
+                    label="PIN code"
+                    value={addressForm.zip}
+                    onInput={(e) =>
+                      setAddressForm({ ...addressForm, zip: e.target.value })
+                    }
+                  />
+                </s-stack>
+
+                <s-text-field
+                  label="Phone"
+                  type="tel"
+                  value={addressForm.phone}
+                  onInput={(e) =>
+                    setAddressForm({ ...addressForm, phone: e.target.value })
+                  }
+                />
               </s-stack>
 
-              <s-modal
-                id={addressModalId}
-                ref={addressModalRef}
-                heading="Edit shipping address"
+              <s-button
+                slot="primary-action"
+                variant="primary"
+                disabled={addressSaving}
+                onClick={handleSaveAddress}
               >
-                <s-stack direction="block" gap="base">
-                  {addressError && (
-                    <s-text tone="critical">{addressError}</s-text>
-                  )}
-
-                  <s-select
-                    label="Country/region"
-                    value={addressForm.country}
-                    onChange={(e) =>
-                      setAddressForm({
-                        ...addressForm,
-                        country: e.target.value,
-                        province: "",
-                      })
-                    }
-                  >
-                    {COUNTRIES.map((c) => (
-                      <s-option key={c.value} value={c.value}>
-                        {c.label}
-                      </s-option>
-                    ))}
-                  </s-select>
-
-                  <s-stack direction="inline" gap="base">
-                    <s-text-field
-                      label="First name"
-                      value={addressForm.firstName}
-                      onInput={(e) =>
-                        setAddressForm({
-                          ...addressForm,
-                          firstName: e.target.value,
-                        })
-                      }
-                    />
-                    <s-text-field
-                      label="Last name"
-                      value={addressForm.lastName}
-                      onInput={(e) =>
-                        setAddressForm({
-                          ...addressForm,
-                          lastName: e.target.value,
-                        })
-                      }
-                    />
-                  </s-stack>
-
-                  <s-text-field
-                    label="Address"
-                    value={addressForm.address1}
-                    onInput={(e) =>
-                      setAddressForm({
-                        ...addressForm,
-                        address1: e.target.value,
-                      })
-                    }
-                  />
-                  <s-text-field
-                    label="Apartment, suite, etc (optional)"
-                    value={addressForm.address2}
-                    onInput={(e) =>
-                      setAddressForm({
-                        ...addressForm,
-                        address2: e.target.value,
-                      })
-                    }
-                  />
-
-                  <s-stack direction="inline" gap="base">
-                    <s-text-field
-                      label="City"
-                      value={addressForm.city}
-                      onInput={(e) =>
-                        setAddressForm({ ...addressForm, city: e.target.value })
-                      }
-                    />
-                    {addressForm.country === "IN" ? (
-                      <s-select
-                        label="State"
-                        value={addressForm.province}
-                        onChange={(e) =>
-                          setAddressForm({
-                            ...addressForm,
-                            province: e.target.value,
-                          })
-                        }
-                      >
-                        <s-option value="">Select state</s-option>
-                        {INDIAN_STATES.map((state) => (
-                          <s-option key={state} value={state}>
-                            {state}
-                          </s-option>
-                        ))}
-                      </s-select>
-                    ) : (
-                      <s-text-field
-                        label="State/Province"
-                        value={addressForm.province}
-                        onInput={(e) =>
-                          setAddressForm({
-                            ...addressForm,
-                            province: e.target.value,
-                          })
-                        }
-                      />
-                    )}
-                    <s-text-field
-                      label="PIN code"
-                      value={addressForm.zip}
-                      onInput={(e) =>
-                        setAddressForm({ ...addressForm, zip: e.target.value })
-                      }
-                    />
-                  </s-stack>
-
-                  <s-text-field
-                    label="Phone"
-                    type="tel"
-                    value={addressForm.phone}
-                    onInput={(e) =>
-                      setAddressForm({ ...addressForm, phone: e.target.value })
-                    }
-                  />
-                </s-stack>
-
-                <s-button
-                  slot="primary-action"
-                  variant="primary"
-                  disabled={addressSaving}
-                  onClick={handleSaveAddress}
-                >
-                  {addressSaving ? <s-spinner size="small" /> : "Continue"}
-                </s-button>
-                <s-button
-                  slot="secondary-actions"
-                  command="--hide"
-                  commandFor={addressModalId}
-                  disabled={addressSaving}
-                >
-                  Cancel
-                </s-button>
-              </s-modal>
-
-              {/* ===== Top-level "Reschedule" button ka standalone modal — koi conflict nahi kyunki alag se open hota hai ===== */}
-              <s-modal
-                id={rescheduleModalId}
-                ref={rescheduleModalRef}
-                heading="Reschedule order"
+                {addressSaving ? <s-spinner size="small" /> : "Continue"}
+              </s-button>
+              <s-button
+                slot="secondary-actions"
+                command="--hide"
+                commandFor={addressModalId}
+                disabled={addressSaving}
               >
-                <s-stack direction="block" gap="base">
-                  {!isRescheduleViewInUpcomingModal && rescheduleError && (
-                    <s-text tone="critical">{rescheduleError}</s-text>
-                  )}
-                  <s-date-picker
-                    selected={rescheduleDate}
-                    onChange={(e) => setRescheduleDate(e.target.value)}
-                  />
-                </s-stack>
+                Cancel
+              </s-button>
+            </s-modal>
 
-                <s-button
-                  slot="primary-action"
-                  variant="primary"
-                  disabled={rescheduleSaving || !rescheduleDate}
-                  onClick={handleSaveReschedule}
-                >
-                  {rescheduleSaving ? <s-spinner size="small" /> : "Save"}
-                </s-button>
-                <s-button
-                  slot="secondary-actions"
-                  command="--hide"
-                  commandFor={rescheduleModalId}
-                  disabled={rescheduleSaving}
-                  onClick={() => setRescheduleCycle(null)}
-                >
-                  Cancel
-                </s-button>
-              </s-modal>
-            </s-box>
-          )}
+            {/* ===== Top-level "Reschedule" button ka standalone modal — koi conflict nahi kyunki alag se open hota hai ===== */}
+            <s-modal
+              id={rescheduleModalId}
+              ref={rescheduleModalRef}
+              heading="Reschedule order"
+            >
+              <s-stack direction="block" gap="base">
+                {!isRescheduleViewInUpcomingModal && rescheduleError && (
+                  <s-text tone="critical">{rescheduleError}</s-text>
+                )}
+                <s-date-picker
+                  selected={rescheduleDate}
+                  onChange={(e) => setRescheduleDate(e.target.value)}
+                />
+              </s-stack>
 
+              <s-button
+                slot="primary-action"
+                variant="primary"
+                disabled={rescheduleSaving || !rescheduleDate}
+                onClick={handleSaveReschedule}
+              >
+                {rescheduleSaving ? <s-spinner size="small" /> : "Save"}
+              </s-button>
+              <s-button
+                slot="secondary-actions"
+                command="--hide"
+                commandFor={rescheduleModalId}
+                disabled={rescheduleSaving}
+                onClick={() => setRescheduleCycle(null)}
+              >
+                Cancel
+              </s-button>
+            </s-modal>
+          </s-box>
+
+          {/* ===== Items + Subtotal box — ALWAYS shown, regardless of status ===== */}
           <s-box border="base" borderRadius="base" padding="base">
             <s-stack direction="block" gap="base">
               {items.map((item, i) => (
@@ -1401,7 +1419,7 @@ function SubscriptionDetail({
                 </s-stack>
               ))}
 
-              {total && (
+              {total ? (
                 <s-stack direction="block" gap="tight">
                   <s-stack direction="inline" gap="tight">
                     <s-text>Subtotal</s-text>
@@ -1425,6 +1443,13 @@ function SubscriptionDetail({
                     </s-text>
                   </s-stack>
                 </s-stack>
+              ) : (
+                items.length > 0 &&
+                isCancelledOrExpired && (
+                  <s-text tone="subdued">
+                    Order total not available for cancelled subscriptions.
+                  </s-text>
+                )
               )}
             </s-stack>
           </s-box>
