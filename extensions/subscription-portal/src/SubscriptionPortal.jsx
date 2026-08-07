@@ -1406,22 +1406,27 @@ function SubscriptionDetail({
                   <s-stack direction="inline" gap="tight">
                     <s-text>Subtotal</s-text>
                     <s-text>
-                      {total.currencyCode} {total.amount}
+                      {/* {total.currencyCode} {total.amount} */}
+                       {total ? `${total.currencyCode} ${total.amount}` : "-"}
                     </s-text>
                   </s-stack>
                   {shipping && (
                     <s-stack direction="inline" gap="tight">
                       <s-text>Shipping</s-text>
                       <s-text>
-                        {shipping.calculatedPrice?.currencyCode}{" "}
-                        {shipping.calculatedPrice?.amount}
+                        {/* {shipping.calculatedPrice?.currencyCode}{" "}
+                        {shipping.calculatedPrice?.amount} */}
+                         {shipping
+        ? `${shipping.calculatedPrice?.currencyCode} ${shipping.calculatedPrice?.amount}`
+        : "-"}
                       </s-text>
                     </s-stack>
                   )}
                   <s-stack direction="inline" gap="tight">
                     <s-text fontWeight="bold">Total</s-text>
                     <s-text fontWeight="bold">
-                      {total.currencyCode} {grandTotal}
+                      {/* {total.currencyCode} {grandTotal} */}
+                       {total ? `${total.currencyCode} ${grandTotal}` : "-"}
                     </s-text>
                   </s-stack>
                 </s-stack>
