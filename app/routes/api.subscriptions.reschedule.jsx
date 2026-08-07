@@ -133,7 +133,7 @@ export const action = async ({ request }) => {
         },
         input: {
           billingDate: isoDate,
-          reason: "CUSTOMER_INITIATED",
+          reason: "BUYER_INITIATED",
         },
       },
     });

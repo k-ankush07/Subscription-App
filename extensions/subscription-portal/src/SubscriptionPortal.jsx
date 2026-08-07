@@ -456,11 +456,13 @@ function SubscriptionDetail({
   });
   const [addressSaving, setAddressSaving] = useState(false);
   const [addressError, setAddressError] = useState(null);
+
   const [rescheduleCycle, setRescheduleCycle] = useState(null);
   const [rescheduleDate, setRescheduleDate] = useState("");
   const [rescheduleSaving, setRescheduleSaving] = useState(false);
   const [rescheduleError, setRescheduleError] = useState(null);
   const rescheduleModalRef = useRef(null);
+  const upcomingModalRef = useRef(null);
 
   useEffect(() => {
     setUpcomingCycles(sub.upcomingCycles ?? []);
@@ -567,6 +569,18 @@ function SubscriptionDetail({
     setRescheduleCycle(cycle);
     setRescheduleDate(toDateOnlyString(cycle.billingAttemptExpectedDate) || "");
     setRescheduleError(null);
+  }
+
+  // Modal ke andar wale "Reschedule" link ke liye — pehle "Upcoming orders"
+  // modal ko hide karo, phir reschedule modal show karo. Do modals ek saath
+  // open nahi ho sakte (Shopify runtime error deta hai), isliye command/
+  // commandFor use nahi kiya — manual show/hide.
+  function openRescheduleFromUpcomingModal(cycle) {
+    upcomingModalRef.current?.hide?.();
+    openRescheduleModal(cycle);
+    setTimeout(() => {
+      rescheduleModalRef.current?.show?.();
+    }, 0);
   }
 
   async function handleSaveReschedule() {
@@ -812,7 +826,7 @@ function SubscriptionDetail({
               )}
             </s-stack>
 
-            <s-modal id={modalId} heading="Upcoming orders">
+            <s-modal id={modalId} ref={upcomingModalRef} heading="Upcoming orders">
               <s-stack direction="block" gap="base">
                 {visibleCycles.map((cycle) => {
                   const isThisLoading = loadingCycleIndex === cycle.cycleIndex;
@@ -851,9 +865,9 @@ function SubscriptionDetail({
                             <s-text tone="subdued">Reschedule</s-text>
                           ) : (
                             <s-link
-                              command="--show"
-                              commandFor={rescheduleModalId}
-                              onClick={() => openRescheduleModal(cycle)}
+                              onClick={() =>
+                                openRescheduleFromUpcomingModal(cycle)
+                              }
                             >
                               Reschedule
                             </s-link>
@@ -1077,41 +1091,38 @@ function SubscriptionDetail({
               </s-button>
             </s-modal>
 
-
             <s-modal
-  id={rescheduleModalId}
-  ref={rescheduleModalRef}
-  heading="Reschedule order"
->
-  <s-stack direction="block" gap="base">
-    {rescheduleError && (
-      <s-text tone="critical">{rescheduleError}</s-text>
-    )}
-    <s-text-field
-      label="New date"
-      type="date"
-      value={rescheduleDate}
-      onInput={(e) => setRescheduleDate(e.target.value)}
-    />
-  </s-stack>
+              id={rescheduleModalId}
+              ref={rescheduleModalRef}
+              heading="Reschedule order"
+            >
+              <s-stack direction="block" gap="base">
+                {rescheduleError && (
+                  <s-text tone="critical">{rescheduleError}</s-text>
+                )}
+                <s-date-picker
+                  selected={rescheduleDate}
+                  onChange={(e) => setRescheduleDate(e.target.value)}
+                />
+              </s-stack>
 
-  <s-button
-    slot="primary-action"
-    variant="primary"
-    disabled={rescheduleSaving || !rescheduleDate}
-    onClick={handleSaveReschedule}
-  >
-    {rescheduleSaving ? <s-spinner size="small" /> : "Save"}
-  </s-button>
-  <s-button
-    slot="secondary-actions"
-    command="--hide"
-    commandFor={rescheduleModalId}
-    disabled={rescheduleSaving}
-  >
-    Cancel
-  </s-button>
-</s-modal>
+              <s-button
+                slot="primary-action"
+                variant="primary"
+                disabled={rescheduleSaving || !rescheduleDate}
+                onClick={handleSaveReschedule}
+              >
+                {rescheduleSaving ? <s-spinner size="small" /> : "Save"}
+              </s-button>
+              <s-button
+                slot="secondary-actions"
+                command="--hide"
+                commandFor={rescheduleModalId}
+                disabled={rescheduleSaving}
+              >
+                Cancel
+              </s-button>
+            </s-modal>
           </s-box>
 
           <s-box border="base" borderRadius="base" padding="base">
