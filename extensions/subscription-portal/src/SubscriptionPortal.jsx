@@ -1052,11 +1052,24 @@ function SubscriptionDetail({ sub, onBack, refreshSubscriptions }) {
     sub.upcomingCycles ?? [],
   );
   const [nextBillingDate, setNextBillingDate] = useState(sub.nextBillingDate);
+  const [hasMoreCycles, setHasMoreCycles] = useState(sub.hasMoreCycles ?? false);
 
   // Boolean ki jagah cycleIndex store karte hain — taaki sirf wahi button/link
   // disable ho jise user ne click kiya hai, baaki sab usable rahe.
   const [loadingCycleIndex, setLoadingCycleIndex] = useState(null);
   const [loadingAction, setLoadingAction] = useState(null); // "skip" | "unskip"
+
+  // `sub` prop jab bhi badalta hai (refreshSubscriptions ke baad ek NAYA sub
+  // object aata hai), local state ko usi se re-sync karo. Pehle yeh sirf mount
+  // par ek baar hota tha, isliye server se aaya updated hasMoreCycles /
+  // nextBillingDate kabhi UI tak nahi pahochta tha. Optimistic update
+  // (applyCycleUpdate) turant UI update kar deta hai, aur yeh effect fir
+  // asli/authoritative server data se reconcile kar deta hai.
+  useEffect(() => {
+    setUpcomingCycles(sub.upcomingCycles ?? []);
+    setNextBillingDate(sub.nextBillingDate);
+    setHasMoreCycles(sub.hasMoreCycles ?? false);
+  }, [sub]);
 
   function applyCycleUpdate(cycleIndex, patch) {
     setUpcomingCycles((prev) => {
@@ -1064,9 +1077,10 @@ function SubscriptionDetail({ sub, onBack, refreshSubscriptions }) {
         c.cycleIndex === cycleIndex ? { ...c, ...patch } : c,
       );
       const next = getNextActionableCycle(updated);
-      if (next) {
-        setNextBillingDate(next.billingAttemptExpectedDate);
-      }
+      // Agar fetched window ke saare cycles skip/billed ho chuke hain, toh
+      // koi galat/purani date mat dikhao — refreshSubscriptions() ke baad
+      // authoritative value (ya "maximum skipped" message) aa jayegi.
+      setNextBillingDate(next ? next.billingAttemptExpectedDate : null);
       return updated;
     });
   }
@@ -1190,9 +1204,13 @@ function SubscriptionDetail({ sub, onBack, refreshSubscriptions }) {
             <s-stack direction="block" gap="base">
               <s-stack direction="block" gap="tight">
                 <s-text fontWeight="bold">Upcoming order</s-text>
-                <s-text tone="subdued">
-                  {formatShort(toDateOnlyString(nextBillingDate))}
-                </s-text>
+                {nextBillingDate ? (
+                  <s-text tone="subdued">
+                    {formatShort(toDateOnlyString(nextBillingDate))}
+                  </s-text>
+                ) : (
+                  <s-text tone="subdued">-</s-text>
+                )}
               </s-stack>
 
               <s-stack direction="inline" gap="tight">
@@ -1219,6 +1237,17 @@ function SubscriptionDetail({ sub, onBack, refreshSubscriptions }) {
                 <s-link command="--show" commandFor={modalId}>
                   Show upcoming orders
                 </s-link>
+              )}
+
+              {/* Saare currently-fetched cycles skip ho chuke hain aur
+                  aage bhi cycles maujood hain (hasMoreCycles) — asli agla
+                  order abhi backend se pata nahi chala, isliye galat date
+                  dikhane ke bajaye yeh message dikhao (jaisa reference me
+                  tha). */}
+              {!nextActionable && hasMoreCycles && (
+                <s-text tone="subdued">
+                  The maximum number of orders have been skipped
+                </s-text>
               )}
             </s-stack>
 
