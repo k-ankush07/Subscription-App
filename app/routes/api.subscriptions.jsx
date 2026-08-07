@@ -378,11 +378,11 @@ const CORS_HEADERS = {
 const DEFAULT_LIMIT = 7;
 const MAX_LIMIT = 50;
 
-// Pehle 6 tha — daily/frequent delivery subscriptions me 6 skip karte hi
-// window khatam ho jaata tha aur "next order" date ke liye koi actionable
-// cycle nahi bachta tha. 60 se zyada realistic buffer milta hai (90-day
-// window ke andar).
-const BILLING_CYCLES_FETCH_LIMIT = 60;
+// Modal sirf 6 dikhata hai; thoda buffer (7th cycle ki date "Upcoming
+// order" card pe dikhane ke liye) rakhne ke liye 20 fetch karte hain.
+// Pehle 60 tha — jitna zyada fetch karoge utni GraphQL query slow hoti hai,
+// aur 60 ki zaroorat hi nahi thi.
+const BILLING_CYCLES_FETCH_LIMIT = 20;
 
 export const action = async ({ request }) => {
   if (request.method === "OPTIONS") {
@@ -666,17 +666,26 @@ export const loader = async ({ request }) => {
             sum + parseFloat(line.lineDiscountedPrice?.amount ?? 0),
           0,
         );
-        let preview = null;
-        if (contract.status === "ACTIVE" || contract.status === "PAUSED") {
-          try {
-            preview = await getContractPreview(admin, contract.id);
-          } catch (e) {
-            console.error(
-              `getContractPreview failed for ${contract.id}:`,
-              e.message,
-            );
-          }
-        }
+        // Yeh do heavy GraphQL calls (order preview + billing cycles) pehle
+        // sequentially (ek ke baad ek) chalte the — Promise.all se parallel
+        // kar diya, isse har contract ka processing time ~aadha ho jaata hai.
+        const [preview, cyclesResult] = await Promise.all([
+          (async () => {
+            if (contract.status === "ACTIVE" || contract.status === "PAUSED") {
+              try {
+                return await getContractPreview(admin, contract.id);
+              } catch (e) {
+                console.error(
+                  `getContractPreview failed for ${contract.id}:`,
+                  e.message,
+                );
+                return null;
+              }
+            }
+            return null;
+          })(),
+          fetchUpcomingBillingCycles(contract.id),
+        ]);
 
         const resolvedLine =
           preview?.nextOrder?.lineItems?.find((li) => li.isBaseLine) ??
@@ -696,8 +705,7 @@ export const loader = async ({ request }) => {
             }
           : null; // fallback widget me lines[0] use kar lega
 
-        const { cycles: upcomingCycles, hasMoreCycles } =
-          await fetchUpcomingBillingCycles(contract.id);
+        const { cycles: upcomingCycles, hasMoreCycles } = cyclesResult;
 
         const nextCycle = upcomingCycles.find(
           (c) => !c.skipped && c.status !== "BILLED",

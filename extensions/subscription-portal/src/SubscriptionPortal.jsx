@@ -59,11 +59,10 @@ function formatShortWithYear(dateOnlyStr) {
   return d.toLocaleDateString("en-GB", opts);
 }
 
-
 function getNextActionableCycle(cycles) {
   return cycles.find((c) => !c.skipped && c.status !== "BILLED") ?? null;
 }
-
+.
 const VISIBLE_CYCLES_LIMIT = 6;
 
 function SkeletonCard() {
@@ -259,6 +258,7 @@ function Extension() {
       console.error("navigation.navigate failed:", err);
     }
   }
+
   const refreshSubscriptions = useCallback(async () => {
     const list = await fetchPage({ afterCursor: null, reset: true });
     const current = selectedSub;
@@ -389,8 +389,10 @@ function SubscriptionDetail({ sub, onBack, refreshSubscriptions }) {
   );
   const [nextBillingDate, setNextBillingDate] = useState(sub.nextBillingDate);
   const [hasMoreCycles, setHasMoreCycles] = useState(sub.hasMoreCycles ?? false);
+
   const [loadingCycleIndex, setLoadingCycleIndex] = useState(null);
-  const [loadingAction, setLoadingAction] = useState(null); 
+  const [loadingAction, setLoadingAction] = useState(null); // "skip" | "unskip"
+
   useEffect(() => {
     setUpcomingCycles(sub.upcomingCycles ?? []);
     setNextBillingDate(sub.nextBillingDate);
@@ -402,6 +404,7 @@ function SubscriptionDetail({ sub, onBack, refreshSubscriptions }) {
       const updated = prev.map((c) =>
         c.cycleIndex === cycleIndex ? { ...c, ...patch } : c,
       );
+
       const visible = updated.slice(0, VISIBLE_CYCLES_LIMIT);
       const next = getNextActionableCycle(visible);
       if (next) {
@@ -439,8 +442,11 @@ function SubscriptionDetail({ sub, onBack, refreshSubscriptions }) {
       }
 
       applyCycleUpdate(cycleIndex, { skipped: true });
-      await refreshSubscriptions();
       shopify.toast.show("Order skipped");
+
+      refreshSubscriptions().catch((err) =>
+        console.error("Background refresh after skip failed:", err),
+      );
     } catch (err) {
       console.error(err);
       shopify.toast.show(err.message);
@@ -472,8 +478,12 @@ function SubscriptionDetail({ sub, onBack, refreshSubscriptions }) {
       }
 
       applyCycleUpdate(cycleIndex, { skipped: false });
-      await refreshSubscriptions();
       shopify.toast.show("Order un-skipped");
+
+
+      refreshSubscriptions().catch((err) =>
+        console.error("Background refresh after unskip failed:", err),
+      );
     } catch (err) {
       console.error(err);
       shopify.toast.show(err.message);
@@ -571,6 +581,7 @@ function SubscriptionDetail({ sub, onBack, refreshSubscriptions }) {
                 </s-link>
               )}
 
+
               {maxSkipReached && (
                 <s-text tone="subdued">
                   The maximum number of orders have been skipped
@@ -608,6 +619,7 @@ function SubscriptionDetail({ sub, onBack, refreshSubscriptions }) {
                       <s-stack direction="inline" gap="tight" alignItems="center">
                         {!cycle.skipped &&
                           (isAnyLoading ? (
+
                             <s-text tone="subdued">Reschedule</s-text>
                           ) : (
                             <s-link
@@ -620,6 +632,7 @@ function SubscriptionDetail({ sub, onBack, refreshSubscriptions }) {
                           ))}
 
                         {isThisLoading ? (
+
                           <s-spinner size="small" />
                         ) : cycle.skipped ? (
                           isAnyLoading ? (
