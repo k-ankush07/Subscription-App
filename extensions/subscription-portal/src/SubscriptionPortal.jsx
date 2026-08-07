@@ -715,6 +715,12 @@ function getNextActionableCycle(cycles) {
   return cycles.find((c) => !c.skipped && c.status !== "BILLED") ?? null;
 }
 
+// "Upcoming orders" modal me hamesha sirf pehle 6 hi cycles dikhane hain.
+// Backend zyada (60) fetch karta hai taaki 6 skip hone ke baad bhi 7th
+// cycle ki asli date pata chal sake, lekin wo 7th+ list me kabhi nahi
+// dikhega — sirf "Upcoming order" card ke date field me use hoga.
+const VISIBLE_CYCLES_LIMIT = 6;
+
 function SkeletonCard() {
   return (
     <s-box border="base" borderRadius="base" padding="base">
@@ -1076,11 +1082,22 @@ function SubscriptionDetail({ sub, onBack, refreshSubscriptions }) {
       const updated = prev.map((c) =>
         c.cycleIndex === cycleIndex ? { ...c, ...patch } : c,
       );
-      const next = getNextActionableCycle(updated);
-      // Agar fetched window ke saare cycles skip/billed ho chuke hain, toh
-      // koi galat/purani date mat dikhao — refreshSubscriptions() ke baad
-      // authoritative value (ya "maximum skipped" message) aa jayegi.
-      setNextBillingDate(next ? next.billingAttemptExpectedDate : null);
+
+      // "Next order" date sirf pehle VISIBLE_CYCLES_LIMIT (6) cycles me se
+      // dhoondo — modal me jitne dikhte hain sirf unhi me se. Agar wo saare
+      // skip ho chuke hain, toh AAGE (7th cycle onwards, jo modal me kabhi
+      // nahi dikhta) se agli date le lo, sirf display ke liye.
+      const visible = updated.slice(0, VISIBLE_CYCLES_LIMIT);
+      const next = getNextActionableCycle(visible);
+      if (next) {
+        setNextBillingDate(next.billingAttemptExpectedDate);
+      } else {
+        const beyond = updated
+          .slice(VISIBLE_CYCLES_LIMIT)
+          .find((c) => !c.skipped && c.status !== "BILLED");
+        setNextBillingDate(beyond ? beyond.billingAttemptExpectedDate : null);
+      }
+
       return updated;
     });
   }
@@ -1173,10 +1190,22 @@ function SubscriptionDetail({ sub, onBack, refreshSubscriptions }) {
   const numericId = getNumericId(sub.id);
   const modalId = `upcoming-orders-modal-${numericId}`;
   const cycles = upcomingCycles;
+
+  // Modal me sirf pehle 6 cycles dikhne hain — backend zyada fetch karta hai
+  // (7th+ ke liye), lekin list yahi tak limited rehti hai.
+  const visibleCycles = cycles.slice(0, VISIBLE_CYCLES_LIMIT);
+
   // Quick "Skip" button hamesha isi cycle ko target karega — pehla cycle jo
-  // abhi tak skip nahi hua. Yehi wo fix hai jo "sirf pehli date skip hoti hai"
-  // wale bug ko theek karta hai (pehle hardcoded cycles[0] use hota tha).
-  const nextActionable = getNextActionableCycle(cycles);
+  // abhi tak skip nahi hua, VISIBLE list ke andar hi. Yehi wo fix hai jo
+  // "sirf pehli date skip hoti hai" wale bug ko theek karta hai (pehle
+  // hardcoded cycles[0] use hota tha).
+  const nextActionable = getNextActionableCycle(visibleCycles);
+
+  // Visible 6 me se koi bhi actionable nahi bacha -> max skip limit hit ho
+  // gayi, Skip button disable karna hai (7th+ cycle ko is button se target
+  // nahi karne dena, chahe wo data available ho).
+  const maxSkipReached =
+    visibleCycles.length === VISIBLE_CYCLES_LIMIT && !nextActionable;
 
   return (
     <s-page heading="Manage subscription">
@@ -1233,28 +1262,28 @@ function SubscriptionDetail({ sub, onBack, refreshSubscriptions }) {
                 </s-button>
               </s-stack>
 
-              {cycles.length > 0 && (
+              {visibleCycles.length > 0 && (
                 <s-link command="--show" commandFor={modalId}>
                   Show upcoming orders
                 </s-link>
               )}
 
-              {/* Saare currently-fetched cycles skip ho chuke hain aur
-                  aage bhi cycles maujood hain (hasMoreCycles) — asli agla
-                  order abhi backend se pata nahi chala, isliye galat date
-                  dikhane ke bajaye yeh message dikhao (jaisa reference me
-                  tha). */}
-              {!nextActionable && hasMoreCycles && (
+              {/* Visible 6 cycles saare skip ho chuke hain — chahe backend
+                  ke paas 7th+ cycle ki date ho (upar "Upcoming order" me
+                  wahi dikh rahi hai), Skip button yahi tak limited hai
+                  isliye yeh message dikhao. */}
+              {maxSkipReached && (
                 <s-text tone="subdued">
                   The maximum number of orders have been skipped
                 </s-text>
               )}
             </s-stack>
 
-            {/* Upcoming orders modal */}
+            {/* Upcoming orders modal — hamesha sirf pehle 6 (visibleCycles)
+                dikhate hain, 7th+ kabhi list me nahi aata. */}
             <s-modal id={modalId} heading="Upcoming orders">
               <s-stack direction="block" gap="base">
-                {cycles.map((cycle) => {
+                {visibleCycles.map((cycle) => {
                   const isThisLoading = loadingCycleIndex === cycle.cycleIndex;
                   return (
                     <s-stack
