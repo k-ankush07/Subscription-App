@@ -1,4 +1,3 @@
-// app/routes/api.subscriptions.update-address.jsx
 import { authenticate, unauthenticated } from "../shopify.server";
 import { updateContractAddress } from "../lib/billing-preview.server";
 
@@ -13,7 +12,10 @@ export const action = async ({ request }) => {
     return new Response(null, { headers: CORS_HEADERS });
   }
   if (request.method !== "POST") {
-    return new Response("Method not allowed", { status: 405, headers: CORS_HEADERS });
+    return new Response("Method not allowed", {
+      status: 405,
+      headers: CORS_HEADERS,
+    });
   }
 
   try {
@@ -31,14 +33,13 @@ export const action = async ({ request }) => {
       );
     }
 
-    // SECURITY: contract must belong to the requesting customer,
-    // warna koi bhi customer kisi aur ka contractId guess kar ke
-    // uska address change kar sakta hai.
     const ownerRes = await admin.graphql(
       `#graphql
       query VerifyOwner($id: ID!) {
         subscriptionContract(id: $id) {
-          customer { id }
+          customer {
+            id
+          }
         }
       }`,
       { variables: { id: contractId } },
@@ -46,7 +47,7 @@ export const action = async ({ request }) => {
     const ownerData = await ownerRes.json();
     const ownerId = ownerData?.data?.subscriptionContract?.customer?.id;
     const numericOwnerId = ownerId?.split("/").pop();
-    const numericCustomerId = String(customerId).split("/").pop();
+    const numericCustomerId = String(customerId || "").split("/").pop();
 
     if (!ownerId || numericOwnerId !== numericCustomerId) {
       return Response.json(
@@ -69,10 +70,10 @@ export const action = async ({ request }) => {
 
     return Response.json(result, { headers: CORS_HEADERS });
   } catch (err) {
-    console.error("update-address error:", err.message, err.stack);
+    console.error("api.subscriptions.update-address error:", err.message, err.stack);
     return Response.json(
       { success: false, error: err.message || "Unknown error" },
       { status: 500, headers: CORS_HEADERS },
     );
   }
-}; 
+};
