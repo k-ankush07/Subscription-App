@@ -1,5 +1,4 @@
 import { getContractPreview } from "./billing-preview.server";
-
 const CONTRACT_SHIPPING_QUERY = `#graphql
   query GetContractShippingInfo($id: ID!) {
     subscriptionContract(id: $id) {
@@ -27,7 +26,6 @@ const CONTRACT_SHIPPING_QUERY = `#graphql
     }
   }
 `;
-
 const PORTAL_URL_QUERY = `#graphql
   query GetCustomerAccountShareLinkData($pageCount: Int = 50) {
     shop {
@@ -47,8 +45,6 @@ const PORTAL_URL_QUERY = `#graphql
     }
   }
 `;
-
-
 export async function getCustomerPortalBaseUrl(admin) {
   const res = await admin.graphql(PORTAL_URL_QUERY, {
     variables: { pageCount: 50 },
@@ -67,7 +63,6 @@ export async function getCustomerPortalBaseUrl(admin) {
   if (!baseUrl) return null;
   return myPage ? `${baseUrl}/pages/${myPage.handle}` : baseUrl;
 }
-
 const SHOP_NAME_QUERY = `#graphql
   query GetShopName {
     shop {
@@ -75,14 +70,11 @@ const SHOP_NAME_QUERY = `#graphql
     }
   }
 `;
-
-
 export async function getShopName(admin) {
   const res = await admin.graphql(SHOP_NAME_QUERY);
   const { data } = await res.json();
   return data?.shop?.name || null;
 }
-
 export async function getContractEmailData(admin, contractId) {
   const [preview, shippingRes] = await Promise.all([
     getContractPreview(admin, contractId),
@@ -101,6 +93,7 @@ export async function getContractEmailData(admin, contractId) {
 
   const lineItems = rawLineItems.map((li) => ({
     title: li.title,
+    variantTitle: li.variantTitle,
     quantity: li.quantity,
     imageUrl: li.imageUrl,
     currencyCode: li.itemTotal?.currencyCode || li.price?.currencyCode,

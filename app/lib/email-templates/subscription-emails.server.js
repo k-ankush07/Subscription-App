@@ -45,7 +45,6 @@ function baseWrapper(innerHtml) {
   </div>`;
 }
 
-
 function productThumbHtml(item) {
   if (item.imageUrl) {
     return `<img src="${item.imageUrl}" alt="${item.title || "Product"}" width="56" height="56" style="display:block;border-radius:4px;object-fit:cover;" />`;
@@ -62,6 +61,7 @@ function lineItemHtml(item) {
         </td>
         <td style="padding:16px 0;">
           <div style="font-size:14px;color:#111;">${item.title || ""}</div>
+          ${item.variantTitle ? `<div style="font-size:12px;color:#888;">${item.variantTitle}</div>` : ""}
           <div style="font-size:13px;color:#555;">Quantity: ${item.quantity ?? 1}</div>
         </td>
         <td style="padding:16px;text-align:right;font-size:14px;color:#111;white-space:nowrap;">
@@ -88,7 +88,7 @@ function summaryRowHtml(label, value, { bold = false } = {}) {
     </tr>`;
 }
 
-// Subtotal / Shipping / Total block — Image 2 wale customer-portal preview jaisa
+
 function orderSummaryHtml({ subtotal, shipping, total }) {
   if (!subtotal && !shipping && !total) return "";
   return `
@@ -142,7 +142,7 @@ function resolveLineItems({ lineItems, lineItem }) {
   return [];
 }
 
-// ---------- SKIP EMAIL ----------
+//  SKIP EMAIL 
 export function buildSkipEmail({
   customerName,
   skippedDate,
@@ -175,7 +175,7 @@ export function buildSkipEmail({
   return { subject, html };
 }
 
-// ---------- CANCEL EMAIL ----------
+// CANCEL EMAIL 
 export function buildCancelEmail({
   customerName,
   lineItem,
