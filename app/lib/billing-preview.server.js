@@ -1857,61 +1857,7 @@ async function updateContractAddress(admin, contractId, addressInput) {
 
   return { success: true };
 }
-async function updateContractPaymentMethod(admin, contractId, paymentMethodId) {
-  try {
-    await clearAnyOpenDraft(admin, contractId);
-  } catch (err) {
-    console.warn(`[update_payment_method] clearAnyOpenDraft failed for ${contractId}:`, err);
-  }
 
-  const draftRes = await admin.graphql(CONTRACT_UPDATE_MUTATION, {
-    variables: { contractId },
-  });
-  const draftData = await draftRes.json();
-  const draftPayload = draftData?.data?.subscriptionContractUpdate;
-  if (!draftPayload?.draft?.id || draftPayload.userErrors?.length) {
-    return {
-      success: false,
-      error:
-        draftPayload?.userErrors?.map((e) => e.message).join(", ") ||
-        "Failed to open draft for payment method update",
-    };
-  }
-  const draftId = draftPayload.draft.id;
-
-  const updateRes = await admin.graphql(
-    `
-    mutation SubscriptionDraftUpdatePaymentMethod($draftId: ID!, $paymentMethodId: ID!) {
-      subscriptionDraftUpdate(draftId: $draftId, input: { paymentMethodId: $paymentMethodId }) {
-        draft { id }
-        userErrors { field message code }
-      }
-    }
-    `,
-    { variables: { draftId, paymentMethodId } },
-  );
-  const updateData = await updateRes.json();
-  const updatePayload = updateData?.data?.subscriptionDraftUpdate;
-  if (updatePayload?.userErrors?.length) {
-    return { success: false, error: updatePayload.userErrors.map((e) => e.message).join(", ") };
-  }
-
-  const commitRes = await admin.graphql(DRAFT_COMMIT_MUTATION, {
-    variables: { draftId },
-  });
-  const commitData = await commitRes.json();
-  const commitPayload = commitData?.data?.subscriptionDraftCommit;
-  if (!commitPayload?.contract || commitPayload.userErrors?.length) {
-    return {
-      success: false,
-      error:
-        commitPayload?.userErrors?.map((e) => e.message).join(", ") ||
-        "Failed to commit payment method change",
-    };
-  }
-
-  return { success: true };
-}
 export {
   getContractPreview,
   collectActionsForCycle,
@@ -1939,5 +1885,5 @@ export {
   clearAnyOpenDraft,        
   isBlockedByOpenDraft, 
    updateContractAddress,
-   updateContractPaymentMethod,
+
 };

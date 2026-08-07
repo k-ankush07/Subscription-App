@@ -1171,7 +1171,7 @@ function SubscriptionDetail({
         <s-stack direction="block" gap="tight">
           <s-stack direction="inline" gap="extra-tight" alignItems="center">
             <s-text fontWeight="bold">Payment details</s-text>
-           <s-icon type="edit" />
+           {/* <s-icon type="edit" /> */}
           </s-stack>
           <s-text tone="subdued">
             Credit card: •••• •••• ••••{" "}
