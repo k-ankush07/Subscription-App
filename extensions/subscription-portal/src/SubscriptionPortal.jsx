@@ -456,6 +456,10 @@ function SubscriptionDetail({
   });
   const [addressSaving, setAddressSaving] = useState(false);
   const [addressError, setAddressError] = useState(null);
+  const [status, setStatus] = useState(sub.status);
+  const [pauseResumeLoading, setPauseResumeLoading] = useState(false);
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const cancelModalRef = useRef(null);
 
   const [rescheduleCycle, setRescheduleCycle] = useState(null);
   const [rescheduleDate, setRescheduleDate] = useState("");
@@ -469,6 +473,7 @@ function SubscriptionDetail({
     setNextBillingDate(sub.nextBillingDate);
     setHasMoreCycles(sub.hasMoreCycles ?? false);
     setAddress(sub.deliveryMethod?.address ?? null);
+    setStatus(sub.status);
   }, [sub]);
 
   function applyCycleUpdate(cycleIndex, patch) {
@@ -563,6 +568,108 @@ function SubscriptionDetail({
       setLoadingAction(null);
     }
   }
+  async function handlePause() {
+    if (pauseResumeLoading) return;
+    try {
+      setPauseResumeLoading(true);
+      const token = await shopify.sessionToken.get();
+      const res = await fetch(`${API_BASE}/api/subscriptions/pause`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ subscriptionContractId: sub.id }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        throw new Error(
+          typeof data.error === "string" ? data.error : "Pause failed",
+        );
+      }
+
+      setStatus(data.contract?.status || "PAUSED");
+      shopify.toast.show("Subscription paused");
+
+      refreshSubscriptions().catch((err) =>
+        console.error("Background refresh after pause failed:", err),
+      );
+    } catch (err) {
+      console.error(err);
+      shopify.toast.show(err.message);
+    } finally {
+      setPauseResumeLoading(false);
+    }
+  }
+  async function handleResume() {
+    if (pauseResumeLoading) return;
+    try {
+      setPauseResumeLoading(true);
+      const token = await shopify.sessionToken.get();
+      const res = await fetch(`${API_BASE}/api/subscriptions/resume`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ subscriptionContractId: sub.id }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        throw new Error(
+          typeof data.error === "string" ? data.error : "Resume failed",
+        );
+      }
+
+      setStatus(data.contract?.status || "ACTIVE");
+      shopify.toast.show("Subscription resumed");
+
+      refreshSubscriptions().catch((err) =>
+        console.error("Background refresh after resume failed:", err),
+      );
+    } catch (err) {
+      console.error(err);
+      shopify.toast.show(err.message);
+    } finally {
+      setPauseResumeLoading(false);
+    }
+  }
+
+  async function handleCancel() {
+    if (cancelLoading) return;
+    try {
+      setCancelLoading(true);
+      const token = await shopify.sessionToken.get();
+      const res = await fetch(`${API_BASE}/api/subscriptions/cancel`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ subscriptionContractId: sub.id }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Cancel failed");
+      }
+
+      setStatus(data.subscription?.status || "CANCELLED");
+      shopify.toast.show("Subscription cancelled");
+      cancelModalRef.current?.hide?.();
+
+      refreshSubscriptions().catch((err) =>
+        console.error("Background refresh after cancel failed:", err),
+      );
+    } catch (err) {
+      console.error(err);
+      shopify.toast.show(err.message);
+    } finally {
+      setCancelLoading(false);
+    }
+  }
 
   function openRescheduleModal(cycle) {
     if (!cycle || loadingCycleIndex != null) return;
@@ -571,9 +678,6 @@ function SubscriptionDetail({
     setRescheduleError(null);
   }
 
-  // "Upcoming orders" modal ke andar wale reschedule link ke liye —
-  // NAYA modal open nahi karte, wahi modal ka content switch kar dete hain
-  // list se date-picker view me. Isse "multiple modal" conflict hi nahi aata.
   function openRescheduleInsideUpcomingModal(cycle) {
     openRescheduleModal(cycle);
   }
@@ -763,7 +867,6 @@ function SubscriptionDetail({
   const maxSkipReached =
     visibleCycles.length === VISIBLE_CYCLES_LIMIT && !nextActionable;
 
-  // "Upcoming orders" modal ke andar dikha rahe hain ki nahi (list ya reschedule view)
   const isRescheduleViewInUpcomingModal =
     rescheduleCycle && rescheduleCycle.__fromUpcomingModal;
 
@@ -776,19 +879,76 @@ function SubscriptionDetail({
               ← Back
             </s-button>
           </s-stack>
-
           <s-badge
             tone={
-              sub.status === "ACTIVE"
+              status === "ACTIVE"
                 ? "success"
-                : sub.status === "PAUSED"
+                : status === "PAUSED"
                   ? "warning"
                   : "neutral"
             }
           >
-            Status: {sub.status}
+            Status: {status}
           </s-badge>
+          {status !== "CANCELLED" && status !== "EXPIRED" && (
+    <s-stack direction="inline" gap="tight">
+      {status === "PAUSED" ? (
+        <s-button
+          variant="secondary"
+          disabled={pauseResumeLoading}
+          onClick={handleResume}
+        >
+          {pauseResumeLoading ? <s-spinner size="small" /> : "Resume"}
+        </s-button>
+      ) : (
+        <s-button
+          variant="secondary"
+          disabled={pauseResumeLoading}
+          onClick={handlePause}
+        >
+          {pauseResumeLoading ? <s-spinner size="small" /> : "Pause"}
+        </s-button>
+      )}
 
+      <s-button
+        variant="tertiary"
+        tone="critical"
+        command="--show"
+        commandFor={`cancel-modal-${numericId}`}
+        disabled={pauseResumeLoading || cancelLoading}
+      >
+        Cancel subscription
+      </s-button>
+    </s-stack>
+)}
+
+<s-modal
+    id={`cancel-modal-${numericId}`}
+    ref={cancelModalRef}
+    heading="Cancel subscription"
+>
+    <s-text>
+      Are you sure you want to cancel this subscription? This action can't be undone.
+    </s-text>
+
+    <s-button
+      slot="primary-action"
+      variant="primary"
+      tone="critical"
+      disabled={cancelLoading}
+      onClick={handleCancel}
+    >
+      {cancelLoading ? <s-spinner size="small" /> : "Yes, cancel"}
+    </s-button>
+    <s-button
+      slot="secondary-actions"
+      command="--hide"
+      commandFor={`cancel-modal-${numericId}`}
+      disabled={cancelLoading}
+    >
+      Keep subscription
+    </s-button>
+</s-modal>
           <s-box border="base" borderRadius="base" padding="base">
             <s-stack direction="block" gap="base">
               <s-stack direction="block" gap="tight">
