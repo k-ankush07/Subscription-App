@@ -3,7 +3,7 @@ import { render } from "preact";
 import { useState, useEffect, useCallback, useRef } from "preact/hooks";
 import { COUNTRIES } from "../../../app/routes/utils/countries";
 
-const API_BASE = "https://prove-discharge-paintball-decorative.trycloudflare.com";
+const API_BASE = "https://ministries-implications-popular-tulsa.trycloudflare.com";
 const PAGE_SIZE = 7;
 
 export default async () => {
@@ -468,6 +468,8 @@ function SubscriptionDetail({
   const rescheduleModalRef = useRef(null); // outer top-level "Reschedule" button ke liye
   const upcomingModalRef = useRef(null);
 
+ 
+
   useEffect(() => {
     setUpcomingCycles(sub.upcomingCycles ?? []);
     setNextBillingDate(sub.nextBillingDate);
@@ -841,6 +843,7 @@ function SubscriptionDetail({
     }
   }
 
+
   const items = sub.nextOrderLineItems?.length
     ? sub.nextOrderLineItems
     : (sub.lines?.edges?.map((e) => e.node) ?? []);
@@ -859,7 +862,6 @@ function SubscriptionDetail({
   const addressModalId = `edit-address-modal-${numericId}`;
   const rescheduleModalId = `reschedule-modal-${numericId}`;
   const cycles = upcomingCycles;
-
   const visibleCycles = cycles.slice(0, VISIBLE_CYCLES_LIMIT);
 
   const nextActionable = getNextActionableCycle(visibleCycles);
@@ -1169,7 +1171,7 @@ function SubscriptionDetail({
         <s-stack direction="block" gap="tight">
           <s-stack direction="inline" gap="extra-tight" alignItems="center">
             <s-text fontWeight="bold">Payment details</s-text>
-            <s-icon type="edit" />
+           <s-icon type="edit" />
           </s-stack>
           <s-text tone="subdued">
             Credit card: •••• •••• ••••{" "}

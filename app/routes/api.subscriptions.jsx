@@ -98,19 +98,19 @@ export const loader = async ({ request }) => {
                         zip
                         country
                       }
-                      
                   }
-                       customerPaymentMethod {
-    id
-    instrument {
-      ... on CustomerCreditCard {
-        brand
-        lastDigits
-        expiryMonth
-        expiryYear
-        name
-      }
-    }
+                }
+                  customerPaymentMethod {
+                  id
+                  instrument {
+                    ... on CustomerCreditCard {
+                      brand
+                      lastDigits
+                      expiryMonth
+                      expiryYear
+                      name
+                    }
+                  }
                 }
               }
             }
@@ -371,6 +371,7 @@ export const loader = async ({ request }) => {
     null,
   paymentMethod: contract.customerPaymentMethod?.instrument
     ? {
+      id: contract.customerPaymentMethod.id,
         brand: contract.customerPaymentMethod.instrument.brand ?? null,
         lastDigits: contract.customerPaymentMethod.instrument.lastDigits ?? null,
         expiryMonth: contract.customerPaymentMethod.instrument.expiryMonth ?? null,
