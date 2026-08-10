@@ -435,7 +435,6 @@ function SubscriptionDetail({
   const [pastOrders, setPastOrders] = useState(sub.pastOrders ?? []);
 
   const paymentMenuModalRef = useRef(null);
-  
 
   const [paymentMethod, setPaymentMethod] = useState(sub.paymentMethod ?? null);
   const [availablePaymentMethods, setAvailablePaymentMethods] = useState([]);
@@ -443,8 +442,6 @@ function SubscriptionDetail({
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState("");
   const [paymentUpdateSaving, setPaymentUpdateSaving] = useState(false);
   const [paymentUpdateError, setPaymentUpdateError] = useState(null);
-  const [sendEmailLoading, setSendEmailLoading] = useState(false);
-  const [paymentModalView, setPaymentModalView] = useState("menu");
   const [nextBillingDate, setNextBillingDate] = useState(sub.nextBillingDate);
   const [hasMoreCycles, setHasMoreCycles] = useState(
     sub.hasMoreCycles ?? false,
@@ -855,37 +852,7 @@ function SubscriptionDetail({
       setAddressSaving(false);
     }
   }
-  async function handleSendUpdateEmail() {
-    if (sendEmailLoading) return;
-    try {
-      setSendEmailLoading(true);
-      const token = await shopify.sessionToken.get();
-      const res = await fetch(
-        `${API_BASE}/api/subscriptions/send-payment-update-email`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ contractId: sub.id }),
-        },
-      );
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || "Failed to send email");
-      }
-      paymentMenuModalRef.current?.hide?.();
-      shopify.toast.show(
-        "You will receive an email to update your payment details.",
-      );
-    } catch (err) {
-      console.error(err);
-      shopify.toast.show(err.message);
-    } finally {
-      setSendEmailLoading(false);
-    }
-  }
+
   async function openChoosePaymentModal() {
     setPaymentUpdateError(null);
     setPaymentMethodsLoading(true);
@@ -950,7 +917,6 @@ function SubscriptionDetail({
       }
       shopify.toast.show("Payment method updated");
       paymentMenuModalRef.current?.hide?.();
-      setPaymentModalView("menu");
 
       refreshSubscriptions().catch((err) =>
         console.error("Background refresh after payment update failed:", err),
@@ -1300,7 +1266,7 @@ function SubscriptionDetail({
                         <s-link
                           command="--show"
                           commandFor={paymentMenuModalId}
-                          onClick={() => setPaymentModalView("menu")}
+                          onClick={openChoosePaymentModal}
                         >
                           <s-icon type="edit" />
                         </s-link>
@@ -1323,92 +1289,53 @@ function SubscriptionDetail({
                 <s-modal
                   id={paymentMenuModalId}
                   ref={paymentMenuModalRef}
-                  heading="Payment details"
+                  heading="Choose payment method"
                 >
-                  {paymentModalView === "menu" ? (
-                    <>
-                      <s-stack direction="block" gap="base">
-                        <s-link onClick={handleSendUpdateEmail}>
-                          {sendEmailLoading ? (
-                            <s-spinner size="small" />
-                          ) : (
-                            "Update payment method"
-                          )}
-                        </s-link>
-                        <s-link
-                          onClick={() => {
-                            setPaymentModalView("choose");
-                            openChoosePaymentModal();
-                          }}
-                        >
-                          Choose another payment method
-                        </s-link>
-                      </s-stack>
+                  <s-stack direction="block" gap="base">
+                    {paymentUpdateError && (
+                      <s-text tone="critical">{paymentUpdateError}</s-text>
+                    )}
 
-                      <s-button
-                        slot="primary-action"
-                        variant="tertiary"
-                        command="--hide"
-                        commandFor={paymentMenuModalId}
-                      >
-                        Close
-                      </s-button>
-                    </>
-                  ) : (
-                    <>
-                      <s-stack direction="block" gap="base">
-                        <s-text tone="subdued">
-                          You will receive an email to update your payment
-                          details.
-                        </s-text>
-
-                        {paymentUpdateError && (
-                          <s-text tone="critical">{paymentUpdateError}</s-text>
-                        )}
-
-                        {paymentMethodsLoading ? (
-                          <s-spinner size="small" />
-                        ) : (
-                          <s-select
-                            label="Select Payment Method"
-                            value={selectedPaymentMethodId}
-                            onChange={(e) =>
-                              setSelectedPaymentMethodId(e.target.value)
-                            }
-                          >
-                            {availablePaymentMethods.map((m) => (
-                              <s-option key={m.id} value={m.id}>
-                                {m.cardHolderName || "Card"} •••• •••• ••••{" "}
-                                {m.lastDigits || "----"}
-                              </s-option>
-                            ))}
-                          </s-select>
-                        )}
-                      </s-stack>
-
-                      <s-button
-                        slot="primary-action"
-                        variant="primary"
-                        disabled={
-                          paymentUpdateSaving || !selectedPaymentMethodId
+                    {paymentMethodsLoading ? (
+                      <s-spinner size="small" />
+                    ) : (
+                      <s-select
+                        label="Select Payment Method"
+                        value={selectedPaymentMethodId}
+                        onChange={(e) =>
+                          setSelectedPaymentMethodId(e.target.value)
                         }
-                        onClick={handleUpdatePaymentMethod}
                       >
-                        {paymentUpdateSaving ? (
-                          <s-spinner size="small" />
-                        ) : (
-                          "Update"
-                        )}
-                      </s-button>
-                      <s-button
-                        slot="secondary-actions"
-                        disabled={paymentUpdateSaving}
-                        onClick={() => setPaymentModalView("menu")}
-                      >
-                        Back
-                      </s-button>
-                    </>
-                  )}
+                        {availablePaymentMethods.map((m) => (
+                          <s-option key={m.id} value={m.id}>
+                            {m.cardHolderName || "Card"} •••• •••• ••••{" "}
+                            {m.lastDigits || "----"}
+                          </s-option>
+                        ))}
+                      </s-select>
+                    )}
+                  </s-stack>
+
+                  <s-button
+                    slot="primary-action"
+                    variant="primary"
+                    disabled={paymentUpdateSaving || !selectedPaymentMethodId}
+                    onClick={handleUpdatePaymentMethod}
+                  >
+                    {paymentUpdateSaving ? (
+                      <s-spinner size="small" />
+                    ) : (
+                      "Update"
+                    )}
+                  </s-button>
+                  <s-button
+                    slot="secondary-actions"
+                    command="--hide"
+                    commandFor={paymentMenuModalId}
+                    disabled={paymentUpdateSaving}
+                  >
+                    Cancel
+                  </s-button>
                 </s-modal>
                 {/* </s-stack> */}
 
