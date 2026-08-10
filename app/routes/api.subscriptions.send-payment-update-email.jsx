@@ -1,7 +1,11 @@
 import { authenticate, unauthenticated } from "../shopify.server";
-import { getContractEmailData, getCustomerPortalBaseUrl, getShopName } from "./utils/contract-email-data.server";
-import { buildPaymentUpdateEmail } from "./utils/email-templates.server";
-import { sendMail } from "./utils/mailer.server";
+import { sendMail } from "../lib/mailer.server";
+import { buildPaymentUpdateEmail } from "../lib/email-templates/subscription-emails.server";
+import {
+  getContractEmailData,
+  getCustomerPortalBaseUrl,
+  getShopName,
+} from "../lib/email-helpers.server";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
