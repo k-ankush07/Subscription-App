@@ -442,6 +442,7 @@ function SubscriptionDetail({
 
   const [address, setAddress] = useState(sub.deliveryMethod?.address ?? null);
   const addressModalRef = useRef(null);
+  const addressHideBtnRef = useRef(null);
 
   const [addressForm, setAddressForm] = useState({
     firstName: "",
@@ -460,6 +461,7 @@ function SubscriptionDetail({
   const [pauseResumeLoading, setPauseResumeLoading] = useState(false);
   const [cancelLoading, setCancelLoading] = useState(false);
   const cancelModalRef = useRef(null);
+  const cancelHideBtnRef = useRef(null);
   const CANCEL_REASONS = [
     "Too expensive",
     "Found a better deal elsewhere",
@@ -486,7 +488,8 @@ function SubscriptionDetail({
   const [rescheduleDate, setRescheduleDate] = useState("");
   const [rescheduleSaving, setRescheduleSaving] = useState(false);
   const [rescheduleError, setRescheduleError] = useState(null);
-  const rescheduleModalRef = useRef(null); // outer top-level "Reschedule" button ke liye
+  const rescheduleModalRef = useRef(null);
+  const rescheduleHideBtnRef = useRef(null);
   const upcomingModalRef = useRef(null);
 
   useEffect(() => {
@@ -718,7 +721,7 @@ function SubscriptionDetail({
       setStatus(data.subscription?.status || "CANCELLED");
       shopify.toast.show("Subscription cancelled");
       cancelModalRef.current?.hide?.();
-
+      cancelHideBtnRef.current?.click?.(); 
       refreshSubscriptions().catch((err) =>
         console.error("Background refresh after cancel failed:", err),
       );
@@ -792,7 +795,7 @@ function SubscriptionDetail({
         // wapas list view dikhado usi modal me
         setRescheduleCycle(null);
       } else {
-        rescheduleModalRef.current?.hide?.();
+         rescheduleHideBtnRef.current?.click?.();
         setRescheduleCycle(null);
       }
 
@@ -887,7 +890,8 @@ function SubscriptionDetail({
       });
 
       shopify.toast.show("Address updated");
-      addressModalRef.current?.hide?.();
+      // addressModalRef.current?.hide?.();
+      addressHideBtnRef.current?.click?.(); 
 
       refreshSubscriptions().catch((err) =>
         console.error("Background refresh after address update failed:", err),
@@ -1034,6 +1038,12 @@ function SubscriptionDetail({
             >
               Keep subscription
             </s-button>
+            <button
+              ref={cancelHideBtnRef}
+              command="--hide"
+              commandFor={`cancel-modal-${numericId}`}
+              style={{ display: "none" }}
+            />
           </s-modal>
           <s-box border="base" borderRadius="base" padding="base">
             <s-stack direction="block" gap="base">
@@ -1452,6 +1462,12 @@ function SubscriptionDetail({
                 >
                   Cancel
                 </s-button>
+                <button
+  ref={addressHideBtnRef}
+  command="--hide"
+  commandFor={addressModalId}
+  style={{ display: "none" }}
+/>
               </s-modal>
 
               <s-modal
@@ -1486,6 +1502,13 @@ function SubscriptionDetail({
                 >
                   Cancel
                 </s-button>
+
+                <button
+  ref={rescheduleHideBtnRef}
+  command="--hide"
+  commandFor={rescheduleModalId}
+  style={{ display: "none" }}
+/>
               </s-modal>
             </s-box>
           )}
