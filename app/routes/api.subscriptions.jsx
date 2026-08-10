@@ -434,10 +434,21 @@ export const loader = async ({ request }) => {
     const url = new URL(request.url);
     let customerId = url.searchParams.get("customerId");
 
+    // const cursor = url.searchParams.get("cursor") || null;
+    // let limit = parseInt(url.searchParams.get("limit"), 10);
+    // if (!Number.isFinite(limit) || limit <= 0) limit = DEFAULT_LIMIT;
+    // if (limit > MAX_LIMIT) limit = MAX_LIMIT;
     const cursor = url.searchParams.get("cursor") || null;
     let limit = parseInt(url.searchParams.get("limit"), 10);
     if (!Number.isFinite(limit) || limit <= 0) limit = DEFAULT_LIMIT;
     if (limit > MAX_LIMIT) limit = MAX_LIMIT;
+
+    const statusParam = url.searchParams.get("status");
+    const ALLOWED_STATUSES = ["ACTIVE", "PAUSED", "CANCELLED", "EXPIRED"];
+    const searchQuery =
+      statusParam && ALLOWED_STATUSES.includes(statusParam.toUpperCase())
+        ? `status:${statusParam.toUpperCase()}`
+        : null;
 
     if (!customerId || customerId === "undefined" || customerId === "null") {
       return Response.json(
@@ -454,7 +465,7 @@ export const loader = async ({ request }) => {
       `#graphql
       query GetCustomerSubscriptions($customerId: ID!, $first: Int!, $after: String) {
         customer(id: $customerId) {
-          subscriptionContracts(first: $first, after: $after,reverse: true) {
+          subscriptionContracts(first: $first, after: $after,reverse: true, query: $query) {
             pageInfo {
               hasNextPage
               endCursor
@@ -522,7 +533,7 @@ export const loader = async ({ request }) => {
           }
         }
       }`,
-      { variables: { customerId, first: limit, after: cursor } },
+      { variables: { customerId, first: limit, after: cursor ,query: searchQuery} },
     );
 
     const { data, errors } = await res.json();

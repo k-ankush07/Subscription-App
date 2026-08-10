@@ -283,15 +283,16 @@ function Extension() {
   })();
 }, [statusFilter]); 
 
-function handleStatusFilterChange(e) {
-  setStatusFilter(e.target.value);
-}
+
   async function handleViewMore() {
     if (!hasMore || loadingMore) return;
     setLoadingMore(true);
     await fetchPage({ afterCursor: cursor, reset: false });
     setLoadingMore(false);
   }
+  function handleStatusFilterChange(e) {
+  setStatusFilter(e.target.value);
+}
 
   function handleSelect(sub) {
     setSelectedSub(sub);
