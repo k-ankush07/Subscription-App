@@ -1,6 +1,7 @@
+
+
 // import { authenticate, unauthenticated } from "../shopify.server";
 // import { getContractPreview } from "../lib/billing-preview.server";
-// import prisma from "../db.server";
 
 // const CORS_HEADERS = {
 //   "Access-Control-Allow-Origin": "*",
@@ -12,6 +13,7 @@
 // const MAX_LIMIT = 50;
 
 // const BILLING_CYCLES_FETCH_LIMIT = 20;
+// const PAST_ORDERS_FETCH_LIMIT = 10;
 
 // export const action = async ({ request }) => {
 //   if (request.method === "OPTIONS") {
@@ -29,10 +31,21 @@
 //     const url = new URL(request.url);
 //     let customerId = url.searchParams.get("customerId");
 
+//     // const cursor = url.searchParams.get("cursor") || null;
+//     // let limit = parseInt(url.searchParams.get("limit"), 10);
+//     // if (!Number.isFinite(limit) || limit <= 0) limit = DEFAULT_LIMIT;
+//     // if (limit > MAX_LIMIT) limit = MAX_LIMIT;
 //     const cursor = url.searchParams.get("cursor") || null;
 //     let limit = parseInt(url.searchParams.get("limit"), 10);
 //     if (!Number.isFinite(limit) || limit <= 0) limit = DEFAULT_LIMIT;
 //     if (limit > MAX_LIMIT) limit = MAX_LIMIT;
+
+//     const statusParam = url.searchParams.get("status");
+//     const ALLOWED_STATUSES = ["ACTIVE", "PAUSED", "CANCELLED", "EXPIRED"];
+//     const searchQuery =
+//       statusParam && ALLOWED_STATUSES.includes(statusParam.toUpperCase())
+//         ? `status:${statusParam.toUpperCase()}`
+//         : null;
 
 //     if (!customerId || customerId === "undefined" || customerId === "null") {
 //       return Response.json(
@@ -45,6 +58,7 @@
 //       customerId = `gid://shopify/Customer/${customerId}`;
 //     }
 
+    
 //     const res = await admin.graphql(
 //       `#graphql
 //       query GetCustomerSubscriptions($customerId: ID!, $first: Int!, $after: String) {
@@ -152,10 +166,25 @@
 //       hasNextPage: false,
 //       endCursor: null,
 //     };
+//     const filteredContracts = searchQuery
+//       ? contracts.filter((c) => c.status === statusParam.toUpperCase())
+//       : contracts;
+
+//     let shopNumericId = null;
+//     try {
+//       const shopRes = await admin.graphql(`#graphql
+//         query GetShopId {
+//           shop { id }
+//         }`);
+//       const shopPayload = await shopRes.json();
+//       shopNumericId = shopPayload.data?.shop?.id?.split("/").pop() ?? null;
+//     } catch (e) {
+//       console.error("Failed to fetch shop id:", e.message);
+//     }
 
 //     const productIds = [
 //       ...new Set(
-//         contracts.flatMap(
+//         filteredContracts.flatMap(
 //           (contract) =>
 //             contract.lines?.edges
 //               ?.map((edge) => edge.node.productId)
@@ -204,7 +233,7 @@
 //       const now = new Date();
 //       const startDate = now.toISOString();
 //       const endDate = new Date(
-//         now.getTime() + 90 * 24 * 60 * 60 * 1000, 
+//         now.getTime() + 90 * 24 * 60 * 60 * 1000,
 //       ).toISOString();
 
 //       try {
@@ -268,23 +297,96 @@
 //       }
 //     }
 
-//     const enriched = await Promise.all(
-//       contracts.map(async (contract) => {
-//         const contractIdNumeric = contract.id.split("/").pop();
-
-//         let policy = null;
-//         try {
-//           policy = await prisma.subscriptionPolicy.findUnique({
-//             where: { subscriptionContractId: contractIdNumeric },
-//           });
-//         } catch (e) {
-//           console.error(
-//             "Policy lookup failed for",
-//             contractIdNumeric,
-//             e.message,
-//           );
+//     async function fetchPastOrders(contractId) {
+//   try {
+//     const res = await admin.graphql(
+//       `#graphql
+//       query GetPastOrders($contractId: ID!, $first: Int!) {
+//         subscriptionContract(id: $contractId) {
+//           originOrder {
+//             id
+//             name
+//             createdAt
+//             displayFinancialStatus
+//             currentTotalPriceSet {
+//               shopMoney {
+//                 amount
+//                 currencyCode
+//               }
+//             }
+//           }
+//           billingAttempts(first: $first, reverse: true) {
+//             edges {
+//               node {
+//                 id
+//                 order {
+//                   id
+//                   name
+//                   createdAt
+//                   displayFinancialStatus
+//                   currentTotalPriceSet {
+//                     shopMoney {
+//                       amount
+//                       currencyCode
+//                     }
+//                   }
+//                 }
+//               }
+//             }
+//           }
 //         }
+//       }`,
+//       { variables: { contractId, first: PAST_ORDERS_FETCH_LIMIT } },
+//     );
 
+//     const payload = await res.json();
+//     if (payload.errors) {
+//       console.error(
+//         `subscriptionContract.billingAttempts errors for ${contractId}:`,
+//         JSON.stringify(payload.errors, null, 2),
+//       );
+//       return [];
+//     }
+
+//     const contract = payload.data?.subscriptionContract;
+//     const edges = contract?.billingAttempts?.edges ?? [];
+
+//     const ordersFromAttempts = edges.map((e) => e.node.order).filter(Boolean);
+//     const originOrder = contract?.originOrder ?? null;
+
+//     // originOrder ko merge karo, agar wo already billingAttempts me na aaya ho (dedupe by id)
+//     const allOrdersRaw = originOrder
+//       ? [
+//           originOrder,
+//           ...ordersFromAttempts.filter((o) => o.id !== originOrder.id),
+//         ]
+//       : ordersFromAttempts;
+
+//     const orders = allOrdersRaw.map((order) => {
+//       const numericId = order.id.split("/").pop();
+//       return {
+//         id: order.id,
+//         numericId,
+//         name: order.name,
+//         createdAt: order.createdAt,
+//         financialStatus: order.displayFinancialStatus,
+//         total: order.currentTotalPriceSet?.shopMoney ?? null,
+//         orderUrl: shopNumericId
+//           ? `https://shopify.com/${shopNumericId}/account/orders/${numericId}`
+//           : null,
+//       };
+//     });
+
+//     orders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+//     return orders;
+//   } catch (e) {
+//     console.error(`Failed to fetch past orders for ${contractId}:`, e.message);
+//     return [];
+//   }
+// }
+
+//     const enriched = await Promise.all(
+//       filteredContracts.map(async (contract) => {
 //         const lines =
 //           contract.lines?.edges?.map((e) => {
 //             const node = e.node;
@@ -300,7 +402,8 @@
 //             sum + parseFloat(line.lineDiscountedPrice?.amount ?? 0),
 //           0,
 //         );
-//         const [preview, cyclesResult] = await Promise.all([
+
+//         const [preview, cyclesResult, pastOrders] = await Promise.all([
 //           (async () => {
 //             if (contract.status === "ACTIVE" || contract.status === "PAUSED" || contract.status === "CANCELLED") {
 //               try {
@@ -316,6 +419,7 @@
 //             return null;
 //           })(),
 //           fetchUpcomingBillingCycles(contract.id),
+//           fetchPastOrders(contract.id),
 //         ]);
 
 //         const resolvedLine =
@@ -335,7 +439,7 @@
 //               priceAmount: resolvedLine.pricePerUnit?.amount,
 //               currencyCode: resolvedLine.pricePerUnit?.currencyCode,
 //             }
-//           : null; // fallback widget me lines[0] use kar lega
+//           : null; 
 
 //         const { cycles: upcomingCycles, hasMoreCycles } = cyclesResult;
 
@@ -353,7 +457,7 @@
 //           ...contract,
 //           lines: { edges: lines.map((line) => ({ node: line })) },
 //           displayLine,
-//           nextOrderLineItems: preview?.nextOrder?.lineItems ?? [], 
+//           nextOrderLineItems: preview?.nextOrder?.lineItems ?? [],
 //           nextOrderTotal: preview?.nextOrder?.calculatedOrderTotal ?? null,
 //           nextOrderShipping: preview?.nextOrder?.shipping ?? null,
 //           nextBillingDate: realNextBillingDate,
@@ -361,24 +465,27 @@
 //             preview?.nextOrder?.cycleIndex ?? nextCycle?.cycleIndex ?? null,
 //           upcomingCycles,
 //           hasMoreCycles,
+//           pastOrders,
 //           subtotal,
 //           currencyCode: lines[0]?.lineDiscountedPrice?.currencyCode,
-//           paymentsCompleted: policy?.paymentsCompleted ?? 0,
-//           minPaymentsRequired: policy?.minPaymentsRequired ?? null,
-//            shippingMethodTitle:
-//     contract.deliveryMethod?.shippingOption?.presentmentTitle ||
-//     contract.deliveryMethod?.shippingOption?.title ||
-//     null,
-//   paymentMethod: contract.customerPaymentMethod?.instrument
-//     ? {
-//       id: contract.customerPaymentMethod.id,
-//         brand: contract.customerPaymentMethod.instrument.brand ?? null,
-//         lastDigits: contract.customerPaymentMethod.instrument.lastDigits ?? null,
-//         expiryMonth: contract.customerPaymentMethod.instrument.expiryMonth ?? null,
-//         expiryYear: contract.customerPaymentMethod.instrument.expiryYear ?? null,
-//         cardHolderName: contract.customerPaymentMethod.instrument.name ?? null,
-//       }
-//     : null,
+//           shippingMethodTitle:
+//             contract.deliveryMethod?.shippingOption?.presentmentTitle ||
+//             contract.deliveryMethod?.shippingOption?.title ||
+//             null,
+//           paymentMethod: contract.customerPaymentMethod?.instrument
+//             ? {
+//                 id: contract.customerPaymentMethod.id,
+//                 brand: contract.customerPaymentMethod.instrument.brand ?? null,
+//                 lastDigits:
+//                   contract.customerPaymentMethod.instrument.lastDigits ?? null,
+//                 expiryMonth:
+//                   contract.customerPaymentMethod.instrument.expiryMonth ?? null,
+//                 expiryYear:
+//                   contract.customerPaymentMethod.instrument.expiryYear ?? null,
+//                 cardHolderName:
+//                   contract.customerPaymentMethod.instrument.name ?? null,
+//               }
+//             : null,
 //         };
 //       }),
 //     );
@@ -402,7 +509,6 @@
 //   }
 // };
 
-
 import { authenticate, unauthenticated } from "../shopify.server";
 import { getContractPreview } from "../lib/billing-preview.server";
 
@@ -417,6 +523,8 @@ const MAX_LIMIT = 50;
 
 const BILLING_CYCLES_FETCH_LIMIT = 20;
 const PAST_ORDERS_FETCH_LIMIT = 10;
+
+const ALLOWED_STATUSES = ["ACTIVE", "PAUSED", "CANCELLED", "EXPIRED"];
 
 export const action = async ({ request }) => {
   if (request.method === "OPTIONS") {
@@ -434,21 +542,12 @@ export const loader = async ({ request }) => {
     const url = new URL(request.url);
     let customerId = url.searchParams.get("customerId");
 
-    // const cursor = url.searchParams.get("cursor") || null;
-    // let limit = parseInt(url.searchParams.get("limit"), 10);
-    // if (!Number.isFinite(limit) || limit <= 0) limit = DEFAULT_LIMIT;
-    // if (limit > MAX_LIMIT) limit = MAX_LIMIT;
     const cursor = url.searchParams.get("cursor") || null;
     let limit = parseInt(url.searchParams.get("limit"), 10);
     if (!Number.isFinite(limit) || limit <= 0) limit = DEFAULT_LIMIT;
     if (limit > MAX_LIMIT) limit = MAX_LIMIT;
 
     const statusParam = url.searchParams.get("status");
-    const ALLOWED_STATUSES = ["ACTIVE", "PAUSED", "CANCELLED", "EXPIRED"];
-    const searchQuery =
-      statusParam && ALLOWED_STATUSES.includes(statusParam.toUpperCase())
-        ? `status:${statusParam.toUpperCase()}`
-        : null;
 
     if (!customerId || customerId === "undefined" || customerId === "null") {
       return Response.json(
@@ -461,71 +560,78 @@ export const loader = async ({ request }) => {
       customerId = `gid://shopify/Customer/${customerId}`;
     }
 
+    // root-level subscriptionContracts supports the `query` search argument,
+    // unlike customer.subscriptionContracts (nested) which does not.
+    const numericCustomerId = customerId.split("/").pop();
+    const searchParts = [`customer_id:${numericCustomerId}`];
+    if (statusParam && ALLOWED_STATUSES.includes(statusParam.toUpperCase())) {
+      searchParts.push(`status:${statusParam.toUpperCase()}`);
+    }
+    const searchQuery = searchParts.join(" AND ");
+
     const res = await admin.graphql(
       `#graphql
-      query GetCustomerSubscriptions($customerId: ID!, $first: Int!, $after: String) {
-        customer(id: $customerId) {
-          subscriptionContracts(first: $first, after: $after,reverse: true) {
-            pageInfo {
-              hasNextPage
-              endCursor
-            }
-            edges {
-              cursor
-              node {
+      query GetCustomerSubscriptions($first: Int!, $after: String, $query: String) {
+        subscriptionContracts(first: $first, after: $after, reverse: true, query: $query) {
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
+          edges {
+            cursor
+            node {
+              id
+              status
+              nextBillingDate
+              note
+              deliveryPolicy {
+                interval
+                intervalCount
+              }
+              lines(first: 50) {
+                edges {
+                  node {
+                    title
+                    variantTitle
+                    quantity
+                    lineDiscountedPrice {
+                      amount
+                      currencyCode
+                    }
+                    currentPrice {
+                      amount
+                      currencyCode
+                    }
+                    productId
+                  }
+                }
+              }
+              deliveryMethod {
+                ... on SubscriptionDeliveryMethodShipping {
+                  shippingOption {
+                    title
+                    presentmentTitle
+                  }
+                  address {
+                    name
+                    address1
+                    address2
+                    city
+                    province
+                    zip
+                    country
+                  }
+                }
+              }
+              customerPaymentMethod {
                 id
-                status
-                nextBillingDate
-                note
-                deliveryPolicy {
-                  interval
-                  intervalCount
-                }
-                lines(first: 50) {
-                  edges {
-                    node {
-                      title
-                      variantTitle
-                      quantity
-                      lineDiscountedPrice {
-                        amount
-                        currencyCode
-                      }
-                      currentPrice {
-                        amount
-                        currencyCode
-                      }
-                      productId
-                    }
-                  }
-                }
-                deliveryMethod {
-                  ... on SubscriptionDeliveryMethodShipping {
-                    shippingOption {
-                      title
-                      presentmentTitle
-                    }
-                        address {
-                        name
-                        address1
-                        address2
-                        city
-                       province
-                        zip
-                        country
-                      }
-                  }
-                }
-                  customerPaymentMethod {
-                  id
-                  instrument {
-                    ... on CustomerCreditCard {
-                      brand
-                      lastDigits
-                      expiryMonth
-                      expiryYear
-                      name
-                    }
+                instrument {
+                  ... on CustomerCreditCard {
+                    brand
+                    lastDigits
+                    expiryMonth
+                    expiryYear
+                    name
                   }
                 }
               }
@@ -533,7 +639,7 @@ export const loader = async ({ request }) => {
           }
         }
       }`,
-      { variables: { customerId, first: limit, after: cursor } },
+      { variables: { first: limit, after: cursor, query: searchQuery } },
     );
 
     const { data, errors } = await res.json();
@@ -544,10 +650,9 @@ export const loader = async ({ request }) => {
         {
           shop,
           queriedCustomerId: customerId,
+          searchQuery,
           limit,
           cursor,
-          customerFound:
-            data?.customer !== null && data?.customer !== undefined,
         },
         null,
         2,
@@ -562,15 +667,12 @@ export const loader = async ({ request }) => {
       );
     }
 
-    const connection = data?.customer?.subscriptionContracts;
+    const connection = data?.subscriptionContracts;
     const contracts = connection?.edges?.map((e) => e.node) ?? [];
     const pageInfo = connection?.pageInfo ?? {
       hasNextPage: false,
       endCursor: null,
     };
-    const filteredContracts = searchQuery
-      ? contracts.filter((c) => c.status === statusParam.toUpperCase())
-      : contracts;
 
     let shopNumericId = null;
     try {
@@ -586,7 +688,7 @@ export const loader = async ({ request }) => {
 
     const productIds = [
       ...new Set(
-        filteredContracts.flatMap(
+        contracts.flatMap(
           (contract) =>
             contract.lines?.edges
               ?.map((edge) => edge.node.productId)
@@ -700,95 +802,100 @@ export const loader = async ({ request }) => {
     }
 
     async function fetchPastOrders(contractId) {
-  try {
-    const res = await admin.graphql(
-      `#graphql
-      query GetPastOrders($contractId: ID!, $first: Int!) {
-        subscriptionContract(id: $contractId) {
-          originOrder {
-            id
-            name
-            createdAt
-            displayFinancialStatus
-            currentTotalPriceSet {
-              shopMoney {
-                amount
-                currencyCode
-              }
-            }
-          }
-          billingAttempts(first: $first, reverse: true) {
-            edges {
-              node {
+      try {
+        const res = await admin.graphql(
+          `#graphql
+          query GetPastOrders($contractId: ID!, $first: Int!) {
+            subscriptionContract(id: $contractId) {
+              originOrder {
                 id
-                order {
-                  id
-                  name
-                  createdAt
-                  displayFinancialStatus
-                  currentTotalPriceSet {
-                    shopMoney {
-                      amount
-                      currencyCode
+                name
+                createdAt
+                displayFinancialStatus
+                currentTotalPriceSet {
+                  shopMoney {
+                    amount
+                    currencyCode
+                  }
+                }
+              }
+              billingAttempts(first: $first, reverse: true) {
+                edges {
+                  node {
+                    id
+                    order {
+                      id
+                      name
+                      createdAt
+                      displayFinancialStatus
+                      currentTotalPriceSet {
+                        shopMoney {
+                          amount
+                          currencyCode
+                        }
+                      }
                     }
                   }
                 }
               }
             }
-          }
-        }
-      }`,
-      { variables: { contractId, first: PAST_ORDERS_FETCH_LIMIT } },
-    );
+          }`,
+          { variables: { contractId, first: PAST_ORDERS_FETCH_LIMIT } },
+        );
 
-    const payload = await res.json();
-    if (payload.errors) {
-      console.error(
-        `subscriptionContract.billingAttempts errors for ${contractId}:`,
-        JSON.stringify(payload.errors, null, 2),
-      );
-      return [];
+        const payload = await res.json();
+        if (payload.errors) {
+          console.error(
+            `subscriptionContract.billingAttempts errors for ${contractId}:`,
+            JSON.stringify(payload.errors, null, 2),
+          );
+          return [];
+        }
+
+        const contract = payload.data?.subscriptionContract;
+        const edges = contract?.billingAttempts?.edges ?? [];
+
+        const ordersFromAttempts = edges
+          .map((e) => e.node.order)
+          .filter(Boolean);
+        const originOrder = contract?.originOrder ?? null;
+
+        // originOrder ko merge karo, agar wo already billingAttempts me na aaya ho (dedupe by id)
+        const allOrdersRaw = originOrder
+          ? [
+              originOrder,
+              ...ordersFromAttempts.filter((o) => o.id !== originOrder.id),
+            ]
+          : ordersFromAttempts;
+
+        const orders = allOrdersRaw.map((order) => {
+          const numericId = order.id.split("/").pop();
+          return {
+            id: order.id,
+            numericId,
+            name: order.name,
+            createdAt: order.createdAt,
+            financialStatus: order.displayFinancialStatus,
+            total: order.currentTotalPriceSet?.shopMoney ?? null,
+            orderUrl: shopNumericId
+              ? `https://shopify.com/${shopNumericId}/account/orders/${numericId}`
+              : null,
+          };
+        });
+
+        orders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        return orders;
+      } catch (e) {
+        console.error(
+          `Failed to fetch past orders for ${contractId}:`,
+          e.message,
+        );
+        return [];
+      }
     }
 
-    const contract = payload.data?.subscriptionContract;
-    const edges = contract?.billingAttempts?.edges ?? [];
-
-    const ordersFromAttempts = edges.map((e) => e.node.order).filter(Boolean);
-    const originOrder = contract?.originOrder ?? null;
-
-    // originOrder ko merge karo, agar wo already billingAttempts me na aaya ho (dedupe by id)
-    const allOrdersRaw = originOrder
-      ? [
-          originOrder,
-          ...ordersFromAttempts.filter((o) => o.id !== originOrder.id),
-        ]
-      : ordersFromAttempts;
-
-    const orders = allOrdersRaw.map((order) => {
-      const numericId = order.id.split("/").pop();
-      return {
-        id: order.id,
-        numericId,
-        name: order.name,
-        createdAt: order.createdAt,
-        financialStatus: order.displayFinancialStatus,
-        total: order.currentTotalPriceSet?.shopMoney ?? null,
-        orderUrl: shopNumericId
-          ? `https://shopify.com/${shopNumericId}/account/orders/${numericId}`
-          : null,
-      };
-    });
-
-    orders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    return orders;
-  } catch (e) {
-    console.error(`Failed to fetch past orders for ${contractId}:`, e.message);
-    return [];
-  }
-}
-
     const enriched = await Promise.all(
-      filteredContracts.map(async (contract) => {
+      contracts.map(async (contract) => {
         const lines =
           contract.lines?.edges?.map((e) => {
             const node = e.node;
@@ -807,7 +914,11 @@ export const loader = async ({ request }) => {
 
         const [preview, cyclesResult, pastOrders] = await Promise.all([
           (async () => {
-            if (contract.status === "ACTIVE" || contract.status === "PAUSED" || contract.status === "CANCELLED") {
+            if (
+              contract.status === "ACTIVE" ||
+              contract.status === "PAUSED" ||
+              contract.status === "CANCELLED"
+            ) {
               try {
                 return await getContractPreview(admin, contract.id);
               } catch (e) {
@@ -841,7 +952,7 @@ export const loader = async ({ request }) => {
               priceAmount: resolvedLine.pricePerUnit?.amount,
               currencyCode: resolvedLine.pricePerUnit?.currencyCode,
             }
-          : null; 
+          : null;
 
         const { cycles: upcomingCycles, hasMoreCycles } = cyclesResult;
 
