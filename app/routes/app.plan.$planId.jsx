@@ -52,7 +52,7 @@ export const action = async ({ request }) => {
     return pricingPolicies;
   };
 
-  const buildMetafields = (sp) => {
+  const buildMetafields = (sp,customerProductChanges) => {
     const extraSettings = {
       changeDiscountAfterOrders: sp.changeDiscountAfterOrders ?? false,
       afterOrders: sp.afterOrders ?? 1,
@@ -73,6 +73,7 @@ export const action = async ({ request }) => {
       automationCycles: sp.automationCycles ?? [],
       MinimumQuanitity: sp.MinimumQuanitity ?? false,
       MinimumQuanitityValue: sp.MinimumQuanitityValue ?? 1,
+      customerProductChanges: customerProductChanges ?? {},
     };
 
     return [
@@ -88,7 +89,7 @@ export const action = async ({ request }) => {
   if (!shopifyGroupId) {
     const sellingPlansToCreateAll = sellingPlans.map((sp) => {
       const pricingPolicies = buildPricingPolicies(sp);
-      const metafields = buildMetafields(sp);
+      const metafields = buildMetafields(sp,payload.customerProductChanges);
 
       return {
         name:
@@ -170,7 +171,7 @@ export const action = async ({ request }) => {
 
     const sellingPlansToUpdate = plansToUpdate.map((sp) => {
       const pricingPolicies = buildPricingPolicies(sp);
-      const metafields = buildMetafields(sp);
+      const metafields = buildMetafields(sp, payload.customerProductChanges);
       return {
         id: sp.shopifySellingPlanId,
         name:
@@ -198,7 +199,7 @@ export const action = async ({ request }) => {
 
     const sellingPlansToCreate = plansToCreate.map((sp) => {
       const pricingPolicies = buildPricingPolicies(sp);
-      const metafields = buildMetafields(sp);
+      const metafields = buildMetafields(sp, payload.customerProductChanges);
       return {
         name:
           sp.name?.trim() ||

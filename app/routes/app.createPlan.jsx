@@ -53,7 +53,7 @@ export const action = async ({ request }) => {
     return pricingPolicies;
   };
 
-   const buildMetafields = (sp) => {
+   const buildMetafields = (sp,customerProductChanges) => {
     const extraSettings = {
        changeDiscountAfterOrders: sp.changeDiscountAfterOrders ?? false,
       afterOrders: sp.afterOrders ?? 1,
@@ -74,6 +74,7 @@ export const action = async ({ request }) => {
       automationCycles: sp.automationCycles ?? [],
       MinimumQuanitity: sp.MinimumQuanitity ?? false,
       MinimumQuanitityValue: sp.MinimumQuanitityValue ?? 1,
+       customerProductChanges: customerProductChanges ?? {},
     };
  
     return [
@@ -89,7 +90,7 @@ export const action = async ({ request }) => {
   //  Saare plans ka sellingPlansToCreate array banao
   const sellingPlansToCreate = sellingPlans.map((sp) => {
     const pricingPolicies = buildPricingPolicies(sp);
-    const metafields = buildMetafields(sp);
+    const metafields = buildMetafields(sp,payload.customerProductChanges);
 
     return {
       // name: sp.name ||  `Every ${sp.intervalCount} ${sp.interval.toLowerCase()}`,

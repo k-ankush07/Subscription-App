@@ -64,7 +64,7 @@ export const action = async ({ request }) => {
 
     return pricingPolicies;
   };
-  const buildMetafields = (sp) => {
+  const buildMetafields = (sp, customerProductChanges) => {
   const extraSettings = {
       changeDiscountAfterOrders: sp.changeDiscountAfterOrders ?? false,
       afterOrders: sp.afterOrders ?? 1,
@@ -85,6 +85,7 @@ export const action = async ({ request }) => {
     automationCycles: sp.automationCycles ?? [],
     MinimumQuanitity: sp.MinimumQuanitity ?? false,
     MinimumQuanitityValue: sp.MinimumQuanitityValue ?? 1,
+     customerProductChanges: customerProductChanges ?? {},
   };
 
   return [
@@ -101,7 +102,7 @@ export const action = async ({ request }) => {
   // Duplicate mein saare plans NAYE honge — koi existing ID use nahi hogi
   const sellingPlansToCreate = sellingPlans.map((sp) => {
     const pricingPolicies = buildPricingPolicies(sp);
-    const metafields = buildMetafields(sp);
+    const metafields = buildMetafields(sp,payload.customerProductChanges);
     return {
       // name: sp.name,
       name: sp.name?.trim() || `Delivery: Every ${sp.intervalCount} ${sp.interval.toLowerCase()}`,
