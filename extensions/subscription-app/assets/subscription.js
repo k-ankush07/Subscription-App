@@ -120,6 +120,9 @@
       if (Subscription_innerText) {
       Subscription_innerText.textContent = "";
     }
+    quantityInput.value = 1;
+    quantityInput.min = 1;
+    quantityInput.setAttribute("data-min", 1);
       return;
     }
     const DeliveryCount = matchedPlan.intervalCount;
