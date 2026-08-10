@@ -3,7 +3,7 @@ import { render } from "preact";
 import { useState, useEffect, useCallback, useRef } from "preact/hooks";
 import { COUNTRIES } from "../../../app/routes/utils/countries";
 
-const API_BASE = "https://ministries-implications-popular-tulsa.trycloudflare.com";
+const API_BASE = "https://adventures-drain-boxes-betty.trycloudflare.com";
 const PAGE_SIZE = 7;
 
 export default async () => {
@@ -1364,7 +1364,6 @@ function SubscriptionDetail({
                 </s-button>
               </s-modal>
 
-              {/* ===== Top-level "Reschedule" button ka standalone modal — koi conflict nahi kyunki alag se open hota hai ===== */}
               <s-modal
                 id={rescheduleModalId}
                 ref={rescheduleModalRef}
@@ -1465,10 +1464,10 @@ function SubscriptionDetail({
         </s-stack>
       </s-section>
       <div>
-        <Card>
+        <div>
           <h2>Past orders</h2>
-          
-        </Card>
+
+        </div>
       </div>
     </s-page>
   );

@@ -32,3 +32,14 @@ model Session {
   refreshToken        String?
   refreshTokenExpires DateTime?
 }
+
+
+model CancellationFeedback {
+  id                     String   @id @default(cuid())
+  subscriptionContractId String
+  reason                 String
+  additionalFeedback     String?
+  createdAt              DateTime @default(now())
+
+  @@index([subscriptionContractId])
+}
