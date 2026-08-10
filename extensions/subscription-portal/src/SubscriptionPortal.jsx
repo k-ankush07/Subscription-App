@@ -1465,34 +1465,35 @@ function SubscriptionDetail({
           </s-box>
         </s-stack>
       </s-section>
-      <div>
-      {pastOrders.length > 0 && (
-  <s-box border="base" borderRadius="base" padding="base">
-    <s-stack direction="block" gap="base">
-      <s-text fontWeight="bold">Past orders</s-text>
-      {pastOrders.map((order) => (
-        <s-stack
-          key={order.id}
-          direction="inline"
-          gap="tight"
-          alignItems="center"
-          justifyContent="space-between"
-        >
-          <s-text tone="subdued">
-            {formatShort(toDateOnlyString(order.createdAt))}
-          </s-text>
 
-          {order.orderUrl ? (
-            <s-link href={order.orderUrl}>View</s-link>
-          ) : (
-            <s-text tone="subdued">View</s-text>
-          )}
-        </s-stack>
-      ))}
-    </s-stack>
-  </s-box>
-)}
-      </div>
+      {pastOrders.length > 0 && (
+        <s-section>
+          <s-box border="base" borderRadius="base" padding="base">
+            <s-stack direction="block" gap="base">
+              <s-text fontWeight="bold">Past orders</s-text>
+              {pastOrders.map((order) => (
+                <s-stack
+                  key={order.id}
+                  direction="inline"
+                  gap="tight"
+                  alignItems="center"
+                  justifyContent="space-between"
+                >
+                  <s-text tone="subdued">
+                    {formatShort(toDateOnlyString(order.createdAt))}
+                  </s-text>
+
+                  {order.orderUrl ? (
+                    <s-link href={order.orderUrl}>View</s-link>
+                  ) : (
+                    <s-text tone="subdued">View</s-text>
+                  )}
+                </s-stack>
+              ))}
+            </s-stack>
+          </s-box>
+        </s-section>
+      )}
     </s-page>
   );
 }
