@@ -685,75 +685,93 @@ export const loader = async ({ request }) => {
       }
     }
 
-    // FIXED: subscriptionBillingAttempts is NOT a root-level field that accepts
-    // subscriptionContractId. It only exists nested inside SubscriptionContract
-    // as `billingAttempts`. So we query the contract by id and pull it from there.
     async function fetchPastOrders(contractId) {
-      try {
-        const res = await admin.graphql(
-          `#graphql
-          query GetPastOrders($contractId: ID!, $first: Int!) {
-            subscriptionContract(id: $contractId) {
-              billingAttempts(first: $first, reverse: true) {
-                edges {
-                  node {
-                    id
-                    order {
-                      id
-                      name
-                      createdAt
-                      displayFinancialStatus
-                      currentTotalPriceSet {
-                        shopMoney {
-                          amount
-                          currencyCode
-                        }
-                      }
+  try {
+    const res = await admin.graphql(
+      `#graphql
+      query GetPastOrders($contractId: ID!, $first: Int!) {
+        subscriptionContract(id: $contractId) {
+          originOrder {
+            id
+            name
+            createdAt
+            displayFinancialStatus
+            currentTotalPriceSet {
+              shopMoney {
+                amount
+                currencyCode
+              }
+            }
+          }
+          billingAttempts(first: $first, reverse: true) {
+            edges {
+              node {
+                id
+                order {
+                  id
+                  name
+                  createdAt
+                  displayFinancialStatus
+                  currentTotalPriceSet {
+                    shopMoney {
+                      amount
+                      currencyCode
                     }
                   }
                 }
               }
             }
-          }`,
-          { variables: { contractId, first: PAST_ORDERS_FETCH_LIMIT } },
-        );
-
-        const payload = await res.json();
-        if (payload.errors) {
-          console.error(
-            `subscriptionContract.billingAttempts errors for ${contractId}:`,
-            JSON.stringify(payload.errors, null, 2),
-          );
-          return [];
+          }
         }
+      }`,
+      { variables: { contractId, first: PAST_ORDERS_FETCH_LIMIT } },
+    );
 
-        const edges =
-          payload.data?.subscriptionContract?.billingAttempts?.edges ?? [];
-        const orders = edges
-          .map((e) => e.node.order)
-          .filter(Boolean)
-          .map((order) => {
-            const numericId = order.id.split("/").pop();
-            return {
-              id: order.id,
-              numericId,
-              name: order.name,
-              createdAt: order.createdAt,
-              financialStatus: order.displayFinancialStatus,
-              total: order.currentTotalPriceSet?.shopMoney ?? null,
-              orderUrl: shopNumericId
-                ? `https://shopify.com/${shopNumericId}/account/orders/${numericId}`
-                : null,
-            };
-          });
-
-        orders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-        return orders;
-      } catch (e) {
-        console.error(`Failed to fetch past orders for ${contractId}:`, e.message);
-        return [];
-      }
+    const payload = await res.json();
+    if (payload.errors) {
+      console.error(
+        `subscriptionContract.billingAttempts errors for ${contractId}:`,
+        JSON.stringify(payload.errors, null, 2),
+      );
+      return [];
     }
+
+    const contract = payload.data?.subscriptionContract;
+    const edges = contract?.billingAttempts?.edges ?? [];
+
+    const ordersFromAttempts = edges.map((e) => e.node.order).filter(Boolean);
+    const originOrder = contract?.originOrder ?? null;
+
+    // originOrder ko merge karo, agar wo already billingAttempts me na aaya ho (dedupe by id)
+    const allOrdersRaw = originOrder
+      ? [
+          originOrder,
+          ...ordersFromAttempts.filter((o) => o.id !== originOrder.id),
+        ]
+      : ordersFromAttempts;
+
+    const orders = allOrdersRaw.map((order) => {
+      const numericId = order.id.split("/").pop();
+      return {
+        id: order.id,
+        numericId,
+        name: order.name,
+        createdAt: order.createdAt,
+        financialStatus: order.displayFinancialStatus,
+        total: order.currentTotalPriceSet?.shopMoney ?? null,
+        orderUrl: shopNumericId
+          ? `https://shopify.com/${shopNumericId}/account/orders/${numericId}`
+          : null,
+      };
+    });
+
+    orders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    return orders;
+  } catch (e) {
+    console.error(`Failed to fetch past orders for ${contractId}:`, e.message);
+    return [];
+  }
+}
 
     const enriched = await Promise.all(
       contracts.map(async (contract) => {
@@ -809,7 +827,7 @@ export const loader = async ({ request }) => {
               priceAmount: resolvedLine.pricePerUnit?.amount,
               currencyCode: resolvedLine.pricePerUnit?.currencyCode,
             }
-          : null; // fallback widget me lines[0] use kar lega
+          : null; 
 
         const { cycles: upcomingCycles, hasMoreCycles } = cyclesResult;
 
