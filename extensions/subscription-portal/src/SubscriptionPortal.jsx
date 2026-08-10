@@ -3,7 +3,7 @@ import { render } from "preact";
 import { useState, useEffect, useCallback, useRef } from "preact/hooks";
 import { COUNTRIES } from "../../../app/routes/utils/countries";
 
-const API_BASE = "https://proud-accessed-hey-internship.trycloudflare.com";
+const API_BASE = "https://passes-future-preservation-workplace.trycloudflare.com";
 const PAGE_SIZE = 7;
 
 export default async () => {
