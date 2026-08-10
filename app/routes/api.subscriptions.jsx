@@ -1,6 +1,5 @@
 import { authenticate, unauthenticated } from "../shopify.server";
 import { getContractPreview } from "../lib/billing-preview.server";
-import prisma from "../db.server";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -204,7 +203,7 @@ export const loader = async ({ request }) => {
       const now = new Date();
       const startDate = now.toISOString();
       const endDate = new Date(
-        now.getTime() + 90 * 24 * 60 * 60 * 1000, 
+        now.getTime() + 90 * 24 * 60 * 60 * 1000,
       ).toISOString();
 
       try {
@@ -270,21 +269,6 @@ export const loader = async ({ request }) => {
 
     const enriched = await Promise.all(
       contracts.map(async (contract) => {
-        const contractIdNumeric = contract.id.split("/").pop();
-
-        let policy = null;
-        try {
-          policy = await prisma.subscriptionPolicy.findUnique({
-            where: { subscriptionContractId: contractIdNumeric },
-          });
-        } catch (e) {
-          console.error(
-            "Policy lookup failed for",
-            contractIdNumeric,
-            e.message,
-          );
-        }
-
         const lines =
           contract.lines?.edges?.map((e) => {
             const node = e.node;
@@ -353,7 +337,7 @@ export const loader = async ({ request }) => {
           ...contract,
           lines: { edges: lines.map((line) => ({ node: line })) },
           displayLine,
-          nextOrderLineItems: preview?.nextOrder?.lineItems ?? [], 
+          nextOrderLineItems: preview?.nextOrder?.lineItems ?? [],
           nextOrderTotal: preview?.nextOrder?.calculatedOrderTotal ?? null,
           nextOrderShipping: preview?.nextOrder?.shipping ?? null,
           nextBillingDate: realNextBillingDate,
@@ -363,22 +347,24 @@ export const loader = async ({ request }) => {
           hasMoreCycles,
           subtotal,
           currencyCode: lines[0]?.lineDiscountedPrice?.currencyCode,
-          paymentsCompleted: policy?.paymentsCompleted ?? 0,
-          minPaymentsRequired: policy?.minPaymentsRequired ?? null,
-           shippingMethodTitle:
-    contract.deliveryMethod?.shippingOption?.presentmentTitle ||
-    contract.deliveryMethod?.shippingOption?.title ||
-    null,
-  paymentMethod: contract.customerPaymentMethod?.instrument
-    ? {
-      id: contract.customerPaymentMethod.id,
-        brand: contract.customerPaymentMethod.instrument.brand ?? null,
-        lastDigits: contract.customerPaymentMethod.instrument.lastDigits ?? null,
-        expiryMonth: contract.customerPaymentMethod.instrument.expiryMonth ?? null,
-        expiryYear: contract.customerPaymentMethod.instrument.expiryYear ?? null,
-        cardHolderName: contract.customerPaymentMethod.instrument.name ?? null,
-      }
-    : null,
+          shippingMethodTitle:
+            contract.deliveryMethod?.shippingOption?.presentmentTitle ||
+            contract.deliveryMethod?.shippingOption?.title ||
+            null,
+          paymentMethod: contract.customerPaymentMethod?.instrument
+            ? {
+                id: contract.customerPaymentMethod.id,
+                brand: contract.customerPaymentMethod.instrument.brand ?? null,
+                lastDigits:
+                  contract.customerPaymentMethod.instrument.lastDigits ?? null,
+                expiryMonth:
+                  contract.customerPaymentMethod.instrument.expiryMonth ?? null,
+                expiryYear:
+                  contract.customerPaymentMethod.instrument.expiryYear ?? null,
+                cardHolderName:
+                  contract.customerPaymentMethod.instrument.name ?? null,
+              }
+            : null,
         };
       }),
     );

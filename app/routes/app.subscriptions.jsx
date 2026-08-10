@@ -9,7 +9,6 @@ import {
   Banner,
 } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
-import prisma from "../db.server";
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import {
   useLoaderData,
@@ -85,35 +84,7 @@ const CONTRACT_FIELDS = `
   }
 `;
 
-async function attachCancellationReasons(contracts) {
-  const cancelledIds = contracts
-    .filter((c) => c.status === "CANCELLED")
-    .map((c) => c.id.split("/").pop());
 
-  if (cancelledIds.length === 0) return contracts;
-
-  const feedbacks = await prisma.cancellationFeedback.findMany({
-    where: { subscriptionContractId: { in: cancelledIds } },
-    orderBy: { createdAt: "desc" },
-  });
-
-  const reasonMap = {};
-  feedbacks.forEach((f) => {
-    if (!reasonMap[f.subscriptionContractId]) {
-      reasonMap[f.subscriptionContractId] = f;
-    }
-  });
-
-  return contracts.map((c) => {
-    const numericId = c.id.split("/").pop();
-    const fb = reasonMap[numericId];
-    return {
-      ...c,
-      cancellationReason: fb?.reason ?? null,
-      cancellationFeedbackText: fb?.additionalFeedback ?? null,
-    };
-  });
-}
 async function fetchContractsPage(admin, { status, cursor }) {
   const query = status && status !== "ALL" ? `status:${status.toLowerCase()}` : undefined;
 
@@ -136,11 +107,8 @@ async function fetchContractsPage(admin, { status, cursor }) {
   );
   const data = await res.json();
   const result = data.data.subscriptionContracts;
-  const contracts = await attachCancellationReasons(
-    result.edges.map((e) => e.node),
-  );
   return {
-    contracts,
+    contracts: result.edges.map((e) => e.node),
     hasNextPage: result.pageInfo.hasNextPage,
     endCursor: result.pageInfo.endCursor,
   };
@@ -192,7 +160,7 @@ async function fetchAllContracts(admin, { status }) {
     cursor = result.pageInfo.endCursor;
   }
 
-  return attachCancellationReasons(allContracts);
+  return allContracts;
 }
 
 export async function loader({ request }) {
