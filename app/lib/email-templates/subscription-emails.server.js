@@ -204,32 +204,3 @@ export function buildCancelEmail({
   return { subject, html };
 }
 
-// PAYMENT METHOD UPDATE EMAIL
-export function buildPaymentUpdateEmail({
-  customerName,
-  lineItem,
-  lineItems,
-  subtotal,
-  shipping,
-  total,
-  shippingAddress,
-  billingAddress,
-  paymentLast4,
-  paymentBrand,
-  manageUrl,
-}) {
-  const items = resolveLineItems({ lineItems, lineItem });
-  const subject = "Update your payment method";
-  const html = baseWrapper(`
-    <p style="font-size:14px;color:#111;">Hello ${customerName},</p>
-    <p style="font-size:14px;color:#111;line-height:1.6;">
-      We noticed you'd like to update the payment method on your subscription.
-      Please use the button below to manage your subscription and update your card details.
-    </p>
-    ${manageButtonHtml(manageUrl)}
-    ${lineItemsListHtml(items)}
-    ${orderSummaryHtml({ subtotal, shipping, total })}
-    ${addressBlockHtml({ shippingAddress, billingAddress, paymentLast4, paymentBrand })}
-  `);
-  return { subject, html };
-}

@@ -913,6 +913,7 @@ function SubscriptionDetail({
       }
 
       if (data.paymentMethod) {
+        console.log("New payment method saved:", data.paymentMethod);
         setPaymentMethod(data.paymentMethod);
       }
       shopify.toast.show("Payment method updated");
@@ -1307,11 +1308,13 @@ function SubscriptionDetail({
                         }
                       >
                         {availablePaymentMethods.map((m) => (
-                          <s-option key={m.id} value={m.id}>
-                            {m.cardHolderName || "Card"} •••• •••• ••••{" "}
-                            {m.lastDigits || "----"}
-                          </s-option>
-                        ))}
+                              <s-option key={m.id} value={m.id}>
+                                {m.cardHolderName || "Card"} •••• {m.lastDigits || "----"}
+                                {m.expiryMonth && m.expiryYear
+                                  ? ` (exp ${m.expiryMonth}/${m.expiryYear})`
+                                  : ""}
+                              </s-option>
+                            ))}
                       </s-select>
                     )}
                   </s-stack>
