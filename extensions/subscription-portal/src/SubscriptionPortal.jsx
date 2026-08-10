@@ -113,6 +113,7 @@ function Extension() {
   const [cursor, setCursor] = useState(null);
   const [hasMore, setHasMore] = useState(false);
   const [selectedSub, setSelectedSub] = useState(null);
+    const [statusFilter, setStatusFilter] = useState("ALL"); 
   const customerIdRef = useRef(null);
 
   const getCustomerId = useCallback(async () => {
@@ -168,68 +169,123 @@ function Extension() {
       shopify.navigation.removeEventListener("currententrychange", onChange);
   }, [subscriptions]);
 
+  // const fetchPage = useCallback(
+  //   async ({ afterCursor = null, reset = true } = {}) => {
+  //     try {
+  //       const customerId = await getCustomerId();
+
+  //       if (!customerId) {
+  //         setError("Customer ID not found");
+  //         return null;
+  //       }
+
+  //       const token = await shopify.sessionToken.get();
+
+  //       const params = new URLSearchParams({
+  //         customerId,
+  //         limit: String(PAGE_SIZE),
+  //       });
+  //       if (afterCursor) params.set("cursor", afterCursor);
+
+  //       const res = await fetch(
+  //         `${API_BASE}/api/subscriptions?${params.toString()}`,
+  //         {
+  //           headers: {
+  //             Authorization: `Bearer ${token}`,
+  //           },
+  //         },
+  //       );
+
+  //       if (!res.ok) {
+  //         const text = await res.text();
+  //         throw new Error(`API ${res.status}: ${text}`);
+  //       }
+
+  //       const data = await res.json();
+  //       const newSubs = data.subscriptions || [];
+  //       const pageInfo = data.pageInfo || {
+  //         hasNextPage: false,
+  //         endCursor: null,
+  //       };
+
+  //       setSubscriptions((prev) => (reset ? newSubs : [...prev, ...newSubs]));
+  //       setHasMore(!!pageInfo.hasNextPage);
+  //       setCursor(pageInfo.endCursor || null);
+
+  //       return reset ? newSubs : [...subscriptions, ...newSubs];
+  //     } catch (err) {
+  //       console.error("Failed to load subscriptions", err);
+  //       setError(err.message);
+  //       return null;
+  //     }
+  //   },
+  //   [getCustomerId, subscriptions],
+  // );
+
   const fetchPage = useCallback(
-    async ({ afterCursor = null, reset = true } = {}) => {
-      try {
-        const customerId = await getCustomerId();
-
-        if (!customerId) {
-          setError("Customer ID not found");
-          return null;
-        }
-
-        const token = await shopify.sessionToken.get();
-
-        const params = new URLSearchParams({
-          customerId,
-          limit: String(PAGE_SIZE),
-        });
-        if (afterCursor) params.set("cursor", afterCursor);
-
-        const res = await fetch(
-          `${API_BASE}/api/subscriptions?${params.toString()}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          },
-        );
-
-        if (!res.ok) {
-          const text = await res.text();
-          throw new Error(`API ${res.status}: ${text}`);
-        }
-
-        const data = await res.json();
-        const newSubs = data.subscriptions || [];
-        const pageInfo = data.pageInfo || {
-          hasNextPage: false,
-          endCursor: null,
-        };
-
-        setSubscriptions((prev) => (reset ? newSubs : [...prev, ...newSubs]));
-        setHasMore(!!pageInfo.hasNextPage);
-        setCursor(pageInfo.endCursor || null);
-
-        return reset ? newSubs : [...subscriptions, ...newSubs];
-      } catch (err) {
-        console.error("Failed to load subscriptions", err);
-        setError(err.message);
+  async ({ afterCursor = null, reset = true, status = statusFilter } = {}) => {
+    try {
+      const customerId = await getCustomerId();
+      if (!customerId) {
+        setError("Customer ID not found");
         return null;
       }
-    },
-    [getCustomerId, subscriptions],
-  );
+      const token = await shopify.sessionToken.get();
 
+      const params = new URLSearchParams({
+        customerId,
+        limit: String(PAGE_SIZE),
+      });
+      if (afterCursor) params.set("cursor", afterCursor);
+      if (status && status !== "ALL") params.set("status", status); 
+
+      const res = await fetch(
+        `${API_BASE}/api/subscriptions?${params.toString()}`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`API ${res.status}: ${text}`);
+      }
+
+      const data = await res.json();
+      const newSubs = data.subscriptions || [];
+      const pageInfo = data.pageInfo || { hasNextPage: false, endCursor: null };
+
+      setSubscriptions((prev) => (reset ? newSubs : [...prev, ...newSubs]));
+      setHasMore(!!pageInfo.hasNextPage);
+      setCursor(pageInfo.endCursor || null);
+
+      return reset ? newSubs : [...subscriptions, ...newSubs];
+    } catch (err) {
+      console.error("Failed to load subscriptions", err);
+      setError(err.message);
+      return null;
+    }
+  },
+  [getCustomerId, subscriptions, statusFilter], 
+);
+  // useEffect(() => {
+  //   (async () => {
+  //     setLoading(true);
+  //     await fetchPage({ afterCursor: null, reset: true });
+  //     setLoading(false);
+  //   })();
+  // }, []);
   useEffect(() => {
-    (async () => {
-      setLoading(true);
-      await fetchPage({ afterCursor: null, reset: true });
-      setLoading(false);
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  (async () => {
+    setLoading(true);
+    setCursor(null);
+    setHasMore(false);
+    await fetchPage({ afterCursor: null, reset: true, status: statusFilter });
+    setLoading(false);
+  })();
+}, [statusFilter]); 
 
+function handleStatusFilterChange(e) {
+  setStatusFilter(e.target.value);
+}
   async function handleViewMore() {
     if (!hasMore || loadingMore) return;
     setLoadingMore(true);
@@ -305,6 +361,20 @@ function Extension() {
   return (
     <s-page heading="Subscriptions">
       <s-section>
+        <s-box paddingBlockEnd="base" inlineSize="200px">
+        <s-select
+          label="Status"
+          value={statusFilter}
+          onChange={handleStatusFilterChange}
+        >
+          <s-option value="ALL">All</s-option>
+          <s-option value="ACTIVE">Active</s-option>
+          <s-option value="PAUSED">Paused</s-option>
+          <s-option value="CANCELLED">Cancelled</s-option>
+          <s-option value="EXPIRED">Expired</s-option>
+        </s-select>
+      </s-box>
+
         {loading ? (
           <s-stack direction="block" gap="base">
             {Array.from({ length: PAGE_SIZE }).map((_, i) => (
