@@ -1014,6 +1014,10 @@ function SubscriptionDetail({
         ).toFixed(2)
       : null;
 
+      const minCycles = sub.billingPolicy?.minCycles ?? null;
+  const minCyclesReached = sub.billingPolicy?.minCyclesReached;
+  const canModifySubscription = minCyclesReached !== false;
+
   const numericId = getNumericId(sub.id);
   const modalId = `upcoming-orders-modal-${numericId}`;
   const addressModalId = `edit-address-modal-${numericId}`;
@@ -1050,7 +1054,7 @@ function SubscriptionDetail({
           >
             Status: {status}
           </s-badge>
-          {status !== "CANCELLED" && status !== "EXPIRED" && (
+          {status !== "CANCELLED" && status !== "EXPIRED" && canModifySubscription &&  (
             <s-stack direction="inline" gap="tight">
               {status === "PAUSED" ? (
                 <s-button
@@ -1110,6 +1114,8 @@ function SubscriptionDetail({
               Keep subscription
             </s-button>
           </s-modal>
+
+
           <s-box border="base" borderRadius="base" padding="base">
             <s-stack direction="block" gap="base">
               <s-stack direction="block" gap="tight">
@@ -1123,7 +1129,7 @@ function SubscriptionDetail({
                 )}
               </s-stack>
 
-              <s-stack direction="inline" gap="tight">
+              {/* <s-stack direction="inline" gap="tight">
                 <s-button
                   variant="secondary"
                   command="--show"
@@ -1149,7 +1155,54 @@ function SubscriptionDetail({
                     "Skip"
                   )}
                 </s-button>
-              </s-stack>
+              </s-stack> */}
+
+              {canModifySubscription && (
+                <s-stack direction="inline" gap="tight">
+                  <s-button
+                    variant="secondary"
+                    command="--show"
+                    commandFor={rescheduleModalId}
+                    disabled={!nextActionable || loadingCycleIndex != null}
+                    onClick={() => openRescheduleModal(nextActionable)}
+                  >
+                    Reschedule
+                  </s-button>
+
+                  <s-button
+                    variant="secondary"
+                    disabled={!nextActionable || loadingCycleIndex != null}
+                    onClick={() =>
+                      nextActionable &&
+                      handleSkip(sub.id, nextActionable.cycleIndex)
+                    }
+                  >
+                    {loadingAction === "skip" &&
+                    loadingCycleIndex === nextActionable?.cycleIndex ? (
+                      <s-spinner size="small" />
+                    ) : (
+                      "Skip"
+                    )}
+                  </s-button>
+                </s-stack>
+              )}
+              {maxSkipReached && (
+                <s-text tone="subdued">
+                  The maximum number of orders have been skipped
+                </s-text>
+              )}
+
+              {!canModifySubscription && minCycles != null && (
+                <s-box border="base" borderRadius="base" padding="base">
+                  <s-text tone="subdued">
+                    You can't yet cancel, pause, or skip this subscription, as
+                    you haven't yet reached the required number of payments.
+                  </s-text>
+                  <s-text tone="subdued">
+                    Required number of payments: {minCycles}
+                  </s-text>
+                </s-box>
+              )}
 
               {visibleCycles.length > 0 && (
                 <s-link
