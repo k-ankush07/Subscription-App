@@ -372,7 +372,6 @@ function Extension() {
           <s-option value="ACTIVE">Active</s-option>
           <s-option value="PAUSED">Paused</s-option>
           <s-option value="CANCELLED">Cancelled</s-option>
-          <s-option value="EXPIRED">Expired</s-option>
         </s-select>
       </s-box>
 
