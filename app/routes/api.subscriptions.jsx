@@ -465,7 +465,7 @@ export const loader = async ({ request }) => {
       `#graphql
       query GetCustomerSubscriptions($customerId: ID!, $first: Int!, $after: String) {
         customer(id: $customerId) {
-          subscriptionContracts(first: $first, after: $after,reverse: true, query: $query) {
+          subscriptionContracts(first: $first, after: $after,reverse: true) {
             pageInfo {
               hasNextPage
               endCursor
@@ -533,7 +533,7 @@ export const loader = async ({ request }) => {
           }
         }
       }`,
-      { variables: { customerId, first: limit, after: cursor ,query: searchQuery} },
+      { variables: { customerId, first: limit, after: cursor } },
     );
 
     const { data, errors } = await res.json();
@@ -568,6 +568,9 @@ export const loader = async ({ request }) => {
       hasNextPage: false,
       endCursor: null,
     };
+    const filteredContracts = searchQuery
+      ? contracts.filter((c) => c.status === statusParam.toUpperCase())
+      : contracts;
 
     let shopNumericId = null;
     try {
@@ -583,7 +586,7 @@ export const loader = async ({ request }) => {
 
     const productIds = [
       ...new Set(
-        contracts.flatMap(
+        filteredContracts.flatMap(
           (contract) =>
             contract.lines?.edges
               ?.map((edge) => edge.node.productId)
@@ -785,7 +788,7 @@ export const loader = async ({ request }) => {
 }
 
     const enriched = await Promise.all(
-      contracts.map(async (contract) => {
+      filteredContracts.map(async (contract) => {
         const lines =
           contract.lines?.edges?.map((e) => {
             const node = e.node;
