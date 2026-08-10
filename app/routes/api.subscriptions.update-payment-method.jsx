@@ -30,13 +30,63 @@ export const action = async ({ request }) => {
       );
     }
 
-    const res = await admin.graphql(
+    // Step 1: contract se draft banao
+    const draftRes = await admin.graphql(
       `#graphql
-      mutation SetSubscriptionPaymentMethod($contractId: ID!, $paymentMethodId: ID!) {
-        subscriptionContractSetPaymentMethod(
-          subscriptionContractId: $contractId
-          paymentMethodId: $paymentMethodId
-        ) {
+      mutation CreateDraft($contractId: ID!) {
+        subscriptionContractUpdate(contractId: $contractId) {
+          draft { id }
+          userErrors { field message }
+        }
+      }`,
+      { variables: { contractId } },
+    );
+    const draftJson = await draftRes.json();
+    if (draftJson.errors) {
+      console.error("subscriptionContractUpdate errors:", JSON.stringify(draftJson.errors, null, 2));
+      return Response.json({ success: false, error: draftJson.errors[0]?.message }, { status: 500, headers: CORS_HEADERS });
+    }
+    const draftPayload = draftJson.data?.subscriptionContractUpdate;
+    if (draftPayload?.userErrors?.length) {
+      return Response.json(
+        { success: false, error: draftPayload.userErrors.map((e) => e.message).join(", ") },
+        { status: 400, headers: CORS_HEADERS },
+      );
+    }
+    const draftId = draftPayload?.draft?.id;
+    if (!draftId) {
+      return Response.json({ success: false, error: "Draft create failed" }, { status: 500, headers: CORS_HEADERS });
+    }
+
+    // Step 2: draft me naya payment method set karo
+    const updateRes = await admin.graphql(
+      `#graphql
+      mutation UpdateDraftPaymentMethod($draftId: ID!, $paymentMethodId: ID!) {
+        subscriptionDraftUpdate(draftId: $draftId, input: { paymentMethodId: $paymentMethodId }) {
+          draft { id }
+          userErrors { field message }
+        }
+      }`,
+      { variables: { draftId, paymentMethodId } },
+    );
+    const updateJson = await updateRes.json();
+    if (updateJson.errors) {
+      console.error("subscriptionDraftUpdate errors:", JSON.stringify(updateJson.errors, null, 2));
+      return Response.json({ success: false, error: updateJson.errors[0]?.message }, { status: 500, headers: CORS_HEADERS });
+    }
+    const updatePayload = updateJson.data?.subscriptionDraftUpdate;
+    if (updatePayload?.userErrors?.length) {
+      return Response.json(
+        { success: false, error: updatePayload.userErrors.map((e) => e.message).join(", ") },
+        { status: 400, headers: CORS_HEADERS },
+      );
+    }
+
+    // Step 3: draft commit karo — ye asli contract update karega
+    const commitRes = await admin.graphql(
+      `#graphql
+      mutation CommitDraft($draftId: ID!) {
+        subscriptionDraftCommit(draftId: $draftId) {
           contract {
             id
             customerPaymentMethod {
@@ -52,22 +102,18 @@ export const action = async ({ request }) => {
               }
             }
           }
-          userErrors {
-            field
-            message
-          }
+          userErrors { field message }
         }
       }`,
-      { variables: { contractId, paymentMethodId } },
+      { variables: { draftId } },
     );
-
-    const { data, errors } = await res.json();
+    const { data, errors } = await commitRes.json();
     if (errors) {
-      console.error("update-payment-method GraphQL errors:", JSON.stringify(errors, null, 2));
+      console.error("subscriptionDraftCommit errors:", JSON.stringify(errors, null, 2));
       return Response.json({ success: false, error: errors[0]?.message }, { status: 500, headers: CORS_HEADERS });
     }
 
-    const payload = data?.subscriptionContractSetPaymentMethod;
+    const payload = data?.subscriptionDraftCommit;
     if (payload?.userErrors?.length) {
       return Response.json(
         { success: false, error: payload.userErrors.map((e) => e.message).join(", ") },
