@@ -1157,18 +1157,18 @@ function SubscriptionDetail({
                 </s-button>
               </s-stack> */}
 
-              {canModifySubscription && (
-                <s-stack direction="inline" gap="tight">
-                  <s-button
-                    variant="secondary"
-                    command="--show"
-                    commandFor={rescheduleModalId}
-                    disabled={!nextActionable || loadingCycleIndex != null}
-                    onClick={() => openRescheduleModal(nextActionable)}
-                  >
-                    Reschedule
-                  </s-button>
+              <s-stack direction="inline" gap="tight">
+                <s-button
+                  variant="secondary"
+                  command="--show"
+                  commandFor={rescheduleModalId}
+                  disabled={!nextActionable || loadingCycleIndex != null}
+                  onClick={() => openRescheduleModal(nextActionable)}
+                >
+                  Reschedule
+                </s-button>
 
+                {canModifySubscription && (
                   <s-button
                     variant="secondary"
                     disabled={!nextActionable || loadingCycleIndex != null}
@@ -1184,8 +1184,8 @@ function SubscriptionDetail({
                       "Skip"
                     )}
                   </s-button>
-                </s-stack>
-              )}
+                )}
+              </s-stack>
               {maxSkipReached && (
                 <s-text tone="subdued">
                   The maximum number of orders have been skipped
@@ -1295,7 +1295,7 @@ function SubscriptionDetail({
                             )}
                           </s-stack>
 
-                          <s-stack
+                          {/* <s-stack
                             direction="inline"
                             gap="base"
                             alignItems="center"
@@ -1341,7 +1341,51 @@ function SubscriptionDetail({
                                 Skip
                               </s-link>
                             )}
-                          </s-stack>
+                          </s-stack> */}
+
+                          {!cycle.skipped &&
+                              (isAnyLoading ? (
+                                <s-text tone="subdued">Reschedule</s-text>
+                              ) : (
+                                <s-link
+                                  onClick={() =>
+                                    openRescheduleInsideUpcomingModal({
+                                      ...cycle,
+                                      __fromUpcomingModal: true,
+                                    })
+                                  }
+                                >
+                                  Reschedule
+                                </s-link>
+                              ))}
+
+                            {canModifySubscription && (
+                              isThisLoading ? (
+                                <s-spinner size="small" />
+                              ) : cycle.skipped ? (
+                                isAnyLoading ? (
+                                  <s-text tone="subdued">Unskip</s-text>
+                                ) : (
+                                  <s-link
+                                    onClick={() =>
+                                      handleUnskip(sub.id, cycle.cycleIndex)
+                                    }
+                                  >
+                                    Unskip
+                                  </s-link>
+                                )
+                              ) : isAnyLoading ? (
+                                <s-text tone="subdued">Skip</s-text>
+                              ) : (
+                                <s-link
+                                  onClick={() =>
+                                    handleSkip(sub.id, cycle.cycleIndex)
+                                  }
+                                >
+                                  Skip
+                                </s-link>
+                              )
+                            )}
                         </s-stack>
                       );
                     })}
