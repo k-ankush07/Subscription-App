@@ -1,3 +1,4 @@
+
 import {
   Page,
   Card,
@@ -8,6 +9,7 @@ import {
   Banner,
 } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
+import prisma from "../db.server";
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import {
   useLoaderData,
@@ -19,7 +21,6 @@ import {
 } from "react-router";
 import { currencySymbol } from "./utils/formatMoney.js";
 import { PaginationBar } from "./components/PaginationBar";
-import prisma from "../db.server";
 
 const PAGE_SIZE = 10;
 
@@ -89,8 +90,6 @@ async function attachCancellationReasons(contracts) {
     .filter((c) => c.status === "CANCELLED")
     .map((c) => c.id.split("/").pop());
 
-  console.log("[attachCancellationReasons] cancelled contract ids:", cancelledIds);
-
   if (cancelledIds.length === 0) return contracts;
 
   const feedbacks = await prisma.cancellationFeedback.findMany({
@@ -98,16 +97,14 @@ async function attachCancellationReasons(contracts) {
     orderBy: { createdAt: "desc" },
   });
 
-  console.log("[attachCancellationReasons] feedbacks found in DB:", JSON.stringify(feedbacks, null, 2));
-
   const reasonMap = {};
   feedbacks.forEach((f) => {
     if (!reasonMap[f.subscriptionContractId]) {
-      reasonMap[f.subscriptionContractId] = f; 
+      reasonMap[f.subscriptionContractId] = f;
     }
   });
 
-  const result = contracts.map((c) => {
+  return contracts.map((c) => {
     const numericId = c.id.split("/").pop();
     const fb = reasonMap[numericId];
     return {
@@ -116,21 +113,7 @@ async function attachCancellationReasons(contracts) {
       cancellationFeedbackText: fb?.additionalFeedback ?? null,
     };
   });
-
-  console.log(
-    "[attachCancellationReasons] final mapped reasons:",
-    result
-      .filter((c) => c.status === "CANCELLED")
-      .map((c) => ({
-        id: c.id.split("/").pop(),
-        reason: c.cancellationReason,
-        feedback: c.cancellationFeedbackText,
-      })),
-  );
-
-  return result;
 }
-
 async function fetchContractsPage(admin, { status, cursor }) {
   const query = status && status !== "ALL" ? `status:${status.toLowerCase()}` : undefined;
 
@@ -474,20 +457,6 @@ function renderPage({
   pagination,
   createSubscription,
 }) {
-  const showCancellationReasonColumn = currentStatus === "CANCELLED";
-
-  // Browser console me dikhega — har render pe cancelled contracts ka data
-  if (showCancellationReasonColumn && typeof window !== "undefined") {
-    console.log(
-      "[Subscriptions UI] cancelled contracts reason data:",
-      contracts.map((c) => ({
-        id: c.id?.split("/").pop(),
-        cancellationReason: c.cancellationReason,
-        cancellationFeedbackText: c.cancellationFeedbackText,
-      })),
-    );
-  }
-
   return (
     <Page
       title="Subscriptions"
@@ -559,7 +528,6 @@ function renderPage({
                   <th>Product</th>
                   <th>Price</th>
                   <th>Delivery Frequency</th>
-                  {showCancellationReasonColumn && <th>Cancellation Reason</th>}
                 </tr>
               </thead>
               <tbody>
@@ -597,20 +565,6 @@ function renderPage({
                       <td>
                         Every {item.deliveryPolicy?.intervalCount} {item.deliveryPolicy?.interval}
                       </td>
-                      {showCancellationReasonColumn && (
-                        <td>
-                          {item.cancellationReason || "-"}
-                          {item.cancellationReason === "Other (please specify)" &&
-                            item.cancellationFeedbackText && (
-                              <>
-                                <br />
-                                <span style={{ color: "#666", fontStyle: "italic" }}>
-                                  "{item.cancellationFeedbackText}"
-                                </span>
-                              </>
-                            )}
-                        </td>
-                      )}
                     </tr>
                   );
                 })}

@@ -3,7 +3,7 @@ import { render } from "preact";
 import { useState, useEffect, useCallback, useRef } from "preact/hooks";
 import { COUNTRIES } from "../../../app/routes/utils/countries";
 
-const API_BASE = "https://adventures-drain-boxes-betty.trycloudflare.com";
+const API_BASE = "https://proud-accessed-hey-internship.trycloudflare.com";
 const PAGE_SIZE = 7;
 
 export default async () => {
@@ -442,7 +442,6 @@ function SubscriptionDetail({
 
   const [address, setAddress] = useState(sub.deliveryMethod?.address ?? null);
   const addressModalRef = useRef(null);
-  const addressHideBtnRef = useRef(null);
 
   const [addressForm, setAddressForm] = useState({
     firstName: "",
@@ -461,36 +460,15 @@ function SubscriptionDetail({
   const [pauseResumeLoading, setPauseResumeLoading] = useState(false);
   const [cancelLoading, setCancelLoading] = useState(false);
   const cancelModalRef = useRef(null);
-  const cancelHideBtnRef = useRef(null);
-  const CANCEL_REASONS = [
-    "Too expensive",
-    "Found a better deal elsewhere",
-    "The product/service isn't worth the price",
-    "I wasn't using it enough",
-    "I only needed it for a short time",
-    "My needs have changed",
-    "The product didn't meet my expectations",
-    "I had issues with product quality or performance",
-    "I had trouble using the product",
-    "I had issues with customer support",
-    "Delivery or fulfillment was unreliable",
-    "The website or app was difficult to use",
-    "I switched to another brand/service",
-    "I already have a similar product",
-    "I'm taking a break / going on vacation",
-    "Financial reasons or budgeting",
-    "Other (please specify)",
-  ];
 
-  const [cancelReason, setCancelReason] = useState("");
-  const [cancelFeedback, setCancelFeedback] = useState("");
   const [rescheduleCycle, setRescheduleCycle] = useState(null);
   const [rescheduleDate, setRescheduleDate] = useState("");
   const [rescheduleSaving, setRescheduleSaving] = useState(false);
   const [rescheduleError, setRescheduleError] = useState(null);
-  const rescheduleModalRef = useRef(null);
-  const rescheduleHideBtnRef = useRef(null);
+  const rescheduleModalRef = useRef(null); // outer top-level "Reschedule" button ke liye
   const upcomingModalRef = useRef(null);
+
+ 
 
   useEffect(() => {
     setUpcomingCycles(sub.upcomingCycles ?? []);
@@ -661,42 +639,8 @@ function SubscriptionDetail({
     }
   }
 
-  // async function handleCancel() {
-  //   if (cancelLoading) return;
-  //   try {
-  //     setCancelLoading(true);
-  //     const token = await shopify.sessionToken.get();
-  //     const res = await fetch(`${API_BASE}/api/subscriptions/cancel`, {
-  //       method: "POST",
-  //       headers: {
-  //         Authorization: `Bearer ${token}`,
-  //         "Content-Type": "application/json",
-  //       },
-  //       body: JSON.stringify({ subscriptionContractId: sub.id }),
-  //     });
-
-  //     const data = await res.json();
-  //     if (!res.ok || !data.success) {
-  //       throw new Error(data.error || "Cancel failed");
-  //     }
-
-  //     setStatus(data.subscription?.status || "CANCELLED");
-  //     shopify.toast.show("Subscription cancelled");
-  //     cancelModalRef.current?.hide?.();
-
-  //     refreshSubscriptions().catch((err) =>
-  //       console.error("Background refresh after cancel failed:", err),
-  //     );
-  //   } catch (err) {
-  //     console.error(err);
-  //     shopify.toast.show(err.message);
-  //   } finally {
-  //     setCancelLoading(false);
-  //   }
-  // }
-
   async function handleCancel() {
-    if (cancelLoading || !cancelReason) return;
+    if (cancelLoading) return;
     try {
       setCancelLoading(true);
       const token = await shopify.sessionToken.get();
@@ -706,11 +650,7 @@ function SubscriptionDetail({
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          subscriptionContractId: sub.id,
-          reason: cancelReason,
-          feedback: cancelFeedback || null,
-        }),
+        body: JSON.stringify({ subscriptionContractId: sub.id }),
       });
 
       const data = await res.json();
@@ -721,7 +661,7 @@ function SubscriptionDetail({
       setStatus(data.subscription?.status || "CANCELLED");
       shopify.toast.show("Subscription cancelled");
       cancelModalRef.current?.hide?.();
-      cancelHideBtnRef.current?.click?.(); 
+
       refreshSubscriptions().catch((err) =>
         console.error("Background refresh after cancel failed:", err),
       );
@@ -795,7 +735,7 @@ function SubscriptionDetail({
         // wapas list view dikhado usi modal me
         setRescheduleCycle(null);
       } else {
-         rescheduleHideBtnRef.current?.click?.();
+        rescheduleModalRef.current?.hide?.();
         setRescheduleCycle(null);
       }
 
@@ -890,8 +830,7 @@ function SubscriptionDetail({
       });
 
       shopify.toast.show("Address updated");
-      // addressModalRef.current?.hide?.();
-      addressHideBtnRef.current?.click?.(); 
+      addressModalRef.current?.hide?.();
 
       refreshSubscriptions().catch((err) =>
         console.error("Background refresh after address update failed:", err),
@@ -903,6 +842,7 @@ function SubscriptionDetail({
       setAddressSaving(false);
     }
   }
+
 
   const items = sub.nextOrderLineItems?.length
     ? sub.nextOrderLineItems
@@ -983,49 +923,22 @@ function SubscriptionDetail({
               </s-button>
             </s-stack>
           )}
+
           <s-modal
             id={`cancel-modal-${numericId}`}
             ref={cancelModalRef}
             heading="Cancel subscription"
           >
-            <s-stack direction="block" gap="base">
-              <s-text tone="subdued">
-                If you cancel your subscription, billing and delivery will end
-                immediately. Canceling a subscription cannot be undone. To
-                temporarily stop receiving orders, pause your subscription.
-              </s-text>
-
-              <s-text fontWeight="bold">
-                Select a reason why you want to cancel your subscription
-              </s-text>
-
-              <s-stack direction="block" gap="tight">
-                {CANCEL_REASONS.map((reason) => (
-                  <s-checkbox
-                    key={reason}
-                    label={reason}
-                    checked={cancelReason === reason}
-                    onChange={() =>
-                      setCancelReason(cancelReason === reason ? "" : reason)
-                    }
-                  />
-                ))}
-              </s-stack>
-
-              {cancelReason === "Other (please specify)" && (
-                <s-text-area
-                  label="Tell us more"
-                  value={cancelFeedback}
-                  onInput={(e) => setCancelFeedback(e.target.value)}
-                />
-              )}
-            </s-stack>
+            <s-text>
+              Are you sure you want to cancel this subscription? This action
+              can't be undone.
+            </s-text>
 
             <s-button
               slot="primary-action"
               variant="primary"
               tone="critical"
-              disabled={cancelLoading || !cancelReason}
+              disabled={cancelLoading}
               onClick={handleCancel}
             >
               {cancelLoading ? <s-spinner size="small" /> : "Yes, cancel"}
@@ -1038,12 +951,6 @@ function SubscriptionDetail({
             >
               Keep subscription
             </s-button>
-            <button
-              ref={cancelHideBtnRef}
-              command="--hide"
-              commandFor={`cancel-modal-${numericId}`}
-              style={{ display: "none" }}
-            />
           </s-modal>
           <s-box border="base" borderRadius="base" padding="base">
             <s-stack direction="block" gap="base">
@@ -1249,44 +1156,37 @@ function SubscriptionDetail({
                   {sub.deliveryPolicy?.interval?.toLowerCase()}
                 </s-text>
 
-                <s-stack
-                  direction="inline"
-                  gap="base"
-                  alignItems="start"
-                  justifyContent="space-between"
-                >
-                  <s-stack direction="block" gap="tight">
-                    <s-text fontWeight="bold">Shipping method</s-text>
-                    <s-text tone="subdued">
-                      {sub.shippingMethodTitle || "-"}
-                    </s-text>
-                  </s-stack>
+                 <s-stack
+      direction="inline"
+      gap="base"
+      alignItems="start"
+      justifyContent="space-between"
+    >
+      <s-stack direction="block" gap="tight">
+        <s-text fontWeight="bold">Shipping method</s-text>
+        <s-text tone="subdued">{sub.shippingMethodTitle || "-"}</s-text>
+      </s-stack>
 
-                  {sub.paymentMethod && (
-                    <s-stack direction="block" gap="tight">
-                      <s-stack
-                        direction="inline"
-                        gap="extra-tight"
-                        alignItems="center"
-                      >
-                        <s-text fontWeight="bold">Payment details</s-text>
-                        {/* <s-icon type="edit" /> */}
-                      </s-stack>
-                      <s-text tone="subdued">
-                        Credit card: •••• •••• ••••{" "}
-                        {sub.paymentMethod.lastDigits || "----"}
-                      </s-text>
-                      <s-text tone="subdued">
-                        Card holder name:{" "}
-                        {sub.paymentMethod.cardHolderName || "-"}
-                      </s-text>
-                      <s-text tone="subdued">
-                        Card expires: {sub.paymentMethod.expiryMonth}/
-                        {sub.paymentMethod.expiryYear}
-                      </s-text>
-                    </s-stack>
-                  )}
-                </s-stack>
+      {sub.paymentMethod && (
+        <s-stack direction="block" gap="tight">
+          <s-stack direction="inline" gap="extra-tight" alignItems="center">
+            <s-text fontWeight="bold">Payment details</s-text>
+           {/* <s-icon type="edit" /> */}
+          </s-stack>
+          <s-text tone="subdued">
+            Credit card: •••• •••• ••••{" "}
+            {sub.paymentMethod.lastDigits || "----"}
+          </s-text>
+          <s-text tone="subdued">
+            Card holder name: {sub.paymentMethod.cardHolderName || "-"}
+          </s-text>
+          <s-text tone="subdued">
+            Card expires: {sub.paymentMethod.expiryMonth}/
+            {sub.paymentMethod.expiryYear}
+          </s-text>
+        </s-stack>
+      )}
+    </s-stack>
 
                 {address && (
                   <>
@@ -1462,12 +1362,6 @@ function SubscriptionDetail({
                 >
                   Cancel
                 </s-button>
-                <button
-  ref={addressHideBtnRef}
-  command="--hide"
-  commandFor={addressModalId}
-  style={{ display: "none" }}
-/>
               </s-modal>
 
               <s-modal
@@ -1502,13 +1396,6 @@ function SubscriptionDetail({
                 >
                   Cancel
                 </s-button>
-
-                <button
-  ref={rescheduleHideBtnRef}
-  command="--hide"
-  commandFor={rescheduleModalId}
-  style={{ display: "none" }}
-/>
               </s-modal>
             </s-box>
           )}
@@ -1579,6 +1466,7 @@ function SubscriptionDetail({
       <div>
         <div>
           <h2>Past orders</h2>
+
         </div>
       </div>
     </s-page>
