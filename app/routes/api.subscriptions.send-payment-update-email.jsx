@@ -1,4 +1,7 @@
 import { authenticate, unauthenticated } from "../shopify.server";
+import { getContractEmailData, getCustomerPortalBaseUrl, getShopName } from "./utils/contract-email-data.server";
+import { buildPaymentUpdateEmail } from "./utils/email-templates.server";
+import { sendMail } from "./utils/mailer.server";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -21,37 +24,56 @@ export const action = async ({ request }) => {
     const shop = sessionToken.dest.replace("https://", "");
     const { admin } = await unauthenticated.admin(shop);
 
-    const { paymentMethodId } = await request.json();
+    const { contractId } = await request.json();
 
-    if (!paymentMethodId) {
+    if (!contractId) {
       return Response.json(
-        { success: false, error: "paymentMethodId zaroori hai" },
+        { success: false, error: "contractId zaroori hai" },
         { status: 400, headers: CORS_HEADERS },
       );
     }
 
-    const res = await admin.graphql(
-      `#graphql
-      mutation SendCustomerPaymentUpdateEmail($customerPaymentMethodId: ID!) {
-        customerPaymentMethodSendUpdateEmail(customerPaymentMethodId: $customerPaymentMethodId) {
-          customer { id }
-          userErrors { field message }
-        }
-      }`,
-      { variables: { customerPaymentMethodId: paymentMethodId } },
-    );
-
-    const { data, errors } = await res.json();
-    if (errors) {
-      console.error("send-payment-update-email GraphQL errors:", JSON.stringify(errors, null, 2));
-      return Response.json({ success: false, error: errors[0]?.message }, { status: 500, headers: CORS_HEADERS });
+    const emailData = await getContractEmailData(admin, contractId);
+    if (!emailData?.email) {
+      return Response.json(
+        { success: false, error: "Customer email nahi mili" },
+        { status: 400, headers: CORS_HEADERS },
+      );
     }
 
-    const payload = data?.customerPaymentMethodSendUpdateEmail;
-    if (payload?.userErrors?.length) {
+    const [manageBaseUrl, shopName] = await Promise.all([
+      getCustomerPortalBaseUrl(admin),
+      getShopName(admin),
+    ]);
+
+    const numericId = contractId.split("/").pop();
+    const manageUrl = manageBaseUrl ? `${manageBaseUrl}/subscriptions/${numericId}` : "#";
+
+    const { subject, html } = buildPaymentUpdateEmail({
+      customerName: emailData.customerName,
+      lineItem: emailData.lineItem,
+      lineItems: emailData.lineItems,
+      subtotal: emailData.subtotal,
+      shipping: emailData.shipping,
+      total: emailData.total,
+      shippingAddress: emailData.shippingAddress,
+      billingAddress: emailData.shippingAddress,
+      paymentLast4: emailData.paymentLast4,
+      paymentBrand: emailData.paymentBrand,
+      manageUrl,
+    });
+
+    const result = await sendMail({
+      to: emailData.email,
+      subject,
+      html,
+      fromName: shopName,
+    });
+
+    if (!result.success) {
       return Response.json(
-        { success: false, error: payload.userErrors.map((e) => e.message).join(", ") },
-        { status: 400, headers: CORS_HEADERS },
+        { success: false, error: result.error || "Email send failed" },
+        { status: 500, headers: CORS_HEADERS },
       );
     }
 

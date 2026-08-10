@@ -856,7 +856,7 @@ function SubscriptionDetail({
     }
   }
   async function handleSendUpdateEmail() {
-    if (sendEmailLoading || !paymentMethod?.id) return;
+    if (sendEmailLoading) return;
     try {
       setSendEmailLoading(true);
       const token = await shopify.sessionToken.get();
@@ -868,7 +868,7 @@ function SubscriptionDetail({
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ paymentMethodId: paymentMethod.id }),
+          body: JSON.stringify({ contractId: sub.id }),
         },
       );
       const data = await res.json();
@@ -949,7 +949,8 @@ function SubscriptionDetail({
         setPaymentMethod(data.paymentMethod);
       }
       shopify.toast.show("Payment method updated");
-      choosePaymentModalRef.current?.hide?.();
+      paymentMenuModalRef.current?.hide?.();
+      setPaymentModalView("menu");
 
       refreshSubscriptions().catch((err) =>
         console.error("Background refresh after payment update failed:", err),
