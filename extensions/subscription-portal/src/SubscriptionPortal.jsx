@@ -432,6 +432,7 @@ function SubscriptionDetail({
   const [upcomingCycles, setUpcomingCycles] = useState(
     sub.upcomingCycles ?? [],
   );
+  const [pastOrders, setPastOrders] = useState(sub.pastOrders ?? []);
   const [nextBillingDate, setNextBillingDate] = useState(sub.nextBillingDate);
   const [hasMoreCycles, setHasMoreCycles] = useState(
     sub.hasMoreCycles ?? false,
@@ -476,6 +477,7 @@ function SubscriptionDetail({
     setHasMoreCycles(sub.hasMoreCycles ?? false);
     setAddress(sub.deliveryMethod?.address ?? null);
     setStatus(sub.status);
+     setPastOrders(sub.pastOrders ?? []);
   }, [sub]);
 
   function applyCycleUpdate(cycleIndex, patch) {
@@ -1464,10 +1466,32 @@ function SubscriptionDetail({
         </s-stack>
       </s-section>
       <div>
-        <div>
-          <h2>Past orders</h2>
+      {pastOrders.length > 0 && (
+  <s-box border="base" borderRadius="base" padding="base">
+    <s-stack direction="block" gap="base">
+      <s-text fontWeight="bold">Past orders</s-text>
+      {pastOrders.map((order) => (
+        <s-stack
+          key={order.id}
+          direction="inline"
+          gap="tight"
+          alignItems="center"
+          justifyContent="space-between"
+        >
+          <s-text tone="subdued">
+            {formatShort(toDateOnlyString(order.createdAt))}
+          </s-text>
 
-        </div>
+          {order.orderUrl ? (
+            <s-link href={order.orderUrl}>View</s-link>
+          ) : (
+            <s-text tone="subdued">View</s-text>
+          )}
+        </s-stack>
+      ))}
+    </s-stack>
+  </s-box>
+)}
       </div>
     </s-page>
   );

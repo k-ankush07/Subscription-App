@@ -151,6 +151,17 @@ export const loader = async ({ request }) => {
       hasNextPage: false,
       endCursor: null,
     };
+    let shopNumericId = null;
+try {
+  const shopRes = await admin.graphql(`#graphql
+    query GetShopId {
+      shop { id }
+    }`);
+  const shopPayload = await shopRes.json();
+  shopNumericId = shopPayload.data?.shop?.id?.split("/").pop() ?? null;
+} catch (e) {
+  console.error("Failed to fetch shop id:", e.message);
+}
 
     const productIds = [
       ...new Set(
@@ -266,6 +277,65 @@ export const loader = async ({ request }) => {
         return { cycles: [], hasMoreCycles: false };
       }
     }
+    const PAST_ORDERS_FETCH_LIMIT = 10;
+
+async function fetchPastOrders(contractId) {
+  try {
+    const res = await admin.graphql(
+      `#graphql
+      query GetPastOrders($contractId: ID!, $first: Int!) {
+        subscriptionBillingAttempts(subscriptionContractId: $contractId, first: $first) {
+          edges {
+            node {
+              id
+              order {
+                id
+                name
+                createdAt
+                displayFinancialStatus
+                currentTotalPriceSet {
+                  shopMoney { amount currencyCode }
+                }
+              }
+            }
+          }
+        }
+      }`,
+      { variables: { contractId, first: PAST_ORDERS_FETCH_LIMIT } },
+    );
+
+    const payload = await res.json();
+    if (payload.errors) {
+      console.error(`subscriptionBillingAttempts errors for ${contractId}:`, JSON.stringify(payload.errors, null, 2));
+      return [];
+    }
+
+    const edges = payload.data?.subscriptionBillingAttempts?.edges ?? [];
+    const orders = edges
+      .map((e) => e.node.order)
+      .filter(Boolean)
+      .map((order) => {
+        const numericId = order.id.split("/").pop();
+        return {
+          id: order.id,
+          numericId,
+          name: order.name,
+          createdAt: order.createdAt,
+          financialStatus: order.displayFinancialStatus,
+          total: order.currentTotalPriceSet?.shopMoney ?? null,
+          orderUrl: shopNumericId
+            ? `https://shopify.com/${shopNumericId}/account/orders/${numericId}`
+            : null,
+        };
+      });
+
+    orders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    return orders;
+  } catch (e) {
+    console.error(`Failed to fetch past orders for ${contractId}:`, e.message);
+    return [];
+  }
+}
 
     const enriched = await Promise.all(
       contracts.map(async (contract) => {
@@ -284,24 +354,38 @@ export const loader = async ({ request }) => {
             sum + parseFloat(line.lineDiscountedPrice?.amount ?? 0),
           0,
         );
-        const [preview, cyclesResult] = await Promise.all([
-          (async () => {
-            if (contract.status === "ACTIVE" || contract.status === "PAUSED" || contract.status === "CANCELLED") {
-              try {
-                return await getContractPreview(admin, contract.id);
-              } catch (e) {
-                console.error(
-                  `getContractPreview failed for ${contract.id}:`,
-                  e.message,
-                );
-                return null;
-              }
-            }
-            return null;
-          })(),
-          fetchUpcomingBillingCycles(contract.id),
-        ]);
-
+        // const [preview, cyclesResult] = await Promise.all([
+        //   (async () => {
+        //     if (contract.status === "ACTIVE" || contract.status === "PAUSED" || contract.status === "CANCELLED") {
+        //       try {
+        //         return await getContractPreview(admin, contract.id);
+        //       } catch (e) {
+        //         console.error(
+        //           `getContractPreview failed for ${contract.id}:`,
+        //           e.message,
+        //         );
+        //         return null;
+        //       }
+        //     }
+        //     return null;
+        //   })(),
+        //   fetchUpcomingBillingCycles(contract.id),
+        // ]);
+const [preview, cyclesResult, pastOrders] = await Promise.all([
+  (async () => {
+    if (contract.status === "ACTIVE" || contract.status === "PAUSED" || contract.status === "CANCELLED") {
+      try {
+        return await getContractPreview(admin, contract.id);
+      } catch (e) {
+        console.error(`getContractPreview failed for ${contract.id}:`, e.message);
+        return null;
+      }
+    }
+    return null;
+  })(),
+  fetchUpcomingBillingCycles(contract.id),
+  fetchPastOrders(contract.id),
+]);
         const resolvedLine =
           preview?.nextOrder?.lineItems?.find((li) => li.isBaseLine) ??
           preview?.nextOrder?.lineItems?.[0] ??
