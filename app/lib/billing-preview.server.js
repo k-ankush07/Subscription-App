@@ -781,17 +781,7 @@ async function applyActionsToCycle(
         }
         if (!action.variantId) throw new Error(`${action.type} failed: no variantId configured`);
 
-        // FIX: use THIS action's own variant price, not a globally-picked (possibly unrelated) swap's price
-//         const ownVariantPrice = batchedVariantData[action.variantId]?.price;
-//         const basePriceForThisSwap = ownVariantPrice != null ? ownVariantPrice : effectiveBasePrice;
 
-//         let recalculatedPrice = null;
-//         if (action.discountEnabled && basePriceForThisSwap != null) {
-//   recalculatedPrice = applyCustomDiscountAction(basePriceForThisSwap, {
-//     adjustmentType: action.discountType,
-//     adjustmentValue: action.discountValue,
-//   }).toFixed(2);
-// }
 
 const ownVariantPrice = batchedVariantData[action.variantId]?.price;
         const basePriceForThisSwap = ownVariantPrice != null ? ownVariantPrice : effectiveBasePrice;

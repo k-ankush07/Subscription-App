@@ -105,7 +105,8 @@
 
   planSelect.addEventListener("change", function () {
     currentSellingPlanId = this.value;
-    console.log("idss", currentSellingPlanId);
+     console.log("Selected value:", currentSellingPlanId);
+  console.log("Available plan IDs:", allData.flatMap(g => g.sellingPlans).map(p => p.shopifySellingPlanId));
     const matchedPlan = allData
       .flatMap((group) => group.sellingPlans)
       .find(
@@ -114,7 +115,13 @@
       );
 
     // console.log("Matched Plan", matchedPlan);
-    if (!matchedPlan) return;
+    if (!matchedPlan) {
+      console.warn("No matching plan found for", currentSellingPlanId);
+      if (Subscription_innerText) {
+      Subscription_innerText.textContent = "";
+    }
+      return;
+    }
     const DeliveryCount = matchedPlan.intervalCount;
     const DeliveryInterval = matchedPlan.interval;
 
