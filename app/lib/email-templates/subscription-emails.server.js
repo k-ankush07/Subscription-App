@@ -203,4 +203,64 @@ export function buildCancelEmail({
   `);
   return { subject, html };
 }
+// PAUSE EMAIL
+export function buildPauseEmail({
+  customerName,
+  lineItem,
+  lineItems,
+  subtotal,
+  shipping,
+  total,
+  shippingAddress,
+  billingAddress,
+  paymentLast4,
+  paymentBrand,
+  manageUrl,
+}) {
+  const items = resolveLineItems({ lineItems, lineItem });
+  const subject = "Your subscription has been paused";
+  const html = baseWrapper(`
+    <p style="font-size:14px;color:#111;">Hello ${customerName},</p>
+    <p style="font-size:14px;color:#111;line-height:1.6;">
+      Your subscription has been paused. You will not be charged until you resume it.
+    </p>
+    <p style="font-size:14px;color:#111;">You can manage or resume the subscription using the button below:</p>
+    ${manageButtonHtml(manageUrl)}
+    ${lineItemsListHtml(items)}
+    ${orderSummaryHtml({ subtotal, shipping, total })}
+    ${addressBlockHtml({ shippingAddress, billingAddress, paymentLast4, paymentBrand })}
+  `);
+  return { subject, html };
+}
+
+// RESUME EMAIL
+export function buildResumeEmail({
+  customerName,
+  nextOrderDate,
+  lineItem,
+  lineItems,
+  subtotal,
+  shipping,
+  total,
+  shippingAddress,
+  billingAddress,
+  paymentLast4,
+  paymentBrand,
+  manageUrl,
+}) {
+  const items = resolveLineItems({ lineItems, lineItem });
+  const subject = "Your subscription has been resumed";
+  const html = baseWrapper(`
+    <p style="font-size:14px;color:#111;">Hello ${customerName},</p>
+    <p style="font-size:14px;color:#111;line-height:1.6;">
+      Your subscription has been resumed.${nextOrderDate ? ` Your next order date is <strong>${nextOrderDate}</strong>.` : ""}
+    </p>
+    <p style="font-size:14px;color:#111;">You can manage the subscription using the button below:</p>
+    ${manageButtonHtml(manageUrl)}
+    ${lineItemsListHtml(items)}
+    ${orderSummaryHtml({ subtotal, shipping, total })}
+    ${addressBlockHtml({ shippingAddress, billingAddress, nextOrderDate, paymentLast4, paymentBrand })}
+  `);
+  return { subject, html };
+}
 
