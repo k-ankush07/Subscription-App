@@ -433,6 +433,16 @@ function SubscriptionDetail({
     sub.upcomingCycles ?? [],
   );
   const [pastOrders, setPastOrders] = useState(sub.pastOrders ?? []);
+
+  const paymentMenuModalRef = useRef(null);
+  const choosePaymentModalRef = useRef(null);
+
+  const [paymentMethod, setPaymentMethod] = useState(sub.paymentMethod ?? null);
+  const [availablePaymentMethods, setAvailablePaymentMethods] = useState([]);
+  const [paymentMethodsLoading, setPaymentMethodsLoading] = useState(false);
+  const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState("");
+  const [paymentUpdateSaving, setPaymentUpdateSaving] = useState(false);
+  const [paymentUpdateError, setPaymentUpdateError] = useState(null);
   const [nextBillingDate, setNextBillingDate] = useState(sub.nextBillingDate);
   const [hasMoreCycles, setHasMoreCycles] = useState(
     sub.hasMoreCycles ?? false,
@@ -469,15 +479,14 @@ function SubscriptionDetail({
   const rescheduleModalRef = useRef(null); // outer top-level "Reschedule" button ke liye
   const upcomingModalRef = useRef(null);
 
- 
-
   useEffect(() => {
     setUpcomingCycles(sub.upcomingCycles ?? []);
     setNextBillingDate(sub.nextBillingDate);
     setHasMoreCycles(sub.hasMoreCycles ?? false);
     setAddress(sub.deliveryMethod?.address ?? null);
     setStatus(sub.status);
-     setPastOrders(sub.pastOrders ?? []);
+    setPastOrders(sub.pastOrders ?? []);
+    setPaymentMethod(sub.paymentMethod ?? null);
   }, [sub]);
 
   function applyCycleUpdate(cycleIndex, patch) {
@@ -845,6 +854,84 @@ function SubscriptionDetail({
     }
   }
 
+  async function openChoosePaymentModal() {
+    paymentMenuModalRef.current?.hide?.();
+    setPaymentUpdateError(null);
+    setPaymentMethodsLoading(true);
+    try {
+      const token = await shopify.sessionToken.get();
+      const customerId = await getCustomerId();
+      const params = new URLSearchParams({ customerId });
+      const res = await fetch(
+        `${API_BASE}/api/subscriptions/payment-methods?${params.toString()}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+      const data = await res.json();
+      if (!res.ok)
+        throw new Error(data.error || "Failed to load payment methods");
+
+      const methods = data.paymentMethods || [];
+      setAvailablePaymentMethods(methods);
+
+      const currentMatch = methods.find(
+        (m) =>
+          m.lastDigits === paymentMethod?.lastDigits &&
+          m.cardHolderName === paymentMethod?.cardHolderName,
+      );
+      setSelectedPaymentMethodId(currentMatch?.id || methods[0]?.id || "");
+    } catch (err) {
+      console.error(err);
+      setPaymentUpdateError(err.message);
+    } finally {
+      setPaymentMethodsLoading(false);
+    }
+  }
+
+  async function handleUpdatePaymentMethod() {
+    if (!selectedPaymentMethodId || paymentUpdateSaving) return;
+    try {
+      setPaymentUpdateSaving(true);
+      setPaymentUpdateError(null);
+
+      const token = await shopify.sessionToken.get();
+      const res = await fetch(
+        `${API_BASE}/api/subscriptions/update-payment-method`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            contractId: sub.id,
+            paymentMethodId: selectedPaymentMethodId,
+          }),
+        },
+      );
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Payment method update failed");
+      }
+
+      if (data.paymentMethod) {
+        setPaymentMethod(data.paymentMethod);
+      }
+      shopify.toast.show("Payment method updated");
+      choosePaymentModalRef.current?.hide?.();
+
+      refreshSubscriptions().catch((err) =>
+        console.error("Background refresh after payment update failed:", err),
+      );
+    } catch (err) {
+      console.error(err);
+      setPaymentUpdateError(err.message);
+    } finally {
+      setPaymentUpdateSaving(false);
+    }
+  }
 
   const items = sub.nextOrderLineItems?.length
     ? sub.nextOrderLineItems
@@ -863,6 +950,8 @@ function SubscriptionDetail({
   const modalId = `upcoming-orders-modal-${numericId}`;
   const addressModalId = `edit-address-modal-${numericId}`;
   const rescheduleModalId = `reschedule-modal-${numericId}`;
+  const paymentMenuModalId = `payment-menu-modal-${numericId}`;
+  const choosePaymentModalId = `choose-payment-modal-${numericId}`;
   const cycles = upcomingCycles;
   const visibleCycles = cycles.slice(0, VISIBLE_CYCLES_LIMIT);
 
@@ -1158,37 +1247,124 @@ function SubscriptionDetail({
                   {sub.deliveryPolicy?.interval?.toLowerCase()}
                 </s-text>
 
-                 <s-stack
-      direction="inline"
-      gap="base"
-      alignItems="start"
-      justifyContent="space-between"
-    >
-      <s-stack direction="block" gap="tight">
-        <s-text fontWeight="bold">Shipping method</s-text>
-        <s-text tone="subdued">{sub.shippingMethodTitle || "-"}</s-text>
-      </s-stack>
+                <s-stack
+                  direction="inline"
+                  gap="base"
+                  alignItems="start"
+                  justifyContent="space-between"
+                >
+                  <s-stack direction="block" gap="tight">
+                    <s-text fontWeight="bold">Shipping method</s-text>
+                    <s-text tone="subdued">
+                      {sub.shippingMethodTitle || "-"}
+                    </s-text>
+                  </s-stack>
 
-      {sub.paymentMethod && (
+                  {paymentMethod && (
         <s-stack direction="block" gap="tight">
           <s-stack direction="inline" gap="extra-tight" alignItems="center">
             <s-text fontWeight="bold">Payment details</s-text>
-           {/* <s-icon type="edit" /> */}
+            <s-link command="--show" commandFor={paymentMenuModalId}>
+              <s-icon type="edit" />
+            </s-link>
           </s-stack>
           <s-text tone="subdued">
             Credit card: •••• •••• ••••{" "}
-            {sub.paymentMethod.lastDigits || "----"}
+            {paymentMethod.lastDigits || "----"}
           </s-text>
           <s-text tone="subdued">
-            Card holder name: {sub.paymentMethod.cardHolderName || "-"}
+            Card holder name: {paymentMethod.cardHolderName || "-"}
           </s-text>
           <s-text tone="subdued">
-            Card expires: {sub.paymentMethod.expiryMonth}/
-            {sub.paymentMethod.expiryYear}
+            Card expires: {paymentMethod.expiryMonth}/
+            {paymentMethod.expiryYear}
           </s-text>
         </s-stack>
       )}
     </s-stack>
+
+    <s-modal
+      id={paymentMenuModalId}
+      ref={paymentMenuModalRef}
+      heading="Payment details"
+    >
+      <s-stack direction="block" gap="base">
+        <s-link
+          onClick={() => {
+            paymentMenuModalRef.current?.hide?.();
+            shopify.toast.show("You will receive an email to update your payment details.");
+          }}
+        >
+          Update payment method
+        </s-link>
+        <s-link
+          command="--show"
+          commandFor={choosePaymentModalId}
+          onClick={openChoosePaymentModal}
+        >
+          Choose another payment method
+        </s-link>
+      </s-stack>
+
+      <s-button
+        slot="primary-action"
+        variant="tertiary"
+        command="--hide"
+        commandFor={paymentMenuModalId}
+      >
+        Close
+      </s-button>
+    </s-modal>
+
+    <s-modal
+      id={choosePaymentModalId}
+      ref={choosePaymentModalRef}
+      heading="Payment details"
+    >
+      <s-stack direction="block" gap="base">
+        <s-text tone="subdued">
+          You will receive an email to update your payment details.
+        </s-text>
+
+        {paymentUpdateError && (
+          <s-text tone="critical">{paymentUpdateError}</s-text>
+        )}
+
+        {paymentMethodsLoading ? (
+          <s-spinner size="small" />
+        ) : (
+          <s-select
+            label="Select Payment Method"
+            value={selectedPaymentMethodId}
+            onChange={(e) => setSelectedPaymentMethodId(e.target.value)}
+          >
+            {availablePaymentMethods.map((m) => (
+              <s-option key={m.id} value={m.id}>
+                {m.cardHolderName || "Card"} •••• •••• •••• {m.lastDigits || "----"}
+              </s-option>
+            ))}
+          </s-select>
+        )}
+      </s-stack>
+
+      <s-button
+        slot="primary-action"
+        variant="primary"
+        disabled={paymentUpdateSaving || !selectedPaymentMethodId}
+        onClick={handleUpdatePaymentMethod}
+      >
+        {paymentUpdateSaving ? <s-spinner size="small" /> : "Update"}
+      </s-button>
+      <s-button
+        slot="secondary-actions"
+        command="--hide"
+        commandFor={choosePaymentModalId}
+        disabled={paymentUpdateSaving}
+      >
+        Cancel
+      </s-button>
+    </s-modal>
+                {/* </s-stack> */}
 
                 {address && (
                   <>
