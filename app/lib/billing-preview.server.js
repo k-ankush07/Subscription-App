@@ -1877,7 +1877,14 @@ const CONTRACT_UPDATE_MUTATION_WITH_LINES = `
       draft {
         id
         lines(first: 50) {
-          edges { node { id productId variantId } }
+          edges {
+            node {
+              id
+              productId
+              variantId
+              currentPrice { amount currencyCode }
+            }
+          }
         }
       }
       userErrors { field message code }
@@ -1885,7 +1892,7 @@ const CONTRACT_UPDATE_MUTATION_WITH_LINES = `
   }
 `;
 
-async function updateContractLineProduct(admin, contractId, { lineId, variantId, quantity }) {
+async function updateContractLineProduct(admin, contractId, { lineId, variantId, quantity keepDiscount = false }) {
   try {
     await clearAnyOpenDraft(admin, contractId);
   } catch (err) {
@@ -1919,16 +1926,28 @@ async function updateContractLineProduct(admin, contractId, { lineId, variantId,
   if (newPrice == null) {
     return { success: false, error: "Could not fetch price for selected variant" };
   }
+  let finalPrice = newRawPrice;
 
-  const updateRes = await admin.graphql(SWAP_DRAFT_LINE_MUTATION, {
-    variables: {
-      draftId,
-      lineId: targetLine.id,
-      variantId,
-      price: newPrice.toFixed(2),
-      qty: Number(quantity) || 1,
-    },
-  });
+if (keepDiscount && targetLine.variantId) {
+  const oldRawPrice = await fetchVariantPrice(admin, targetLine.variantId);
+  const oldCurrentPrice = Number(targetLine.currentPrice?.amount);
+
+  if (oldRawPrice > 0 && !Number.isNaN(oldCurrentPrice)) {
+    const discountFraction = Math.max(0, (oldRawPrice - oldCurrentPrice) / oldRawPrice);
+    finalPrice = Math.max(0, newRawPrice * (1 - discountFraction));
+  }
+  // agar oldRawPrice fetch fail ho jaye ya currentPrice na mile, finalPrice = newRawPrice hi rahega (safe fallback)
+}
+
+ const updateRes = await admin.graphql(SWAP_DRAFT_LINE_MUTATION, {
+  variables: {
+    draftId,
+    lineId: targetLine.id,
+    variantId,
+    price: finalPrice.toFixed(2),
+    qty: Number(quantity) || 1,
+  },
+});
   const updateData = await updateRes.json();
   const updatePayload = updateData?.data?.subscriptionDraftLineUpdate;
   if (updatePayload?.userErrors?.length) {

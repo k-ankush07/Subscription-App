@@ -21,10 +21,7 @@ async function getVariantProductId(admin, variantId) {
   return data.data?.productVariant?.product?.id ?? null;
 }
 
-// Customer ne manually kisi product pe swap kiya. Agar merchant ki automation
-// isi product ko "source" maan ke aage khud-ba-khud kisi aur product pe swap
-// karne wali thi, toh us automation action ko yahi se hata do — warna agli
-// cycle pe wo customer ka manual choice silently override kar dega.
+
 async function clearConflictingAutomationForProduct(admin, contractId, newProductId) {
   if (!newProductId) return;
   const settings = await getContractSettingsSnapshot(admin, contractId);
@@ -87,23 +84,23 @@ export const action = async ({ request }) => {
       return json({ success: false, error: "contractId and variantId required" }, 400);
     }
 
-    // Server-side permission check — client flag sirf UI ke liye hai, yahan real check hai
     const settings = await getContractSettingsSnapshot(admin, contractId);
-    const allowed = !!settings?.customerProductChanges?.allowProductSwaps;
-    const optionsCount = settings?.products?.length ?? 0;
+const allowed = !!settings?.customerProductChanges?.allowProductSwaps;
+const optionsCount = settings?.products?.length ?? 0;
 
-    if (!allowed || optionsCount <= 1) {
-      return json(
-        { success: false, error: "Product swap is not available for this subscription" },
-        403,
-      );
-    }
+if (!allowed || optionsCount <= 1) {
+  return json(
+    { success: false, error: "Product swap is not available for this subscription" },
+    403,
+  );
+}
 
-    const result = await updateContractLineProduct(admin, contractId, {
-      lineId,
-      variantId,
-      quantity: quantity ?? 1,
-    });
+const result = await updateContractLineProduct(admin, contractId, {
+  lineId,
+  variantId,
+  quantity: quantity ?? 1,
+  keepDiscount: !!settings?.customerProductChanges?.keepDiscounts, 
+});
 
     if (!result.success) {
       return json({ success: false, error: result.error }, 400);
