@@ -1882,6 +1882,7 @@ const CONTRACT_UPDATE_MUTATION_WITH_LINES = `
               id
               productId
               variantId
+              quantity
               currentPrice { amount currencyCode }
             }
           }
@@ -1892,7 +1893,11 @@ const CONTRACT_UPDATE_MUTATION_WITH_LINES = `
   }
 `;
 
-async function updateContractLineProduct(admin, contractId, { lineId, variantId, quantity keepDiscount = false }) {
+async function updateContractLineProduct(
+  admin,
+  contractId,
+  { lineId, variantId, quantity, keepDiscount = false, allowQuantityChanges = true },
+) {
   try {
     await clearAnyOpenDraft(admin, contractId);
   } catch (err) {
@@ -1922,32 +1927,38 @@ async function updateContractLineProduct(admin, contractId, { lineId, variantId,
     return { success: false, error: "Subscription line not found" };
   }
 
-  const newPrice = await fetchVariantPrice(admin, variantId);
-  if (newPrice == null) {
+  const newRawPrice = await fetchVariantPrice(admin, variantId);
+  if (newRawPrice == null) {
     return { success: false, error: "Could not fetch price for selected variant" };
   }
+
   let finalPrice = newRawPrice;
 
-if (keepDiscount && targetLine.variantId) {
-  const oldRawPrice = await fetchVariantPrice(admin, targetLine.variantId);
-  const oldCurrentPrice = Number(targetLine.currentPrice?.amount);
+  if (keepDiscount && targetLine.variantId) {
+    const oldRawPrice = await fetchVariantPrice(admin, targetLine.variantId);
+    const oldCurrentPrice = Number(targetLine.currentPrice?.amount);
 
-  if (oldRawPrice > 0 && !Number.isNaN(oldCurrentPrice)) {
-    const discountFraction = Math.max(0, (oldRawPrice - oldCurrentPrice) / oldRawPrice);
-    finalPrice = Math.max(0, newRawPrice * (1 - discountFraction));
+    if (oldRawPrice > 0 && !Number.isNaN(oldCurrentPrice)) {
+      const discountFraction = Math.max(0, (oldRawPrice - oldCurrentPrice) / oldRawPrice);
+      finalPrice = Math.max(0, newRawPrice * (1 - discountFraction));
+    }
+    // agar oldRawPrice fetch fail ho jaye ya currentPrice na mile, finalPrice = newRawPrice hi rahega (safe fallback)
   }
-  // agar oldRawPrice fetch fail ho jaye ya currentPrice na mile, finalPrice = newRawPrice hi rahega (safe fallback)
-}
 
- const updateRes = await admin.graphql(SWAP_DRAFT_LINE_MUTATION, {
-  variables: {
-    draftId,
-    lineId: targetLine.id,
-    variantId,
-    price: finalPrice.toFixed(2),
-    qty: Number(quantity) || 1,
-  },
-});
+  // allowQuantityChanges false → purani line ki quantity hi preserve karo, client se aayi qty ignore karo
+  const finalQuantity = allowQuantityChanges
+    ? (Number(quantity) || 1)
+    : (Number(targetLine.quantity) || 1);
+
+  const updateRes = await admin.graphql(SWAP_DRAFT_LINE_MUTATION, {
+    variables: {
+      draftId,
+      lineId: targetLine.id,
+      variantId,
+      price: finalPrice.toFixed(2),
+      qty: finalQuantity,
+    },
+  });
   const updateData = await updateRes.json();
   const updatePayload = updateData?.data?.subscriptionDraftLineUpdate;
   if (updatePayload?.userErrors?.length) {

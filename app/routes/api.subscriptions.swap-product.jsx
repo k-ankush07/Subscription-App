@@ -99,8 +99,9 @@ const result = await updateContractLineProduct(admin, contractId, {
   lineId,
   variantId,
   quantity: quantity ?? 1,
-  keepDiscount: !!settings?.customerProductChanges?.keepDiscounts, 
-});
+  keepDiscount: !!settings?.customerProductChanges?.keepDiscounts,
+  allowQuantityChanges: !!settings?.customerProductChanges?.allowQuantityChanges, // NEW LINE
+})
 
     if (!result.success) {
       return json({ success: false, error: result.error }, 400);

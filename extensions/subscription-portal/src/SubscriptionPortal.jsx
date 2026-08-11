@@ -1020,7 +1020,7 @@ async function handleSwapProduct(product) {
   if (swapSaving) return;
   const selection = swapSelections[product.id];
   const variantId = selection?.variantId || product.variants?.[0]?.variantsId;
-  const quantity = selection?.quantity || 1;
+  const quantity = allowQuantityChanges ? (selection?.quantity || 1) : 1;
 
   if (!variantId) {
     setSwapError("Please select a variant");
@@ -1068,6 +1068,9 @@ async function handleSwapProduct(product) {
   const items = sub.nextOrderLineItems?.length
     ? sub.nextOrderLineItems
     : (sub.lines?.edges?.map((e) => e.node) ?? []);
+
+    const customerChanges = sub.customerProductChanges ?? {};
+const allowQuantityChanges = !!customerChanges.allowQuantityChanges;
 
   const total = sub.nextOrderTotal;
   const shipping = sub.nextOrderShipping;
@@ -1243,20 +1246,20 @@ async function handleSwapProduct(product) {
             </s-select>
 
             <s-text-field
-              label="Quantity"
-              type="number"
-              value={String(selection.quantity)}
-              disabled={isCurrentProduct}
-              onInput={(e) =>
-                setSwapSelections((prev) => ({
-                  ...prev,
-                  [product.id]: {
-                    ...selection,
-                    quantity: Math.max(1, Number(e.target.value) || 1),
-                  },
-                }))
-              }
-            />
+  label="Quantity"
+  type="number"
+  value={String(selection.quantity)}
+  disabled={isCurrentProduct || !allowQuantityChanges}
+  onInput={(e) =>
+    setSwapSelections((prev) => ({
+      ...prev,
+      [product.id]: {
+        ...selection,
+        quantity: Math.max(1, Number(e.target.value) || 1),
+      },
+    }))
+  }
+/>
 
             <s-button
               variant="primary"
