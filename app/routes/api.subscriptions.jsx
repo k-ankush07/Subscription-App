@@ -466,26 +466,28 @@ const automationOwnsCurrentProduct = hasAutomationSwapForProduct(
   upcomingCycleIndex,
 );
 
-const allowProductSwaps = !!customerChanges?.allowProductSwaps;
-const allowVariantChanges = !!customerChanges?.allowVariantChanges;
-
-const hasOtherProducts = swapOptions.some((p) => p.id !== currentBaseProductId);
-
-const canSwapProduct =
-  !automationOwnsCurrentProduct &&
-  ((allowProductSwaps && hasOtherProducts) || allowVariantChanges);
 // const allowProductSwaps = !!customerChanges?.allowProductSwaps;
 // const allowVariantChanges = !!customerChanges?.allowVariantChanges;
 
-// const currentProductEntry = swapOptions.find((p) => p.id === currentBaseProductId);
-// const currentProductHasMultipleVariants =
-//   (currentProductEntry?.variants?.length ?? 0) > 1;
 // const hasOtherProducts = swapOptions.some((p) => p.id !== currentBaseProductId);
 
 // const canSwapProduct =
 //   !automationOwnsCurrentProduct &&
-//   ((allowProductSwaps && hasOtherProducts) ||
-//     (allowVariantChanges && currentProductHasMultipleVariants));
+//   ((allowProductSwaps && hasOtherProducts) || allowVariantChanges);
+
+
+const allowProductSwaps = !!customerChanges?.allowProductSwaps;
+const allowVariantChanges = !!customerChanges?.allowVariantChanges;
+
+const currentProductEntry = swapOptions.find((p) => p.id === currentBaseProductId);
+const currentProductHasMultipleVariants =
+  (currentProductEntry?.variants?.length ?? 0) > 1;
+const hasOtherProducts = swapOptions.some((p) => p.id !== currentBaseProductId);
+
+const canSwapProduct =
+  !automationOwnsCurrentProduct &&
+  ((allowProductSwaps && hasOtherProducts) ||
+    (allowVariantChanges && currentProductHasMultipleVariants));
 
         const { cycles: upcomingCycles, hasMoreCycles } = cyclesResult;
 

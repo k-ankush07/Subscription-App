@@ -1004,10 +1004,15 @@ const [swapError, setSwapError] = useState(null);
     }
   }
 
-  function openSwapModal() {
+function openSwapModal() {
   setSwapError(null);
+  const allowProductSwaps = !!(sub.customerProductChanges ?? {}).allowProductSwaps;
+  const currentProductId = items[0]?.productId;
+  const visible = (sub.swapOptions ?? []).filter(
+    (product) => allowProductSwaps || product.id === currentProductId,
+  );
   const defaults = {};
-  (sub.swapOptions ?? []).forEach((product) => {
+  visible.forEach((product) => {
     defaults[product.id] = {
       variantId: product.variants?.[0]?.variantsId ?? "",
       quantity: 1,
@@ -1015,7 +1020,6 @@ const [swapError, setSwapError] = useState(null);
   });
   setSwapSelections(defaults);
 }
-
 async function handleSwapProduct(product) {
   if (swapSaving) return;
   const selection = swapSelections[product.id];
@@ -1069,9 +1073,15 @@ async function handleSwapProduct(product) {
     ? sub.nextOrderLineItems
     : (sub.lines?.edges?.map((e) => e.node) ?? []);
 
-    const customerChanges = sub.customerProductChanges ?? {};
+  const customerChanges = sub.customerProductChanges ?? {};
 const allowQuantityChanges = !!customerChanges.allowQuantityChanges;
+const allowProductSwaps = !!customerChanges.allowProductSwaps;   // NEW
 
+// allowProductSwaps false hai → modal me sirf current product dikhao,
+// doosre products bilkul hide kar do (unpe swap allowed hi nahi hai)
+const visibleSwapProducts = (sub.swapOptions ?? []).filter(
+  (product) => allowProductSwaps || product.id === items[0]?.productId,
+);
   const total = sub.nextOrderTotal;
   const shipping = sub.nextOrderShipping;
   const grandTotal =
@@ -1198,7 +1208,7 @@ const allowQuantityChanges = !!customerChanges.allowQuantityChanges;
   <s-stack direction="block" gap="base">
     {swapError && <s-text tone="critical">{swapError}</s-text>}
 
-    {(sub.swapOptions ?? []).map((product) => {
+   {visibleSwapProducts.map((product) => {
       const isCurrentProduct = product.id === items[0]?.productId;
       const selection = swapSelections[product.id] ?? {
         variantId: product.variants?.[0]?.variantsId ?? "",
