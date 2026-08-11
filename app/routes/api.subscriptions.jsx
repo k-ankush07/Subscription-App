@@ -23,20 +23,30 @@ export const action = async ({ request }) => {
 };
 
 // Agar current subscription line ka product kisi automation "swap" action
-// ka sourceProductId hai, matlab merchant ne khud isko selling plan me
-// swap-out karne ke liye configure kar rakha hai — aisi state me customer
-// ko manual "Swap product" option nahi dena chahiye, warna donon (customer
-// ka manual swap + merchant ki automation) aapas me conflict karenge.
-function hasAutomationSwapForProduct(extraSettings, productId) {
+// ka sourceProductId hai AUR uss automation ka threshold (orders) upcoming
+// cycle tak already reach ho chuka hai, matlab merchant ki automation
+// AGLE hi order pe isko swap karne wali hai — aisi state me customer ko
+// manual "Swap product" option nahi dena chahiye, warna donon (customer ka
+// manual swap + merchant ki automation) aapas me conflict karenge.
+//
+// Agar automation abhi future ke kisi cycle ke liye configured hai (jaise
+// "orders: 2" but hum abhi cycle 1 pe hain), toh koi immediate conflict
+// nahi hai — customer ko abhi swap karne dena chahiye.
+function hasAutomationSwapForProduct(extraSettings, productId, cycleIndex) {
   if (!productId) return false;
   const cycles = extraSettings?.automationCycles;
   if (!Array.isArray(cycles)) return false;
 
-  return cycles.some((entry) =>
-    (entry.actions ?? []).some(
+  return cycles.some((entry) => {
+    // Automation ka threshold abhi tak reach hi nahi hua — future me hoga,
+    // isliye upcoming order ke liye koi conflict nahi.
+    if (cycleIndex != null && Number(entry.orders) > Number(cycleIndex)) {
+      return false;
+    }
+    return (entry.actions ?? []).some(
       (action) => action.type === "swap" && action.sourceProductId === productId,
-    ),
-  );
+    );
+  });
 }
 
 export const loader = async ({ request }) => {
@@ -452,9 +462,12 @@ export const loader = async ({ request }) => {
         const currentBaseProductId =
           preview?.lineItem?.productId ?? lines[0]?.productId ?? null;
 
+        const upcomingCycleIndex = preview?.nextOrder?.cycleIndex ?? null;
+
         const automationOwnsCurrentProduct = hasAutomationSwapForProduct(
           extraSettings,
           currentBaseProductId,
+          upcomingCycleIndex,
         );
 
         const canSwapProduct =
