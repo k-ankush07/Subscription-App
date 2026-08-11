@@ -182,31 +182,27 @@ if (keepDiscounts) {
     if (!result.success) {
       return json({ success: false, error: result.error }, 400);
     }
-     if (settings) {
-      try {
-        const clonedSettings = JSON.parse(JSON.stringify(settings));
-        let changed = false;
+     if (!keepDiscounts && settings) {
+  try {
+    const clonedSettings = JSON.parse(JSON.stringify(settings));
+    let changed = false;
 
-        if (!clonedSettings.beforeDiscountDisabled) {
-          clonedSettings.beforeDiscountDisabled = true;
-          changed = true;
-        }
-        if (clonedSettings.changeDiscountAfterOrders) {
-          clonedSettings.changeDiscountAfterOrders = false;
-          changed = true;
-        }
-
-        if (changed) {
-          await snapshotContractSettings(admin, contractId, clonedSettings);
-        }
-      } catch (err) {
-        console.warn(
-          `[swap_product] failed to persist discount-disable flags for ${contractId}:`,
-          err,
-        );
-      }
+    if (!clonedSettings.beforeDiscountDisabled) {
+      clonedSettings.beforeDiscountDisabled = true;
+      changed = true;
+    }
+    if (clonedSettings.changeDiscountAfterOrders) {
+      clonedSettings.changeDiscountAfterOrders = false;
+      changed = true;
     }
 
+    if (changed) {
+      await snapshotContractSettings(admin, contractId, clonedSettings);
+    }
+  } catch (err) {
+    console.warn(`[swap_product] failed to persist discount-disable flags for ${contractId}:`, err);
+  }
+}
     // if (!keepDiscounts && settings) {
     //   try {
     //     const clonedSettings = JSON.parse(JSON.stringify(settings));
