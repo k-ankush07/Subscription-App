@@ -380,6 +380,7 @@ async function processShop(admin) {
                 node {
                   id
                   sellingPlanId
+                     variantId   
                   pricingPolicy {
                     basePrice { amount currencyCode }
                     cycleDiscounts {
@@ -412,7 +413,10 @@ async function processShop(admin) {
     const { cycle, nextUpcoming } = await findEarliestDueCycle(admin, contract.id, now, contract.createdAt);
 
     const sellingPlanId = contract.lines.edges[0]?.node?.sellingPlanId;
-    const basePriceAmount = contract.lines.edges[0]?.node?.pricingPolicy?.basePrice?.amount ?? null;
+    // const basePriceAmount = contract.lines.edges[0]?.node?.pricingPolicy?.basePrice?.amount ?? null;
+    const firstLineNode = contract.lines.edges[0]?.node;
+const liveVariantPrice = await fetchVariantPrice(admin, firstLineNode?.variantId);
+const basePriceAmount = liveVariantPrice ?? firstLineNode?.pricingPolicy?.basePrice?.amount ?? null;
     const pricingPolicy = contract.lines.edges[0]?.node?.pricingPolicy ?? null; // needed for swap price recalc
     const deliveryPriceAmount = contract.deliveryPrice?.amount ?? null; // needed for shipping discount recalc
     const planInfo = sellingPlanId ? sellingPlanIdToInfo.get(sellingPlanId) : null;

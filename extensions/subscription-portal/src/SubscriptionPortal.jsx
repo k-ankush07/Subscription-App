@@ -1085,6 +1085,7 @@ async function handleSwapProduct(product) {
 const allowQuantityChanges = !!customerChanges.allowQuantityChanges;
 const allowProductSwaps = !!customerChanges.allowProductSwaps;   // NEW
 const allowVariantChanges = !!customerChanges.allowVariantChanges; 
+const keepDiscounts = !!customerChanges.keepDiscounts;
 
 // allowProductSwaps false hai → modal me sirf current product dikhao,
 // doosre products bilkul hide kar do (unpe swap allowed hi nahi hai)
@@ -1183,6 +1184,31 @@ const visibleSwapProducts = (sub.swapOptions ?? []).filter(
         Swap product
       </s-button>
     )}
+    <s-box border="base" borderRadius="base" padding="base">
+  <s-stack direction="block" gap="tight">
+    <s-text fontWeight="bold">Subscription permissions</s-text>
+    <s-stack direction="inline" gap="tight" alignItems="center">
+      <s-badge tone={allowProductSwaps ? "success" : "neutral"}>
+        Product swaps: {allowProductSwaps ? "Allowed" : "Not allowed"}
+      </s-badge>
+    </s-stack>
+    <s-stack direction="inline" gap="tight" alignItems="center">
+      <s-badge tone={allowVariantChanges ? "success" : "neutral"}>
+        Variant changes: {allowVariantChanges ? "Allowed" : "Not allowed"}
+      </s-badge>
+    </s-stack>
+    <s-stack direction="inline" gap="tight" alignItems="center">
+      <s-badge tone={allowQuantityChanges ? "success" : "neutral"}>
+        Quantity changes: {allowQuantityChanges ? "Allowed" : "Not allowed"}
+      </s-badge>
+    </s-stack>
+    <s-stack direction="inline" gap="tight" alignItems="center">
+      <s-badge tone={keepDiscounts ? "success" : "neutral"}>
+        Keep discount on change: {keepDiscounts ? "Yes" : "No"}
+      </s-badge>
+    </s-stack>
+  </s-stack>
+</s-box>
 
           <s-modal
             id={`cancel-modal-${numericId}`}

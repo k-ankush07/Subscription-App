@@ -1422,7 +1422,10 @@ async function getContractPreview(admin, contractId) {
   const variantDataMap = await fetchVariantsBatch(admin, allVariantIdsNeeded);
 
   // let effectiveBase = Number(firstLine?.pricingPolicy?.basePrice?.amount) || 0;
-  let effectiveBase = Number(firstLine?.currentPrice?.amount ?? firstLine?.pricingPolicy?.basePrice?.amount) || 0;
+  // let effectiveBase = Number(firstLine?.currentPrice?.amount ?? firstLine?.pricingPolicy?.basePrice?.amount) || 0;
+    const rawVariantPrice = variantDataMap[firstLine?.variantId]?.price;
+  let effectiveBase =
+    Number(rawVariantPrice ?? firstLine?.pricingPolicy?.basePrice?.amount ?? firstLine?.currentPrice?.amount) || 0;
 
 
   if (swapAction?.variantId) {

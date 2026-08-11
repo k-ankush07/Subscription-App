@@ -13,6 +13,7 @@ import {
   removeLineDiscount,
   clearAnyOpenDraft,       
    updateContractAddress,
+      fetchVariantPrice,
 } from "../lib/billing-preview.server";
 const API = import.meta.env.VITE_API_URL;
 const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
@@ -823,6 +824,7 @@ export async function action({ request, params }) {
               edges {
                 node {
                   sellingPlanId
+                   variantId 
                   pricingPolicy {
                     basePrice { amount currencyCode }
                     cycleDiscounts {
@@ -850,8 +852,10 @@ export async function action({ request, params }) {
 
       const firstLine =
         contractData.data?.subscriptionContract?.lines?.edges?.[0]?.node;
-      const basePriceAmount =
-        firstLine?.pricingPolicy?.basePrice?.amount ?? null;
+      // const basePriceAmount =
+      //   firstLine?.pricingPolicy?.basePrice?.amount ?? null;
+      const liveVariantPrice = await fetchVariantPrice(admin, firstLine?.variantId);
+const basePriceAmount = liveVariantPrice ?? firstLine?.pricingPolicy?.basePrice?.amount ?? null;
       const pricingPolicy = firstLine?.pricingPolicy ?? null;
       const deliveryPriceAmount =
         contractData.data?.subscriptionContract?.deliveryPrice?.amount ??
