@@ -455,25 +455,37 @@ export const loader = async ({ request }) => {
         const customerChanges = extraSettings?.customerProductChanges ?? null;
         const swapOptions = extraSettings?.products ?? [];
 
-        // Current base-line product — jispe hum "manual swap allowed hai ya
-        // nahi" ka decision lete hain. preview ka lineItem.productId original
-        // contract line ka actual current product hai (automation-resolved
-        // display line nahi), isliye yehi sahi source hai.
-        const currentBaseProductId =
-          preview?.lineItem?.productId ?? lines[0]?.productId ?? null;
+       const currentBaseProductId =
+  preview?.lineItem?.productId ?? lines[0]?.productId ?? null;
 
-        const upcomingCycleIndex = preview?.nextOrder?.cycleIndex ?? null;
+const upcomingCycleIndex = preview?.nextOrder?.cycleIndex ?? null;
 
-        const automationOwnsCurrentProduct = hasAutomationSwapForProduct(
-          extraSettings,
-          currentBaseProductId,
-          upcomingCycleIndex,
-        );
+const automationOwnsCurrentProduct = hasAutomationSwapForProduct(
+  extraSettings,
+  currentBaseProductId,
+  upcomingCycleIndex,
+);
 
-        const canSwapProduct =
-          !!customerChanges?.allowProductSwaps &&
-          swapOptions.length > 1 &&
-          !automationOwnsCurrentProduct;
+const allowProductSwaps = !!customerChanges?.allowProductSwaps;
+const allowVariantChanges = !!customerChanges?.allowVariantChanges;
+
+const hasOtherProducts = swapOptions.some((p) => p.id !== currentBaseProductId);
+
+const canSwapProduct =
+  !automationOwnsCurrentProduct &&
+  ((allowProductSwaps && hasOtherProducts) || allowVariantChanges);
+// const allowProductSwaps = !!customerChanges?.allowProductSwaps;
+// const allowVariantChanges = !!customerChanges?.allowVariantChanges;
+
+// const currentProductEntry = swapOptions.find((p) => p.id === currentBaseProductId);
+// const currentProductHasMultipleVariants =
+//   (currentProductEntry?.variants?.length ?? 0) > 1;
+// const hasOtherProducts = swapOptions.some((p) => p.id !== currentBaseProductId);
+
+// const canSwapProduct =
+//   !automationOwnsCurrentProduct &&
+//   ((allowProductSwaps && hasOtherProducts) ||
+//     (allowVariantChanges && currentProductHasMultipleVariants));
 
         const { cycles: upcomingCycles, hasMoreCycles } = cyclesResult;
 
