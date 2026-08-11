@@ -1138,16 +1138,7 @@ async function handleSwapProduct(product) {
                   {pauseResumeLoading ? <s-spinner size="small" /> : "Pause"}
                 </s-button>
               )}
-              {sub.canSwapProduct && (
-      <s-button
-        variant="primary"
-        command="--show"
-        commandFor={swapModalId}
-        onClick={openSwapModal}
-      >
-        Swap product
-      </s-button>
-    )}
+           
 
               <s-button
                 variant="tertiary"
@@ -1160,6 +1151,16 @@ async function handleSwapProduct(product) {
               </s-button>
             </s-stack>
           )}
+             {sub.canSwapProduct && (
+      <s-button
+        variant="primary"
+        command="--show"
+        commandFor={swapModalId}
+        onClick={openSwapModal}
+      >
+        Swap product
+      </s-button>
+    )}
 
           <s-modal
             id={`cancel-modal-${numericId}`}
