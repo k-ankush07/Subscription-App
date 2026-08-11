@@ -1,16 +1,27 @@
 import { authenticate, unauthenticated } from "../shopify.server";
 import { updateContractLineProduct, getContractSettingsSnapshot } from "../lib/billing-preview.server";
 
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+};
+
 function json(data, status) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...CORS_HEADERS },
   });
 }
 
-export const loader = () => new Response("Use POST", { status: 405 });
+export const loader = () =>
+  new Response("Use POST", { status: 405, headers: CORS_HEADERS });
 
 export const action = async ({ request }) => {
+  if (request.method === "OPTIONS") {
+    return new Response(null, { headers: CORS_HEADERS });
+  }
+
   if (request.method !== "POST") {
     return json({ success: false, error: "Method not allowed" }, 405);
   }

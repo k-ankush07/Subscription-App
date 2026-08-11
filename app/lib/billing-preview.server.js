@@ -1977,5 +1977,6 @@ export {
   clearAnyOpenDraft,        
   isBlockedByOpenDraft, 
    updateContractAddress,
+   updateContractLineProduct,
 
 };
