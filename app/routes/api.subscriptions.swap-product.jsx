@@ -3,6 +3,7 @@ import {
   updateContractLineProduct,
   getContractSettingsSnapshot,
   snapshotContractSettings,
+   getContractPreview, 
 } from "../lib/billing-preview.server";
 
 async function getVariantProductId(admin, variantId) {
@@ -154,6 +155,20 @@ export const action = async ({ request }) => {
     }
 
     const keepDiscounts = !!settings?.customerProductChanges?.keepDiscounts;
+    let discountFractionOverride = null;
+if (keepDiscounts) {
+  try {
+    const previewBeforeSwap = await getContractPreview(admin, contractId);
+    const baseLineItem = previewBeforeSwap?.nextOrder?.lineItems?.find((li) => li.isBaseLine);
+    const orig = Number(baseLineItem?.originalPricePerUnit?.amount);
+    const disc = Number(baseLineItem?.pricePerUnit?.amount);
+    if (orig > 0 && !Number.isNaN(disc)) {
+      discountFractionOverride = Math.max(0, (orig - disc) / orig);
+    }
+  } catch (err) {
+    console.warn(`[swap_product] failed to compute discount fraction from preview for ${contractId}:`, err);
+  }
+}
 
     const result = await updateContractLineProduct(admin, contractId, {
       lineId,
@@ -161,6 +176,7 @@ export const action = async ({ request }) => {
       quantity: quantity ?? 1,
       keepDiscount: keepDiscounts,
       allowQuantityChanges: !!settings?.customerProductChanges?.allowQuantityChanges,
+       discountFractionOverride,
     });
 
     if (!result.success) {

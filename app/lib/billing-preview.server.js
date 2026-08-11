@@ -1424,28 +1424,7 @@ async function getContractPreview(admin, contractId) {
   // let effectiveBase = Number(firstLine?.pricingPolicy?.basePrice?.amount) || 0;
   let effectiveBase = Number(firstLine?.currentPrice?.amount ?? firstLine?.pricingPolicy?.basePrice?.amount) || 0;
 
-  // if (swapAction?.variantId) {
-  //   const swappedInfo = variantDataMap[swapAction.variantId];
-  //   if (swappedInfo?.price != null) {
-  //     effectiveBase = swappedInfo.price;
-  //     const tier = getDiscountTierForCycle(firstLine?.pricingPolicy, cycleIndex);
-  //     calculatedPricePerUnit = {
-  //       amount: applyDiscountTierToPrice(effectiveBase, tier).toFixed(2),
-  //       currencyCode:
-  //         firstLine?.pricingPolicy?.basePrice?.currencyCode ??
-  //         firstLine?.currentPrice?.currencyCode,
-  //     };
-  //   } else {
-  //     console.warn(
-  //       `[preview] swap target variant (${swapAction.variantId}) price fetch failed — ` +
-  //         `falling back to original product's price for calculations (may be inaccurate).`,
-  //     );
-  //   }
-  // }
 
-  // Unified discount for the base line — either "before" (native selling-plan tier) or
-  // "after" (merchant's custom afterOrders override). Never both, never a stray "0% off".
-  
   if (swapAction?.variantId) {
   const swappedInfo = variantDataMap[swapAction.variantId];
   if (swappedInfo?.price != null) {
@@ -1899,10 +1878,98 @@ const CONTRACT_UPDATE_MUTATION_WITH_LINES = `
   }
 `;
 
+// async function updateContractLineProduct(
+//   admin,
+//   contractId,
+//   { lineId, variantId, quantity, keepDiscount = false, allowQuantityChanges = true },
+// ) {
+//   try {
+//     await clearAnyOpenDraft(admin, contractId);
+//   } catch (err) {
+//     console.warn(`[swap_product] clearAnyOpenDraft failed for ${contractId}:`, err);
+//   }
+
+//   const draftRes = await admin.graphql(CONTRACT_UPDATE_MUTATION_WITH_LINES, {
+//     variables: { contractId },
+//   });
+//   const draftData = await draftRes.json();
+//   const draftPayload = draftData?.data?.subscriptionContractUpdate;
+
+//   if (!draftPayload?.draft?.id || draftPayload.userErrors?.length) {
+//     return {
+//       success: false,
+//       error:
+//         draftPayload?.userErrors?.map((e) => e.message).join(", ") ||
+//         "Failed to open draft for product swap",
+//     };
+//   }
+
+//   const draftId = draftPayload.draft.id;
+//   const draftLines = draftPayload.draft.lines?.edges?.map((e) => e.node) ?? [];
+//   const targetLine = (lineId && draftLines.find((l) => l.id === lineId)) || draftLines[0];
+
+//   if (!targetLine) {
+//     return { success: false, error: "Subscription line not found" };
+//   }
+
+//   const newRawPrice = await fetchVariantPrice(admin, variantId);
+//   if (newRawPrice == null) {
+//     return { success: false, error: "Could not fetch price for selected variant" };
+//   }
+
+//   let finalPrice = newRawPrice;
+
+//   if (keepDiscount && targetLine.variantId) {
+//     const oldRawPrice = await fetchVariantPrice(admin, targetLine.variantId);
+//     const oldCurrentPrice = Number(targetLine.currentPrice?.amount);
+
+//     if (oldRawPrice > 0 && !Number.isNaN(oldCurrentPrice)) {
+//       const discountFraction = Math.max(0, (oldRawPrice - oldCurrentPrice) / oldRawPrice);
+//       finalPrice = Math.max(0, newRawPrice * (1 - discountFraction));
+//     }
+//     // agar oldRawPrice fetch fail ho jaye ya currentPrice na mile, finalPrice = newRawPrice hi rahega (safe fallback)
+//   }
+
+//   // allowQuantityChanges false → purani line ki quantity hi preserve karo, client se aayi qty ignore karo
+//   const finalQuantity = allowQuantityChanges
+//     ? (Number(quantity) || 1)
+//     : (Number(targetLine.quantity) || 1);
+
+//   const updateRes = await admin.graphql(SWAP_DRAFT_LINE_MUTATION, {
+//     variables: {
+//       draftId,
+//       lineId: targetLine.id,
+//       variantId,
+//       price: finalPrice.toFixed(2),
+//       qty: finalQuantity,
+//     },
+//   });
+//   const updateData = await updateRes.json();
+//   const updatePayload = updateData?.data?.subscriptionDraftLineUpdate;
+//   if (updatePayload?.userErrors?.length) {
+//     return { success: false, error: updatePayload.userErrors.map((e) => e.message).join(", ") };
+//   }
+
+//   const commitRes = await admin.graphql(DRAFT_COMMIT_MUTATION, { variables: { draftId } });
+//   const commitData = await commitRes.json();
+//   const commitPayload = commitData?.data?.subscriptionDraftCommit;
+//   if (!commitPayload?.contract || commitPayload.userErrors?.length) {
+//     return {
+//       success: false,
+//       error:
+//         commitPayload?.userErrors?.map((e) => e.message).join(", ") ||
+//         "Failed to commit product swap",
+//     };
+//   }
+
+//   return { success: true };
+// }
+
+
 async function updateContractLineProduct(
   admin,
   contractId,
-  { lineId, variantId, quantity, keepDiscount = false, allowQuantityChanges = true },
+  { lineId, variantId, quantity, keepDiscount = false, allowQuantityChanges = true, discountFractionOverride = null },
 ) {
   try {
     await clearAnyOpenDraft(admin, contractId);
@@ -1940,15 +2007,30 @@ async function updateContractLineProduct(
 
   let finalPrice = newRawPrice;
 
-  if (keepDiscount && targetLine.variantId) {
-    const oldRawPrice = await fetchVariantPrice(admin, targetLine.variantId);
-    const oldCurrentPrice = Number(targetLine.currentPrice?.amount);
+  if (keepDiscount) {
+    let discountFraction = null;
 
-    if (oldRawPrice > 0 && !Number.isNaN(oldCurrentPrice)) {
-      const discountFraction = Math.max(0, (oldRawPrice - oldCurrentPrice) / oldRawPrice);
+    // FIX: agar caller ne cycle ke liye actual applicable discount fraction diya hai
+    // (jo settings ke hisaab se sahi hai — e.g. "after N orders" 49%), usko priority do.
+    // Committed line ka currentPrice STALE ho sakta hai jab tak cron us cycle ko edit
+    // nahi kar deta, isliye sirf usi pe bharosa karna galat (purana native tier) discount de sakta hai.
+    if (discountFractionOverride != null && !Number.isNaN(discountFractionOverride)) {
+      discountFraction = Math.max(0, Math.min(1, discountFractionOverride));
+    } else if (targetLine.variantId) {
+      // fallback: purana behavior — committed line price se fraction nikalo
+      const oldRawPrice = await fetchVariantPrice(admin, targetLine.variantId);
+      const oldCurrentPrice = Number(targetLine.currentPrice?.amount);
+
+      if (oldRawPrice > 0 && !Number.isNaN(oldCurrentPrice)) {
+        discountFraction = Math.max(0, (oldRawPrice - oldCurrentPrice) / oldRawPrice);
+      }
+      // agar oldRawPrice fetch fail ho jaye ya currentPrice na mile, discountFraction null hi rahega
+    }
+
+    if (discountFraction != null) {
       finalPrice = Math.max(0, newRawPrice * (1 - discountFraction));
     }
-    // agar oldRawPrice fetch fail ho jaye ya currentPrice na mile, finalPrice = newRawPrice hi rahega (safe fallback)
+    // agar discountFraction kisi bhi tarah se resolve na ho paaya, finalPrice = newRawPrice hi rahega (safe fallback)
   }
 
   // allowQuantityChanges false → purani line ki quantity hi preserve karo, client se aayi qty ignore karo
