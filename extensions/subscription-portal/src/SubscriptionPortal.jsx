@@ -518,7 +518,8 @@ function SubscriptionDetail({
   );
   const swapModalRef = useRef(null);
 const [swapSelections, setSwapSelections] = useState({});
-const [swapSaving, setSwapSaving] = useState(false);
+// const [swapSaving, setSwapSaving] = useState(false);
+const [savingProductId, setSavingProductId] = useState(null);
 const [swapError, setSwapError] = useState(null);
 
   const [loadingCycleIndex, setLoadingCycleIndex] = useState(null);
@@ -1019,15 +1020,64 @@ function openSwapModal() {
       variantId: isCurrentProductCard
         ? (items[0]?.variantId ?? product.variants?.[0]?.variantsId ?? "")
         : (product.variants?.[0]?.variantsId ?? ""),
-      // FIX: current product ke card ke liye actual current quantity use karo,
-      // doosre (swap) products ke liye 1 hi sahi hai kyunki wo naye add ho rahe hain
       quantity: isCurrentProductCard ? currentQuantity : 1,
     };
   });
   setSwapSelections(defaults);
 }
+// async function handleSwapProduct(product) {
+//   if (swapSaving) return;
+//   const selection = swapSelections[product.id];
+//   const variantId = selection?.variantId || product.variants?.[0]?.variantsId;
+//   const quantity = allowQuantityChanges
+//     ? (selection?.quantity || 1)
+//     : (items[0]?.quantity || 1);
+
+//   if (!variantId) {
+//     setSwapError("Please select a variant");
+//     return;
+//   }
+
+//   try {
+//     setSwapSaving(true);
+//     setSwapError(null);
+
+//     const token = await shopify.sessionToken.get();
+//     const res = await fetch(`${API_BASE}/api/subscriptions/swap-product`, {
+//       method: "POST",
+//       headers: {
+//         Authorization: `Bearer ${token}`,
+//         "Content-Type": "application/json",
+//       },
+//       body: JSON.stringify({
+//         contractId: sub.id,
+//         lineId: items[0]?.id,
+//         variantId,
+//         quantity,
+//       }),
+//     });
+
+//     const data = await res.json();
+//     if (!res.ok || !data.success) {
+//       throw new Error(data.error || "Swap failed");
+//     }
+
+//     shopify.toast.show("Product swapped");
+//     swapModalRef.current?.hide?.();
+
+//     refreshSubscriptions().catch((err) =>
+//       console.error("Background refresh after swap failed:", err),
+//     );
+//   } catch (err) {
+//     console.error(err);
+//     setSwapError(err.message);
+//   } finally {
+//     setSwapSaving(false);
+//   }
+// }
+
 async function handleSwapProduct(product) {
-  if (swapSaving) return;
+  if (savingProductId != null) return;
   const selection = swapSelections[product.id];
   const variantId = selection?.variantId || product.variants?.[0]?.variantsId;
   const quantity = allowQuantityChanges
@@ -1040,7 +1090,7 @@ async function handleSwapProduct(product) {
   }
 
   try {
-    setSwapSaving(true);
+    setSavingProductId(product.id);
     setSwapError(null);
 
     const token = await shopify.sessionToken.get();
@@ -1073,7 +1123,7 @@ async function handleSwapProduct(product) {
     console.error(err);
     setSwapError(err.message);
   } finally {
-    setSwapSaving(false);
+    setSavingProductId(null);
   }
 }
 
@@ -1392,7 +1442,7 @@ const visibleSwapProducts = (sub.swapOptions ?? []).filter(
           label="Quantity"
           type="number"
           value={String(selection.quantity)}
-          disabled={!canEditThisCard || !allowQuantityChanges}
+          disabled={!canEditThisCard || !allowQuantityChanges || savingProductId != null}
           onInput={(e) =>
             setSwapSelections((prev) => ({
               ...prev,
@@ -1406,10 +1456,11 @@ const visibleSwapProducts = (sub.swapOptions ?? []).filter(
 
         <s-button
           variant="primary"
-          disabled={!canEditThisCard || swapSaving || isNoChangeSelected}
+          disabled={!canEditThisCard || savingProductId != null || isNoChangeSelected}
           onClick={() => handleSwapProduct(product)}
         >
-          {swapSaving ? <s-spinner size="small" /> : "Swap product"}
+          {/* {swapSaving ? <s-spinner size="small" /> : "Swap product"} */}
+          {savingProductId === product.id ? <s-spinner size="small" /> : "Swap product"}
         </s-button>
       </s-stack>
     </s-box>
@@ -1421,7 +1472,7 @@ const visibleSwapProducts = (sub.swapOptions ?? []).filter(
     slot="secondary-actions"
     command="--hide"
     commandFor={swapModalId}
-    disabled={swapSaving}
+    disabled={savingProductId != null}
   >
     Close
   </s-button>
