@@ -1185,7 +1185,7 @@ const visibleSwapProducts = (sub.swapOptions ?? []).filter(
       </s-button>
     )}
     <s-box border="base" borderRadius="base" padding="base">
-  <s-stack direction="block" gap="tight">
+  <s-stack direction="block" gap="base">
     <s-text fontWeight="bold">Subscription permissions</s-text>
     <s-stack direction="inline" gap="tight" alignItems="center">
       <s-badge tone={allowProductSwaps ? "success" : "neutral"}>
