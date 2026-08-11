@@ -166,10 +166,7 @@ export const action = async ({ request }) => {
     if (!result.success) {
       return json({ success: false, error: result.error }, 400);
     }
-
-    // keepDiscounts false hai → base-line pe lagne wala HAR automatic discount
-    // (native selling-plan tier + "after N orders" wala) permanently disable karo.
-    if (!keepDiscounts && settings) {
+     if (settings) {
       try {
         const clonedSettings = JSON.parse(JSON.stringify(settings));
         let changed = false;
@@ -193,6 +190,31 @@ export const action = async ({ request }) => {
         );
       }
     }
+
+    // if (!keepDiscounts && settings) {
+    //   try {
+    //     const clonedSettings = JSON.parse(JSON.stringify(settings));
+    //     let changed = false;
+
+    //     if (!clonedSettings.beforeDiscountDisabled) {
+    //       clonedSettings.beforeDiscountDisabled = true;
+    //       changed = true;
+    //     }
+    //     if (clonedSettings.changeDiscountAfterOrders) {
+    //       clonedSettings.changeDiscountAfterOrders = false;
+    //       changed = true;
+    //     }
+
+    //     if (changed) {
+    //       await snapshotContractSettings(admin, contractId, clonedSettings);
+    //     }
+    //   } catch (err) {
+    //     console.warn(
+    //       `[swap_product] failed to persist discount-disable flags for ${contractId}:`,
+    //       err,
+    //     );
+    //   }
+    // }
 
     // Sirf cross-product swap ke case me hi automation-conflict clear karna
     // zaroori hai — variant-only change me product khud change nahi hua,

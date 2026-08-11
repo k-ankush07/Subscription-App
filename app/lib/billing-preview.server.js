@@ -1402,7 +1402,8 @@ async function getContractPreview(admin, contractId) {
 
   // let calculatedPricePerUnit =
   //   cycleIndex != null ? computePriceForCycle(firstLine?.pricingPolicy, cycleIndex) : null;
-  let calculatedPricePerUnit = firstLine?.pricingPolicy?.basePrice ?? null;
+  // let calculatedPricePerUnit = firstLine?.pricingPolicy?.basePrice ?? null;
+  let calculatedPricePerUnit = firstLine?.currentPrice ?? firstLine?.pricingPolicy?.basePrice ?? null;
   const swapAction = Array.isArray(actionsForNextCycle)
     ? actionsForNextCycle.find((a) => a.type === "VARIANT_SWAP" || a.type === "PRODUCT_SWAP")
     : null;
@@ -1420,7 +1421,8 @@ async function getContractPreview(admin, contractId) {
 
   const variantDataMap = await fetchVariantsBatch(admin, allVariantIdsNeeded);
 
-  let effectiveBase = Number(firstLine?.pricingPolicy?.basePrice?.amount) || 0;
+  // let effectiveBase = Number(firstLine?.pricingPolicy?.basePrice?.amount) || 0;
+  let effectiveBase = Number(firstLine?.currentPrice?.amount ?? firstLine?.pricingPolicy?.basePrice?.amount) || 0;
 
   // if (swapAction?.variantId) {
   //   const swappedInfo = variantDataMap[swapAction.variantId];
