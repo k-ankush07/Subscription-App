@@ -1024,7 +1024,9 @@ async function handleSwapProduct(product) {
   if (swapSaving) return;
   const selection = swapSelections[product.id];
   const variantId = selection?.variantId || product.variants?.[0]?.variantsId;
-  const quantity = allowQuantityChanges ? (selection?.quantity || 1) : 1;
+  const quantity = allowQuantityChanges
+    ? (selection?.quantity || 1)
+    : (items[0]?.quantity || 1);
 
   if (!variantId) {
     setSwapError("Please select a variant");
@@ -1209,7 +1211,7 @@ const visibleSwapProducts = (sub.swapOptions ?? []).filter(
   <s-stack direction="block" gap="base">
     {swapError && <s-text tone="critical">{swapError}</s-text>}
 
-   {visibleSwapProducts.map((product) => {
+   {/* {visibleSwapProducts.map((product) => {
   const isCurrentProductCard = product.id === items[0]?.productId;
   const selection = swapSelections[product.id] ?? {
     variantId: product.variants?.[0]?.variantsId ?? "",
@@ -1283,6 +1285,79 @@ const visibleSwapProducts = (sub.swapOptions ?? []).filter(
         <s-button
           variant="primary"
           disabled={!canEditThisCard || swapSaving || isSameVariantSelected}
+          onClick={() => handleSwapProduct(product)}
+        >
+          {swapSaving ? <s-spinner size="small" /> : "Swap product"}
+        </s-button>
+      </s-stack>
+    </s-box>
+  );
+})} */}
+
+{visibleSwapProducts.map((product) => {
+  const isCurrentProductCard = product.id === items[0]?.productId;
+  const selection = swapSelections[product.id] ?? {
+    variantId: product.variants?.[0]?.variantsId ?? "",
+    quantity: 1,
+  };
+  const selectedVariant =
+    product.variants?.find((v) => v.variantsId === selection.variantId) ??
+    product.variants?.[0];
+
+  const canEditThisCard = isCurrentProductCard ? allowVariantChanges : allowProductSwaps;
+
+  const currentVariantId = items[0]?.variantId ?? product.variants?.[0]?.variantsId;
+  const currentQuantity = items[0]?.quantity ?? 1;
+
+  // FIX: ab variant AUR quantity dono compare karo — button tabhi disable ho
+  // jab dono same hon, taaki quantity-only change bhi submit ho sake
+  const isNoChangeSelected =
+    isCurrentProductCard &&
+    selection.variantId === currentVariantId &&
+    Number(selection.quantity) === Number(currentQuantity);
+
+  return (
+    <s-box key={product.id} border="base" borderRadius="base" padding="base">
+      <s-stack direction="block" gap="tight">
+        {/* ... image/title/price same ... */}
+
+        <s-select
+          label="Select variant"
+          value={selection.variantId}
+          disabled={!canEditThisCard}
+          onChange={(e) =>
+            setSwapSelections((prev) => ({
+              ...prev,
+              [product.id]: { ...selection, variantId: e.target.value },
+            }))
+          }
+        >
+          {(product.variants ?? []).map((v) => (
+            <s-option key={v.variantsId} value={v.variantsId}>
+              {v.variantsTitle}
+            </s-option>
+          ))}
+        </s-select>
+
+        <s-text-field
+          label="Quantity"
+          type="number"
+          value={String(selection.quantity)}
+          disabled={!canEditThisCard || !allowQuantityChanges}
+          onInput={(e) =>
+            setSwapSelections((prev) => ({
+              ...prev,
+              [product.id]: {
+                ...selection,
+                quantity: Math.max(1, Number(e.target.value) || 1),
+              },
+            }))
+          }
+        />
+
+        <s-button
+          variant="primary"
+          disabled={!canEditThisCard || swapSaving || isNoChangeSelected}
           onClick={() => handleSwapProduct(product)}
         >
           {swapSaving ? <s-spinner size="small" /> : "Swap product"}
