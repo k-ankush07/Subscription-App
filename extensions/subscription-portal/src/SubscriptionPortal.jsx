@@ -1209,79 +1209,87 @@ const visibleSwapProducts = (sub.swapOptions ?? []).filter(
     {swapError && <s-text tone="critical">{swapError}</s-text>}
 
    {visibleSwapProducts.map((product) => {
-      const isCurrentProduct = product.id === items[0]?.productId;
-      const selection = swapSelections[product.id] ?? {
-        variantId: product.variants?.[0]?.variantsId ?? "",
-        quantity: 1,
-      };
-      const selectedVariant =
-        product.variants?.find((v) => v.variantsId === selection.variantId) ??
-        product.variants?.[0];
+  const isCurrentProductCard = product.id === items[0]?.productId;
+  const selection = swapSelections[product.id] ?? {
+    variantId: product.variants?.[0]?.variantsId ?? "",
+    quantity: 1,
+  };
+  const selectedVariant =
+    product.variants?.find((v) => v.variantsId === selection.variantId) ??
+    product.variants?.[0];
 
-      return (
-        <s-box key={product.id} border="base" borderRadius="base" padding="base">
-          <s-stack direction="block" gap="tight">
-            <s-stack direction="inline" gap="tight" alignItems="center">
-              <s-box inlineSize="56px" blockSize="56px" borderRadius="base" overflow="hidden">
-                <s-image src={product.ProductImage} alt={product.title} />
-              </s-box>
-              <s-stack direction="block" gap="none">
-                <s-text fontWeight="bold">{product.title}</s-text>
-                {selectedVariant?.variantsTitle && (
-                  <s-text tone="subdued">{selectedVariant.variantsTitle}</s-text>
-                )}
-                {selectedVariant?.price != null && (
-                  <s-text tone="subdued">₹{selectedVariant.price}.00</s-text>
-                )}
-                {isCurrentProduct && <s-text tone="subdued">(Current product)</s-text>}
-              </s-stack>
-            </s-stack>
+  // Same product ke andar variant/quantity change ke liye allowVariantChanges chahiye.
+  // Doosre product pe poora swap karne ke liye allowProductSwaps chahiye.
+  const canEditThisCard = isCurrentProductCard ? allowVariantChanges : allowProductSwaps;
 
-            <s-select
-              label="Select variant"
-              value={selection.variantId}
-              disabled={isCurrentProduct}
-              onChange={(e) =>
-                setSwapSelections((prev) => ({
-                  ...prev,
-                  [product.id]: { ...selection, variantId: e.target.value },
-                }))
-              }
-            >
-              {(product.variants ?? []).map((v) => (
-                <s-option key={v.variantsId} value={v.variantsId}>
-                  {v.variantsTitle}
-                </s-option>
-              ))}
-            </s-select>
+  // "same variant hi wapas select kiya" — ye disallow karo taaki useless request na jaye
+  const isSameVariantSelected =
+    isCurrentProductCard && selection.variantId === (items[0]?.variantId ?? product.variants?.[0]?.variantsId);
 
-            <s-text-field
-  label="Quantity"
-  type="number"
-  value={String(selection.quantity)}
-  disabled={isCurrentProduct || !allowQuantityChanges}
-  onInput={(e) =>
-    setSwapSelections((prev) => ({
-      ...prev,
-      [product.id]: {
-        ...selection,
-        quantity: Math.max(1, Number(e.target.value) || 1),
-      },
-    }))
-  }
-/>
-
-            <s-button
-              variant="primary"
-              disabled={isCurrentProduct || swapSaving}
-              onClick={() => handleSwapProduct(product)}
-            >
-              {swapSaving ? <s-spinner size="small" /> : "Swap product"}
-            </s-button>
+  return (
+    <s-box key={product.id} border="base" borderRadius="base" padding="base">
+      <s-stack direction="block" gap="tight">
+        <s-stack direction="inline" gap="tight" alignItems="center">
+          <s-box inlineSize="56px" blockSize="56px" borderRadius="base" overflow="hidden">
+            <s-image src={product.ProductImage} alt={product.title} />
+          </s-box>
+          <s-stack direction="block" gap="none">
+            <s-text fontWeight="bold">{product.title}</s-text>
+            {selectedVariant?.variantsTitle && (
+              <s-text tone="subdued">{selectedVariant.variantsTitle}</s-text>
+            )}
+            {selectedVariant?.price != null && (
+              <s-text tone="subdued">₹{selectedVariant.price}.00</s-text>
+            )}
+            {isCurrentProductCard && <s-text tone="subdued">(Current product)</s-text>}
           </s-stack>
-        </s-box>
-      );
-    })}
+        </s-stack>
+
+        <s-select
+          label="Select variant"
+          value={selection.variantId}
+          disabled={!canEditThisCard}
+          onChange={(e) =>
+            setSwapSelections((prev) => ({
+              ...prev,
+              [product.id]: { ...selection, variantId: e.target.value },
+            }))
+          }
+        >
+          {(product.variants ?? []).map((v) => (
+            <s-option key={v.variantsId} value={v.variantsId}>
+              {v.variantsTitle}
+            </s-option>
+          ))}
+        </s-select>
+
+        <s-text-field
+          label="Quantity"
+          type="number"
+          value={String(selection.quantity)}
+          disabled={!canEditThisCard || !allowQuantityChanges}
+          onInput={(e) =>
+            setSwapSelections((prev) => ({
+              ...prev,
+              [product.id]: {
+                ...selection,
+                quantity: Math.max(1, Number(e.target.value) || 1),
+              },
+            }))
+          }
+        />
+
+        <s-button
+          variant="primary"
+          disabled={!canEditThisCard || swapSaving || isSameVariantSelected}
+          onClick={() => handleSwapProduct(product)}
+        >
+          {swapSaving ? <s-spinner size="small" /> : "Swap product"}
+        </s-button>
+      </s-stack>
+    </s-box>
+  );
+})}
   </s-stack>
 
   <s-button
