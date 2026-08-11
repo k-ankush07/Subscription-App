@@ -5,6 +5,7 @@ import { InlineStack, Button } from "@shopify/polaris";
 export const PORTAL_TABS = [
   { label: "Customer portal", path: "/app/customerportal" },
   { label: "Quick actions", path: "/app/quick-actions" },
+  { label: "Cancellation reason", path: "/app/cancelSubscription" },
 ];
 
 export default function PortalNav() {
