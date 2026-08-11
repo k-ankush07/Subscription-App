@@ -1076,6 +1076,7 @@ async function handleSwapProduct(product) {
   const customerChanges = sub.customerProductChanges ?? {};
 const allowQuantityChanges = !!customerChanges.allowQuantityChanges;
 const allowProductSwaps = !!customerChanges.allowProductSwaps;   // NEW
+const allowVariantChanges = !!customerChanges.allowVariantChanges; 
 
 // allowProductSwaps false hai → modal me sirf current product dikhao,
 // doosre products bilkul hide kar do (unpe swap allowed hi nahi hai)
