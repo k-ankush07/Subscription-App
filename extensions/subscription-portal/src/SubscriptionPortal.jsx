@@ -516,6 +516,10 @@ function SubscriptionDetail({
   const [hasMoreCycles, setHasMoreCycles] = useState(
     sub.hasMoreCycles ?? false,
   );
+  const swapModalRef = useRef(null);
+const [swapSelections, setSwapSelections] = useState({});
+const [swapSaving, setSwapSaving] = useState(false);
+const [swapError, setSwapError] = useState(null);
 
   const [loadingCycleIndex, setLoadingCycleIndex] = useState(null);
   const [loadingAction, setLoadingAction] = useState(null);
@@ -1000,6 +1004,67 @@ function SubscriptionDetail({
     }
   }
 
+  function openSwapModal() {
+  setSwapError(null);
+  const defaults = {};
+  (sub.swapOptions ?? []).forEach((product) => {
+    defaults[product.id] = {
+      variantId: product.variants?.[0]?.variantsId ?? "",
+      quantity: 1,
+    };
+  });
+  setSwapSelections(defaults);
+}
+
+async function handleSwapProduct(product) {
+  if (swapSaving) return;
+  const selection = swapSelections[product.id];
+  const variantId = selection?.variantId || product.variants?.[0]?.variantsId;
+  const quantity = selection?.quantity || 1;
+
+  if (!variantId) {
+    setSwapError("Please select a variant");
+    return;
+  }
+
+  try {
+    setSwapSaving(true);
+    setSwapError(null);
+
+    const token = await shopify.sessionToken.get();
+    const res = await fetch(`${API_BASE}/api/subscriptions/swap-product`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        contractId: sub.id,
+        lineId: items[0]?.id,
+        variantId,
+        quantity,
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || "Swap failed");
+    }
+
+    shopify.toast.show("Product swapped");
+    swapModalRef.current?.hide?.();
+
+    refreshSubscriptions().catch((err) =>
+      console.error("Background refresh after swap failed:", err),
+    );
+  } catch (err) {
+    console.error(err);
+    setSwapError(err.message);
+  } finally {
+    setSwapSaving(false);
+  }
+}
+
   const items = sub.nextOrderLineItems?.length
     ? sub.nextOrderLineItems
     : (sub.lines?.edges?.map((e) => e.node) ?? []);
@@ -1020,6 +1085,7 @@ function SubscriptionDetail({
   const numericId = getNumericId(sub.id);
   const modalId = `upcoming-orders-modal-${numericId}`;
   const addressModalId = `edit-address-modal-${numericId}`;
+  const swapModalId = `swap-product-modal-${numericId}`;
   const rescheduleModalId = `reschedule-modal-${numericId}`;
   const paymentMenuModalId = `payment-menu-modal-${numericId}`;
   const cycles = upcomingCycles;
@@ -1072,6 +1138,16 @@ function SubscriptionDetail({
                   {pauseResumeLoading ? <s-spinner size="small" /> : "Pause"}
                 </s-button>
               )}
+              {sub.canSwapProduct && (
+      <s-button
+        variant="primary"
+        command="--show"
+        commandFor={swapModalId}
+        onClick={openSwapModal}
+      >
+        Swap product
+      </s-button>
+    )}
 
               <s-button
                 variant="tertiary"
@@ -1114,7 +1190,95 @@ function SubscriptionDetail({
             </s-button>
           </s-modal>
 
+<s-modal id={swapModalId} ref={swapModalRef} heading="Swap product">
+  <s-stack direction="block" gap="base">
+    {swapError && <s-text tone="critical">{swapError}</s-text>}
 
+    {(sub.swapOptions ?? []).map((product) => {
+      const isCurrentProduct = product.id === items[0]?.productId;
+      const selection = swapSelections[product.id] ?? {
+        variantId: product.variants?.[0]?.variantsId ?? "",
+        quantity: 1,
+      };
+      const selectedVariant =
+        product.variants?.find((v) => v.variantsId === selection.variantId) ??
+        product.variants?.[0];
+
+      return (
+        <s-box key={product.id} border="base" borderRadius="base" padding="base">
+          <s-stack direction="block" gap="tight">
+            <s-stack direction="inline" gap="tight" alignItems="center">
+              <s-box inlineSize="56px" blockSize="56px" borderRadius="base" overflow="hidden">
+                <s-image src={product.ProductImage} alt={product.title} />
+              </s-box>
+              <s-stack direction="block" gap="none">
+                <s-text fontWeight="bold">{product.title}</s-text>
+                {selectedVariant?.variantsTitle && (
+                  <s-text tone="subdued">{selectedVariant.variantsTitle}</s-text>
+                )}
+                {selectedVariant?.price != null && (
+                  <s-text tone="subdued">₹{selectedVariant.price}.00</s-text>
+                )}
+                {isCurrentProduct && <s-text tone="subdued">(Current product)</s-text>}
+              </s-stack>
+            </s-stack>
+
+            <s-select
+              label="Select variant"
+              value={selection.variantId}
+              disabled={isCurrentProduct}
+              onChange={(e) =>
+                setSwapSelections((prev) => ({
+                  ...prev,
+                  [product.id]: { ...selection, variantId: e.target.value },
+                }))
+              }
+            >
+              {(product.variants ?? []).map((v) => (
+                <s-option key={v.variantsId} value={v.variantsId}>
+                  {v.variantsTitle}
+                </s-option>
+              ))}
+            </s-select>
+
+            <s-text-field
+              label="Quantity"
+              type="number"
+              value={String(selection.quantity)}
+              disabled={isCurrentProduct}
+              onInput={(e) =>
+                setSwapSelections((prev) => ({
+                  ...prev,
+                  [product.id]: {
+                    ...selection,
+                    quantity: Math.max(1, Number(e.target.value) || 1),
+                  },
+                }))
+              }
+            />
+
+            <s-button
+              variant="primary"
+              disabled={isCurrentProduct || swapSaving}
+              onClick={() => handleSwapProduct(product)}
+            >
+              {swapSaving ? <s-spinner size="small" /> : "Swap product"}
+            </s-button>
+          </s-stack>
+        </s-box>
+      );
+    })}
+  </s-stack>
+
+  <s-button
+    slot="secondary-actions"
+    command="--hide"
+    commandFor={swapModalId}
+    disabled={swapSaving}
+  >
+    Close
+  </s-button>
+</s-modal>
           <s-box border="base" borderRadius="base" padding="base">
             <s-stack direction="block" gap="base">
               <s-stack direction="block" gap="tight">

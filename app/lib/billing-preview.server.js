@@ -1859,6 +1859,97 @@ async function updateContractAddress(admin, contractId, addressInput) {
   return { success: true };
 }
 
+const SWAP_DRAFT_LINE_MUTATION = `
+  mutation swapDraftLine($draftId: ID!, $lineId: ID!, $variantId: ID!, $price: Decimal!, $qty: Int!) {
+    subscriptionDraftLineUpdate(
+      draftId: $draftId
+      lineId: $lineId
+      input: { productVariantId: $variantId, currentPrice: $price, quantity: $qty }
+    ) {
+      userErrors { field message }
+    }
+  }
+`;
+
+const CONTRACT_UPDATE_MUTATION_WITH_LINES = `
+  mutation SubscriptionContractUpdateForSwap($contractId: ID!) {
+    subscriptionContractUpdate(contractId: $contractId) {
+      draft {
+        id
+        lines(first: 50) {
+          edges { node { id productId variantId } }
+        }
+      }
+      userErrors { field message code }
+    }
+  }
+`;
+
+async function updateContractLineProduct(admin, contractId, { lineId, variantId, quantity }) {
+  try {
+    await clearAnyOpenDraft(admin, contractId);
+  } catch (err) {
+    console.warn(`[swap_product] clearAnyOpenDraft failed for ${contractId}:`, err);
+  }
+
+  const draftRes = await admin.graphql(CONTRACT_UPDATE_MUTATION_WITH_LINES, {
+    variables: { contractId },
+  });
+  const draftData = await draftRes.json();
+  const draftPayload = draftData?.data?.subscriptionContractUpdate;
+
+  if (!draftPayload?.draft?.id || draftPayload.userErrors?.length) {
+    return {
+      success: false,
+      error:
+        draftPayload?.userErrors?.map((e) => e.message).join(", ") ||
+        "Failed to open draft for product swap",
+    };
+  }
+
+  const draftId = draftPayload.draft.id;
+  const draftLines = draftPayload.draft.lines?.edges?.map((e) => e.node) ?? [];
+  const targetLine = (lineId && draftLines.find((l) => l.id === lineId)) || draftLines[0];
+
+  if (!targetLine) {
+    return { success: false, error: "Subscription line not found" };
+  }
+
+  const newPrice = await fetchVariantPrice(admin, variantId);
+  if (newPrice == null) {
+    return { success: false, error: "Could not fetch price for selected variant" };
+  }
+
+  const updateRes = await admin.graphql(SWAP_DRAFT_LINE_MUTATION, {
+    variables: {
+      draftId,
+      lineId: targetLine.id,
+      variantId,
+      price: newPrice.toFixed(2),
+      qty: Number(quantity) || 1,
+    },
+  });
+  const updateData = await updateRes.json();
+  const updatePayload = updateData?.data?.subscriptionDraftLineUpdate;
+  if (updatePayload?.userErrors?.length) {
+    return { success: false, error: updatePayload.userErrors.map((e) => e.message).join(", ") };
+  }
+
+  const commitRes = await admin.graphql(DRAFT_COMMIT_MUTATION, { variables: { draftId } });
+  const commitData = await commitRes.json();
+  const commitPayload = commitData?.data?.subscriptionDraftCommit;
+  if (!commitPayload?.contract || commitPayload.userErrors?.length) {
+    return {
+      success: false,
+      error:
+        commitPayload?.userErrors?.map((e) => e.message).join(", ") ||
+        "Failed to commit product swap",
+    };
+  }
+
+  return { success: true };
+}
+
 export {
   getContractPreview,
   collectActionsForCycle,

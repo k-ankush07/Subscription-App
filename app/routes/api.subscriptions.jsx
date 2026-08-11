@@ -14,7 +14,7 @@ const MAX_LIMIT = 50;
 const BILLING_CYCLES_FETCH_LIMIT = 20;
 const PAST_ORDERS_FETCH_LIMIT = 10;
 
-const ALLOWED_STATUSES = ["ACTIVE", "PAUSED", "CANCELLED", "EXPIRED"];
+const ALLOWED_STATUSES = ["ACTIVE", "PAUSED", "CANCELLED"];
 
 export const action = async ({ request }) => {
   if (request.method === "OPTIONS") {
@@ -49,9 +49,6 @@ export const loader = async ({ request }) => {
     if (/^\d+$/.test(customerId)) {
       customerId = `gid://shopify/Customer/${customerId}`;
     }
-
-    // root-level subscriptionContracts supports the `query` search argument,
-    // unlike customer.subscriptionContracts (nested) which does not.
     const numericCustomerId = customerId.split("/").pop();
     const searchParts = [`customer_id:${numericCustomerId}`];
     if (statusParam && ALLOWED_STATUSES.includes(statusParam.toUpperCase())) {
@@ -134,20 +131,20 @@ export const loader = async ({ request }) => {
 
     const { data, errors } = await res.json();
 
-    console.log(
-      "DEBUG subscriptions lookup:",
-      JSON.stringify(
-        {
-          shop,
-          queriedCustomerId: customerId,
-          searchQuery,
-          limit,
-          cursor,
-        },
-        null,
-        2,
-      ),
-    );
+    // console.log(
+    //   "DEBUG subscriptions lookup:",
+    //   JSON.stringify(
+    //     {
+    //       shop,
+    //       queriedCustomerId: customerId,
+    //       searchQuery,
+    //       limit,
+    //       cursor,
+    //     },
+    //     null,
+    //     2,
+    //   ),
+    // );
 
     if (errors) {
       console.error("GraphQL errors:", JSON.stringify(errors, null, 2));
@@ -443,6 +440,10 @@ export const loader = async ({ request }) => {
               currencyCode: resolvedLine.pricePerUnit?.currencyCode,
             }
           : null;
+          const extraSettings = preview?.allExtraSettings ?? null;
+const customerChanges = extraSettings?.customerProductChanges ?? null;
+const swapOptions = extraSettings?.products ?? [];
+const canSwapProduct = !!customerChanges?.allowProductSwaps && swapOptions.length > 1;
 
         const { cycles: upcomingCycles, hasMoreCycles } = cyclesResult;
 
@@ -458,6 +459,9 @@ export const loader = async ({ request }) => {
 
         return {
           ...contract,
+          customerProductChanges: customerChanges,
+  swapOptions,
+  canSwapProduct,
           lines: { edges: lines.map((line) => ({ node: line })) },
           displayLine,
           nextOrderLineItems: preview?.nextOrder?.lineItems ?? [],
