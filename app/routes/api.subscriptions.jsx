@@ -1,4 +1,3 @@
-
 import { authenticate, unauthenticated } from "../shopify.server";
 import { getContractPreview } from "../lib/billing-preview.server";
 
@@ -22,6 +21,23 @@ export const action = async ({ request }) => {
   }
   return new Response("Method not allowed", { status: 405 });
 };
+
+// Agar current subscription line ka product kisi automation "swap" action
+// ka sourceProductId hai, matlab merchant ne khud isko selling plan me
+// swap-out karne ke liye configure kar rakha hai — aisi state me customer
+// ko manual "Swap product" option nahi dena chahiye, warna donon (customer
+// ka manual swap + merchant ki automation) aapas me conflict karenge.
+function hasAutomationSwapForProduct(extraSettings, productId) {
+  if (!productId) return false;
+  const cycles = extraSettings?.automationCycles;
+  if (!Array.isArray(cycles)) return false;
+
+  return cycles.some((entry) =>
+    (entry.actions ?? []).some(
+      (action) => action.type === "swap" && action.sourceProductId === productId,
+    ),
+  );
+}
 
 export const loader = async ({ request }) => {
   try {
@@ -130,21 +146,6 @@ export const loader = async ({ request }) => {
     );
 
     const { data, errors } = await res.json();
-
-    // console.log(
-    //   "DEBUG subscriptions lookup:",
-    //   JSON.stringify(
-    //     {
-    //       shop,
-    //       queriedCustomerId: customerId,
-    //       searchQuery,
-    //       limit,
-    //       cursor,
-    //     },
-    //     null,
-    //     2,
-    //   ),
-    // );
 
     if (errors) {
       console.error("GraphQL errors:", JSON.stringify(errors, null, 2));
@@ -347,7 +348,6 @@ export const loader = async ({ request }) => {
           .filter(Boolean);
         const originOrder = contract?.originOrder ?? null;
 
-        // originOrder ko merge karo, agar wo already billingAttempts me na aaya ho (dedupe by id)
         const allOrdersRaw = originOrder
           ? [
               originOrder,
@@ -440,10 +440,27 @@ export const loader = async ({ request }) => {
               currencyCode: resolvedLine.pricePerUnit?.currencyCode,
             }
           : null;
-          const extraSettings = preview?.allExtraSettings ?? null;
-const customerChanges = extraSettings?.customerProductChanges ?? null;
-const swapOptions = extraSettings?.products ?? [];
-const canSwapProduct = !!customerChanges?.allowProductSwaps && swapOptions.length > 1;
+
+        const extraSettings = preview?.allExtraSettings ?? null;
+        const customerChanges = extraSettings?.customerProductChanges ?? null;
+        const swapOptions = extraSettings?.products ?? [];
+
+        // Current base-line product — jispe hum "manual swap allowed hai ya
+        // nahi" ka decision lete hain. preview ka lineItem.productId original
+        // contract line ka actual current product hai (automation-resolved
+        // display line nahi), isliye yehi sahi source hai.
+        const currentBaseProductId =
+          preview?.lineItem?.productId ?? lines[0]?.productId ?? null;
+
+        const automationOwnsCurrentProduct = hasAutomationSwapForProduct(
+          extraSettings,
+          currentBaseProductId,
+        );
+
+        const canSwapProduct =
+          !!customerChanges?.allowProductSwaps &&
+          swapOptions.length > 1 &&
+          !automationOwnsCurrentProduct;
 
         const { cycles: upcomingCycles, hasMoreCycles } = cyclesResult;
 
@@ -460,8 +477,9 @@ const canSwapProduct = !!customerChanges?.allowProductSwaps && swapOptions.lengt
         return {
           ...contract,
           customerProductChanges: customerChanges,
-  swapOptions,
-  canSwapProduct,
+          swapOptions,
+          canSwapProduct,
+          automationOwnsCurrentProduct,
           lines: { edges: lines.map((line) => ({ node: line })) },
           displayLine,
           nextOrderLineItems: preview?.nextOrder?.lineItems ?? [],
