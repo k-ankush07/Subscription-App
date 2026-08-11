@@ -169,59 +169,6 @@ function Extension() {
       shopify.navigation.removeEventListener("currententrychange", onChange);
   }, [subscriptions]);
 
-  // const fetchPage = useCallback(
-  //   async ({ afterCursor = null, reset = true } = {}) => {
-  //     try {
-  //       const customerId = await getCustomerId();
-
-  //       if (!customerId) {
-  //         setError("Customer ID not found");
-  //         return null;
-  //       }
-
-  //       const token = await shopify.sessionToken.get();
-
-  //       const params = new URLSearchParams({
-  //         customerId,
-  //         limit: String(PAGE_SIZE),
-  //       });
-  //       if (afterCursor) params.set("cursor", afterCursor);
-
-  //       const res = await fetch(
-  //         `${API_BASE}/api/subscriptions?${params.toString()}`,
-  //         {
-  //           headers: {
-  //             Authorization: `Bearer ${token}`,
-  //           },
-  //         },
-  //       );
-
-  //       if (!res.ok) {
-  //         const text = await res.text();
-  //         throw new Error(`API ${res.status}: ${text}`);
-  //       }
-
-  //       const data = await res.json();
-  //       const newSubs = data.subscriptions || [];
-  //       const pageInfo = data.pageInfo || {
-  //         hasNextPage: false,
-  //         endCursor: null,
-  //       };
-
-  //       setSubscriptions((prev) => (reset ? newSubs : [...prev, ...newSubs]));
-  //       setHasMore(!!pageInfo.hasNextPage);
-  //       setCursor(pageInfo.endCursor || null);
-
-  //       return reset ? newSubs : [...subscriptions, ...newSubs];
-  //     } catch (err) {
-  //       console.error("Failed to load subscriptions", err);
-  //       setError(err.message);
-  //       return null;
-  //     }
-  //   },
-  //   [getCustomerId, subscriptions],
-  // );
-
   const fetchPage = useCallback(
   async ({ afterCursor = null, reset = true, status = statusFilter } = {}) => {
     try {
@@ -266,13 +213,7 @@ function Extension() {
   },
   [getCustomerId, subscriptions, statusFilter], 
 );
-  // useEffect(() => {
-  //   (async () => {
-  //     setLoading(true);
-  //     await fetchPage({ afterCursor: null, reset: true });
-  //     setLoading(false);
-  //   })();
-  // }, []);
+
   useEffect(() => {
   (async () => {
     setLoading(true);
@@ -518,7 +459,6 @@ function SubscriptionDetail({
   );
   const swapModalRef = useRef(null);
 const [swapSelections, setSwapSelections] = useState({});
-// const [swapSaving, setSwapSaving] = useState(false);
 const [savingProductId, setSavingProductId] = useState(null);
 const [swapError, setSwapError] = useState(null);
 
@@ -817,7 +757,6 @@ const [swapError, setSwapError] = useState(null);
       shopify.toast.show("Order rescheduled");
 
       if (wasFromUpcomingModal) {
-        // wapas list view dikhado usi modal me
         setRescheduleCycle(null);
       } else {
         rescheduleModalRef.current?.hide?.();
@@ -1025,56 +964,6 @@ function openSwapModal() {
   });
   setSwapSelections(defaults);
 }
-// async function handleSwapProduct(product) {
-//   if (swapSaving) return;
-//   const selection = swapSelections[product.id];
-//   const variantId = selection?.variantId || product.variants?.[0]?.variantsId;
-//   const quantity = allowQuantityChanges
-//     ? (selection?.quantity || 1)
-//     : (items[0]?.quantity || 1);
-
-//   if (!variantId) {
-//     setSwapError("Please select a variant");
-//     return;
-//   }
-
-//   try {
-//     setSwapSaving(true);
-//     setSwapError(null);
-
-//     const token = await shopify.sessionToken.get();
-//     const res = await fetch(`${API_BASE}/api/subscriptions/swap-product`, {
-//       method: "POST",
-//       headers: {
-//         Authorization: `Bearer ${token}`,
-//         "Content-Type": "application/json",
-//       },
-//       body: JSON.stringify({
-//         contractId: sub.id,
-//         lineId: items[0]?.id,
-//         variantId,
-//         quantity,
-//       }),
-//     });
-
-//     const data = await res.json();
-//     if (!res.ok || !data.success) {
-//       throw new Error(data.error || "Swap failed");
-//     }
-
-//     shopify.toast.show("Product swapped");
-//     swapModalRef.current?.hide?.();
-
-//     refreshSubscriptions().catch((err) =>
-//       console.error("Background refresh after swap failed:", err),
-//     );
-//   } catch (err) {
-//     console.error(err);
-//     setSwapError(err.message);
-//   } finally {
-//     setSwapSaving(false);
-//   }
-// }
 
 async function handleSwapProduct(product) {
   if (savingProductId != null) return;
@@ -1133,12 +1022,9 @@ async function handleSwapProduct(product) {
 
   const customerChanges = sub.customerProductChanges ?? {};
 const allowQuantityChanges = !!customerChanges.allowQuantityChanges;
-const allowProductSwaps = !!customerChanges.allowProductSwaps;   // NEW
+const allowProductSwaps = !!customerChanges.allowProductSwaps;   
 const allowVariantChanges = !!customerChanges.allowVariantChanges; 
 const keepDiscounts = !!customerChanges.keepDiscounts;
-
-// allowProductSwaps false hai → modal me sirf current product dikhao,
-// doosre products bilkul hide kar do (unpe swap allowed hi nahi hai)
 const visibleSwapProducts = (sub.swapOptions ?? []).filter(
   (product) => allowProductSwaps || product.id === items[0]?.productId,
 );
@@ -1293,88 +1179,6 @@ const visibleSwapProducts = (sub.swapOptions ?? []).filter(
   <s-stack direction="block" gap="base">
     {swapError && <s-text tone="critical">{swapError}</s-text>}
 
-   {/* {visibleSwapProducts.map((product) => {
-  const isCurrentProductCard = product.id === items[0]?.productId;
-  const selection = swapSelections[product.id] ?? {
-    variantId: product.variants?.[0]?.variantsId ?? "",
-    quantity: 1,
-  };
-  const selectedVariant =
-    product.variants?.find((v) => v.variantsId === selection.variantId) ??
-    product.variants?.[0];
-
-  // Same product ke andar variant/quantity change ke liye allowVariantChanges chahiye.
-  // Doosre product pe poora swap karne ke liye allowProductSwaps chahiye.
-  const canEditThisCard = isCurrentProductCard ? allowVariantChanges : allowProductSwaps;
-
-  // "same variant hi wapas select kiya" — ye disallow karo taaki useless request na jaye
-  const isSameVariantSelected =
-    isCurrentProductCard && selection.variantId === (items[0]?.variantId ?? product.variants?.[0]?.variantsId);
-
-  return (
-    <s-box key={product.id} border="base" borderRadius="base" padding="base">
-      <s-stack direction="block" gap="tight">
-        <s-stack direction="inline" gap="tight" alignItems="center">
-          <s-box inlineSize="56px" blockSize="56px" borderRadius="base" overflow="hidden">
-            <s-image src={product.ProductImage} alt={product.title} />
-          </s-box>
-          <s-stack direction="block" gap="none">
-            <s-text fontWeight="bold">{product.title}</s-text>
-            {selectedVariant?.variantsTitle && (
-              <s-text tone="subdued">{selectedVariant.variantsTitle}</s-text>
-            )}
-            {selectedVariant?.price != null && (
-              <s-text tone="subdued">₹{selectedVariant.price}.00</s-text>
-            )}
-            {isCurrentProductCard && <s-text tone="subdued">(Current product)</s-text>}
-          </s-stack>
-        </s-stack>
-
-        <s-select
-          label="Select variant"
-          value={selection.variantId}
-          disabled={!canEditThisCard}
-          onChange={(e) =>
-            setSwapSelections((prev) => ({
-              ...prev,
-              [product.id]: { ...selection, variantId: e.target.value },
-            }))
-          }
-        >
-          {(product.variants ?? []).map((v) => (
-            <s-option key={v.variantsId} value={v.variantsId}>
-              {v.variantsTitle}
-            </s-option>
-          ))}
-        </s-select>
-
-        <s-text-field
-          label="Quantity"
-          type="number"
-          value={String(selection.quantity)}
-          disabled={!canEditThisCard || !allowQuantityChanges}
-          onInput={(e) =>
-            setSwapSelections((prev) => ({
-              ...prev,
-              [product.id]: {
-                ...selection,
-                quantity: Math.max(1, Number(e.target.value) || 1),
-              },
-            }))
-          }
-        />
-
-        <s-button
-          variant="primary"
-          disabled={!canEditThisCard || swapSaving || isSameVariantSelected}
-          onClick={() => handleSwapProduct(product)}
-        >
-          {swapSaving ? <s-spinner size="small" /> : "Swap product"}
-        </s-button>
-      </s-stack>
-    </s-box>
-  );
-})} */}
 {visibleSwapProducts.map((product) => {
   const isCurrentProductCard = product.id === items[0]?.productId;
   const currentQuantity = items[0]?.quantity ?? 1;
@@ -1459,7 +1263,6 @@ const visibleSwapProducts = (sub.swapOptions ?? []).filter(
           disabled={!canEditThisCard || savingProductId != null || isNoChangeSelected}
           onClick={() => handleSwapProduct(product)}
         >
-          {/* {swapSaving ? <s-spinner size="small" /> : "Swap product"} */}
           {savingProductId === product.id ? <s-spinner size="small" /> : "Swap product"}
         </s-button>
       </s-stack>
@@ -1489,34 +1292,6 @@ const visibleSwapProducts = (sub.swapOptions ?? []).filter(
                   <s-text tone="subdued">-</s-text>
                 )}
               </s-stack>
-
-              {/* <s-stack direction="inline" gap="tight">
-                <s-button
-                  variant="secondary"
-                  command="--show"
-                  commandFor={rescheduleModalId}
-                  disabled={!nextActionable || loadingCycleIndex != null}
-                  onClick={() => openRescheduleModal(nextActionable)}
-                >
-                  Reschedule
-                </s-button>
-
-                <s-button
-                  variant="secondary"
-                  disabled={!nextActionable || loadingCycleIndex != null}
-                  onClick={() =>
-                    nextActionable &&
-                    handleSkip(sub.id, nextActionable.cycleIndex)
-                  }
-                >
-                  {loadingAction === "skip" &&
-                  loadingCycleIndex === nextActionable?.cycleIndex ? (
-                    <s-spinner size="small" />
-                  ) : (
-                    "Skip"
-                  )}
-                </s-button>
-              </s-stack> */}
 
               <s-stack direction="inline" gap="tight">
                 <s-button
@@ -1584,8 +1359,6 @@ const visibleSwapProducts = (sub.swapOptions ?? []).filter(
                 </s-text>
               )}
             </s-stack>
-
-            {/* ===== Upcoming orders modal — content switches between list / reschedule ===== */}
             <s-modal
               id={modalId}
               ref={upcomingModalRef}
@@ -1655,54 +1428,6 @@ const visibleSwapProducts = (sub.swapOptions ?? []).filter(
                               <s-badge tone="warning">Skipped</s-badge>
                             )}
                           </s-stack>
-
-                          {/* <s-stack
-                            direction="inline"
-                            gap="base"
-                            alignItems="center"
-                          >
-                            {!cycle.skipped &&
-                              (isAnyLoading ? (
-                                <s-text tone="subdued">Reschedule</s-text>
-                              ) : (
-                                <s-link
-                                  onClick={() =>
-                                    openRescheduleInsideUpcomingModal({
-                                      ...cycle,
-                                      __fromUpcomingModal: true,
-                                    })
-                                  }
-                                >
-                                  Reschedule
-                                </s-link>
-                              ))}
-
-                            {isThisLoading ? (
-                              <s-spinner size="small" />
-                            ) : cycle.skipped ? (
-                              isAnyLoading ? (
-                                <s-text tone="subdued">Unskip</s-text>
-                              ) : (
-                                <s-link
-                                  onClick={() =>
-                                    handleUnskip(sub.id, cycle.cycleIndex)
-                                  }
-                                >
-                                  Unskip
-                                </s-link>
-                              )
-                            ) : isAnyLoading ? (
-                              <s-text tone="subdued">Skip</s-text>
-                            ) : (
-                              <s-link
-                                onClick={() =>
-                                  handleSkip(sub.id, cycle.cycleIndex)
-                                }
-                              >
-                                Skip
-                              </s-link>
-                            )}
-                          </s-stack> */}
 
                           {!cycle.skipped &&
                               (isAnyLoading ? (

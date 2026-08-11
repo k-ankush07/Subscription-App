@@ -22,24 +22,13 @@ export const action = async ({ request }) => {
   return new Response("Method not allowed", { status: 405 });
 };
 
-// Agar current subscription line ka product kisi automation "swap" action
-// ka sourceProductId hai AUR uss automation ka threshold (orders) upcoming
-// cycle tak already reach ho chuka hai, matlab merchant ki automation
-// AGLE hi order pe isko swap karne wali hai — aisi state me customer ko
-// manual "Swap product" option nahi dena chahiye, warna donon (customer ka
-// manual swap + merchant ki automation) aapas me conflict karenge.
-//
-// Agar automation abhi future ke kisi cycle ke liye configured hai (jaise
-// "orders: 2" but hum abhi cycle 1 pe hain), toh koi immediate conflict
-// nahi hai — customer ko abhi swap karne dena chahiye.
+
 function hasAutomationSwapForProduct(extraSettings, productId, cycleIndex) {
   if (!productId) return false;
   const cycles = extraSettings?.automationCycles;
   if (!Array.isArray(cycles)) return false;
 
   return cycles.some((entry) => {
-    // Automation ka threshold abhi tak reach hi nahi hua — future me hoga,
-    // isliye upcoming order ke liye koi conflict nahi.
     if (cycleIndex != null && Number(entry.orders) > Number(cycleIndex)) {
       return false;
     }
@@ -465,16 +454,6 @@ const automationOwnsCurrentProduct = hasAutomationSwapForProduct(
   currentBaseProductId,
   upcomingCycleIndex,
 );
-
-// const allowProductSwaps = !!customerChanges?.allowProductSwaps;
-// const allowVariantChanges = !!customerChanges?.allowVariantChanges;
-
-// const hasOtherProducts = swapOptions.some((p) => p.id !== currentBaseProductId);
-
-// const canSwapProduct =
-//   !automationOwnsCurrentProduct &&
-//   ((allowProductSwaps && hasOtherProducts) || allowVariantChanges);
-
 
 const allowProductSwaps = !!customerChanges?.allowProductSwaps;
 const allowVariantChanges = !!customerChanges?.allowVariantChanges;
