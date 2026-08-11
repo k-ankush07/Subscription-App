@@ -1499,7 +1499,11 @@ async function getContractPreview(admin, contractId) {
   const quantityAction = Array.isArray(actionsForNextCycle)
     ? actionsForNextCycle.find((a) => a.type === "QUANTITY_CHANGE")
     : null;
-  const calculatedQuantity = quantityAction ? Number(quantityAction.value) : 1;
+  // const calculatedQuantity = quantityAction ? Number(quantityAction.value) : 1;
+  const calculatedQuantity =
+  quantityAction && !quantityAction.__default
+    ? Number(quantityAction.value)
+    : Number(firstLine?.quantity) || 1;
 
   const calculatedItemTotal =
     calculatedPricePerUnit && calculatedQuantity != null
