@@ -1,5 +1,54 @@
 import { authenticate, unauthenticated } from "../shopify.server";
-import { updateContractLineProduct, getContractSettingsSnapshot } from "../lib/billing-preview.server";
+import {
+  updateContractLineProduct,
+  getContractSettingsSnapshot,
+  snapshotContractSettings,
+} from "../lib/billing-preview.server";
+
+async function getVariantProductId(admin, variantId) {
+  if (!variantId) return null;
+  const res = await admin.graphql(
+    `
+    query getVariantProduct($id: ID!) {
+      productVariant(id: $id) {
+        product { id }
+      }
+    }
+    `,
+    { variables: { id: variantId } },
+  );
+  const data = await res.json();
+  return data.data?.productVariant?.product?.id ?? null;
+}
+
+// Customer ne manually kisi product pe swap kiya. Agar merchant ki automation
+// isi product ko "source" maan ke aage khud-ba-khud kisi aur product pe swap
+// karne wali thi, toh us automation action ko yahi se hata do — warna agli
+// cycle pe wo customer ka manual choice silently override kar dega.
+async function clearConflictingAutomationForProduct(admin, contractId, newProductId) {
+  if (!newProductId) return;
+  const settings = await getContractSettingsSnapshot(admin, contractId);
+  if (!settings || !Array.isArray(settings.automationCycles)) return;
+
+  const cloned = JSON.parse(JSON.stringify(settings));
+  let changed = false;
+
+  cloned.automationCycles = cloned.automationCycles
+    .map((entry) => {
+      const nextActions = (entry.actions ?? []).filter((action) => {
+        const isConflictingSwap =
+          action.type === "swap" && action.sourceProductId === newProductId;
+        if (isConflictingSwap) changed = true;
+        return !isConflictingSwap;
+      });
+      return { ...entry, actions: nextActions };
+    })
+    .filter((entry) => entry.actions.length > 0);
+
+  if (changed) {
+    await snapshotContractSettings(admin, contractId, cloned);
+  }
+}
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -58,6 +107,19 @@ export const action = async ({ request }) => {
 
     if (!result.success) {
       return json({ success: false, error: result.error }, 400);
+    }
+
+    // Manual swap safal — ab check karo ki merchant ki automation isi naye
+    // product ko future me phir se kahin aur swap toh nahi karne wali.
+    try {
+      const newProductId = await getVariantProductId(admin, variantId);
+      await clearConflictingAutomationForProduct(admin, contractId, newProductId);
+    } catch (err) {
+      console.warn(
+        `[swap_product] clearConflictingAutomationForProduct failed for ${contractId}:`,
+        err,
+      );
+      // Yeh best-effort hai — swap khud successful ho chuka hai, isliye fail nahi karna.
     }
 
     return json({ success: true }, 200);
