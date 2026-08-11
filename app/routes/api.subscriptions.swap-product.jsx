@@ -21,7 +21,6 @@ async function getVariantProductId(admin, variantId) {
   return data.data?.productVariant?.product?.id ?? null;
 }
 
-
 async function clearConflictingAutomationForProduct(admin, contractId, newProductId) {
   if (!newProductId) return;
   const settings = await getContractSettingsSnapshot(admin, contractId);
@@ -109,27 +108,33 @@ export const action = async ({ request }) => {
       return json({ success: false, error: result.error }, 400);
     }
 
-    // NEW: keepDiscounts false hai → native discount tier permanently disable karo
-    // taaki future me chahe koi bhi product/variant line pe ho (swap back bhi),
-    // wo discount phir se auto-apply na ho.
+    // keepDiscounts false hai → base-line pe lagne wala HAR automatic discount
+    // (native selling-plan tier + "after N orders" wala) permanently disable karo.
     if (!keepDiscounts && settings) {
       try {
         const clonedSettings = JSON.parse(JSON.stringify(settings));
+        let changed = false;
+
         if (!clonedSettings.beforeDiscountDisabled) {
           clonedSettings.beforeDiscountDisabled = true;
+          changed = true;
+        }
+        if (clonedSettings.changeDiscountAfterOrders) {
+          clonedSettings.changeDiscountAfterOrders = false;
+          changed = true;
+        }
+
+        if (changed) {
           await snapshotContractSettings(admin, contractId, clonedSettings);
         }
       } catch (err) {
         console.warn(
-          `[swap_product] failed to persist beforeDiscountDisabled for ${contractId}:`,
+          `[swap_product] failed to persist discount-disable flags for ${contractId}:`,
           err,
         );
-        // best-effort — swap khud successful ho chuka hai, fail nahi karna
       }
     }
 
-    // Manual swap safal — ab check karo ki merchant ki automation isi naye
-    // product ko future me phir se kahin aur swap toh nahi karne wali.
     try {
       const newProductId = await getVariantProductId(admin, variantId);
       await clearConflictingAutomationForProduct(admin, contractId, newProductId);
