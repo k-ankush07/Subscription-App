@@ -613,7 +613,10 @@ function getActionTargetIds(action) {
 
   return { targetProductIds, targetVariantIds };
 }
-
+function isActionTargeted(action) {
+  const { targetProductIds, targetVariantIds } = getActionTargetIds(action);
+  return targetProductIds.length > 0 || targetVariantIds.length > 0;
+}
 function actionRequiresExplicitTarget(action) {
   if (action.type === "REMOVE_FREE_PRODUCT") return true;
   if (action.type === "QUANTITY_CHANGE" && !action.__default) return true;
@@ -1415,6 +1418,580 @@ async function getEffectiveSettingsForContract(
   return await getContractSettingsSnapshot(admin, contractId, shopId);
 }
 
+// async function getContractPreview(admin, contractId) {
+//   const contractRes = await admin.graphql(
+//     `
+//     query getContract($id: ID!) {
+//       subscriptionContract(id: $id) {
+//         id
+//         status
+//         nextBillingDate
+//         deliveryPrice { amount currencyCode }
+//         billingPolicy {
+//           interval
+//           intervalCount
+//           minCycles
+//           maxCycles
+//         }
+//         customer {
+//          id
+//          displayName
+//          defaultEmailAddress{
+//           emailAddress
+//           }
+//           }
+//         lines(first: 5) {
+//           edges {
+//             node {
+//               id
+//               title
+//               quantity
+//               sellingPlanId
+//               productId
+//               variantId
+//               currentPrice { amount currencyCode }
+//               pricingPolicy {
+//                 basePrice { amount currencyCode }
+//                 cycleDiscounts {
+//                   afterCycle
+//                   adjustmentType
+//                   adjustmentValue {
+//                     ... on SellingPlanPricingPolicyPercentageValue { percentage }
+//                     ... on MoneyV2 { amount currencyCode }
+//                   }
+//                   computedPrice { amount currencyCode }
+//                 }
+//               }
+//             }
+//           }
+//         }
+//       }
+//     }
+//     `,
+//     { variables: { id: contractId } },
+//   );
+//   const contractData = await contractRes.json();
+//   const contract = contractData.data?.subscriptionContract;
+
+//   if (!contract) {
+//     console.log(`[preview] Contract not found: ${contractId}`);
+//     return null;
+//   }
+
+//   const firstLine = contract.lines.edges[0]?.node;
+//   const sellingPlanId = firstLine?.sellingPlanId;
+//   let groupId = null;
+//   let groupName = null;
+
+//   if (sellingPlanId) {
+//     const groupsRes = await admin.graphql(`
+//       query {
+//         sellingPlanGroups(first: 100) {
+//           edges {
+//             node {
+//               id
+//               name
+//               sellingPlans(first: 100) {
+//                 edges {
+//                   node {
+//                     id
+//                   }
+//                 }
+//               }
+//             }
+//           }
+//         }
+//       }
+//     `);
+//     const groupsData = await groupsRes.json();
+//     for (const { node: group } of groupsData.data.sellingPlanGroups.edges) {
+//       const plan = group.sellingPlans.edges.find(
+//         ({ node }) => node.id === sellingPlanId,
+//       );
+//       if (!plan) continue;
+//       groupId = group.id;
+//       groupName = group.name;
+//       break;
+//     }
+//   }
+
+//   const extraSettings = await getContractSettingsSnapshot(admin, contractId);
+//   const settingsSource = extraSettings
+//     ? "contract_snapshot"
+//     : "no_snapshot_found";
+
+//   let cycleIndex = null;
+//   let nextBillingDate = contract.nextBillingDate;
+//   let cycleStatus = null;
+
+//   if (contract.nextBillingDate) {
+//     const cycleRes = await admin.graphql(
+//       `
+//       query getCycleByDate($contractId: ID!, $date: DateTime!) {
+//         subscriptionBillingCycle(billingCycleInput: { contractId: $contractId, selector: { date: $date } }) {
+//           cycleIndex
+//           billingAttemptExpectedDate
+//           status
+//           skipped
+//         }
+//       }
+//       `,
+//       { variables: { contractId, date: contract.nextBillingDate } },
+//     );
+
+//     let cycleData = await cycleRes.json();
+//     let cycle = cycleData.data?.subscriptionBillingCycle;
+
+//     if (cycle) {
+//       cycleIndex = cycle.cycleIndex;
+//       nextBillingDate = cycle.billingAttemptExpectedDate || nextBillingDate;
+//       cycleStatus = cycle.status;
+//       let cycleSkipped = cycle.skipped; // naya — properly declared
+
+//       let safetyCounter = 0;
+//       while ((cycleStatus === "BILLED" || cycleSkipped) && safetyCounter < 20) {
+//         cycleIndex += 1;
+//         safetyCounter += 1;
+
+//         const nextCycleRes = await admin.graphql(
+//           `
+//           query getCycleByIndex($contractId: ID!, $index: Int!) {
+//             subscriptionBillingCycle(billingCycleInput: { contractId: $contractId, selector: { index: $index } }) {
+//               cycleIndex
+//               billingAttemptExpectedDate
+//               status
+//               skipped
+//             }
+//           }
+//           `,
+//           { variables: { contractId, index: cycleIndex } },
+//         );
+
+//         const nextCycleData = await nextCycleRes.json();
+//         const nextCycle = nextCycleData.data?.subscriptionBillingCycle;
+//         if (!nextCycle) break;
+
+//         cycleIndex = nextCycle.cycleIndex;
+//         nextBillingDate =
+//           nextCycle.billingAttemptExpectedDate || nextBillingDate;
+//         cycleStatus = nextCycle.status;
+//         cycleSkipped = nextCycle.skipped;
+//       }
+//     }
+//   }
+
+//   const rawActionsForNextCycle =
+//     cycleIndex != null
+//       ? collectActionsForCycle(
+//           extraSettings,
+//           cycleIndex,
+//           firstLine?.pricingPolicy,
+//         )
+//       : [];
+//   const actionsForNextCycle = rawActionsForNextCycle.filter((a) => {
+//     if (!LINE_MATCH_REQUIRED_TYPES.has(a.type)) return true;
+//     return actionMatchesLine(a, firstLine);
+//   });
+
+//   // let calculatedPricePerUnit =
+//   //   cycleIndex != null ? computePriceForCycle(firstLine?.pricingPolicy, cycleIndex) : null;
+//   // let calculatedPricePerUnit = firstLine?.pricingPolicy?.basePrice ?? null;
+//   let calculatedPricePerUnit =
+//     firstLine?.currentPrice ?? firstLine?.pricingPolicy?.basePrice ?? null;
+//   const swapAction = Array.isArray(actionsForNextCycle)
+//     ? actionsForNextCycle.find(
+//         (a) => a.type === "VARIANT_SWAP" || a.type === "PRODUCT_SWAP",
+//       )
+//     : null;
+
+//   const addProductActions = Array.isArray(actionsForNextCycle)
+//     ? actionsForNextCycle.filter((a) => a.type === "ADD_PRODUCT")
+//     : [];
+
+//   const allVariantIdsNeeded = [
+//     firstLine?.variantId,
+//     swapAction?.variantId,
+//     ...addProductActions.map((a) => a.variantId),
+//   ].filter(Boolean);
+
+//   const variantDataMap = await fetchVariantsBatch(admin, allVariantIdsNeeded);
+
+//   // let effectiveBase = Number(firstLine?.pricingPolicy?.basePrice?.amount) || 0;
+//   // let effectiveBase = Number(firstLine?.currentPrice?.amount ?? firstLine?.pricingPolicy?.basePrice?.amount) || 0;
+//   const rawVariantPrice = variantDataMap[firstLine?.variantId]?.price;
+//   let effectiveBase =
+//     Number(
+//       rawVariantPrice ??
+//         firstLine?.pricingPolicy?.basePrice?.amount ??
+//         firstLine?.currentPrice?.amount,
+//     ) || 0;
+
+//   if (swapAction?.variantId) {
+//     const swappedInfo = variantDataMap[swapAction.variantId];
+//     if (swappedInfo?.price != null) {
+//       effectiveBase = swappedInfo.price;
+
+//       if (swapAction.discountEnabled) {
+//         calculatedPricePerUnit = {
+//           amount: applyCustomDiscountAction(effectiveBase, {
+//             adjustmentType: swapAction.discountType,
+//             adjustmentValue: swapAction.discountValue,
+//           }).toFixed(2),
+//           currencyCode:
+//             firstLine?.pricingPolicy?.basePrice?.currencyCode ??
+//             firstLine?.currentPrice?.currencyCode,
+//         };
+//       } else {
+//         // koi discount config nahi hai → swap product apni full price pe rahega
+//         calculatedPricePerUnit = {
+//           amount: effectiveBase.toFixed(2),
+//           currencyCode:
+//             firstLine?.pricingPolicy?.basePrice?.currencyCode ??
+//             firstLine?.currentPrice?.currencyCode,
+//         };
+//       }
+//     } else {
+//       console.warn(
+//         `[preview] swap target variant (${swapAction.variantId}) price fetch failed — ` +
+//           `falling back to original product's price for calculations (may be inaccurate).`,
+//       );
+//     }
+//   }
+
+//   const discountAction = Array.isArray(actionsForNextCycle)
+//     ? actionsForNextCycle.find((a) => a.type === "DISCOUNT_CHANGE")
+//     : null;
+//   const hasRealDiscount =
+//     discountAction &&
+//     !discountAction.__default &&
+//     Number(discountAction.adjustmentValue) > 0;
+
+//   if (hasRealDiscount) {
+//     const base = effectiveBase;
+
+//     let discounted = base;
+//     if (discountAction.adjustmentType === "PERCENTAGE") {
+//       discounted = base - (base * Number(discountAction.adjustmentValue)) / 100;
+//     } else {
+//       discounted = base - Number(discountAction.adjustmentValue);
+//     }
+
+//     calculatedPricePerUnit = {
+//       amount: Math.max(0, discounted).toFixed(2),
+//       currencyCode:
+//         calculatedPricePerUnit?.currencyCode ??
+//         firstLine?.pricingPolicy?.basePrice?.currencyCode ??
+//         firstLine?.currentPrice?.currencyCode,
+//     };
+//   }
+//   const quantityAction = Array.isArray(actionsForNextCycle)
+//     ? actionsForNextCycle.find((a) => a.type === "QUANTITY_CHANGE")
+//     : null;
+//   // const calculatedQuantity = quantityAction ? Number(quantityAction.value) : 1;
+//   const calculatedQuantity =
+//     quantityAction && !quantityAction.__default
+//       ? Number(quantityAction.value)
+//       : Number(firstLine?.quantity) || 1;
+
+//   const calculatedItemTotal =
+//     calculatedPricePerUnit && calculatedQuantity != null
+//       ? {
+//           amount: (
+//             Number(calculatedPricePerUnit.amount) * calculatedQuantity
+//           ).toFixed(2),
+//           currencyCode: calculatedPricePerUnit.currencyCode,
+//         }
+//       : null;
+//   const currencyCode =
+//     calculatedPricePerUnit?.currencyCode ??
+//     firstLine?.pricingPolicy?.basePrice?.currencyCode ??
+//     firstLine?.currentPrice?.currencyCode ??
+//     "INR";
+
+//   const lineItems = [];
+//   const originalVariantInfo = variantDataMap[firstLine?.variantId];
+//   let mainLineImageUrl = originalVariantInfo?.image?.url ?? null;
+//   let mainLineImageAlt =
+//     originalVariantInfo?.image?.altText ?? firstLine?.title ?? null;
+
+//   if (swapAction?.variantId) {
+//     const swappedInfo = variantDataMap[swapAction.variantId];
+//     if (swappedInfo?.image) {
+//       mainLineImageUrl = swappedInfo.image.url;
+//       mainLineImageAlt = swappedInfo.image.altText ?? mainLineImageAlt;
+//     }
+//   }
+//   let swappedTitle;
+//   if (swapAction?.variantId) {
+//     const matchedDest = (swapAction.dests || []).find((d) =>
+//       (d.variantIds || []).includes(swapAction.variantId),
+//     );
+//     if (matchedDest) {
+//       const variantIdx = matchedDest.variantIds.indexOf(swapAction.variantId);
+//       const variantName = matchedDest.variantNames?.[variantIdx];
+//       swappedTitle = variantName ? `${matchedDest.name}` : matchedDest.name;
+//     }
+//   }
+//   const isBaseLineRemoved = actionsForNextCycle.some(
+//     (a) =>
+//       (a.type === "REMOVE_PRODUCT" || a.type === "REMOVE_VARIANT") &&
+//       actionMatchesLine(a, firstLine),
+//   );
+
+//   const baseOriginalPricePerUnit = {
+//     amount: effectiveBase.toFixed(2),
+//     currencyCode,
+//   };
+//   const baseOriginalItemTotal = {
+//     amount: (effectiveBase * calculatedQuantity).toFixed(2),
+//     currencyCode,
+//   };
+
+//   if (calculatedPricePerUnit && !isBaseLineRemoved) {
+//     lineItems.push({
+//       title: swapAction?.variantId ? swappedTitle : firstLine?.title,
+//       variantTitle: swapAction?.variantId
+//         ? (variantDataMap[swapAction.variantId]?.title ?? null)
+//         : (originalVariantInfo?.title ?? null),
+//       productId: swapAction?.variantId
+//         ? swapAction?.dests?.length
+//           ? (swapAction.dests[0]?.id ?? null)
+//           : null
+//         : firstLine?.productId,
+//       variantId: swapAction?.variantId ?? firstLine?.variantId,
+//       quantity: calculatedQuantity,
+//       imageUrl: mainLineImageUrl,
+//       imageAlt: mainLineImageAlt,
+//       pricePerUnit: calculatedPricePerUnit,
+//       itemTotal: calculatedItemTotal,
+//       originalPricePerUnit: hasRealDiscount
+//         ? baseOriginalPricePerUnit
+//         : calculatedPricePerUnit,
+//       originalItemTotal: hasRealDiscount
+//         ? baseOriginalItemTotal
+//         : calculatedItemTotal,
+//       isBaseLine: true,
+//       automationCycleIndex: swapAction?.__automationCycleIndex ?? null,
+//       automationActionIndex: swapAction?.__automationActionIndex ?? null,
+//       // "before" = native selling-plan discount tier, "after" = merchant's custom afterOrders override.
+//       // The UI needs this to know which setting to flip when "Remove discount" is clicked.
+//       discountPhase: hasRealDiscount ? discountAction.__phase : null,
+//       discountLabel: hasRealDiscount
+//         ? String(discountAction.adjustmentType).toUpperCase() === "PERCENTAGE"
+//           ? `${discountAction.adjustmentValue}% off`
+//           : String(discountAction.adjustmentType).toUpperCase() ===
+//               "FIXED_AMOUNT"
+//             ? `Fixed price: ${currencySymbol(currencyCode)}${discountAction.adjustmentValue}`
+//             : `${currencySymbol(currencyCode)}${discountAction.adjustmentValue} off`
+//         : null,
+//     });
+//   }
+
+//   const discountTierForCycle = getDiscountTierForCycle(
+//     firstLine?.pricingPolicy,
+//     cycleIndex,
+//   );
+//   for (const action of addProductActions) {
+//     const isSwapGenerated = !!action.destProductId || !!action.sourceProductId;
+//     const qty = Number(action.quantity) || 1;
+
+//     const variantInfo = variantDataMap[action.variantId];
+//     const knownPrice = variantInfo?.price ?? null;
+
+//     let pricePerUnit;
+//     try {
+//       pricePerUnit = computeLinePriceFromKnownPrice(
+//         knownPrice,
+//         {
+//           isSwapGenerated,
+//           discountEnabled: action.discountEnabled,
+//           discountType: action.discountType,
+//           discountValue: action.discountValue,
+//         },
+//         effectiveBase,
+//         discountTierForCycle,
+//         hasRealDiscount ? discountAction : null,
+//       );
+//     } catch (err) {
+//       console.warn(
+//         `[preview] failed computing price for ADD_PRODUCT variant ${action.variantId}:`,
+//         err,
+//       );
+//       pricePerUnit = 0;
+//     }
+
+//     let addedImageUrl = action.imageUrl ?? variantInfo?.image?.url ?? null;
+//     let addedImageAlt =
+//       action.productName ??
+//       action.variantName ??
+//       variantInfo?.image?.altText ??
+//       null;
+
+//     const originalPriceValue =
+//       knownPrice != null
+//         ? knownPrice
+//         : isSwapGenerated
+//           ? effectiveBase
+//           : pricePerUnit;
+
+//     lineItems.push({
+//       title: action.productName ?? action.variantName ?? "Added product",
+//       variantTitle: variantInfo?.title ?? null,
+//       productId: action.productId ?? action.destProductId ?? null,
+//       variantId: action.variantId,
+//       quantity: qty,
+//       imageUrl: addedImageUrl,
+//       imageAlt: addedImageAlt,
+//       pricePerUnit: { amount: pricePerUnit.toFixed(2), currencyCode },
+//       itemTotal: { amount: (pricePerUnit * qty).toFixed(2), currencyCode },
+//       originalPricePerUnit: {
+//         amount: originalPriceValue.toFixed(2),
+//         currencyCode,
+//       },
+//       originalItemTotal: {
+//         amount: (originalPriceValue * qty).toFixed(2),
+//         currencyCode,
+//       },
+//       isBaseLine: false,
+//       automationCycleIndex: action.__automationCycleIndex ?? null,
+//       automationActionIndex: action.__automationActionIndex ?? null,
+//       discountPhase: null, // automation-item discounts aren't phased — remove just disables discountEnabled
+//       discountLabel:
+//         action.discountEnabled && Number(action.discountValue) > 0
+//           ? String(action.discountType).toLowerCase() === "percentage"
+//             ? `${action.discountValue}% off`
+//             : String(action.discountType).toLowerCase() === "fixed_amount"
+//               ? `Fixed price: ${currencySymbol(currencyCode)}${action.discountValue}`
+//               : `${currencySymbol(currencyCode)}${action.discountValue} off`
+//           : null,
+//     });
+//   }
+
+//   const calculatedOrderTotal = {
+//     amount: lineItems
+//       .reduce((sum, li) => sum + Number(li.itemTotal.amount), 0)
+//       .toFixed(2),
+//     currencyCode,
+//   };
+//   const originalOrderTotal = {
+//     amount: lineItems
+//       .reduce(
+//         (sum, li) =>
+//           sum + Number((li.originalItemTotal ?? li.itemTotal).amount),
+//         0,
+//       )
+//       .toFixed(2),
+//     currencyCode,
+//   };
+
+//   // ── Shipping discount for next order (independent of line items) ──
+//   const shippingAction = Array.isArray(actionsForNextCycle)
+//     ? actionsForNextCycle.find((a) => a.type === "SHIPPING_DISCOUNT_CHANGE")
+//     : null;
+//   const hasRealShippingDiscount = shippingAction && !shippingAction.__default;
+//   const originalShippingPriceAmount = Number(
+//     contract.deliveryPrice?.amount ?? 0,
+//   );
+//   const shippingCurrency = contract.deliveryPrice?.currencyCode ?? currencyCode;
+//   const calculatedShippingPriceAmount = hasRealShippingDiscount
+//     ? applyShippingDiscountToPrice(originalShippingPriceAmount, shippingAction)
+//     : originalShippingPriceAmount;
+
+//   const shippingPreview = contract.deliveryPrice
+//     ? {
+//         originalPrice: {
+//           amount: originalShippingPriceAmount.toFixed(2),
+//           currencyCode: shippingCurrency,
+//         },
+//         calculatedPrice: {
+//           amount: calculatedShippingPriceAmount.toFixed(2),
+//           currencyCode: shippingCurrency,
+//         },
+//         discountLabel: hasRealShippingDiscount
+//           ? String(shippingAction.adjustmentType).toUpperCase() === "PERCENTAGE"
+//             ? `${shippingAction.adjustmentValue}% off shipping`
+//             : String(shippingAction.adjustmentType).toUpperCase() ===
+//                 "FIXED_AMOUNT"
+//               ? `${currencySymbol(shippingCurrency)}${shippingAction.adjustmentValue} off shipping`
+//               : `Fixed shipping: ${currencySymbol(shippingCurrency)}${shippingAction.adjustmentValue}`
+//           : null,
+//       }
+//     : null;
+
+//   // ── Min/Max cycle info, for UI display ──
+//   const minCycles = contract.billingPolicy?.minCycles ?? null;
+//   const maxCycles = contract.billingPolicy?.maxCycles ?? null;
+//   const cyclesRemainingUntilMax =
+//     maxCycles != null && cycleIndex != null
+//       ? Math.max(0, maxCycles - cycleIndex)
+//       : null;
+//   const cyclesRemainingUntilMin =
+//     minCycles != null && cycleIndex != null
+//       ? Math.max(0, minCycles - cycleIndex)
+//       : null;
+
+//   const billingPolicySummary = {
+//     minCycles,
+//     maxCycles,
+//     hasMinCycles: minCycles != null,
+//     hasMaxCycles: maxCycles != null,
+//     minCyclesReached:
+//       minCycles != null && cycleIndex != null ? cycleIndex >= minCycles : null,
+//     maxCyclesReached:
+//       maxCycles != null && cycleIndex != null ? cycleIndex >= maxCycles : null,
+//     cyclesRemainingUntilMin,
+//     cyclesRemainingUntilMax,
+//     summary:
+//       minCycles == null && maxCycles == null
+//         ? "Unlimited — runs until cancelled"
+//         : [
+//             minCycles != null ? `Min ${minCycles} cycles` : null,
+//             maxCycles != null ? `Max ${maxCycles} cycles` : null,
+//           ]
+//             .filter(Boolean)
+//             .join(" • "),
+//   };
+
+//   const preview = {
+//     contractId: contract.id,
+//     status: contract.status,
+//     customer: contract.customer,
+//     settingsSource,
+//     lineItem: {
+//       id: firstLine?.id,
+//       title: firstLine?.title,
+//       quantity: firstLine?.quantity,
+//       price: firstLine?.currentPrice,
+//       productId: firstLine?.productId,
+//       variantId: firstLine?.variantId,
+//       variantName: originalVariantInfo?.title ?? null,
+//       imageUrl: originalVariantInfo?.image?.url ?? null,
+//       imageAlt: originalVariantInfo?.image?.altText ?? firstLine?.title ?? null,
+//       pricingPolicyDebug: firstLine?.pricingPolicy ?? null,
+//     },
+//     planGroup: { id: groupId, name: groupName },
+//     billingPolicy: billingPolicySummary,
+//     nextOrder: {
+//       cycleIndex,
+//       expectedDate: nextBillingDate,
+//       lineItems,
+//       calculatedOrderTotal,
+//       originalOrderTotal,
+//       shipping: shippingPreview,
+//       willApply: (() => {
+//         const visible = actionsForNextCycle
+//           .filter((a) => !a.__default)
+//           .map(({ variantId, ...rest }) => rest);
+//         return visible.length > 0
+//           ? visible
+//           : "No automatic changes configured for this cycle";
+//       })(),
+//     },
+//     allExtraSettings: extraSettings,
+//   };
+//   return preview;
+// }
+
 async function getContractPreview(admin, contractId) {
   const contractRes = await admin.graphql(
     `
@@ -1437,7 +2014,7 @@ async function getContractPreview(admin, contractId) {
           emailAddress
           }
           }
-        lines(first: 5) {
+        lines(first: 50) {
           edges {
             node {
               id
@@ -1475,7 +2052,17 @@ async function getContractPreview(admin, contractId) {
     return null;
   }
 
-  const firstLine = contract.lines.edges[0]?.node;
+  // CHANGED: pehle sirf lines.edges[0] (firstLine) use hota tha, isliye
+  // "Add line item" se add ki gayi extra committed lines "Next Order"
+  // preview me kabhi nahi dikhti thi. Ab SAARI committed lines loop hoti hain.
+  const allLines = contract.lines.edges.map((e) => e.node);
+  const firstLine = allLines[0]; // sellingPlan / debug field ke liye reference
+
+  if (allLines.length === 0) {
+    console.log(`[preview] Contract has no lines: ${contractId}`);
+    return null;
+  }
+
   const sellingPlanId = firstLine?.sellingPlanId;
   let groupId = null;
   let groupName = null;
@@ -1543,7 +2130,7 @@ async function getContractPreview(admin, contractId) {
       cycleIndex = cycle.cycleIndex;
       nextBillingDate = cycle.billingAttemptExpectedDate || nextBillingDate;
       cycleStatus = cycle.status;
-      let cycleSkipped = cycle.skipped; // naya — properly declared
+      let cycleSkipped = cycle.skipped;
 
       let safetyCounter = 0;
       while ((cycleStatus === "BILLED" || cycleSkipped) && safetyCounter < 20) {
@@ -1577,6 +2164,8 @@ async function getContractPreview(admin, contractId) {
     }
   }
 
+  // Automation settings se is cycle ke liye actions nikaalo — tier calc ke
+  // liye firstLine ki pricingPolicy use hoti hai, jaisa pehle bhi tha.
   const rawActionsForNextCycle =
     cycleIndex != null
       ? collectActionsForCycle(
@@ -1585,219 +2174,202 @@ async function getContractPreview(admin, contractId) {
           firstLine?.pricingPolicy,
         )
       : [];
-  const actionsForNextCycle = rawActionsForNextCycle.filter((a) => {
-    if (!LINE_MATCH_REQUIRED_TYPES.has(a.type)) return true;
-    return actionMatchesLine(a, firstLine);
-  });
 
-  // let calculatedPricePerUnit =
-  //   cycleIndex != null ? computePriceForCycle(firstLine?.pricingPolicy, cycleIndex) : null;
-  // let calculatedPricePerUnit = firstLine?.pricingPolicy?.basePrice ?? null;
-  let calculatedPricePerUnit =
-    firstLine?.currentPrice ?? firstLine?.pricingPolicy?.basePrice ?? null;
-  const swapAction = Array.isArray(actionsForNextCycle)
-    ? actionsForNextCycle.find(
-        (a) => a.type === "VARIANT_SWAP" || a.type === "PRODUCT_SWAP",
-      )
-    : null;
+  const swapAction = rawActionsForNextCycle.find(
+    (a) => a.type === "VARIANT_SWAP" || a.type === "PRODUCT_SWAP",
+  );
+  const removeActions = rawActionsForNextCycle.filter(
+    (a) => a.type === "REMOVE_PRODUCT" || a.type === "REMOVE_VARIANT",
+  );
+  const addProductActions = rawActionsForNextCycle.filter(
+    (a) => a.type === "ADD_PRODUCT",
+  );
+  const discountAction = rawActionsForNextCycle.find(
+    (a) => a.type === "DISCOUNT_CHANGE",
+  );
+  const quantityAction = rawActionsForNextCycle.find(
+    (a) => a.type === "QUANTITY_CHANGE",
+  );
+  const shippingAction = rawActionsForNextCycle.find(
+    (a) => a.type === "SHIPPING_DISCOUNT_CHANGE",
+  );
 
-  const addProductActions = Array.isArray(actionsForNextCycle)
-    ? actionsForNextCycle.filter((a) => a.type === "ADD_PRODUCT")
-    : [];
+  const hasRealDiscount =
+    discountAction &&
+    !discountAction.__default &&
+    Number(discountAction.adjustmentValue) > 0;
 
   const allVariantIdsNeeded = [
-    firstLine?.variantId,
+    ...allLines.map((l) => l.variantId),
     swapAction?.variantId,
     ...addProductActions.map((a) => a.variantId),
   ].filter(Boolean);
 
   const variantDataMap = await fetchVariantsBatch(admin, allVariantIdsNeeded);
 
-  // let effectiveBase = Number(firstLine?.pricingPolicy?.basePrice?.amount) || 0;
-  // let effectiveBase = Number(firstLine?.currentPrice?.amount ?? firstLine?.pricingPolicy?.basePrice?.amount) || 0;
-  const rawVariantPrice = variantDataMap[firstLine?.variantId]?.price;
-  let effectiveBase =
-    Number(
-      rawVariantPrice ??
-        firstLine?.pricingPolicy?.basePrice?.amount ??
-        firstLine?.currentPrice?.amount,
-    ) || 0;
+  const discountTierForCycle = getDiscountTierForCycle(
+    firstLine?.pricingPolicy,
+    cycleIndex,
+  );
 
-  if (swapAction?.variantId) {
-    const swappedInfo = variantDataMap[swapAction.variantId];
-    if (swappedInfo?.price != null) {
-      effectiveBase = swappedInfo.price;
-
-      if (swapAction.discountEnabled) {
-        calculatedPricePerUnit = {
-          amount: applyCustomDiscountAction(effectiveBase, {
-            adjustmentType: swapAction.discountType,
-            adjustmentValue: swapAction.discountValue,
-          }).toFixed(2),
-          currencyCode:
-            firstLine?.pricingPolicy?.basePrice?.currencyCode ??
-            firstLine?.currentPrice?.currencyCode,
-        };
-      } else {
-        // koi discount config nahi hai → swap product apni full price pe rahega
-        calculatedPricePerUnit = {
-          amount: effectiveBase.toFixed(2),
-          currencyCode:
-            firstLine?.pricingPolicy?.basePrice?.currencyCode ??
-            firstLine?.currentPrice?.currencyCode,
-        };
-      }
-    } else {
-      console.warn(
-        `[preview] swap target variant (${swapAction.variantId}) price fetch failed — ` +
-          `falling back to original product's price for calculations (may be inaccurate).`,
-      );
-    }
-  }
-
-  const discountAction = Array.isArray(actionsForNextCycle)
-    ? actionsForNextCycle.find((a) => a.type === "DISCOUNT_CHANGE")
-    : null;
-  const hasRealDiscount =
-    discountAction &&
-    !discountAction.__default &&
-    Number(discountAction.adjustmentValue) > 0;
-
-  if (hasRealDiscount) {
-    const base = effectiveBase;
-
-    let discounted = base;
-    if (discountAction.adjustmentType === "PERCENTAGE") {
-      discounted = base - (base * Number(discountAction.adjustmentValue)) / 100;
-    } else {
-      discounted = base - Number(discountAction.adjustmentValue);
-    }
-
-    calculatedPricePerUnit = {
-      amount: Math.max(0, discounted).toFixed(2),
-      currencyCode:
-        calculatedPricePerUnit?.currencyCode ??
-        firstLine?.pricingPolicy?.basePrice?.currencyCode ??
-        firstLine?.currentPrice?.currencyCode,
-    };
-  }
-  const quantityAction = Array.isArray(actionsForNextCycle)
-    ? actionsForNextCycle.find((a) => a.type === "QUANTITY_CHANGE")
-    : null;
-  // const calculatedQuantity = quantityAction ? Number(quantityAction.value) : 1;
-  const calculatedQuantity =
-    quantityAction && !quantityAction.__default
-      ? Number(quantityAction.value)
-      : Number(firstLine?.quantity) || 1;
-
-  const calculatedItemTotal =
-    calculatedPricePerUnit && calculatedQuantity != null
-      ? {
-          amount: (
-            Number(calculatedPricePerUnit.amount) * calculatedQuantity
-          ).toFixed(2),
-          currencyCode: calculatedPricePerUnit.currencyCode,
-        }
-      : null;
-  const currencyCode =
-    calculatedPricePerUnit?.currencyCode ??
+  const currencyCodeFallback =
     firstLine?.pricingPolicy?.basePrice?.currencyCode ??
     firstLine?.currentPrice?.currencyCode ??
     "INR";
 
   const lineItems = [];
-  const originalVariantInfo = variantDataMap[firstLine?.variantId];
-  let mainLineImageUrl = originalVariantInfo?.image?.url ?? null;
-  let mainLineImageAlt =
-    originalVariantInfo?.image?.altText ?? firstLine?.title ?? null;
 
-  if (swapAction?.variantId) {
-    const swappedInfo = variantDataMap[swapAction.variantId];
-    if (swappedInfo?.image) {
-      mainLineImageUrl = swappedInfo.image.url;
-      mainLineImageAlt = swappedInfo.image.altText ?? mainLineImageAlt;
-    }
-  }
-  let swappedTitle;
-  if (swapAction?.variantId) {
-    const matchedDest = (swapAction.dests || []).find((d) =>
-      (d.variantIds || []).includes(swapAction.variantId),
-    );
-    if (matchedDest) {
-      const variantIdx = matchedDest.variantIds.indexOf(swapAction.variantId);
-      const variantName = matchedDest.variantNames?.[variantIdx];
-      swappedTitle = variantName ? `${matchedDest.name}` : matchedDest.name;
-    }
-  }
-  const isBaseLineRemoved = actionsForNextCycle.some(
-    (a) =>
-      (a.type === "REMOVE_PRODUCT" || a.type === "REMOVE_VARIANT") &&
-      actionMatchesLine(a, firstLine),
+  // ── Har committed base line ke liye ek lineItem banao (NAYA — loop) ──
+  for (const line of allLines) {
+    // const isSwapTarget = swapAction && actionMatchesLine(swapAction, line);
+     const isFirstLine = line === allLines[0];
+
+  const isSwapTarget =
+    swapAction &&
+    (isActionTargeted(swapAction)
+      ? actionMatchesLine(swapAction, line)
+      : isFirstLine); 
+      const isRemoved = removeActions.some((a) =>
+    isActionTargeted(a) ? actionMatchesLine(a, line) : isFirstLine,
   );
+    // const isRemoved = removeActions.some((a) => actionMatchesLine(a, line));
+    if (isRemoved) continue; // ye line agle order me nahi aayegi
 
-  const baseOriginalPricePerUnit = {
-    amount: effectiveBase.toFixed(2),
-    currencyCode,
-  };
-  const baseOriginalItemTotal = {
-    amount: (effectiveBase * calculatedQuantity).toFixed(2),
-    currencyCode,
-  };
+    const lineCurrency =
+      line.currentPrice?.currencyCode ?? currencyCodeFallback;
+    const originalVariantInfo = variantDataMap[line.variantId];
 
-  if (calculatedPricePerUnit && !isBaseLineRemoved) {
+    let effectiveBase =
+      Number(
+        originalVariantInfo?.price ??
+          line?.pricingPolicy?.basePrice?.amount ??
+          line?.currentPrice?.amount,
+      ) || 0;
+
+    let title = line.title;
+    let variantTitleOut = originalVariantInfo?.title ?? null;
+    let productIdOut = line.productId;
+    let variantIdOut = line.variantId;
+    let imageUrlOut = originalVariantInfo?.image?.url ?? null;
+    let imageAltOut = originalVariantInfo?.image?.altText ?? line.title ?? null;
+    let automationCycleIndexOut = null;
+    let automationActionIndexOut = null;
+    let pricePerUnit;
+
+    if (isSwapTarget && swapAction.variantId) {
+      const swappedInfo = variantDataMap[swapAction.variantId];
+      if (swappedInfo?.price != null) {
+        effectiveBase = swappedInfo.price;
+      }
+      variantIdOut = swapAction.variantId;
+      const matchedDest = (swapAction.dests || []).find((d) =>
+        (d.variantIds || []).includes(swapAction.variantId),
+      );
+      if (matchedDest) title = matchedDest.name;
+      variantTitleOut = swappedInfo?.title ?? null;
+      productIdOut = swapAction?.dests?.length
+        ? (swapAction.dests[0]?.id ?? null)
+        : null;
+      imageUrlOut = swappedInfo?.image?.url ?? imageUrlOut;
+      imageAltOut = swappedInfo?.image?.altText ?? imageAltOut;
+      automationCycleIndexOut = swapAction.__automationCycleIndex ?? null;
+      automationActionIndexOut = swapAction.__automationActionIndex ?? null;
+
+      pricePerUnit = swapAction.discountEnabled
+        ? {
+            amount: applyCustomDiscountAction(effectiveBase, {
+              adjustmentType: swapAction.discountType,
+              adjustmentValue: swapAction.discountValue,
+            }).toFixed(2),
+            currencyCode: lineCurrency,
+          }
+        : { amount: effectiveBase.toFixed(2), currencyCode: lineCurrency };
+    } else if (hasRealDiscount && isFirstLine) {
+      let discounted = effectiveBase;
+      if (discountAction.adjustmentType === "PERCENTAGE") {
+        discounted =
+          effectiveBase -
+          (effectiveBase * Number(discountAction.adjustmentValue)) / 100;
+      } else {
+        discounted = effectiveBase - Number(discountAction.adjustmentValue);
+      }
+      pricePerUnit = {
+        amount: Math.max(0, discounted).toFixed(2),
+        currencyCode: lineCurrency,
+      };
+    } else {
+      pricePerUnit = {
+        amount: (line.currentPrice?.amount ?? effectiveBase).toString(),
+        currencyCode: lineCurrency,
+      };
+    }
+
+    const qtyApplies =
+      quantityAction &&
+      !quantityAction.__default &&
+      actionMatchesLine(quantityAction, line);
+    const finalQty = qtyApplies
+      ? Number(quantityAction.value)
+      : Number(line.quantity) || 1;
+
+    const itemTotal = {
+      amount: (Number(pricePerUnit.amount) * finalQty).toFixed(2),
+      currencyCode: pricePerUnit.currencyCode,
+    };
+    // const showDiscountOnThisLine = hasRealDiscount && !isSwapTarget;
+    const showDiscountOnThisLine = hasRealDiscount && isFirstLine && !isSwapTarget;
+    const originalPricePerUnit = showDiscountOnThisLine
+      ? { amount: effectiveBase.toFixed(2), currencyCode: pricePerUnit.currencyCode }
+      : pricePerUnit;
+    const originalItemTotal = showDiscountOnThisLine
+      ? {
+          amount: (effectiveBase * finalQty).toFixed(2),
+          currencyCode: pricePerUnit.currencyCode,
+        }
+      : itemTotal;
+
     lineItems.push({
-      title: swapAction?.variantId ? swappedTitle : firstLine?.title,
-      variantTitle: swapAction?.variantId
-        ? (variantDataMap[swapAction.variantId]?.title ?? null)
-        : (originalVariantInfo?.title ?? null),
-      productId: swapAction?.variantId
-        ? swapAction?.dests?.length
-          ? (swapAction.dests[0]?.id ?? null)
-          : null
-        : firstLine?.productId,
-      variantId: swapAction?.variantId ?? firstLine?.variantId,
-      quantity: calculatedQuantity,
-      imageUrl: mainLineImageUrl,
-      imageAlt: mainLineImageAlt,
-      pricePerUnit: calculatedPricePerUnit,
-      itemTotal: calculatedItemTotal,
-      originalPricePerUnit: hasRealDiscount
-        ? baseOriginalPricePerUnit
-        : calculatedPricePerUnit,
-      originalItemTotal: hasRealDiscount
-        ? baseOriginalItemTotal
-        : calculatedItemTotal,
+      title,
+      variantTitle: variantTitleOut,
+      productId: productIdOut,
+      variantId: variantIdOut,
+      quantity: finalQty,
+      imageUrl: imageUrlOut,
+      imageAlt: imageAltOut,
+      pricePerUnit,
+      itemTotal,
+      originalPricePerUnit,
+      originalItemTotal,
       isBaseLine: true,
-      automationCycleIndex: swapAction?.__automationCycleIndex ?? null,
-      automationActionIndex: swapAction?.__automationActionIndex ?? null,
-      // "before" = native selling-plan discount tier, "after" = merchant's custom afterOrders override.
-      // The UI needs this to know which setting to flip when "Remove discount" is clicked.
-      discountPhase: hasRealDiscount ? discountAction.__phase : null,
-      discountLabel: hasRealDiscount
+      automationCycleIndex: automationCycleIndexOut,
+      automationActionIndex: automationActionIndexOut,
+      discountPhase: showDiscountOnThisLine ? discountAction.__phase : null,
+      discountLabel: showDiscountOnThisLine
         ? String(discountAction.adjustmentType).toUpperCase() === "PERCENTAGE"
           ? `${discountAction.adjustmentValue}% off`
-          : String(discountAction.adjustmentType).toUpperCase() ===
-              "FIXED_AMOUNT"
-            ? `Fixed price: ${currencySymbol(currencyCode)}${discountAction.adjustmentValue}`
-            : `${currencySymbol(currencyCode)}${discountAction.adjustmentValue} off`
+          : String(discountAction.adjustmentType).toUpperCase() === "FIXED_AMOUNT"
+            ? `Fixed price: ${currencySymbol(pricePerUnit.currencyCode)}${discountAction.adjustmentValue}`
+            : `${currencySymbol(pricePerUnit.currencyCode)}${discountAction.adjustmentValue} off`
         : null,
     });
   }
 
-  const discountTierForCycle = getDiscountTierForCycle(
-    firstLine?.pricingPolicy,
-    cycleIndex,
-  );
+  // ── Automation se ADD hone wale products (committed lines nahi hain) ──
   for (const action of addProductActions) {
     const isSwapGenerated = !!action.destProductId || !!action.sourceProductId;
     const qty = Number(action.quantity) || 1;
 
     const variantInfo = variantDataMap[action.variantId];
     const knownPrice = variantInfo?.price ?? null;
+    const effectiveBaseForAdd =
+      Number(
+        firstLine?.pricingPolicy?.basePrice?.amount ??
+          firstLine?.currentPrice?.amount,
+      ) || 0;
 
-    let pricePerUnit;
+    let pricePerUnitNum;
     try {
-      pricePerUnit = computeLinePriceFromKnownPrice(
+      pricePerUnitNum = computeLinePriceFromKnownPrice(
         knownPrice,
         {
           isSwapGenerated,
@@ -1805,7 +2377,7 @@ async function getContractPreview(admin, contractId) {
           discountType: action.discountType,
           discountValue: action.discountValue,
         },
-        effectiveBase,
+        effectiveBaseForAdd,
         discountTierForCycle,
         hasRealDiscount ? discountAction : null,
       );
@@ -1814,7 +2386,7 @@ async function getContractPreview(admin, contractId) {
         `[preview] failed computing price for ADD_PRODUCT variant ${action.variantId}:`,
         err,
       );
-      pricePerUnit = 0;
+      pricePerUnitNum = 0;
     }
 
     let addedImageUrl = action.imageUrl ?? variantInfo?.image?.url ?? null;
@@ -1828,8 +2400,8 @@ async function getContractPreview(admin, contractId) {
       knownPrice != null
         ? knownPrice
         : isSwapGenerated
-          ? effectiveBase
-          : pricePerUnit;
+          ? effectiveBaseForAdd
+          : pricePerUnitNum;
 
     lineItems.push({
       title: action.productName ?? action.variantName ?? "Added product",
@@ -1839,30 +2411,38 @@ async function getContractPreview(admin, contractId) {
       quantity: qty,
       imageUrl: addedImageUrl,
       imageAlt: addedImageAlt,
-      pricePerUnit: { amount: pricePerUnit.toFixed(2), currencyCode },
-      itemTotal: { amount: (pricePerUnit * qty).toFixed(2), currencyCode },
+      pricePerUnit: {
+        amount: pricePerUnitNum.toFixed(2),
+        currencyCode: currencyCodeFallback,
+      },
+      itemTotal: {
+        amount: (pricePerUnitNum * qty).toFixed(2),
+        currencyCode: currencyCodeFallback,
+      },
       originalPricePerUnit: {
         amount: originalPriceValue.toFixed(2),
-        currencyCode,
+        currencyCode: currencyCodeFallback,
       },
       originalItemTotal: {
         amount: (originalPriceValue * qty).toFixed(2),
-        currencyCode,
+        currencyCode: currencyCodeFallback,
       },
       isBaseLine: false,
       automationCycleIndex: action.__automationCycleIndex ?? null,
       automationActionIndex: action.__automationActionIndex ?? null,
-      discountPhase: null, // automation-item discounts aren't phased — remove just disables discountEnabled
+      discountPhase: null,
       discountLabel:
         action.discountEnabled && Number(action.discountValue) > 0
           ? String(action.discountType).toLowerCase() === "percentage"
             ? `${action.discountValue}% off`
             : String(action.discountType).toLowerCase() === "fixed_amount"
-              ? `Fixed price: ${currencySymbol(currencyCode)}${action.discountValue}`
-              : `${currencySymbol(currencyCode)}${action.discountValue} off`
+              ? `Fixed price: ${currencySymbol(currencyCodeFallback)}${action.discountValue}`
+              : `${currencySymbol(currencyCodeFallback)}${action.discountValue} off`
           : null,
     });
   }
+
+  const currencyCode = currencyCodeFallback;
 
   const calculatedOrderTotal = {
     amount: lineItems
@@ -1882,9 +2462,6 @@ async function getContractPreview(admin, contractId) {
   };
 
   // ── Shipping discount for next order (independent of line items) ──
-  const shippingAction = Array.isArray(actionsForNextCycle)
-    ? actionsForNextCycle.find((a) => a.type === "SHIPPING_DISCOUNT_CHANGE")
-    : null;
   const hasRealShippingDiscount = shippingAction && !shippingAction.__default;
   const originalShippingPriceAmount = Number(
     contract.deliveryPrice?.amount ?? 0,
@@ -1949,6 +2526,13 @@ async function getContractPreview(admin, contractId) {
             .join(" • "),
   };
 
+  // willApply — sirf woh actions dikhao jo kam se kam ek line ko touch karte hain
+  const visibleActionsForDisplay = rawActionsForNextCycle.filter((a) => {
+    if (a.__default) return false;
+    if (!LINE_MATCH_REQUIRED_TYPES.has(a.type)) return true;
+    return allLines.some((line) => actionMatchesLine(a, line));
+  });
+
   const preview = {
     contractId: contract.id,
     status: contract.status,
@@ -1961,9 +2545,12 @@ async function getContractPreview(admin, contractId) {
       price: firstLine?.currentPrice,
       productId: firstLine?.productId,
       variantId: firstLine?.variantId,
-      variantName: originalVariantInfo?.title ?? null,
-      imageUrl: originalVariantInfo?.image?.url ?? null,
-      imageAlt: originalVariantInfo?.image?.altText ?? firstLine?.title ?? null,
+      variantName: variantDataMap[firstLine?.variantId]?.title ?? null,
+      imageUrl: variantDataMap[firstLine?.variantId]?.image?.url ?? null,
+      imageAlt:
+        variantDataMap[firstLine?.variantId]?.image?.altText ??
+        firstLine?.title ??
+        null,
       pricingPolicyDebug: firstLine?.pricingPolicy ?? null,
     },
     planGroup: { id: groupId, name: groupName },
@@ -1976,9 +2563,9 @@ async function getContractPreview(admin, contractId) {
       originalOrderTotal,
       shipping: shippingPreview,
       willApply: (() => {
-        const visible = actionsForNextCycle
-          .filter((a) => !a.__default)
-          .map(({ variantId, ...rest }) => rest);
+        const visible = visibleActionsForDisplay.map(
+          ({ variantId, ...rest }) => rest,
+        );
         return visible.length > 0
           ? visible
           : "No automatic changes configured for this cycle";

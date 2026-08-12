@@ -933,8 +933,7 @@ export default function EditPage() {
             <TextField
               label="Billing frequency"
               disabled
-              value={`Every ${deliveryCount} ${deliveryInterval.toLowerCase()}(s)`}
-              helpText="Pay as you go — billing hamesha delivery ke barabar hi hogi."
+              value={`Every ${deliveryCount} ${deliveryInterval.toLowerCase()}`}
             />
 
             <Divider />
