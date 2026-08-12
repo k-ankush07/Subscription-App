@@ -168,6 +168,9 @@ export async function action({ request, params }) {
         if (!result.success) return { success: false, error: result.error };
       }
 
+      // Pay-as-you-go: billing frequency hamesha delivery frequency ke barabar hi jaati hai —
+      // updateContractDeliveryDetails ab andar hi billingPolicy ko deliveryPolicy ke sync me
+      // set kar deta hai, isliye yahan se sirf delivery values bhejna kaafi hai.
       const deliveryResult = await updateContractDeliveryDetails(admin, contractId, {
         interval: payload.deliveryInterval,
         intervalCount: payload.deliveryCount,
@@ -295,7 +298,7 @@ export async function action({ request, params }) {
     }
   }
 
-  // NEW: committed line ka price directly update karo
+  // committed line ka price directly update karo
   if (type === "update_line_price") {
     const lineId = formData.get("lineId");
     const price = formData.get("price");
@@ -374,7 +377,8 @@ export default function EditPage() {
   const [deliveryInterval, setDeliveryInterval] = useState(
     contract?.deliveryPolicy?.interval || "DAY",
   );
-  const [billingType, setBillingType] = useState("PAYASYOUGO");
+  // Ab sirf "Pay as you go" hi support hai — Prepaid dropdown hata diya
+  const billingType = "PAYASYOUGO";
   const [deliveryPrice, setDeliveryPrice] = useState(
     String(contract?.deliveryPrice?.amount ?? "0"),
   );
@@ -895,15 +899,12 @@ export default function EditPage() {
               Delivery & Billing details
             </Text>
 
-            <Select
-              label="Billing type"
-              options={[
-                { label: "Pay as you go", value: "PAYASYOUGO" },
-                { label: "Prepaid", value: "PREPAID" },
-              ]}
-              value={billingType}
-              onChange={setBillingType}
-            />
+            <Text as="p" variant="bodyMd">
+              Billing type:{" "}
+              <Text as="span" fontWeight="medium">
+                Pay as you go
+              </Text>
+            </Text>
 
             <InlineStack gap="300" wrap={false}>
               <div style={{ flex: 1 }}>
@@ -933,6 +934,7 @@ export default function EditPage() {
               label="Billing frequency"
               disabled
               value={`Every ${deliveryCount} ${deliveryInterval.toLowerCase()}(s)`}
+              helpText="Pay as you go — billing hamesha delivery ke barabar hi hogi."
             />
 
             <Divider />
