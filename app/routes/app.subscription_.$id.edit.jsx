@@ -985,7 +985,6 @@ export default function EditPage() {
         </InlineStack>
       </BlockStack>
 
-      {/* --- Unified price editor modal --- */}
       <Modal
         open={!!priceEditTarget}
         onClose={closePriceEditor}

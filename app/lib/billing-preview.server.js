@@ -2154,7 +2154,11 @@ async function updateContractDeliveryDetails(
 
   const input = {};
   if (interval && intervalCount != null) {
+    // Pay-as-you-go: billing hamesha delivery ke barabar hoga —
+    // isliye dono policies ek saath sync karo, warna Shopify
+    // "delivery must be a multiple of billing" error deta hai.
     input.deliveryPolicy = { interval, intervalCount: Number(intervalCount) };
+    input.billingPolicy = { interval, intervalCount: Number(intervalCount) };
   }
   if (deliveryPrice != null) {
     input.deliveryPrice = String(deliveryPrice);
