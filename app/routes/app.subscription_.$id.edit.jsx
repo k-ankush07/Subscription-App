@@ -113,7 +113,15 @@ export async function loader({ params, request }) {
   }));
 
   const preview = await getContractPreview(admin, contractId);
-
+const willApply = Array.isArray(preview?.nextOrder?.willApply)
+  ? preview.nextOrder.willApply
+  : [];
+const removedVariantIds = willApply
+  .filter((a) => a.type === "REMOVE_VARIANT" && a.sourceVariantId)
+  .map((a) => a.sourceVariantId);
+const removedProductIds = willApply
+  .filter((a) => a.type === "REMOVE_PRODUCT" && a.sourceProductId)
+  .map((a) => a.sourceProductId);
   const currencyCode =
     contract.deliveryPrice?.currencyCode ||
     lines[0]?.currentPrice?.currencyCode ||
@@ -124,6 +132,8 @@ export async function loader({ params, request }) {
     lines: linesWithOneTimePrice,
     previewLineItems: preview?.nextOrder?.lineItems || [],
      previewNextOrderCycleIndex: preview?.nextOrder?.cycleIndex ?? 0,
+     removedVariantIds,   // NEW
+  removedProductIds,
     currencyCode,
     subscriptionId,
     shop: session.shop,
@@ -432,15 +442,23 @@ export default function EditPage() {
     contract,
     lines: initialLines,
     previewLineItems,
-    previewNextOrderCycleIndex, 
+    previewNextOrderCycleIndex,
+    removedVariantIds,   // NEW
+  removedProductIds, 
     currencyCode,
   } = useLoaderData();
   const navigate = useNavigate();
   const fetcher = useFetcher();
   const { id } = useParams();
 
-  const [lines, setLines] = useState(() =>
-    initialLines.map((l) => {
+ const [lines, setLines] = useState(() =>
+  initialLines
+    .filter(
+      (l) =>
+        !removedVariantIds.includes(l.variantId) &&
+        !removedProductIds.includes(l.productId),
+    )
+    .map((l) => {
       const previewMatch = previewLineItems.find(
         (pi) => pi.isBaseLine && pi.variantId === l.variantId,
       );
@@ -453,7 +471,7 @@ export default function EditPage() {
         discountLabel: previewMatch?.discountLabel ?? null,
       };
     }),
-  );
+);
   const [removedLines, setRemovedLines] = useState([]);
   const [newLines, setNewLines] = useState([]);
 
@@ -965,7 +983,6 @@ export default function EditPage() {
                       <BlockStack gap="050">
                         <InlineStack gap="100" blockAlign="center">
                           <Text fontWeight="medium">{li.title}</Text>
-                          <Badge tone="attention">Upcoming</Badge>
                         </InlineStack>
                         {li.variantTitle && <Badge>{li.variantTitle}</Badge>}
                         {li.discountLabel && (
