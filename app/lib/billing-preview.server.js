@@ -1,94 +1,347 @@
 import { currencySymbol } from "../routes/utils/formatMoney.js";
 
 const EXTRA_SETTINGS_NAMESPACE = "subscription_app";
-const CONTRACT_SETTINGS_SNAPSHOTS_KEY = "contract_settings_snapshots";
+// const CONTRACT_SETTINGS_SNAPSHOTS_KEY = "contract_settings_snapshots";
+const PRODUCT_CATALOG_KEY = "product_catalog_snapshot";
+// async function getShopIdForSnapshot(admin) {
+//   const res = await admin.graphql(`query { shop { id } }`);
+//   const data = await res.json();
+//   return data.data?.shop?.id ?? null;
+// }
+// async function readContractSnapshotsList(admin) {
+//   const res = await admin.graphql(
+//     `
+//     query getContractSnapshots($namespace: String!, $key: String!) {
+//       shop {
+//         metafield(namespace: $namespace, key: $key) {
+//           value
+//         }
+//       }
+//     }
+//     `,
+//     {
+//       variables: {
+//         namespace: EXTRA_SETTINGS_NAMESPACE,
+//         key: CONTRACT_SETTINGS_SNAPSHOTS_KEY,
+//       },
+//     },
+//   );
+//   const data = await res.json();
+//   if (data.errors) {
+//     console.warn(
+//       `[readContractSnapshotsList] query failed: ${data.errors[0]?.message}`,
+//     );
+//     return [];
+//   }
+//   const raw = data.data?.shop?.metafield?.value;
+//   if (!raw) return [];
+//   try {
+//     const parsed = JSON.parse(raw);
+//     return Array.isArray(parsed) ? parsed : [];
+//   } catch {
+//     return [];
+//   }
+// }
+
+// async function writeContractSnapshotsList(admin, shopId, list) {
+//   const MAX_METAFIELD_LENGTH = 2000000;
+//   const MAX_SAFE_LENGTH = 1900000;
+
+//   let safeList = list.slice(-500);
+//   let value = JSON.stringify(safeList);
+
+//   while (value.length > MAX_SAFE_LENGTH && safeList.length > 1) {
+//     safeList.shift();
+//     value = JSON.stringify(safeList);
+//   }
+
+//   if (value.length > MAX_METAFIELD_LENGTH) {
+//     console.warn(
+//       `[writeContractSnapshotsList] snapshot data too large (${value.length} chars) after trimming; keeping only latest snapshot`,
+//     );
+//     safeList = safeList.slice(-1);
+//     value = JSON.stringify(safeList);
+//   }
+
+//   if (value.length > MAX_METAFIELD_LENGTH) {
+//     console.warn(
+//       `[writeContractSnapshotsList] latest snapshot still too large (${value.length} chars); skipping write`,
+//     );
+//     return false;
+//   }
+
+//   const res = await admin.graphql(
+//     `
+//     mutation setContractSnapshots($metafields: [MetafieldsSetInput!]!) {
+//       metafieldsSet(metafields: $metafields) {
+//         userErrors { field message }
+//       }
+//     }
+//     `,
+//     {
+//       variables: {
+//         metafields: [
+//           {
+//             ownerId: shopId,
+//             namespace: EXTRA_SETTINGS_NAMESPACE,
+//             key: CONTRACT_SETTINGS_SNAPSHOTS_KEY,
+//             type: "json",
+//             value,
+//           },
+//         ],
+//       },
+//     },
+//   );
+//   const data = await res.json();
+//   const errors = data.data?.metafieldsSet?.userErrors;
+//   if (errors?.length) {
+//     throw new Error(`writeContractSnapshotsList failed: ${errors[0].message}`);
+//   }
+//   return true;
+// }
+// async function getContractSettingsSnapshot(admin, contractId, shopId = null) {
+//   try {
+//     const resolvedShopId = shopId ?? (await getShopIdForSnapshot(admin));
+//     if (!resolvedShopId) return null;
+//     const list = await readContractSnapshotsList(admin);
+//     for (let i = list.length - 1; i >= 0; i--) {
+//       if (list[i]?.contractId === contractId) {
+//         return list[i].settings ?? null;
+//       }
+//     }
+//     return null;
+//   } catch (err) {
+//     console.warn(
+//       `[getContractSettingsSnapshot] failed for ${contractId}:`,
+//       err,
+//     );
+//     return null;
+//   }
+// }
+// async function snapshotContractSettings(
+//   admin,
+//   contractId,
+//   settings,
+//   shopId = null,
+// ) {
+//   if (!settings) {
+//     console.warn(
+//       `[snapshotContractSettings] no settings to snapshot for ${contractId} — skipping`,
+//     );
+//     return { snapshotted: false };
+//   }
+
+//   const resolvedShopId = shopId ?? (await getShopIdForSnapshot(admin));
+//   if (!resolvedShopId) {
+//     console.warn(
+//       `[snapshotContractSettings] could not resolve shop id — skipping snapshot for ${contractId}`,
+//     );
+//     return { snapshotted: false };
+//   }
+
+//   const list = await readContractSnapshotsList(admin);
+//   list.push({ contractId, settings, capturedAt: new Date().toISOString() });
+//   await writeContractSnapshotsList(admin, resolvedShopId, list);
+//   return { snapshotted: true };
+// }
+
 
 async function getShopIdForSnapshot(admin) {
   const res = await admin.graphql(`query { shop { id } }`);
   const data = await res.json();
   return data.data?.shop?.id ?? null;
 }
-async function readContractSnapshotsList(admin) {
-  const res = await admin.graphql(
-    `
-    query getContractSnapshots($namespace: String!, $key: String!) {
-      shop {
-        metafield(namespace: $namespace, key: $key) {
-          value
-        }
-      }
-    }
-    `,
-    {
-      variables: {
-        namespace: EXTRA_SETTINGS_NAMESPACE,
-        key: CONTRACT_SETTINGS_SNAPSHOTS_KEY,
-      },
-    },
-  );
-  const data = await res.json();
-  if (data.errors) {
-    console.warn(
-      `[readContractSnapshotsList] query failed: ${data.errors[0]?.message}`,
-    );
-    return [];
-  }
-  const raw = data.data?.shop?.metafield?.value;
-  if (!raw) return [];
+
+function contractSnapshotKey(contractId) {
+  const numericId = String(contractId).split("/").pop();
+  return `contract_snapshot_${numericId}`;
+}
+
+async function readProductCatalog(admin) {
   try {
+    const res = await admin.graphql(
+      `
+      query getProductCatalog($namespace: String!, $key: String!) {
+        shop { metafield(namespace: $namespace, key: $key) { value } }
+      }
+      `,
+      { variables: { namespace: EXTRA_SETTINGS_NAMESPACE, key: PRODUCT_CATALOG_KEY } },
+    );
+    const data = await res.json();
+    const raw = data.data?.shop?.metafield?.value;
+    if (!raw) return [];
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed : [];
-  } catch {
+  } catch (err) {
+    console.warn("[readProductCatalog] failed:", err);
     return [];
   }
 }
 
-async function writeContractSnapshotsList(admin, shopId, list) {
-  const trimmed = list.slice(-500);
+async function writeProductCatalog(admin, shopId, products) {
+  const value = JSON.stringify(products ?? []);
+  if (value.length > 1_900_000) {
+    console.warn(`[writeProductCatalog] catalog too large (${value.length} chars) — skipping`);
+    return { written: false };
+  }
   const res = await admin.graphql(
     `
-    mutation setContractSnapshots($metafields: [MetafieldsSetInput!]!) {
-      metafieldsSet(metafields: $metafields) {
-        userErrors { field message }
-      }
+    mutation setProductCatalog($metafields: [MetafieldsSetInput!]!) {
+      metafieldsSet(metafields: $metafields) { userErrors { field message } }
     }
     `,
     {
       variables: {
-        metafields: [
-          {
-            ownerId: shopId,
-            namespace: EXTRA_SETTINGS_NAMESPACE,
-            key: CONTRACT_SETTINGS_SNAPSHOTS_KEY,
-            type: "json",
-            value: JSON.stringify(trimmed),
-          },
-        ],
+        metafields: [{
+          ownerId: shopId,
+          namespace: EXTRA_SETTINGS_NAMESPACE,
+          key: PRODUCT_CATALOG_KEY,
+          type: "json",
+          value,
+        }],
       },
     },
   );
   const data = await res.json();
-  const errors = data.data?.metafieldsSet?.userErrors;
-  if (errors?.length) {
-    throw new Error(`writeContractSnapshotsList failed: ${errors[0].message}`);
+  if (data.data?.metafieldsSet?.userErrors?.length) {
+    console.warn(`[writeProductCatalog] failed: ${data.data.metafieldsSet.userErrors[0].message}`);
+    return { written: false };
   }
+  return { written: true };
 }
+
+// async function getContractSettingsSnapshot(admin, contractId, shopId = null) {
+//   try {
+//     const key = contractSnapshotKey(contractId);
+//     const res = await admin.graphql(
+//       `
+//       query getContractSnapshot($namespace: String!, $key: String!) {
+//         shop { metafield(namespace: $namespace, key: $key) { value } }
+//       }
+//       `,
+//       { variables: { namespace: EXTRA_SETTINGS_NAMESPACE, key } },
+//     );
+//     const data = await res.json();
+//     if (data.errors) {
+//       console.warn(`[getContractSettingsSnapshot] query failed: ${data.errors[0]?.message}`);
+//       return null;
+//     }
+
+//     const raw = data.data?.shop?.metafield?.value;
+//     if (!raw) return null;
+
+//     const parsed = JSON.parse(raw);
+//     const settings = parsed?.settings ?? null;
+//     if (!settings) return null;
+
+//     if (settings.products === undefined) {
+//       settings.products = await readProductCatalog(admin);
+//     }
+
+//     return settings;
+//   } catch (err) {
+//     console.warn(`[getContractSettingsSnapshot] failed for ${contractId}:`, err);
+//     return null;
+//   }
+// }
+
+// async function snapshotContractSettings(
+//   admin,
+//   contractId,
+//   settings,
+//   shopId = null,
+// ) {
+//   if (!settings) {
+//     console.warn(
+//       `[snapshotContractSettings] no settings to snapshot for ${contractId} — skipping`,
+//     );
+//     return { snapshotted: false };
+//   }
+
+//   const resolvedShopId = shopId ?? (await getShopIdForSnapshot(admin));
+//   if (!resolvedShopId) {
+//     console.warn(
+//       `[snapshotContractSettings] could not resolve shop id — skipping snapshot for ${contractId}`,
+//     );
+//     return { snapshotted: false };
+//   }
+
+//   const { products, ...settingsWithoutCatalog } = settings;
+//   if (Array.isArray(products) && products.length > 0) {
+//     try {
+//       await writeProductCatalog(admin, resolvedShopId, products);
+//     } catch (err) {
+//       console.warn(
+//         `[snapshotContractSettings] writeProductCatalog failed for ${contractId}:`,
+//         err,
+//       );
+//     }
+//   }
+
+//   const key = contractSnapshotKey(contractId);
+//   const value = JSON.stringify({
+//     contractId,
+//     settings: settingsWithoutCatalog,
+//     capturedAt: new Date().toISOString(),
+//   });
+
+//   if (value.length > 1_900_000) {
+//     console.warn(
+//       `[snapshotContractSettings] payload too large (${value.length} chars) for ${contractId} — skipping`,
+//     );
+//     return { snapshotted: false, error: "Settings payload too large to store" };
+//   }
+
+//   const res = await admin.graphql(
+//     `
+//     mutation setContractSnapshot($metafields: [MetafieldsSetInput!]!) {
+//       metafieldsSet(metafields: $metafields) { userErrors { field message } }
+//     }
+//     `,
+//     {
+//       variables: {
+//         metafields: [{
+//           ownerId: resolvedShopId,
+//           namespace: EXTRA_SETTINGS_NAMESPACE,
+//           key,
+//           type: "json",
+//           value,
+//         }],
+//       },
+//     },
+//   );
+//   const data = await res.json();
+//   const errors = data.data?.metafieldsSet?.userErrors;
+//   if (errors?.length) {
+//     throw new Error(`snapshotContractSettings failed: ${errors[0].message}`);
+//   }
+//   return { snapshotted: true };
+// }
+
 async function getContractSettingsSnapshot(admin, contractId, shopId = null) {
   try {
-    const resolvedShopId = shopId ?? (await getShopIdForSnapshot(admin));
-    if (!resolvedShopId) return null;
-    const list = await readContractSnapshotsList(admin);
-    for (let i = list.length - 1; i >= 0; i--) {
-      if (list[i]?.contractId === contractId) {
-        return list[i].settings ?? null;
+    const key = contractSnapshotKey(contractId);
+    const res = await admin.graphql(
+      `
+      query getContractSnapshot($namespace: String!, $key: String!) {
+        shop { metafield(namespace: $namespace, key: $key) { value } }
       }
-    }
-    return null;
-  } catch (err) {
-    console.warn(
-      `[getContractSettingsSnapshot] failed for ${contractId}:`,
-      err,
+      `,
+      { variables: { namespace: EXTRA_SETTINGS_NAMESPACE, key } },
     );
+    const data = await res.json();
+    if (data.errors) {
+      console.warn(`[getContractSettingsSnapshot] query failed: ${data.errors[0]?.message}`);
+      return null;
+    }
+
+    const raw = data.data?.shop?.metafield?.value;
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw);
+    return parsed?.settings ?? null;
+  } catch (err) {
+    console.warn(`[getContractSettingsSnapshot] failed for ${contractId}:`, err);
     return null;
   }
 }
@@ -113,12 +366,46 @@ async function snapshotContractSettings(
     return { snapshotted: false };
   }
 
-  const list = await readContractSnapshotsList(admin);
-  list.push({ contractId, settings, capturedAt: new Date().toISOString() });
-  await writeContractSnapshotsList(admin, resolvedShopId, list);
+  // products per-contract hai — ab isi key ke andar rakho, shared catalog me nahi bhejna
+  const key = contractSnapshotKey(contractId);
+  const value = JSON.stringify({
+    contractId,
+    settings,
+    capturedAt: new Date().toISOString(),
+  });
+
+  if (value.length > 1_900_000) {
+    console.warn(
+      `[snapshotContractSettings] payload too large (${value.length} chars) for ${contractId} — skipping`,
+    );
+    return { snapshotted: false, error: "Settings payload too large to store" };
+  }
+
+  const res = await admin.graphql(
+    `
+    mutation setContractSnapshot($metafields: [MetafieldsSetInput!]!) {
+      metafieldsSet(metafields: $metafields) { userErrors { field message } }
+    }
+    `,
+    {
+      variables: {
+        metafields: [{
+          ownerId: resolvedShopId,
+          namespace: EXTRA_SETTINGS_NAMESPACE,
+          key,
+          type: "json",
+          value,
+        }],
+      },
+    },
+  );
+  const data = await res.json();
+  const errors = data.data?.metafieldsSet?.userErrors;
+  if (errors?.length) {
+    throw new Error(`snapshotContractSettings failed: ${errors[0].message}`);
+  }
   return { snapshotted: true };
 }
-
 function normalizeAutomationAction(action, afterOrders) {
   if (action.type === "swap") {
     const allDests = Array.isArray(action.dests) ? action.dests : [];
@@ -233,6 +520,7 @@ function resolveDiscountForCycle(settings, pricingPolicy, cycleIndex) {
       adjustmentValue: Number(settings.afterDiscountValue) || 0,
       after: settings.afterOrders,
       __phase: "after",
+       __manualOverride: !!settings.afterDiscountIsManualOverride, 
     };
   }
 
@@ -932,16 +1220,27 @@ async function applyActionsToCycle(
             "Base line was already removed by another action this cycle.";
           continue;
         }
+        // const basePrice = effectiveBasePrice;
+
+        // let newPrice = basePrice;
+        // if (action.adjustmentType === "PERCENTAGE") {
+        //   newPrice =
+        //     basePrice - (basePrice * Number(action.adjustmentValue)) / 100;
+        // } else {
+        //   newPrice = basePrice - Number(action.adjustmentValue);
+        // }
+        // newPrice = Math.max(0, newPrice).toFixed(2);
         const basePrice = effectiveBasePrice;
 
-        let newPrice = basePrice;
-        if (action.adjustmentType === "PERCENTAGE") {
-          newPrice =
-            basePrice - (basePrice * Number(action.adjustmentValue)) / 100;
-        } else {
-          newPrice = basePrice - Number(action.adjustmentValue);
-        }
-        newPrice = Math.max(0, newPrice).toFixed(2);
+  let newPrice = basePrice;
+  if (action.adjustmentType === "PERCENTAGE") {
+    newPrice = basePrice - (basePrice * Number(action.adjustmentValue)) / 100;
+  } else if (action.adjustmentType === "FIXED_PRICE") {
+    newPrice = Number(action.adjustmentValue); 
+  } else {
+    newPrice = basePrice - Number(action.adjustmentValue);
+  }
+  newPrice = Math.max(0, newPrice).toFixed(2);
 
         const res = await admin.graphql(
           `
@@ -1327,6 +1626,7 @@ function setAutomationVariantPrice(
   action.discountEnabled = true;
   action.discountType = "fixed_amount";
   action.discountValue = String(Math.max(0, Number(price) || 0));
+   action.__manualPriceOverride = true;
 
   return clonedSettings;
 }
@@ -1386,6 +1686,16 @@ function removeLineDiscount(
 
   return clonedSettings;
 }
+function setBaseLineFixedPrice(settings, price) {
+  const clonedSettings = settings ? JSON.parse(JSON.stringify(settings)) : {};
+  clonedSettings.changeDiscountAfterOrders = true;
+  clonedSettings.afterOrders = 0;
+  clonedSettings.afterDiscountType = "FIXED_PRICE";
+  clonedSettings.afterDiscountValue = Number(price) || 0;
+  clonedSettings.beforeDiscountDisabled = true; 
+  clonedSettings.afterDiscountIsManualOverride = true;  
+  return clonedSettings;
+}
 function addBaseLineRemoval(settings, cycleIndex, productId, variantId) {
   const clonedSettings = settings ? JSON.parse(JSON.stringify(settings)) : {};
 
@@ -1417,580 +1727,6 @@ async function getEffectiveSettingsForContract(
 ) {
   return await getContractSettingsSnapshot(admin, contractId, shopId);
 }
-
-// async function getContractPreview(admin, contractId) {
-//   const contractRes = await admin.graphql(
-//     `
-//     query getContract($id: ID!) {
-//       subscriptionContract(id: $id) {
-//         id
-//         status
-//         nextBillingDate
-//         deliveryPrice { amount currencyCode }
-//         billingPolicy {
-//           interval
-//           intervalCount
-//           minCycles
-//           maxCycles
-//         }
-//         customer {
-//          id
-//          displayName
-//          defaultEmailAddress{
-//           emailAddress
-//           }
-//           }
-//         lines(first: 5) {
-//           edges {
-//             node {
-//               id
-//               title
-//               quantity
-//               sellingPlanId
-//               productId
-//               variantId
-//               currentPrice { amount currencyCode }
-//               pricingPolicy {
-//                 basePrice { amount currencyCode }
-//                 cycleDiscounts {
-//                   afterCycle
-//                   adjustmentType
-//                   adjustmentValue {
-//                     ... on SellingPlanPricingPolicyPercentageValue { percentage }
-//                     ... on MoneyV2 { amount currencyCode }
-//                   }
-//                   computedPrice { amount currencyCode }
-//                 }
-//               }
-//             }
-//           }
-//         }
-//       }
-//     }
-//     `,
-//     { variables: { id: contractId } },
-//   );
-//   const contractData = await contractRes.json();
-//   const contract = contractData.data?.subscriptionContract;
-
-//   if (!contract) {
-//     console.log(`[preview] Contract not found: ${contractId}`);
-//     return null;
-//   }
-
-//   const firstLine = contract.lines.edges[0]?.node;
-//   const sellingPlanId = firstLine?.sellingPlanId;
-//   let groupId = null;
-//   let groupName = null;
-
-//   if (sellingPlanId) {
-//     const groupsRes = await admin.graphql(`
-//       query {
-//         sellingPlanGroups(first: 100) {
-//           edges {
-//             node {
-//               id
-//               name
-//               sellingPlans(first: 100) {
-//                 edges {
-//                   node {
-//                     id
-//                   }
-//                 }
-//               }
-//             }
-//           }
-//         }
-//       }
-//     `);
-//     const groupsData = await groupsRes.json();
-//     for (const { node: group } of groupsData.data.sellingPlanGroups.edges) {
-//       const plan = group.sellingPlans.edges.find(
-//         ({ node }) => node.id === sellingPlanId,
-//       );
-//       if (!plan) continue;
-//       groupId = group.id;
-//       groupName = group.name;
-//       break;
-//     }
-//   }
-
-//   const extraSettings = await getContractSettingsSnapshot(admin, contractId);
-//   const settingsSource = extraSettings
-//     ? "contract_snapshot"
-//     : "no_snapshot_found";
-
-//   let cycleIndex = null;
-//   let nextBillingDate = contract.nextBillingDate;
-//   let cycleStatus = null;
-
-//   if (contract.nextBillingDate) {
-//     const cycleRes = await admin.graphql(
-//       `
-//       query getCycleByDate($contractId: ID!, $date: DateTime!) {
-//         subscriptionBillingCycle(billingCycleInput: { contractId: $contractId, selector: { date: $date } }) {
-//           cycleIndex
-//           billingAttemptExpectedDate
-//           status
-//           skipped
-//         }
-//       }
-//       `,
-//       { variables: { contractId, date: contract.nextBillingDate } },
-//     );
-
-//     let cycleData = await cycleRes.json();
-//     let cycle = cycleData.data?.subscriptionBillingCycle;
-
-//     if (cycle) {
-//       cycleIndex = cycle.cycleIndex;
-//       nextBillingDate = cycle.billingAttemptExpectedDate || nextBillingDate;
-//       cycleStatus = cycle.status;
-//       let cycleSkipped = cycle.skipped; // naya — properly declared
-
-//       let safetyCounter = 0;
-//       while ((cycleStatus === "BILLED" || cycleSkipped) && safetyCounter < 20) {
-//         cycleIndex += 1;
-//         safetyCounter += 1;
-
-//         const nextCycleRes = await admin.graphql(
-//           `
-//           query getCycleByIndex($contractId: ID!, $index: Int!) {
-//             subscriptionBillingCycle(billingCycleInput: { contractId: $contractId, selector: { index: $index } }) {
-//               cycleIndex
-//               billingAttemptExpectedDate
-//               status
-//               skipped
-//             }
-//           }
-//           `,
-//           { variables: { contractId, index: cycleIndex } },
-//         );
-
-//         const nextCycleData = await nextCycleRes.json();
-//         const nextCycle = nextCycleData.data?.subscriptionBillingCycle;
-//         if (!nextCycle) break;
-
-//         cycleIndex = nextCycle.cycleIndex;
-//         nextBillingDate =
-//           nextCycle.billingAttemptExpectedDate || nextBillingDate;
-//         cycleStatus = nextCycle.status;
-//         cycleSkipped = nextCycle.skipped;
-//       }
-//     }
-//   }
-
-//   const rawActionsForNextCycle =
-//     cycleIndex != null
-//       ? collectActionsForCycle(
-//           extraSettings,
-//           cycleIndex,
-//           firstLine?.pricingPolicy,
-//         )
-//       : [];
-//   const actionsForNextCycle = rawActionsForNextCycle.filter((a) => {
-//     if (!LINE_MATCH_REQUIRED_TYPES.has(a.type)) return true;
-//     return actionMatchesLine(a, firstLine);
-//   });
-
-//   // let calculatedPricePerUnit =
-//   //   cycleIndex != null ? computePriceForCycle(firstLine?.pricingPolicy, cycleIndex) : null;
-//   // let calculatedPricePerUnit = firstLine?.pricingPolicy?.basePrice ?? null;
-//   let calculatedPricePerUnit =
-//     firstLine?.currentPrice ?? firstLine?.pricingPolicy?.basePrice ?? null;
-//   const swapAction = Array.isArray(actionsForNextCycle)
-//     ? actionsForNextCycle.find(
-//         (a) => a.type === "VARIANT_SWAP" || a.type === "PRODUCT_SWAP",
-//       )
-//     : null;
-
-//   const addProductActions = Array.isArray(actionsForNextCycle)
-//     ? actionsForNextCycle.filter((a) => a.type === "ADD_PRODUCT")
-//     : [];
-
-//   const allVariantIdsNeeded = [
-//     firstLine?.variantId,
-//     swapAction?.variantId,
-//     ...addProductActions.map((a) => a.variantId),
-//   ].filter(Boolean);
-
-//   const variantDataMap = await fetchVariantsBatch(admin, allVariantIdsNeeded);
-
-//   // let effectiveBase = Number(firstLine?.pricingPolicy?.basePrice?.amount) || 0;
-//   // let effectiveBase = Number(firstLine?.currentPrice?.amount ?? firstLine?.pricingPolicy?.basePrice?.amount) || 0;
-//   const rawVariantPrice = variantDataMap[firstLine?.variantId]?.price;
-//   let effectiveBase =
-//     Number(
-//       rawVariantPrice ??
-//         firstLine?.pricingPolicy?.basePrice?.amount ??
-//         firstLine?.currentPrice?.amount,
-//     ) || 0;
-
-//   if (swapAction?.variantId) {
-//     const swappedInfo = variantDataMap[swapAction.variantId];
-//     if (swappedInfo?.price != null) {
-//       effectiveBase = swappedInfo.price;
-
-//       if (swapAction.discountEnabled) {
-//         calculatedPricePerUnit = {
-//           amount: applyCustomDiscountAction(effectiveBase, {
-//             adjustmentType: swapAction.discountType,
-//             adjustmentValue: swapAction.discountValue,
-//           }).toFixed(2),
-//           currencyCode:
-//             firstLine?.pricingPolicy?.basePrice?.currencyCode ??
-//             firstLine?.currentPrice?.currencyCode,
-//         };
-//       } else {
-//         // koi discount config nahi hai → swap product apni full price pe rahega
-//         calculatedPricePerUnit = {
-//           amount: effectiveBase.toFixed(2),
-//           currencyCode:
-//             firstLine?.pricingPolicy?.basePrice?.currencyCode ??
-//             firstLine?.currentPrice?.currencyCode,
-//         };
-//       }
-//     } else {
-//       console.warn(
-//         `[preview] swap target variant (${swapAction.variantId}) price fetch failed — ` +
-//           `falling back to original product's price for calculations (may be inaccurate).`,
-//       );
-//     }
-//   }
-
-//   const discountAction = Array.isArray(actionsForNextCycle)
-//     ? actionsForNextCycle.find((a) => a.type === "DISCOUNT_CHANGE")
-//     : null;
-//   const hasRealDiscount =
-//     discountAction &&
-//     !discountAction.__default &&
-//     Number(discountAction.adjustmentValue) > 0;
-
-//   if (hasRealDiscount) {
-//     const base = effectiveBase;
-
-//     let discounted = base;
-//     if (discountAction.adjustmentType === "PERCENTAGE") {
-//       discounted = base - (base * Number(discountAction.adjustmentValue)) / 100;
-//     } else {
-//       discounted = base - Number(discountAction.adjustmentValue);
-//     }
-
-//     calculatedPricePerUnit = {
-//       amount: Math.max(0, discounted).toFixed(2),
-//       currencyCode:
-//         calculatedPricePerUnit?.currencyCode ??
-//         firstLine?.pricingPolicy?.basePrice?.currencyCode ??
-//         firstLine?.currentPrice?.currencyCode,
-//     };
-//   }
-//   const quantityAction = Array.isArray(actionsForNextCycle)
-//     ? actionsForNextCycle.find((a) => a.type === "QUANTITY_CHANGE")
-//     : null;
-//   // const calculatedQuantity = quantityAction ? Number(quantityAction.value) : 1;
-//   const calculatedQuantity =
-//     quantityAction && !quantityAction.__default
-//       ? Number(quantityAction.value)
-//       : Number(firstLine?.quantity) || 1;
-
-//   const calculatedItemTotal =
-//     calculatedPricePerUnit && calculatedQuantity != null
-//       ? {
-//           amount: (
-//             Number(calculatedPricePerUnit.amount) * calculatedQuantity
-//           ).toFixed(2),
-//           currencyCode: calculatedPricePerUnit.currencyCode,
-//         }
-//       : null;
-//   const currencyCode =
-//     calculatedPricePerUnit?.currencyCode ??
-//     firstLine?.pricingPolicy?.basePrice?.currencyCode ??
-//     firstLine?.currentPrice?.currencyCode ??
-//     "INR";
-
-//   const lineItems = [];
-//   const originalVariantInfo = variantDataMap[firstLine?.variantId];
-//   let mainLineImageUrl = originalVariantInfo?.image?.url ?? null;
-//   let mainLineImageAlt =
-//     originalVariantInfo?.image?.altText ?? firstLine?.title ?? null;
-
-//   if (swapAction?.variantId) {
-//     const swappedInfo = variantDataMap[swapAction.variantId];
-//     if (swappedInfo?.image) {
-//       mainLineImageUrl = swappedInfo.image.url;
-//       mainLineImageAlt = swappedInfo.image.altText ?? mainLineImageAlt;
-//     }
-//   }
-//   let swappedTitle;
-//   if (swapAction?.variantId) {
-//     const matchedDest = (swapAction.dests || []).find((d) =>
-//       (d.variantIds || []).includes(swapAction.variantId),
-//     );
-//     if (matchedDest) {
-//       const variantIdx = matchedDest.variantIds.indexOf(swapAction.variantId);
-//       const variantName = matchedDest.variantNames?.[variantIdx];
-//       swappedTitle = variantName ? `${matchedDest.name}` : matchedDest.name;
-//     }
-//   }
-//   const isBaseLineRemoved = actionsForNextCycle.some(
-//     (a) =>
-//       (a.type === "REMOVE_PRODUCT" || a.type === "REMOVE_VARIANT") &&
-//       actionMatchesLine(a, firstLine),
-//   );
-
-//   const baseOriginalPricePerUnit = {
-//     amount: effectiveBase.toFixed(2),
-//     currencyCode,
-//   };
-//   const baseOriginalItemTotal = {
-//     amount: (effectiveBase * calculatedQuantity).toFixed(2),
-//     currencyCode,
-//   };
-
-//   if (calculatedPricePerUnit && !isBaseLineRemoved) {
-//     lineItems.push({
-//       title: swapAction?.variantId ? swappedTitle : firstLine?.title,
-//       variantTitle: swapAction?.variantId
-//         ? (variantDataMap[swapAction.variantId]?.title ?? null)
-//         : (originalVariantInfo?.title ?? null),
-//       productId: swapAction?.variantId
-//         ? swapAction?.dests?.length
-//           ? (swapAction.dests[0]?.id ?? null)
-//           : null
-//         : firstLine?.productId,
-//       variantId: swapAction?.variantId ?? firstLine?.variantId,
-//       quantity: calculatedQuantity,
-//       imageUrl: mainLineImageUrl,
-//       imageAlt: mainLineImageAlt,
-//       pricePerUnit: calculatedPricePerUnit,
-//       itemTotal: calculatedItemTotal,
-//       originalPricePerUnit: hasRealDiscount
-//         ? baseOriginalPricePerUnit
-//         : calculatedPricePerUnit,
-//       originalItemTotal: hasRealDiscount
-//         ? baseOriginalItemTotal
-//         : calculatedItemTotal,
-//       isBaseLine: true,
-//       automationCycleIndex: swapAction?.__automationCycleIndex ?? null,
-//       automationActionIndex: swapAction?.__automationActionIndex ?? null,
-//       // "before" = native selling-plan discount tier, "after" = merchant's custom afterOrders override.
-//       // The UI needs this to know which setting to flip when "Remove discount" is clicked.
-//       discountPhase: hasRealDiscount ? discountAction.__phase : null,
-//       discountLabel: hasRealDiscount
-//         ? String(discountAction.adjustmentType).toUpperCase() === "PERCENTAGE"
-//           ? `${discountAction.adjustmentValue}% off`
-//           : String(discountAction.adjustmentType).toUpperCase() ===
-//               "FIXED_AMOUNT"
-//             ? `Fixed price: ${currencySymbol(currencyCode)}${discountAction.adjustmentValue}`
-//             : `${currencySymbol(currencyCode)}${discountAction.adjustmentValue} off`
-//         : null,
-//     });
-//   }
-
-//   const discountTierForCycle = getDiscountTierForCycle(
-//     firstLine?.pricingPolicy,
-//     cycleIndex,
-//   );
-//   for (const action of addProductActions) {
-//     const isSwapGenerated = !!action.destProductId || !!action.sourceProductId;
-//     const qty = Number(action.quantity) || 1;
-
-//     const variantInfo = variantDataMap[action.variantId];
-//     const knownPrice = variantInfo?.price ?? null;
-
-//     let pricePerUnit;
-//     try {
-//       pricePerUnit = computeLinePriceFromKnownPrice(
-//         knownPrice,
-//         {
-//           isSwapGenerated,
-//           discountEnabled: action.discountEnabled,
-//           discountType: action.discountType,
-//           discountValue: action.discountValue,
-//         },
-//         effectiveBase,
-//         discountTierForCycle,
-//         hasRealDiscount ? discountAction : null,
-//       );
-//     } catch (err) {
-//       console.warn(
-//         `[preview] failed computing price for ADD_PRODUCT variant ${action.variantId}:`,
-//         err,
-//       );
-//       pricePerUnit = 0;
-//     }
-
-//     let addedImageUrl = action.imageUrl ?? variantInfo?.image?.url ?? null;
-//     let addedImageAlt =
-//       action.productName ??
-//       action.variantName ??
-//       variantInfo?.image?.altText ??
-//       null;
-
-//     const originalPriceValue =
-//       knownPrice != null
-//         ? knownPrice
-//         : isSwapGenerated
-//           ? effectiveBase
-//           : pricePerUnit;
-
-//     lineItems.push({
-//       title: action.productName ?? action.variantName ?? "Added product",
-//       variantTitle: variantInfo?.title ?? null,
-//       productId: action.productId ?? action.destProductId ?? null,
-//       variantId: action.variantId,
-//       quantity: qty,
-//       imageUrl: addedImageUrl,
-//       imageAlt: addedImageAlt,
-//       pricePerUnit: { amount: pricePerUnit.toFixed(2), currencyCode },
-//       itemTotal: { amount: (pricePerUnit * qty).toFixed(2), currencyCode },
-//       originalPricePerUnit: {
-//         amount: originalPriceValue.toFixed(2),
-//         currencyCode,
-//       },
-//       originalItemTotal: {
-//         amount: (originalPriceValue * qty).toFixed(2),
-//         currencyCode,
-//       },
-//       isBaseLine: false,
-//       automationCycleIndex: action.__automationCycleIndex ?? null,
-//       automationActionIndex: action.__automationActionIndex ?? null,
-//       discountPhase: null, // automation-item discounts aren't phased — remove just disables discountEnabled
-//       discountLabel:
-//         action.discountEnabled && Number(action.discountValue) > 0
-//           ? String(action.discountType).toLowerCase() === "percentage"
-//             ? `${action.discountValue}% off`
-//             : String(action.discountType).toLowerCase() === "fixed_amount"
-//               ? `Fixed price: ${currencySymbol(currencyCode)}${action.discountValue}`
-//               : `${currencySymbol(currencyCode)}${action.discountValue} off`
-//           : null,
-//     });
-//   }
-
-//   const calculatedOrderTotal = {
-//     amount: lineItems
-//       .reduce((sum, li) => sum + Number(li.itemTotal.amount), 0)
-//       .toFixed(2),
-//     currencyCode,
-//   };
-//   const originalOrderTotal = {
-//     amount: lineItems
-//       .reduce(
-//         (sum, li) =>
-//           sum + Number((li.originalItemTotal ?? li.itemTotal).amount),
-//         0,
-//       )
-//       .toFixed(2),
-//     currencyCode,
-//   };
-
-//   // ── Shipping discount for next order (independent of line items) ──
-//   const shippingAction = Array.isArray(actionsForNextCycle)
-//     ? actionsForNextCycle.find((a) => a.type === "SHIPPING_DISCOUNT_CHANGE")
-//     : null;
-//   const hasRealShippingDiscount = shippingAction && !shippingAction.__default;
-//   const originalShippingPriceAmount = Number(
-//     contract.deliveryPrice?.amount ?? 0,
-//   );
-//   const shippingCurrency = contract.deliveryPrice?.currencyCode ?? currencyCode;
-//   const calculatedShippingPriceAmount = hasRealShippingDiscount
-//     ? applyShippingDiscountToPrice(originalShippingPriceAmount, shippingAction)
-//     : originalShippingPriceAmount;
-
-//   const shippingPreview = contract.deliveryPrice
-//     ? {
-//         originalPrice: {
-//           amount: originalShippingPriceAmount.toFixed(2),
-//           currencyCode: shippingCurrency,
-//         },
-//         calculatedPrice: {
-//           amount: calculatedShippingPriceAmount.toFixed(2),
-//           currencyCode: shippingCurrency,
-//         },
-//         discountLabel: hasRealShippingDiscount
-//           ? String(shippingAction.adjustmentType).toUpperCase() === "PERCENTAGE"
-//             ? `${shippingAction.adjustmentValue}% off shipping`
-//             : String(shippingAction.adjustmentType).toUpperCase() ===
-//                 "FIXED_AMOUNT"
-//               ? `${currencySymbol(shippingCurrency)}${shippingAction.adjustmentValue} off shipping`
-//               : `Fixed shipping: ${currencySymbol(shippingCurrency)}${shippingAction.adjustmentValue}`
-//           : null,
-//       }
-//     : null;
-
-//   // ── Min/Max cycle info, for UI display ──
-//   const minCycles = contract.billingPolicy?.minCycles ?? null;
-//   const maxCycles = contract.billingPolicy?.maxCycles ?? null;
-//   const cyclesRemainingUntilMax =
-//     maxCycles != null && cycleIndex != null
-//       ? Math.max(0, maxCycles - cycleIndex)
-//       : null;
-//   const cyclesRemainingUntilMin =
-//     minCycles != null && cycleIndex != null
-//       ? Math.max(0, minCycles - cycleIndex)
-//       : null;
-
-//   const billingPolicySummary = {
-//     minCycles,
-//     maxCycles,
-//     hasMinCycles: minCycles != null,
-//     hasMaxCycles: maxCycles != null,
-//     minCyclesReached:
-//       minCycles != null && cycleIndex != null ? cycleIndex >= minCycles : null,
-//     maxCyclesReached:
-//       maxCycles != null && cycleIndex != null ? cycleIndex >= maxCycles : null,
-//     cyclesRemainingUntilMin,
-//     cyclesRemainingUntilMax,
-//     summary:
-//       minCycles == null && maxCycles == null
-//         ? "Unlimited — runs until cancelled"
-//         : [
-//             minCycles != null ? `Min ${minCycles} cycles` : null,
-//             maxCycles != null ? `Max ${maxCycles} cycles` : null,
-//           ]
-//             .filter(Boolean)
-//             .join(" • "),
-//   };
-
-//   const preview = {
-//     contractId: contract.id,
-//     status: contract.status,
-//     customer: contract.customer,
-//     settingsSource,
-//     lineItem: {
-//       id: firstLine?.id,
-//       title: firstLine?.title,
-//       quantity: firstLine?.quantity,
-//       price: firstLine?.currentPrice,
-//       productId: firstLine?.productId,
-//       variantId: firstLine?.variantId,
-//       variantName: originalVariantInfo?.title ?? null,
-//       imageUrl: originalVariantInfo?.image?.url ?? null,
-//       imageAlt: originalVariantInfo?.image?.altText ?? firstLine?.title ?? null,
-//       pricingPolicyDebug: firstLine?.pricingPolicy ?? null,
-//     },
-//     planGroup: { id: groupId, name: groupName },
-//     billingPolicy: billingPolicySummary,
-//     nextOrder: {
-//       cycleIndex,
-//       expectedDate: nextBillingDate,
-//       lineItems,
-//       calculatedOrderTotal,
-//       originalOrderTotal,
-//       shipping: shippingPreview,
-//       willApply: (() => {
-//         const visible = actionsForNextCycle
-//           .filter((a) => !a.__default)
-//           .map(({ variantId, ...rest }) => rest);
-//         return visible.length > 0
-//           ? visible
-//           : "No automatic changes configured for this cycle";
-//       })(),
-//     },
-//     allExtraSettings: extraSettings,
-//   };
-//   return preview;
-// }
 
 async function getContractPreview(admin, contractId) {
   const contractRes = await admin.graphql(
@@ -2192,6 +1928,7 @@ async function getContractPreview(admin, contractId) {
   const hasRealDiscount =
     discountAction &&
     !discountAction.__default &&
+    !discountAction.__manualOverride &&
     Number(discountAction.adjustmentValue) > 0;
 
   const allVariantIdsNeeded = [
@@ -2214,9 +1951,7 @@ async function getContractPreview(admin, contractId) {
 
   const lineItems = [];
 
-  // ── Har committed base line ke liye ek lineItem banao (NAYA — loop) ──
   for (const line of allLines) {
-    // const isSwapTarget = swapAction && actionMatchesLine(swapAction, line);
      const isFirstLine = line === allLines[0];
 
   const isSwapTarget =
@@ -2227,8 +1962,7 @@ async function getContractPreview(admin, contractId) {
       const isRemoved = removeActions.some((a) =>
     isActionTargeted(a) ? actionMatchesLine(a, line) : isFirstLine,
   );
-    // const isRemoved = removeActions.some((a) => actionMatchesLine(a, line));
-    if (isRemoved) continue; // ye line agle order me nahi aayegi
+    if (isRemoved) continue;
 
     const lineCurrency =
       line.currentPrice?.currencyCode ?? currencyCodeFallback;
@@ -2280,21 +2014,23 @@ if (isSwapTarget && swapAction.variantId) {
           }
         : { amount: effectiveBase.toFixed(2), currencyCode: lineCurrency };
     } else if (isFirstLine && discountAction) {
-      let discounted = effectiveBase;
-      if (!discountAction.__default) {
-        if (discountAction.adjustmentType === "PERCENTAGE") {
-          discounted =
-            effectiveBase -
-            (effectiveBase * Number(discountAction.adjustmentValue)) / 100;
-        } else {
-          discounted = effectiveBase - Number(discountAction.adjustmentValue);
-        }
-      }
-      pricePerUnit = {
-        amount: Math.max(0, discounted).toFixed(2),
-        currencyCode: lineCurrency,
-      };
+  let discounted = effectiveBase;
+  if (!discountAction.__default) {
+    if (discountAction.adjustmentType === "PERCENTAGE") {
+      discounted =
+        effectiveBase -
+        (effectiveBase * Number(discountAction.adjustmentValue)) / 100;
+    } else if (discountAction.adjustmentType === "FIXED_PRICE") {
+      discounted = Number(discountAction.adjustmentValue); // exact price, koi calc nahi
     } else {
+      discounted = effectiveBase - Number(discountAction.adjustmentValue);
+    }
+  }
+  pricePerUnit = {
+    amount: Math.max(0, discounted).toFixed(2),
+    currencyCode: lineCurrency,
+  };
+}else {
       pricePerUnit = {
         amount: (line.currentPrice?.amount ?? effectiveBase).toString(),
         currencyCode: lineCurrency,
@@ -2312,7 +2048,6 @@ if (isSwapTarget && swapAction.variantId) {
       amount: (Number(pricePerUnit.amount) * finalQty).toFixed(2),
       currencyCode: pricePerUnit.currencyCode,
     };
-    // const showDiscountOnThisLine = hasRealDiscount && !isSwapTarget;
     const showDiscountOnThisLine = hasRealDiscount && isFirstLine && !isSwapTarget;
     const originalPricePerUnit = showDiscountOnThisLine
       ? { amount: effectiveBase.toFixed(2), currencyCode: pricePerUnit.currencyCode }
@@ -2341,16 +2076,24 @@ if (isSwapTarget && swapAction.variantId) {
       automationActionIndex: automationActionIndexOut,
       discountPhase: showDiscountOnThisLine ? discountAction.__phase : null,
       discountLabel: showDiscountOnThisLine
-        ? String(discountAction.adjustmentType).toUpperCase() === "PERCENTAGE"
-          ? `${discountAction.adjustmentValue}% off`
-          : String(discountAction.adjustmentType).toUpperCase() === "FIXED_AMOUNT"
-            ? `Fixed price: ${currencySymbol(pricePerUnit.currencyCode)}${discountAction.adjustmentValue}`
-            : `${currencySymbol(pricePerUnit.currencyCode)}${discountAction.adjustmentValue} off`
-        : null,
+  ? String(discountAction.adjustmentType).toUpperCase() === "PERCENTAGE"
+    ? `${discountAction.adjustmentValue}% off`
+    : String(discountAction.adjustmentType).toUpperCase() === "FIXED_PRICE"
+      ? `Fixed price: ${currencySymbol(pricePerUnit.currencyCode)}${discountAction.adjustmentValue}`
+      : String(discountAction.adjustmentType).toUpperCase() === "FIXED_AMOUNT"
+        ? `Fixed price: ${currencySymbol(pricePerUnit.currencyCode)}${discountAction.adjustmentValue}`
+        : `${currencySymbol(pricePerUnit.currencyCode)}${discountAction.adjustmentValue} off`
+  : null,
+      // discountLabel: showDiscountOnThisLine
+      //   ? String(discountAction.adjustmentType).toUpperCase() === "PERCENTAGE"
+      //     ? `${discountAction.adjustmentValue}% off`
+      //     : String(discountAction.adjustmentType).toUpperCase() === "FIXED_AMOUNT"
+      //       ? `Fixed price: ${currencySymbol(pricePerUnit.currencyCode)}${discountAction.adjustmentValue}`
+      //       : `${currencySymbol(pricePerUnit.currencyCode)}${discountAction.adjustmentValue} off`
+      //   : null,
     });
   }
 
-  // ── Automation se ADD hone wale products (committed lines nahi hain) ──
   for (const action of addProductActions) {
     const isSwapGenerated = !!action.destProductId || !!action.sourceProductId;
     const qty = Number(action.quantity) || 1;
@@ -2427,14 +2170,24 @@ if (isSwapTarget && swapAction.variantId) {
       automationCycleIndex: action.__automationCycleIndex ?? null,
       automationActionIndex: action.__automationActionIndex ?? null,
       discountPhase: null,
-      discountLabel:
-        action.discountEnabled && Number(action.discountValue) > 0
+       discountLabel:
+        action.discountEnabled &&
+        Number(action.discountValue) > 0 &&
+        !action.__manualPriceOverride
           ? String(action.discountType).toLowerCase() === "percentage"
             ? `${action.discountValue}% off`
             : String(action.discountType).toLowerCase() === "fixed_amount"
               ? `Fixed price: ${currencySymbol(currencyCodeFallback)}${action.discountValue}`
               : `${currencySymbol(currencyCodeFallback)}${action.discountValue} off`
           : null,
+      // discountLabel:
+      //   action.discountEnabled && Number(action.discountValue) > 0
+      //     ? String(action.discountType).toLowerCase() === "percentage"
+      //       ? `${action.discountValue}% off`
+      //       : String(action.discountType).toLowerCase() === "fixed_amount"
+      //         ? `Fixed price: ${currencySymbol(currencyCodeFallback)}${action.discountValue}`
+      //         : `${currencySymbol(currencyCodeFallback)}${action.discountValue} off`
+      //     : null,
     });
   }
 
@@ -2488,7 +2241,6 @@ if (isSwapTarget && swapAction.variantId) {
       }
     : null;
 
-  // ── Min/Max cycle info, for UI display ──
   const minCycles = contract.billingPolicy?.minCycles ?? null;
   const maxCycles = contract.billingPolicy?.maxCycles ?? null;
   const cyclesRemainingUntilMax =
@@ -2522,7 +2274,6 @@ if (isSwapTarget && swapAction.variantId) {
             .join(" • "),
   };
 
-  // willApply — sirf woh actions dikhao jo kam se kam ek line ko touch karte hain
   const visibleActionsForDisplay = rawActionsForNextCycle.filter((a) => {
     if (a.__default) return false;
     if (!LINE_MATCH_REQUIRED_TYPES.has(a.type)) return true;
@@ -2737,9 +2488,6 @@ async function updateContractDeliveryDetails(
 
   const input = {};
   if (interval && intervalCount != null) {
-    // Pay-as-you-go: billing hamesha delivery ke barabar hoga —
-    // isliye dono policies ek saath sync karo, warna Shopify
-    // "delivery must be a multiple of billing" error deta hai.
     input.deliveryPolicy = { interval, intervalCount: Number(intervalCount) };
     input.billingPolicy = { interval, intervalCount: Number(intervalCount) };
   }
@@ -2867,18 +2615,12 @@ async function updateContractLineProduct(
 
   if (keepDiscount) {
     let discountFraction = null;
-
-    // FIX: agar caller ne cycle ke liye actual applicable discount fraction diya hai
-    // (jo settings ke hisaab se sahi hai — e.g. "after N orders" 49%), usko priority do.
-    // Committed line ka currentPrice STALE ho sakta hai jab tak cron us cycle ko edit
-    // nahi kar deta, isliye sirf usi pe bharosa karna galat (purana native tier) discount de sakta hai.
     if (
       discountFractionOverride != null &&
       !Number.isNaN(discountFractionOverride)
     ) {
       discountFraction = Math.max(0, Math.min(1, discountFractionOverride));
     } else if (targetLine.variantId) {
-      // fallback: purana behavior — committed line price se fraction nikalo
       const oldRawPrice = await fetchVariantPrice(admin, targetLine.variantId);
       const oldCurrentPrice = Number(targetLine.currentPrice?.amount);
 
@@ -2888,16 +2630,13 @@ async function updateContractLineProduct(
           (oldRawPrice - oldCurrentPrice) / oldRawPrice,
         );
       }
-      // agar oldRawPrice fetch fail ho jaye ya currentPrice na mile, discountFraction null hi rahega
     }
 
     if (discountFraction != null) {
       finalPrice = Math.max(0, newRawPrice * (1 - discountFraction));
     }
-    // agar discountFraction kisi bhi tarah se resolve na ho paaya, finalPrice = newRawPrice hi rahega (safe fallback)
   }
 
-  // allowQuantityChanges false → purani line ki quantity hi preserve karo, client se aayi qty ignore karo
   const finalQuantity = allowQuantityChanges
     ? Number(quantity) || 1
     : Number(targetLine.quantity) || 1;
@@ -3005,7 +2744,6 @@ async function addContractLine(
     console.warn(`[add_line] clearAnyOpenDraft failed for ${contractId}:`, err);
   }
 
-  // Draft kholo, existing lines se sellingPlanId nikaal lo (naye line ko wahi plan chahiye)
   const draftRes = await admin.graphql(
     `
     mutation SubscriptionContractUpdateForAdd($contractId: ID!) {
@@ -3043,7 +2781,6 @@ async function addContractLine(
   const draftId = draftPayload.draft.id;
   const draftLines = draftPayload.draft.lines?.edges?.map((e) => e.node) ?? [];
 
-  // Duplicate check — same variant already subscription me na ho
   const alreadyExists = draftLines.some((l) => l.variantId === variantId);
   if (alreadyExists) {
     return { success: false, error: "This product variant is already part of the subscription" };
@@ -3212,5 +2949,6 @@ export {
   addContractLine,
   updateAutomationVariantQuantity,
   setAutomationVariantPrice,
-  updateContractLinePrice
+  updateContractLinePrice,
+  setBaseLineFixedPrice
 };

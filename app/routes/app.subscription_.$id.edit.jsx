@@ -35,6 +35,7 @@ import {
   setAutomationVariantPrice,
   snapshotContractSettings,
   addBaseLineRemoval,
+  setBaseLineFixedPrice
 } from "../lib/billing-preview.server";
 
 export async function loader({ params, request }) {
@@ -408,31 +409,78 @@ export async function action({ request, params }) {
   }
 
   // committed line ka price directly update karo
+  // if (type === "update_line_price") {
+  //   const lineId = formData.get("lineId");
+  //   const price = formData.get("price");
+
+  //   if (!lineId) {
+  //     return { success: false, error: "Invalid line reference" };
+  //   }
+  //   if (price == null || price === "" || Number.isNaN(Number(price))) {
+  //     return { success: false, error: "Invalid price" };
+  //   }
+
+  //   try {
+  //     const result = await updateContractLinePrice(admin, contractId, {
+  //       lineId,
+  //       price,
+  //     });
+  //     if (!result.success) {
+  //       return { success: false, error: result.error };
+  //     }
+  //     return { success: true, isAutomationChange: true }; // reuse flag so page doesn't redirect back
+  //   } catch (err) {
+  //     console.error("[edit update_line_price] failed:", err);
+  //     return { success: false, error: String(err?.message || err) };
+  //   }
+  // }
   if (type === "update_line_price") {
-    const lineId = formData.get("lineId");
-    const price = formData.get("price");
+  const lineId = formData.get("lineId");
+  const price = formData.get("price");
 
-    if (!lineId) {
-      return { success: false, error: "Invalid line reference" };
-    }
-    if (price == null || price === "" || Number.isNaN(Number(price))) {
-      return { success: false, error: "Invalid price" };
-    }
-
-    try {
-      const result = await updateContractLinePrice(admin, contractId, {
-        lineId,
-        price,
-      });
-      if (!result.success) {
-        return { success: false, error: result.error };
-      }
-      return { success: true, isAutomationChange: true }; // reuse flag so page doesn't redirect back
-    } catch (err) {
-      console.error("[edit update_line_price] failed:", err);
-      return { success: false, error: String(err?.message || err) };
-    }
+  if (!lineId) {
+    return { success: false, error: "Invalid line reference" };
   }
+  if (price == null || price === "" || Number.isNaN(Number(price))) {
+    return { success: false, error: "Invalid price" };
+  }
+
+  try {
+    // 1. Shopify pe committed line ka price update karo
+    const result = await updateContractLinePrice(admin, contractId, {
+      lineId,
+      price,
+    });
+    if (!result.success) {
+      return { success: false, error: result.error };
+    }
+
+    // 2. Settings me bhi fixed-price override save karo — warna preview/automation
+    //    discount se dobara calculate karke overwrite kar dega
+    const currentSettings = await getEffectiveSettingsForContract(
+      admin,
+      contractId,
+      null,
+    );
+    const updatedSettings = setBaseLineFixedPrice(currentSettings, price);
+    const { snapshotted } = await snapshotContractSettings(
+      admin,
+      contractId,
+      updatedSettings,
+    );
+    if (!snapshotted) {
+      return {
+        success: false,
+        error: "Price updated but failed to save it for future orders",
+      };
+    }
+
+    return { success: true, isAutomationChange: true };
+  } catch (err) {
+    console.error("[edit update_line_price] failed:", err);
+    return { success: false, error: String(err?.message || err) };
+  }
+}
 
   return { success: false, error: "Unknown action type" };
 }
@@ -511,7 +559,33 @@ export default function EditPage() {
   const handleBack = () => navigate(`/app/subscription/${id}`);
 
 
-  useEffect(() => {
+  // useEffect(() => {
+  //   if (fetcher.state !== "idle" || fetcher.data == null) return;
+
+  //   const submittedType = fetcher.formData?.get("type");
+  //   const isPriceEditSubmit =
+  //     submittedType === "update_automation_price" ||
+  //     submittedType === "update_line_price";
+
+  //   if (fetcher.data.success) {
+  //     if (isPriceEditSubmit) {
+  //       // Modal sirf ab close hoga — jab tak loading thi tab tak open rahi
+  //       setPriceEditTarget(null);
+  //       setPriceEditValue("");
+  //       setPriceEditError("");
+  //     }
+  //     if (submittedType === "update_automation_quantity") {
+  //       setAutomationQtyDrafts({});
+  //     }
+  //     if (!fetcher.data.isAutomationChange) {
+  //       handleBack();
+  //     }
+  //   } else if (isPriceEditSubmit) {
+  //     // Fail ho gaya — modal open hi rakho, error dikhao
+  //     setPriceEditError(fetcher.data.error || "Failed to update price");
+  //   }
+  // }, [fetcher.state, fetcher.data]);
+useEffect(() => {
     if (fetcher.state !== "idle" || fetcher.data == null) return;
 
     const submittedType = fetcher.formData?.get("type");
@@ -520,6 +594,25 @@ export default function EditPage() {
       submittedType === "update_line_price";
 
     if (fetcher.data.success) {
+      // NEW — committed line ka price update success hote hi local state mein bhi update kar do,
+      // taaki page revisit kiye bina turant naya price dikhe
+      if (submittedType === "update_line_price") {
+        const updatedLineId = fetcher.formData?.get("lineId");
+        const updatedPrice = fetcher.formData?.get("price");
+        setLines((prev) =>
+          prev.map((l) =>
+            l.id === updatedLineId
+              ? {
+                  ...l,
+                  displayPrice: Number(updatedPrice) || 0,
+                  originalPrice: null,   // manual override — ab strikethrough discount price nahi dikhna chahiye
+                  discountLabel: null,   // manual override — discount badge bhi nahi dikhna chahiye
+                }
+              : l,
+          ),
+        );
+      }
+
       if (isPriceEditSubmit) {
         // Modal sirf ab close hoga — jab tak loading thi tab tak open rahi
         setPriceEditTarget(null);
@@ -537,7 +630,6 @@ export default function EditPage() {
       setPriceEditError(fetcher.data.error || "Failed to update price");
     }
   }, [fetcher.state, fetcher.data]);
-
   const handleQuantityChange = (lineId, value) => {
     setLines((prev) =>
       prev.map((l) => (l.id === lineId ? { ...l, quantity: value } : l)),

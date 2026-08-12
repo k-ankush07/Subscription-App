@@ -767,6 +767,7 @@ export default function SubscriptionDetail() {
                   justifyContent: "space-between",
                   alignItems: "center",
                 }}
+                
               >
                 <p>
                   <b>{`Delivery: Every ${contract?.deliveryPolicy?.intervalCount} ${contract?.deliveryPolicy?.interval} `}</b>
