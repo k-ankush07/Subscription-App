@@ -236,9 +236,6 @@ function resolveDiscountForCycle(settings, pricingPolicy, cycleIndex) {
     };
   }
 
-  // Custom "after" discount isn't active (either not configured, or we haven't hit the threshold yet).
-  // Fall back to the native selling-plan discount tier, unless the merchant explicitly removed it
-  // for this contract.
   if (!settings?.beforeDiscountDisabled) {
     const nativeTier = getDiscountTierForCycle(pricingPolicy, cycleIndex);
     if (nativeTier) {
@@ -2052,11 +2049,8 @@ async function getContractPreview(admin, contractId) {
     return null;
   }
 
-  // CHANGED: pehle sirf lines.edges[0] (firstLine) use hota tha, isliye
-  // "Add line item" se add ki gayi extra committed lines "Next Order"
-  // preview me kabhi nahi dikhti thi. Ab SAARI committed lines loop hoti hain.
   const allLines = contract.lines.edges.map((e) => e.node);
-  const firstLine = allLines[0]; // sellingPlan / debug field ke liye reference
+  const firstLine = allLines[0]; 
 
   if (allLines.length === 0) {
     console.log(`[preview] Contract has no lines: ${contractId}`);
@@ -2164,8 +2158,6 @@ async function getContractPreview(admin, contractId) {
     }
   }
 
-  // Automation settings se is cycle ke liye actions nikaalo — tier calc ke
-  // liye firstLine ki pricingPolicy use hoti hai, jaisa pehle bhi tha.
   const rawActionsForNextCycle =
     cycleIndex != null
       ? collectActionsForCycle(

@@ -34,7 +34,7 @@ import {
   updateAutomationVariantQuantity,
   setAutomationVariantPrice,
   snapshotContractSettings,
-   addBaseLineRemoval,
+  addBaseLineRemoval,
 } from "../lib/billing-preview.server";
 
 /* ---------------------------------------------------------
@@ -113,15 +113,15 @@ export async function loader({ params, request }) {
   }));
 
   const preview = await getContractPreview(admin, contractId);
-const willApply = Array.isArray(preview?.nextOrder?.willApply)
-  ? preview.nextOrder.willApply
-  : [];
-const removedVariantIds = willApply
-  .filter((a) => a.type === "REMOVE_VARIANT" && a.sourceVariantId)
-  .map((a) => a.sourceVariantId);
-const removedProductIds = willApply
-  .filter((a) => a.type === "REMOVE_PRODUCT" && a.sourceProductId)
-  .map((a) => a.sourceProductId);
+  const willApply = Array.isArray(preview?.nextOrder?.willApply)
+    ? preview.nextOrder.willApply
+    : [];
+  const removedVariantIds = willApply
+    .filter((a) => a.type === "REMOVE_VARIANT" && a.sourceVariantId)
+    .map((a) => a.sourceVariantId);
+  const removedProductIds = willApply
+    .filter((a) => a.type === "REMOVE_PRODUCT" && a.sourceProductId)
+    .map((a) => a.sourceProductId);
   const currencyCode =
     contract.deliveryPrice?.currencyCode ||
     lines[0]?.currentPrice?.currencyCode ||
@@ -131,9 +131,9 @@ const removedProductIds = willApply
     contract,
     lines: linesWithOneTimePrice,
     previewLineItems: preview?.nextOrder?.lineItems || [],
-     previewNextOrderCycleIndex: preview?.nextOrder?.cycleIndex ?? 0,
-     removedVariantIds,   // NEW
-  removedProductIds,
+    previewNextOrderCycleIndex: preview?.nextOrder?.cycleIndex ?? 0,
+    removedVariantIds, // NEW
+    removedProductIds,
     currencyCode,
     subscriptionId,
     shop: session.shop,
@@ -151,90 +151,98 @@ export async function action({ request, params }) {
 
   const type = formData.get("type");
 
-if (type === "save_draft") {
-  try {
-    const payload = JSON.parse(formData.get("payload"));
+  if (type === "save_draft") {
+    try {
+      const payload = JSON.parse(formData.get("payload"));
 
-    const resultingRealLines =
-      (payload.lines?.length || 0) + (payload.newLines?.length || 0);
+      const resultingRealLines =
+        (payload.lines?.length || 0) + (payload.newLines?.length || 0);
 
-    let removedLines = payload.removedLines || [];
-    let deferredRemoval = null;
+      let removedLines = payload.removedLines || [];
+      let deferredRemoval = null;
 
-    // Agar sab committed/new lines hat rahi hain, to aakhri wali ko
-    // turant delete karne ke bajaye "scheduled removal" bana do —
-    // bilkul detail page ke "Remove" jaisa. Isse Shopify ka
-    // "at least one line" error kabhi nahi aayega.
-    if (resultingRealLines === 0 && removedLines.length > 0) {
-      deferredRemoval = removedLines[removedLines.length - 1];
-      removedLines = removedLines.slice(0, -1);
-    }
-
-    for (const newLine of payload.newLines || []) {
-      const result = await addContractLine(admin, contractId, {
-        variantId: newLine.variantId,
-        quantity: Number(newLine.quantity) || 1,
-        currentPrice: newLine.price != null ? Number(newLine.price) : null,
-      });
-      if (!result.success) return { success: false, error: result.error };
-    }
-
-    for (const line of payload.lines) {
-      const result = await updateContractLineProduct(admin, contractId, {
-        lineId: line.lineId,
-        variantId: line.variantId,
-        quantity: Number(line.quantity) || 1,
-        keepDiscount: true,
-        allowQuantityChanges: true,
-      });
-      if (!result.success) return { success: false, error: result.error };
-    }
-
-    for (const removed of removedLines) {
-      const result = await removeContractLine(admin, contractId, removed.lineId);
-      if (!result.success) return { success: false, error: result.error };
-    }
-
-    if (deferredRemoval) {
-      const currentSettings = await getEffectiveSettingsForContract(
-        admin,
-        contractId,
-        null,
-      );
-      const updatedSettings = addBaseLineRemoval(
-        currentSettings,
-        payload.nextOrderCycleIndex ?? 0,
-        deferredRemoval.productId,
-        deferredRemoval.variantId,
-      );
-      const { snapshotted } = await snapshotContractSettings(
-        admin,
-        contractId,
-        updatedSettings,
-      );
-      if (!snapshotted) {
-        return {
-          success: false,
-          error: "Failed to schedule removal of last product",
-        };
+      // Agar sab committed/new lines hat rahi hain, to aakhri wali ko
+      // turant delete karne ke bajaye "scheduled removal" bana do —
+      // bilkul detail page ke "Remove" jaisa. Isse Shopify ka
+      // "at least one line" error kabhi nahi aayega.
+      if (resultingRealLines === 0 && removedLines.length > 0) {
+        deferredRemoval = removedLines[removedLines.length - 1];
+        removedLines = removedLines.slice(0, -1);
       }
-    }
 
-    const deliveryResult = await updateContractDeliveryDetails(admin, contractId, {
-      interval: payload.deliveryInterval,
-      intervalCount: payload.deliveryCount,
-      deliveryPrice: payload.deliveryPrice,
-    });
-    if (!deliveryResult.success) {
-      return { success: false, error: deliveryResult.error };
-    }
+      for (const newLine of payload.newLines || []) {
+        const result = await addContractLine(admin, contractId, {
+          variantId: newLine.variantId,
+          quantity: Number(newLine.quantity) || 1,
+          currentPrice: newLine.price != null ? Number(newLine.price) : null,
+        });
+        if (!result.success) return { success: false, error: result.error };
+      }
 
-    return { success: true };
-  } catch (err) {
-    console.error("[edit save_draft] failed:", err);
-    return { success: false, error: String(err?.message || err) };
+      for (const line of payload.lines) {
+        const result = await updateContractLineProduct(admin, contractId, {
+          lineId: line.lineId,
+          variantId: line.variantId,
+          quantity: Number(line.quantity) || 1,
+          keepDiscount: true,
+          allowQuantityChanges: true,
+        });
+        if (!result.success) return { success: false, error: result.error };
+      }
+
+      for (const removed of removedLines) {
+        const result = await removeContractLine(
+          admin,
+          contractId,
+          removed.lineId,
+        );
+        if (!result.success) return { success: false, error: result.error };
+      }
+
+      if (deferredRemoval) {
+        const currentSettings = await getEffectiveSettingsForContract(
+          admin,
+          contractId,
+          null,
+        );
+        const updatedSettings = addBaseLineRemoval(
+          currentSettings,
+          payload.nextOrderCycleIndex ?? 0,
+          deferredRemoval.productId,
+          deferredRemoval.variantId,
+        );
+        const { snapshotted } = await snapshotContractSettings(
+          admin,
+          contractId,
+          updatedSettings,
+        );
+        if (!snapshotted) {
+          return {
+            success: false,
+            error: "Failed to schedule removal of last product",
+          };
+        }
+      }
+
+      const deliveryResult = await updateContractDeliveryDetails(
+        admin,
+        contractId,
+        {
+          interval: payload.deliveryInterval,
+          intervalCount: payload.deliveryCount,
+          deliveryPrice: payload.deliveryPrice,
+        },
+      );
+      if (!deliveryResult.success) {
+        return { success: false, error: deliveryResult.error };
+      }
+
+      return { success: true };
+    } catch (err) {
+      console.error("[edit save_draft] failed:", err);
+      return { success: false, error: String(err?.message || err) };
+    }
   }
-}
 
   if (type === "remove_automation_item") {
     const automationCycleIndex = parseInt(
@@ -443,35 +451,39 @@ export default function EditPage() {
     lines: initialLines,
     previewLineItems,
     previewNextOrderCycleIndex,
-    removedVariantIds,   // NEW
-  removedProductIds, 
+    removedVariantIds, // NEW
+    removedProductIds,
     currencyCode,
   } = useLoaderData();
   const navigate = useNavigate();
   const fetcher = useFetcher();
   const { id } = useParams();
 
- const [lines, setLines] = useState(() =>
-  initialLines
-    .filter(
-      (l) =>
-        !removedVariantIds.includes(l.variantId) &&
-        !removedProductIds.includes(l.productId),
-    )
-    .map((l) => {
-      const previewMatch = previewLineItems.find(
-        (pi) => pi.isBaseLine && pi.variantId === l.variantId,
-      );
-      return {
-        ...l,
-        quantity: String(l.quantity),
-        displayPrice:
-          previewMatch?.pricePerUnit?.amount ?? l.currentPrice?.amount,
-        originalPrice: previewMatch?.originalPricePerUnit?.amount ?? null,
-        discountLabel: previewMatch?.discountLabel ?? null,
-      };
-    }),
-);
+  const [lines, setLines] = useState(() =>
+    initialLines
+      .filter(
+        (l) =>
+          !removedVariantIds.includes(l.variantId) &&
+          !removedProductIds.includes(l.productId),
+      )
+      .map((l) => {
+        const previewMatch = previewLineItems.find(
+          (pi) => pi.isBaseLine && pi.variantId === l.variantId,
+        );
+        const resolvedPrice =
+          Number(previewMatch?.pricePerUnit?.amount) ||
+          Number(l.currentPrice?.amount) ||
+          0;
+
+        return {
+          ...l,
+          quantity: String(Number(l.quantity) || 1), // "11" jaisa hi rahega, but safe
+          displayPrice: resolvedPrice,
+          originalPrice: previewMatch?.originalPricePerUnit?.amount ?? null,
+          discountLabel: previewMatch?.discountLabel ?? null,
+        };
+      }),
+  );
   const [removedLines, setRemovedLines] = useState([]);
   const [newLines, setNewLines] = useState([]);
 
@@ -501,6 +513,7 @@ export default function EditPage() {
 
   const isSaving = fetcher.state !== "idle";
   const totalLineCount = lines.length + newLines.length;
+  const totalVisibleLineCount = totalLineCount + automationLines.length;
   const sellingPlanId = initialLines?.[0]?.sellingPlanId || "";
 
   const handleBack = () => navigate(`/app/subscription/${id}`);
@@ -546,18 +559,18 @@ export default function EditPage() {
     );
   };
 
- const handleRemoveLine = (lineId, title) => {
-  if (totalLineCount <= 1 && automationLines.length === 0) return;
-  const confirmed = confirm(`"${title}" ko subscription se remove karein?`);
-  if (!confirmed) return;
+  const handleRemoveLine = (lineId, title) => {
+    if (totalVisibleLineCount <= 1) return;
+    const confirmed = confirm(`"${title}" `);
+    if (!confirmed) return;
 
-  const line = lines.find((l) => l.id === lineId);
-  setLines((prev) => prev.filter((l) => l.id !== lineId));
-  setRemovedLines((prev) => [
-    ...prev,
-    { lineId, productId: line?.productId, variantId: line?.variantId },
-  ]);
-};
+    const line = lines.find((l) => l.id === lineId);
+    setLines((prev) => prev.filter((l) => l.id !== lineId));
+    setRemovedLines((prev) => [
+      ...prev,
+      { lineId, productId: line?.productId, variantId: line?.variantId },
+    ]);
+  };
 
   const handleRemoveNewLine = (tempId) => {
     setNewLines((prev) => prev.filter((l) => l.tempId !== tempId));
@@ -565,7 +578,7 @@ export default function EditPage() {
 
   const handleRemoveAutomationLine = (li) => {
     const confirmed = confirm(
-      `"${li.title}" ko upcoming order se remove karein? Ye turant apply ho jayega.`,
+      `"${li.title}"`,
     );
     if (!confirmed) return;
 
@@ -777,35 +790,40 @@ export default function EditPage() {
       const qty = Number(l.quantity) || 0;
       const price = Number(l.price) || 0;
       return sum + qty * price;
+    }, 0) +
+    automationLines.reduce((sum, li) => {
+      const qty = Number(getAutomationQty(li)) || 0;
+      const price = Number(li.pricePerUnit?.amount) || 0;
+      return sum + qty * price;
     }, 0);
 
   const total = subtotal + (Number(deliveryPrice) || 0);
 
   const handleSave = () => {
-  fetcher.submit(
-    {
-      type: "save_draft",
-      payload: JSON.stringify({
-        lines: lines.map((l) => ({
-          lineId: l.id,
-          variantId: l.variantId,
-          quantity: l.quantity,
-        })),
-        removedLines, // CHANGED from removedLineIds
-        nextOrderCycleIndex: previewNextOrderCycleIndex, // NEW
-        newLines: newLines.map((l) => ({
-          variantId: l.variantId,
-          quantity: l.quantity,
-          price: l.price,
-        })),
-        deliveryCount,
-        deliveryInterval,
-        deliveryPrice,
-      }),
-    },
-    { method: "post" },
-  );
-};
+    fetcher.submit(
+      {
+        type: "save_draft",
+        payload: JSON.stringify({
+          lines: lines.map((l) => ({
+            lineId: l.id,
+            variantId: l.variantId,
+            quantity: l.quantity,
+          })),
+          removedLines,
+          nextOrderCycleIndex: previewNextOrderCycleIndex, 
+          newLines: newLines.map((l) => ({
+            variantId: l.variantId,
+            quantity: l.quantity,
+            price: l.price,
+          })),
+          deliveryCount,
+          deliveryInterval,
+          deliveryPrice,
+        }),
+      },
+      { method: "post" },
+    );
+  };
 
   return (
     <Page
@@ -899,7 +917,7 @@ export default function EditPage() {
                         {Number(line.displayPrice ?? 0).toFixed(2)}
                       </Button>
                     </BlockStack>
-                    {(totalLineCount > 1 || automationLines.length > 0) && (
+                    {totalVisibleLineCount > 1 && ( // CHANGED
                       <Button
                         icon={DeleteIcon}
                         variant="tertiary"
@@ -1014,14 +1032,16 @@ export default function EditPage() {
                         {currencyCode} {li.pricePerUnit?.amount}
                       </Button>
 
-                      <Button
-                        icon={DeleteIcon}
-                        variant="tertiary"
-                        tone="critical"
-                        accessibilityLabel="Remove upcoming product"
-                        loading={isAutomationRemovePending(li)}
-                        onClick={() => handleRemoveAutomationLine(li)}
-                      />
+                      {totalVisibleLineCount > 1 && ( // NEW guard added
+                        <Button
+                          icon={DeleteIcon}
+                          variant="tertiary"
+                          tone="critical"
+                          accessibilityLabel="Remove upcoming product"
+                          loading={isAutomationRemovePending(li)}
+                          onClick={() => handleRemoveAutomationLine(li)}
+                        />
+                      )}
                     </InlineStack>
                   </InlineStack>
                 ))}
