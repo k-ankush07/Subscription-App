@@ -26,10 +26,14 @@ import {
   updateContractDeliveryDetails,
   removeContractLine,
   addContractLine,
+  getContractPreview,
+  getEffectiveSettingsForContract,
+  removeAutomationVariant,
+  snapshotContractSettings,
 } from "../lib/billing-preview.server";
 
 /* ---------------------------------------------------------
-   LOADER  (unchanged)
+   LOADER
 --------------------------------------------------------- */
 export async function loader({ params, request }) {
   const { admin, session } = await authenticate.admin(request);
@@ -55,6 +59,7 @@ export async function loader({ params, request }) {
               quantity
               productId
               variantId
+              sellingPlanId
               currentPrice { amount currencyCode }
               variantImage { url }
             }
@@ -102,6 +107,10 @@ export async function loader({ params, request }) {
     oneTimePrice: variantPriceMap[l.variantId] ?? null,
   }));
 
+  // NEW: preview fetch karo — isse pata chalega ki agla order kya banega
+  // (discounted price + automation se add hone waale upcoming products)
+  const preview = await getContractPreview(admin, contractId);
+
   const currencyCode =
     contract.deliveryPrice?.currencyCode ||
     lines[0]?.currentPrice?.currencyCode ||
@@ -110,6 +119,7 @@ export async function loader({ params, request }) {
   return {
     contract,
     lines: linesWithOneTimePrice,
+    previewLineItems: preview?.nextOrder?.lineItems || [],
     currencyCode,
     subscriptionId,
     shop: session.shop,
@@ -181,6 +191,43 @@ export async function action({ request, params }) {
     }
   }
 
+  // Automation se aane wale (abhi tak non-committed) product ko turant hata do
+  if (type === "remove_automation_item") {
+    const automationCycleIndex = parseInt(formData.get("automationCycleIndex"), 10);
+    const automationActionIndex = parseInt(formData.get("automationActionIndex"), 10);
+    const variantId = formData.get("variantId") || null;
+    const sellingPlanId = formData.get("sellingPlanId") || null;
+
+    if (Number.isNaN(automationCycleIndex) || Number.isNaN(automationActionIndex)) {
+      return { success: false, error: "Invalid automation item reference" };
+    }
+
+    try {
+      const currentSettings = await getEffectiveSettingsForContract(
+        admin,
+        contractId,
+        sellingPlanId,
+      );
+      if (!currentSettings) {
+        return { success: false, error: "No automation settings found for this subscription" };
+      }
+      const updatedSettings = removeAutomationVariant(
+        currentSettings,
+        automationCycleIndex,
+        automationActionIndex,
+        variantId,
+      );
+      const { snapshotted } = await snapshotContractSettings(admin, contractId, updatedSettings);
+      if (!snapshotted) {
+        return { success: false, error: "Failed to save updated automation settings" };
+      }
+      return { success: true, isAutomationRemove: true };
+    } catch (err) {
+      console.error("[edit remove_automation_item] failed:", err);
+      return { success: false, error: String(err?.message || err) };
+    }
+  }
+
   return { success: false, error: "Unknown action type" };
 }
 
@@ -188,18 +235,40 @@ export async function action({ request, params }) {
    COMPONENT
 --------------------------------------------------------- */
 export default function EditPage() {
-  const { contract, lines: initialLines, currencyCode } = useLoaderData();
+  const {
+    contract,
+    lines: initialLines,
+    previewLineItems,
+    currencyCode,
+  } = useLoaderData();
   const navigate = useNavigate();
   const fetcher = useFetcher();
   const { id } = useParams();
 
-  const [lines, setLines] = useState(
-    initialLines.map((l) => ({ ...l, quantity: String(l.quantity) })),
+  // Committed (real, editable) lines — merged with preview ka discounted price
+  const [lines, setLines] = useState(() =>
+    initialLines.map((l) => {
+      const previewMatch = previewLineItems.find(
+        (pi) => pi.isBaseLine && pi.variantId === l.variantId,
+      );
+      return {
+        ...l,
+        quantity: String(l.quantity),
+        displayPrice: previewMatch?.pricePerUnit?.amount ?? l.currentPrice?.amount,
+        originalPrice: previewMatch?.originalPricePerUnit?.amount ?? null,
+        discountLabel: previewMatch?.discountLabel ?? null,
+      };
+    }),
   );
   const [removedLineIds, setRemovedLineIds] = useState([]);
 
   // Naye products jo "Add line item" se select hue hain — abhi tak saved nahi hain
   const [newLines, setNewLines] = useState([]);
+
+  // Automation se next cycle me add hone waale products (real committed line nahi hain)
+  const automationLines = previewLineItems.filter(
+    (li) => !li.isBaseLine && li.automationCycleIndex != null,
+  );
 
   const [deliveryCount, setDeliveryCount] = useState(
     String(contract?.deliveryPolicy?.intervalCount ?? "1"),
@@ -214,11 +283,12 @@ export default function EditPage() {
 
   const isSaving = fetcher.state !== "idle";
   const totalLineCount = lines.length + newLines.length;
+  const sellingPlanId = initialLines?.[0]?.sellingPlanId || "";
 
   const handleBack = () => navigate(`/app/subscription/${id}`);
 
   useEffect(() => {
-    if (fetcher.state === "idle" && fetcher.data?.success) {
+    if (fetcher.state === "idle" && fetcher.data?.success && !fetcher.data?.isAutomationRemove) {
       handleBack();
     }
   }, [fetcher.state, fetcher.data]);
@@ -236,7 +306,7 @@ export default function EditPage() {
   };
 
   const handleRemoveLine = (lineId, title) => {
-    if (totalLineCount <= 1) return; // safety guard, button already hidden
+    if (totalLineCount <= 1 && automationLines.length === 0) return; // safety guard
     const confirmed = confirm(`"${title}" ko subscription se remove karein?`);
     if (!confirmed) return;
 
@@ -246,6 +316,24 @@ export default function EditPage() {
 
   const handleRemoveNewLine = (tempId) => {
     setNewLines((prev) => prev.filter((l) => l.tempId !== tempId));
+  };
+
+  const handleRemoveAutomationLine = (li) => {
+    const confirmed = confirm(
+      `"${li.title}" ko upcoming order se remove karein? Ye automation setting turant update ho jayegi.`,
+    );
+    if (!confirmed) return;
+
+    fetcher.submit(
+      {
+        type: "remove_automation_item",
+        automationCycleIndex: li.automationCycleIndex,
+        automationActionIndex: li.automationActionIndex,
+        variantId: li.variantId || "",
+        sellingPlanId,
+      },
+      { method: "post" },
+    );
   };
 
   const handleAddLineItem = async () => {
@@ -272,10 +360,11 @@ export default function EditPage() {
 
     const alreadyAdded =
       lines.some((l) => l.variantId === variant.id) ||
-      newLines.some((l) => l.variantId === variant.id);
+      newLines.some((l) => l.variantId === variant.id) ||
+      automationLines.some((l) => l.variantId === variant.id);
 
     if (alreadyAdded) {
-      alert("Ye product/variant already is subscription me hai.");
+      alert("Ye product/variant already subscription me hai (ya upcoming order me hai).");
       return;
     }
 
@@ -286,13 +375,9 @@ export default function EditPage() {
         variantId: variant.id,
         title: product.title,
         variantTitle:
-          variant.title && variant.title !== "Default Title"
-            ? variant.title
-            : null,
+          variant.title && variant.title !== "Default Title" ? variant.title : null,
         imageUrl:
-          variant.image?.originalSrc ||
-          product.images?.[0]?.originalSrc ||
-          "",
+          variant.image?.originalSrc || product.images?.[0]?.originalSrc || "",
         price: variant.price,
         quantity: "1",
       },
@@ -302,7 +387,7 @@ export default function EditPage() {
   const subtotal =
     lines.reduce((sum, l) => {
       const qty = Number(l.quantity) || 0;
-      const price = Number(l.currentPrice?.amount) || 0;
+      const price = Number(l.displayPrice) || 0;
       return sum + qty * price;
     }, 0) +
     newLines.reduce((sum, l) => {
@@ -361,60 +446,82 @@ export default function EditPage() {
               Subscription details
             </Text>
 
-            {lines.map((line) => (
-              <InlineStack
-                key={line.id}
-                align="space-between"
-                blockAlign="center"
-                wrap={false}
-              >
-                <InlineStack gap="300" blockAlign="center">
-                  <Thumbnail
-                    source={line.variantImage?.url || ""}
-                    alt={line.title}
-                    size="small"
-                  />
-                  <BlockStack gap="050">
-                    <Text fontWeight="medium">{line.title}</Text>
-                    {line.variantTitle && (
-                      <Badge>{line.variantTitle}</Badge>
-                    )}
-                    {line.oneTimePrice && (
-                      <Text as="span" variant="bodySm" tone="subdued">
-                        One-time purchase price: {currencyCode}{" "}
-                        {Number(line.oneTimePrice).toFixed(2)}
+            {/* --- Committed (real) lines --- */}
+            {lines.map((line) => {
+              const hasDiscount =
+                line.discountLabel &&
+                line.originalPrice != null &&
+                Number(line.originalPrice) !== Number(line.displayPrice);
+
+              return (
+                <InlineStack
+                  key={line.id}
+                  align="space-between"
+                  blockAlign="center"
+                  wrap={false}
+                >
+                  <InlineStack gap="300" blockAlign="center">
+                    <Thumbnail
+                      source={line.variantImage?.url || ""}
+                      alt={line.title}
+                      size="small"
+                    />
+                    <BlockStack gap="050">
+                      <Text fontWeight="medium">{line.title}</Text>
+                      {line.variantTitle && <Badge>{line.variantTitle}</Badge>}
+                      {line.discountLabel && (
+                        <Badge tone="success">{line.discountLabel}</Badge>
+                      )}
+                      {line.oneTimePrice && (
+                        <Text as="span" variant="bodySm" tone="subdued">
+                          One-time purchase price: {currencyCode}{" "}
+                          {Number(line.oneTimePrice).toFixed(2)}
+                        </Text>
+                      )}
+                    </BlockStack>
+                  </InlineStack>
+
+                  <InlineStack gap="300" blockAlign="center">
+                    <div style={{ width: "80px" }}>
+                      <TextField
+                        label="Qty"
+                        labelHidden
+                        type="number"
+                        min={1}
+                        value={line.quantity}
+                        onChange={(value) => handleQuantityChange(line.id, value)}
+                      />
+                    </div>
+                    <BlockStack gap="0" align="end">
+                      {hasDiscount && (
+                        <Text
+                          as="span"
+                          variant="bodySm"
+                          tone="subdued"
+                          textDecorationLine="line-through"
+                        >
+                          {currencyCode} {Number(line.originalPrice).toFixed(2)}
+                        </Text>
+                      )}
+                      <Text fontWeight="semibold">
+                        {currencyCode} {Number(line.displayPrice ?? 0).toFixed(2)}
                       </Text>
+                    </BlockStack>
+                    {totalLineCount > 1 && (
+                      <Button
+                        icon={DeleteIcon}
+                        variant="tertiary"
+                        tone="critical"
+                        accessibilityLabel="Remove product"
+                        onClick={() => handleRemoveLine(line.id, line.title)}
+                      />
                     )}
-                  </BlockStack>
+                  </InlineStack>
                 </InlineStack>
+              );
+            })}
 
-                <InlineStack gap="300" blockAlign="center">
-                  <div style={{ width: "80px" }}>
-                    <TextField
-                      label="Qty"
-                      labelHidden
-                      type="number"
-                      min={1}
-                      value={line.quantity}
-                      onChange={(value) => handleQuantityChange(line.id, value)}
-                    />
-                  </div>
-                  <Text fontWeight="semibold">
-                    {currencyCode} {line.currentPrice?.amount}
-                  </Text>
-                  {totalLineCount > 1 && (
-                    <Button
-                      icon={DeleteIcon}
-                      variant="tertiary"
-                      tone="critical"
-                      accessibilityLabel="Remove product"
-                      onClick={() => handleRemoveLine(line.id, line.title)}
-                    />
-                  )}
-                </InlineStack>
-              </InlineStack>
-            ))}
-
+            {/* --- Newly added (not yet saved) lines --- */}
             {newLines.map((line) => (
               <InlineStack
                 key={line.tempId}
@@ -463,6 +570,61 @@ export default function EditPage() {
                 </InlineStack>
               </InlineStack>
             ))}
+
+            {/* --- Automation se next order me add honge waale products --- */}
+            {automationLines.length > 0 && (
+              <>
+                <Divider />
+                <Text as="p" variant="bodySm" tone="subdued">
+                  Automatically added in an upcoming order
+                </Text>
+                {automationLines.map((li) => (
+                  <InlineStack
+                    key={`${li.automationCycleIndex}-${li.automationActionIndex}`}
+                    align="space-between"
+                    blockAlign="center"
+                    wrap={false}
+                  >
+                    <InlineStack gap="300" blockAlign="center">
+                      <Thumbnail
+                        source={li.imageUrl || ""}
+                        alt={li.title}
+                        size="small"
+                      />
+                      <BlockStack gap="050">
+                        <InlineStack gap="100" blockAlign="center">
+                          <Text fontWeight="medium">{li.title}</Text>
+                          <Badge tone="attention">Upcoming</Badge>
+                        </InlineStack>
+                        {li.variantTitle && <Badge>{li.variantTitle}</Badge>}
+                        {li.discountLabel && (
+                          <Badge tone="success">{li.discountLabel}</Badge>
+                        )}
+                      </BlockStack>
+                    </InlineStack>
+
+                    <InlineStack gap="300" blockAlign="center">
+                      <Text>Qty: {li.quantity}</Text>
+                      <Text fontWeight="semibold">
+                        {currencyCode} {li.pricePerUnit?.amount}
+                      </Text>
+                      <Button
+                        icon={DeleteIcon}
+                        variant="tertiary"
+                        tone="critical"
+                        accessibilityLabel="Remove upcoming product"
+                        loading={
+                          fetcher.state !== "idle" &&
+                          fetcher.formData?.get("type") === "remove_automation_item" &&
+                          fetcher.formData?.get("variantId") === li.variantId
+                        }
+                        onClick={() => handleRemoveAutomationLine(li)}
+                      />
+                    </InlineStack>
+                  </InlineStack>
+                ))}
+              </>
+            )}
 
             <InlineStack gap="200">
               <Button onClick={handleAddLineItem}>Add line item</Button>
