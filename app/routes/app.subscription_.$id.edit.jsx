@@ -19,8 +19,9 @@ import {
   Badge,
   Divider,
   Banner,
+  Modal,
 } from "@shopify/polaris";
-import { DeleteIcon, PlusIcon, MinusIcon } from "@shopify/polaris-icons";
+import { DeleteIcon } from "@shopify/polaris-icons";
 import {
   updateContractLineProduct,
   updateContractDeliveryDetails,
@@ -30,6 +31,7 @@ import {
   getEffectiveSettingsForContract,
   removeAutomationVariant,
   updateAutomationVariantQuantity,
+  setAutomationVariantPrice,
   snapshotContractSettings,
 } from "../lib/billing-preview.server";
 
@@ -216,7 +218,6 @@ export async function action({ request, params }) {
     }
   }
 
-  // NEW: automation-added product ki quantity update karo
   if (type === "update_automation_quantity") {
     const automationCycleIndex = parseInt(formData.get("automationCycleIndex"), 10);
     const automationActionIndex = parseInt(formData.get("automationActionIndex"), 10);
@@ -249,6 +250,46 @@ export async function action({ request, params }) {
       return { success: true, isAutomationChange: true };
     } catch (err) {
       console.error("[edit update_automation_quantity] failed:", err);
+      return { success: false, error: String(err?.message || err) };
+    }
+  }
+
+  // NEW: automation-added product ki subscription price directly set karo
+  if (type === "update_automation_price") {
+    const automationCycleIndex = parseInt(formData.get("automationCycleIndex"), 10);
+    const automationActionIndex = parseInt(formData.get("automationActionIndex"), 10);
+    const price = formData.get("price");
+    const sellingPlanId = formData.get("sellingPlanId") || null;
+
+    if (Number.isNaN(automationCycleIndex) || Number.isNaN(automationActionIndex)) {
+      return { success: false, error: "Invalid automation item reference" };
+    }
+    if (price == null || price === "" || Number.isNaN(Number(price))) {
+      return { success: false, error: "Invalid price" };
+    }
+
+    try {
+      const currentSettings = await getEffectiveSettingsForContract(
+        admin,
+        contractId,
+        sellingPlanId,
+      );
+      if (!currentSettings) {
+        return { success: false, error: "No automation settings found for this subscription" };
+      }
+      const updatedSettings = setAutomationVariantPrice(
+        currentSettings,
+        automationCycleIndex,
+        automationActionIndex,
+        price,
+      );
+      const { snapshotted } = await snapshotContractSettings(admin, contractId, updatedSettings);
+      if (!snapshotted) {
+        return { success: false, error: "Failed to save updated automation settings" };
+      }
+      return { success: true, isAutomationChange: true };
+    } catch (err) {
+      console.error("[edit update_automation_price] failed:", err);
       return { success: false, error: String(err?.message || err) };
     }
   }
@@ -291,8 +332,11 @@ export default function EditPage() {
     (li) => !li.isBaseLine && li.automationCycleIndex != null,
   );
 
-  // Automation lines ke liye local qty draft (typing ke dauraan)
   const [automationQtyDrafts, setAutomationQtyDrafts] = useState({});
+
+  // Price-edit modal state
+  const [priceEditLine, setPriceEditLine] = useState(null);
+  const [priceEditValue, setPriceEditValue] = useState("");
 
   const [deliveryCount, setDeliveryCount] = useState(
     String(contract?.deliveryPolicy?.intervalCount ?? "1"),
@@ -315,7 +359,6 @@ export default function EditPage() {
     if (fetcher.state === "idle" && fetcher.data?.success && !fetcher.data?.isAutomationChange) {
       handleBack();
     }
-    // Automation change ke baad qty drafts clear kardo (loader revalidate ho chuka hoga)
     if (fetcher.state === "idle" && fetcher.data?.success && fetcher.data?.isAutomationChange) {
       setAutomationQtyDrafts({});
     }
@@ -376,8 +419,11 @@ export default function EditPage() {
     setAutomationQtyDrafts((prev) => ({ ...prev, [key]: value }));
   };
 
-  const submitAutomationQty = (li, quantity) => {
-    const qty = Math.max(1, Number(quantity) || 1);
+  const handleAutomationQtyBlur = (li) => {
+    const value = getAutomationQty(li);
+    const qty = Math.max(1, Number(value) || 1);
+    if (qty === Number(li.quantity)) return; // koi change nahi hua
+
     fetcher.submit(
       {
         type: "update_automation_quantity",
@@ -388,22 +434,6 @@ export default function EditPage() {
       },
       { method: "post" },
     );
-  };
-
-  // +/- buttons — turant submit karte hain
-  const handleAutomationQtyStep = (li, delta) => {
-    const current = Number(getAutomationQty(li)) || 1;
-    const next = Math.max(1, current + delta);
-    const key = automationKey(li);
-    setAutomationQtyDrafts((prev) => ({ ...prev, [key]: String(next) }));
-    submitAutomationQty(li, next);
-  };
-
-  // Typing ke baad blur pe submit
-  const handleAutomationQtyBlur = (li) => {
-    const value = getAutomationQty(li);
-    if (Number(value) === Number(li.quantity)) return; // koi change nahi hua
-    submitAutomationQty(li, value);
   };
 
   const isAutomationQtyPending = (li) =>
@@ -417,6 +447,35 @@ export default function EditPage() {
     fetcher.formData?.get("type") === "remove_automation_item" &&
     fetcher.formData?.get("automationCycleIndex") === String(li.automationCycleIndex) &&
     fetcher.formData?.get("automationActionIndex") === String(li.automationActionIndex);
+
+  // --- Price edit modal handlers ---
+  const openPriceEditor = (li) => {
+    setPriceEditLine(li);
+    setPriceEditValue(String(li.pricePerUnit?.amount ?? "0"));
+  };
+
+  const closePriceEditor = () => {
+    setPriceEditLine(null);
+    setPriceEditValue("");
+  };
+
+  const handleUpdatePrice = () => {
+    if (!priceEditLine) return;
+    fetcher.submit(
+      {
+        type: "update_automation_price",
+        automationCycleIndex: priceEditLine.automationCycleIndex,
+        automationActionIndex: priceEditLine.automationActionIndex,
+        price: priceEditValue,
+        sellingPlanId,
+      },
+      { method: "post" },
+    );
+    closePriceEditor();
+  };
+
+  const isPriceUpdatePending =
+    fetcher.state !== "idle" && fetcher.formData?.get("type") === "update_automation_price";
 
   const handleAddLineItem = async () => {
     if (!window?.shopify?.resourcePicker) {
@@ -692,41 +751,26 @@ export default function EditPage() {
                       </BlockStack>
                     </InlineStack>
 
-                    <InlineStack gap="200" blockAlign="center">
-                      <InlineStack gap="0" blockAlign="center">
-                        <Button
-                          icon={MinusIcon}
-                          variant="tertiary"
-                          accessibilityLabel="Decrease quantity"
-                          disabled={Number(getAutomationQty(li)) <= 1}
+                    <InlineStack gap="300" blockAlign="center">
+                      <div style={{ width: "80px" }}>
+                        <TextField
+                          label="Qty"
+                          labelHidden
+                          type="number"
+                          min={1}
+                          value={getAutomationQty(li)}
+                          onChange={(value) => handleAutomationQtyInputChange(li, value)}
+                          onBlur={() => handleAutomationQtyBlur(li)}
                           loading={isAutomationQtyPending(li)}
-                          onClick={() => handleAutomationQtyStep(li, -1)}
                         />
-                        <div style={{ width: "56px" }}>
-                          <TextField
-                            label="Qty"
-                            labelHidden
-                            type="number"
-                            min={1}
-                            value={getAutomationQty(li)}
-                            onChange={(value) =>
-                              handleAutomationQtyInputChange(li, value)
-                            }
-                            onBlur={() => handleAutomationQtyBlur(li)}
-                          />
-                        </div>
-                        <Button
-                          icon={PlusIcon}
-                          variant="tertiary"
-                          accessibilityLabel="Increase quantity"
-                          loading={isAutomationQtyPending(li)}
-                          onClick={() => handleAutomationQtyStep(li, 1)}
-                        />
-                      </InlineStack>
+                      </div>
 
-                      <Text fontWeight="semibold">
+                      <Button
+                        variant="plain"
+                        onClick={() => openPriceEditor(li)}
+                      >
                         {currencyCode} {li.pricePerUnit?.amount}
-                      </Text>
+                      </Button>
 
                       <Button
                         icon={DeleteIcon}
@@ -843,6 +887,40 @@ export default function EditPage() {
           </Button>
         </InlineStack>
       </BlockStack>
+
+      {/* --- Edit price modal (automation line items) --- */}
+      <Modal
+        open={!!priceEditLine}
+        onClose={closePriceEditor}
+        title="Edit price"
+        primaryAction={{
+          content: "Update",
+          onAction: handleUpdatePrice,
+          loading: isPriceUpdatePending,
+        }}
+        secondaryActions={[{ content: "Cancel", onAction: closePriceEditor }]}
+      >
+        <Modal.Section>
+          <BlockStack gap="200">
+            <TextField
+              label="Subscription price"
+              type="number"
+              min={0}
+              autoComplete="off"
+              prefix={currencyCode === "INR" ? "₹" : undefined}
+              value={priceEditValue}
+              onChange={setPriceEditValue}
+            />
+            {priceEditLine?.discountLabel && (
+              <Text as="p" variant="bodySm" tone="subdued">
+                {priceEditLine.discountLabel} discount currently applied to{" "}
+                {priceEditLine.title}. Updating here will set a fixed
+                subscription price instead.
+              </Text>
+            )}
+          </BlockStack>
+        </Modal.Section>
+      </Modal>
     </Page>
   );
 }
