@@ -171,11 +171,15 @@ export async function action({ request, params }) {
       // Pay-as-you-go: billing frequency hamesha delivery frequency ke barabar hi jaati hai —
       // updateContractDeliveryDetails ab andar hi billingPolicy ko deliveryPolicy ke sync me
       // set kar deta hai, isliye yahan se sirf delivery values bhejna kaafi hai.
-      const deliveryResult = await updateContractDeliveryDetails(admin, contractId, {
-        interval: payload.deliveryInterval,
-        intervalCount: payload.deliveryCount,
-        deliveryPrice: payload.deliveryPrice,
-      });
+      const deliveryResult = await updateContractDeliveryDetails(
+        admin,
+        contractId,
+        {
+          interval: payload.deliveryInterval,
+          intervalCount: payload.deliveryCount,
+          deliveryPrice: payload.deliveryPrice,
+        },
+      );
       if (!deliveryResult.success) {
         return { success: false, error: deliveryResult.error };
       }
@@ -188,12 +192,21 @@ export async function action({ request, params }) {
   }
 
   if (type === "remove_automation_item") {
-    const automationCycleIndex = parseInt(formData.get("automationCycleIndex"), 10);
-    const automationActionIndex = parseInt(formData.get("automationActionIndex"), 10);
+    const automationCycleIndex = parseInt(
+      formData.get("automationCycleIndex"),
+      10,
+    );
+    const automationActionIndex = parseInt(
+      formData.get("automationActionIndex"),
+      10,
+    );
     const variantId = formData.get("variantId") || null;
     const sellingPlanId = formData.get("sellingPlanId") || null;
 
-    if (Number.isNaN(automationCycleIndex) || Number.isNaN(automationActionIndex)) {
+    if (
+      Number.isNaN(automationCycleIndex) ||
+      Number.isNaN(automationActionIndex)
+    ) {
       return { success: false, error: "Invalid automation item reference" };
     }
 
@@ -204,7 +217,10 @@ export async function action({ request, params }) {
         sellingPlanId,
       );
       if (!currentSettings) {
-        return { success: false, error: "No automation settings found for this subscription" };
+        return {
+          success: false,
+          error: "No automation settings found for this subscription",
+        };
       }
       const updatedSettings = removeAutomationVariant(
         currentSettings,
@@ -212,9 +228,16 @@ export async function action({ request, params }) {
         automationActionIndex,
         variantId,
       );
-      const { snapshotted } = await snapshotContractSettings(admin, contractId, updatedSettings);
+      const { snapshotted } = await snapshotContractSettings(
+        admin,
+        contractId,
+        updatedSettings,
+      );
       if (!snapshotted) {
-        return { success: false, error: "Failed to save updated automation settings" };
+        return {
+          success: false,
+          error: "Failed to save updated automation settings",
+        };
       }
       return { success: true, isAutomationChange: true };
     } catch (err) {
@@ -224,12 +247,21 @@ export async function action({ request, params }) {
   }
 
   if (type === "update_automation_quantity") {
-    const automationCycleIndex = parseInt(formData.get("automationCycleIndex"), 10);
-    const automationActionIndex = parseInt(formData.get("automationActionIndex"), 10);
+    const automationCycleIndex = parseInt(
+      formData.get("automationCycleIndex"),
+      10,
+    );
+    const automationActionIndex = parseInt(
+      formData.get("automationActionIndex"),
+      10,
+    );
     const quantity = formData.get("quantity");
     const sellingPlanId = formData.get("sellingPlanId") || null;
 
-    if (Number.isNaN(automationCycleIndex) || Number.isNaN(automationActionIndex)) {
+    if (
+      Number.isNaN(automationCycleIndex) ||
+      Number.isNaN(automationActionIndex)
+    ) {
       return { success: false, error: "Invalid automation item reference" };
     }
 
@@ -240,7 +272,10 @@ export async function action({ request, params }) {
         sellingPlanId,
       );
       if (!currentSettings) {
-        return { success: false, error: "No automation settings found for this subscription" };
+        return {
+          success: false,
+          error: "No automation settings found for this subscription",
+        };
       }
       const updatedSettings = updateAutomationVariantQuantity(
         currentSettings,
@@ -248,9 +283,16 @@ export async function action({ request, params }) {
         automationActionIndex,
         quantity,
       );
-      const { snapshotted } = await snapshotContractSettings(admin, contractId, updatedSettings);
+      const { snapshotted } = await snapshotContractSettings(
+        admin,
+        contractId,
+        updatedSettings,
+      );
       if (!snapshotted) {
-        return { success: false, error: "Failed to save updated automation settings" };
+        return {
+          success: false,
+          error: "Failed to save updated automation settings",
+        };
       }
       return { success: true, isAutomationChange: true };
     } catch (err) {
@@ -260,12 +302,21 @@ export async function action({ request, params }) {
   }
 
   if (type === "update_automation_price") {
-    const automationCycleIndex = parseInt(formData.get("automationCycleIndex"), 10);
-    const automationActionIndex = parseInt(formData.get("automationActionIndex"), 10);
+    const automationCycleIndex = parseInt(
+      formData.get("automationCycleIndex"),
+      10,
+    );
+    const automationActionIndex = parseInt(
+      formData.get("automationActionIndex"),
+      10,
+    );
     const price = formData.get("price");
     const sellingPlanId = formData.get("sellingPlanId") || null;
 
-    if (Number.isNaN(automationCycleIndex) || Number.isNaN(automationActionIndex)) {
+    if (
+      Number.isNaN(automationCycleIndex) ||
+      Number.isNaN(automationActionIndex)
+    ) {
       return { success: false, error: "Invalid automation item reference" };
     }
     if (price == null || price === "" || Number.isNaN(Number(price))) {
@@ -279,7 +330,10 @@ export async function action({ request, params }) {
         sellingPlanId,
       );
       if (!currentSettings) {
-        return { success: false, error: "No automation settings found for this subscription" };
+        return {
+          success: false,
+          error: "No automation settings found for this subscription",
+        };
       }
       const updatedSettings = setAutomationVariantPrice(
         currentSettings,
@@ -287,9 +341,16 @@ export async function action({ request, params }) {
         automationActionIndex,
         price,
       );
-      const { snapshotted } = await snapshotContractSettings(admin, contractId, updatedSettings);
+      const { snapshotted } = await snapshotContractSettings(
+        admin,
+        contractId,
+        updatedSettings,
+      );
       if (!snapshotted) {
-        return { success: false, error: "Failed to save updated automation settings" };
+        return {
+          success: false,
+          error: "Failed to save updated automation settings",
+        };
       }
       return { success: true, isAutomationChange: true };
     } catch (err) {
@@ -350,7 +411,8 @@ export default function EditPage() {
       return {
         ...l,
         quantity: String(l.quantity),
-        displayPrice: previewMatch?.pricePerUnit?.amount ?? l.currentPrice?.amount,
+        displayPrice:
+          previewMatch?.pricePerUnit?.amount ?? l.currentPrice?.amount,
         originalPrice: previewMatch?.originalPricePerUnit?.amount ?? null,
         discountLabel: previewMatch?.discountLabel ?? null,
       };
@@ -396,7 +458,8 @@ export default function EditPage() {
 
     const submittedType = fetcher.formData?.get("type");
     const isPriceEditSubmit =
-      submittedType === "update_automation_price" || submittedType === "update_line_price";
+      submittedType === "update_automation_price" ||
+      submittedType === "update_line_price";
 
     if (fetcher.data.success) {
       if (isPriceEditSubmit) {
@@ -460,7 +523,8 @@ export default function EditPage() {
     );
   };
 
-  const automationKey = (li) => `${li.automationCycleIndex}-${li.automationActionIndex}`;
+  const automationKey = (li) =>
+    `${li.automationCycleIndex}-${li.automationActionIndex}`;
 
   const getAutomationQty = (li) => {
     const key = automationKey(li);
@@ -492,14 +556,18 @@ export default function EditPage() {
   const isAutomationQtyPending = (li) =>
     fetcher.state !== "idle" &&
     fetcher.formData?.get("type") === "update_automation_quantity" &&
-    fetcher.formData?.get("automationCycleIndex") === String(li.automationCycleIndex) &&
-    fetcher.formData?.get("automationActionIndex") === String(li.automationActionIndex);
+    fetcher.formData?.get("automationCycleIndex") ===
+      String(li.automationCycleIndex) &&
+    fetcher.formData?.get("automationActionIndex") ===
+      String(li.automationActionIndex);
 
   const isAutomationRemovePending = (li) =>
     fetcher.state !== "idle" &&
     fetcher.formData?.get("type") === "remove_automation_item" &&
-    fetcher.formData?.get("automationCycleIndex") === String(li.automationCycleIndex) &&
-    fetcher.formData?.get("automationActionIndex") === String(li.automationActionIndex);
+    fetcher.formData?.get("automationCycleIndex") ===
+      String(li.automationCycleIndex) &&
+    fetcher.formData?.get("automationActionIndex") ===
+      String(li.automationActionIndex);
 
   // --- Unified price editor ---
   const openPriceEditor = (kind, item) => {
@@ -537,7 +605,9 @@ export default function EditPage() {
       // Naya (abhi tak unsaved) line — sirf local state update karo, server call nahi chahiye
       setNewLines((prev) =>
         prev.map((l) =>
-          l.tempId === priceEditTarget.tempId ? { ...l, price: priceEditValue } : l,
+          l.tempId === priceEditTarget.tempId
+            ? { ...l, price: priceEditValue }
+            : l,
         ),
       );
       setPriceEditTarget(null);
@@ -615,9 +685,13 @@ export default function EditPage() {
           variantId: variant.id,
           title: product.title,
           variantTitle:
-            variant.title && variant.title !== "Default Title" ? variant.title : null,
+            variant.title && variant.title !== "Default Title"
+              ? variant.title
+              : null,
           imageUrl:
-            variant.image?.originalSrc || product.images?.[0]?.originalSrc || "",
+            variant.image?.originalSrc ||
+            product.images?.[0]?.originalSrc ||
+            "",
           price: variant.price,
           quantity: "1",
         });
@@ -686,11 +760,13 @@ export default function EditPage() {
       subtitle={id}
     >
       <BlockStack gap="400">
-        {fetcher.data?.success === false && !isPriceUpdatePending && !priceEditTarget && (
-          <Banner tone="critical" title="Save failed">
-            {fetcher.data.error}
-          </Banner>
-        )}
+        {fetcher.data?.success === false &&
+          !isPriceUpdatePending &&
+          !priceEditTarget && (
+            <Banner tone="critical" title="Save failed">
+              {fetcher.data.error}
+            </Banner>
+          )}
 
         <Card>
           <BlockStack gap="300">
@@ -740,7 +816,9 @@ export default function EditPage() {
                         type="number"
                         min={1}
                         value={line.quantity}
-                        onChange={(value) => handleQuantityChange(line.id, value)}
+                        onChange={(value) =>
+                          handleQuantityChange(line.id, value)
+                        }
                       />
                     </div>
                     <BlockStack gap="0" align="end">
@@ -758,10 +836,11 @@ export default function EditPage() {
                         variant="plain"
                         onClick={() => openPriceEditor("committed", line)}
                       >
-                        {currencyCode} {Number(line.displayPrice ?? 0).toFixed(2)}
+                        {currencyCode}{" "}
+                        {Number(line.displayPrice ?? 0).toFixed(2)}
                       </Button>
                     </BlockStack>
-                    {totalLineCount > 1 && (
+                    {(totalLineCount > 1 || automationLines.length > 0) && (
                       <Button
                         icon={DeleteIcon}
                         variant="tertiary"
@@ -810,7 +889,10 @@ export default function EditPage() {
                       }
                     />
                   </div>
-                  <Button variant="plain" onClick={() => openPriceEditor("new", line)}>
+                  <Button
+                    variant="plain"
+                    onClick={() => openPriceEditor("new", line)}
+                  >
                     {currencyCode} {line.price}
                   </Button>
                   <Button
@@ -863,13 +945,18 @@ export default function EditPage() {
                           type="number"
                           min={1}
                           value={getAutomationQty(li)}
-                          onChange={(value) => handleAutomationQtyInputChange(li, value)}
+                          onChange={(value) =>
+                            handleAutomationQtyInputChange(li, value)
+                          }
                           onBlur={() => handleAutomationQtyBlur(li)}
                           loading={isAutomationQtyPending(li)}
                         />
                       </div>
 
-                      <Button variant="plain" onClick={() => openPriceEditor("automation", li)}>
+                      <Button
+                        variant="plain"
+                        onClick={() => openPriceEditor("automation", li)}
+                      >
                         {currencyCode} {li.pricePerUnit?.amount}
                       </Button>
 
@@ -996,7 +1083,11 @@ export default function EditPage() {
           loading: isPriceUpdatePending,
         }}
         secondaryActions={[
-          { content: "Cancel", onAction: closePriceEditor, disabled: isPriceUpdatePending },
+          {
+            content: "Cancel",
+            onAction: closePriceEditor,
+            disabled: isPriceUpdatePending,
+          },
         ]}
       >
         <Modal.Section>
