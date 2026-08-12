@@ -34,6 +34,7 @@ import {
   updateAutomationVariantQuantity,
   setAutomationVariantPrice,
   snapshotContractSettings,
+   addBaseLineRemoval,
 } from "../lib/billing-preview.server";
 
 /* ---------------------------------------------------------
@@ -122,6 +123,7 @@ export async function loader({ params, request }) {
     contract,
     lines: linesWithOneTimePrice,
     previewLineItems: preview?.nextOrder?.lineItems || [],
+     previewNextOrderCycleIndex: preview?.nextOrder?.cycleIndex ?? 0,
     currencyCode,
     subscriptionId,
     shop: session.shop,
@@ -139,9 +141,24 @@ export async function action({ request, params }) {
 
   const type = formData.get("type");
 
-  if (type === "save_draft") {
+if (type === "save_draft") {
   try {
     const payload = JSON.parse(formData.get("payload"));
+
+    const resultingRealLines =
+      (payload.lines?.length || 0) + (payload.newLines?.length || 0);
+
+    let removedLines = payload.removedLines || [];
+    let deferredRemoval = null;
+
+    // Agar sab committed/new lines hat rahi hain, to aakhri wali ko
+    // turant delete karne ke bajaye "scheduled removal" bana do —
+    // bilkul detail page ke "Remove" jaisa. Isse Shopify ka
+    // "at least one line" error kabhi nahi aayega.
+    if (resultingRealLines === 0 && removedLines.length > 0) {
+      deferredRemoval = removedLines[removedLines.length - 1];
+      removedLines = removedLines.slice(0, -1);
+    }
 
     for (const newLine of payload.newLines || []) {
       const result = await addContractLine(admin, contractId, {
@@ -163,9 +180,34 @@ export async function action({ request, params }) {
       if (!result.success) return { success: false, error: result.error };
     }
 
-    for (const lineId of payload.removedLineIds || []) {
-      const result = await removeContractLine(admin, contractId, lineId);
+    for (const removed of removedLines) {
+      const result = await removeContractLine(admin, contractId, removed.lineId);
       if (!result.success) return { success: false, error: result.error };
+    }
+
+    if (deferredRemoval) {
+      const currentSettings = await getEffectiveSettingsForContract(
+        admin,
+        contractId,
+        null,
+      );
+      const updatedSettings = addBaseLineRemoval(
+        currentSettings,
+        payload.nextOrderCycleIndex ?? 0,
+        deferredRemoval.productId,
+        deferredRemoval.variantId,
+      );
+      const { snapshotted } = await snapshotContractSettings(
+        admin,
+        contractId,
+        updatedSettings,
+      );
+      if (!snapshotted) {
+        return {
+          success: false,
+          error: "Failed to schedule removal of last product",
+        };
+      }
     }
 
     const deliveryResult = await updateContractDeliveryDetails(admin, contractId, {
@@ -390,6 +432,7 @@ export default function EditPage() {
     contract,
     lines: initialLines,
     previewLineItems,
+    previewNextOrderCycleIndex, 
     currencyCode,
   } = useLoaderData();
   const navigate = useNavigate();
@@ -411,7 +454,7 @@ export default function EditPage() {
       };
     }),
   );
-  const [removedLineIds, setRemovedLineIds] = useState([]);
+  const [removedLines, setRemovedLines] = useState([]);
   const [newLines, setNewLines] = useState([]);
 
   const automationLines = previewLineItems.filter(
@@ -485,14 +528,18 @@ export default function EditPage() {
     );
   };
 
-  const handleRemoveLine = (lineId, title) => {
-    if (totalLineCount <= 1 && automationLines.length === 0) return;
-    const confirmed = confirm(`"${title}" ko subscription se remove karein?`);
-    if (!confirmed) return;
+ const handleRemoveLine = (lineId, title) => {
+  if (totalLineCount <= 1 && automationLines.length === 0) return;
+  const confirmed = confirm(`"${title}" ko subscription se remove karein?`);
+  if (!confirmed) return;
 
-    setLines((prev) => prev.filter((l) => l.id !== lineId));
-    setRemovedLineIds((prev) => [...prev, lineId]);
-  };
+  const line = lines.find((l) => l.id === lineId);
+  setLines((prev) => prev.filter((l) => l.id !== lineId));
+  setRemovedLines((prev) => [
+    ...prev,
+    { lineId, productId: line?.productId, variantId: line?.variantId },
+  ]);
+};
 
   const handleRemoveNewLine = (tempId) => {
     setNewLines((prev) => prev.filter((l) => l.tempId !== tempId));
@@ -717,29 +764,30 @@ export default function EditPage() {
   const total = subtotal + (Number(deliveryPrice) || 0);
 
   const handleSave = () => {
-    fetcher.submit(
-      {
-        type: "save_draft",
-        payload: JSON.stringify({
-          lines: lines.map((l) => ({
-            lineId: l.id,
-            variantId: l.variantId,
-            quantity: l.quantity,
-          })),
-          removedLineIds,
-          newLines: newLines.map((l) => ({
-            variantId: l.variantId,
-            quantity: l.quantity,
-            price: l.price,
-          })),
-          deliveryCount,
-          deliveryInterval,
-          deliveryPrice,
-        }),
-      },
-      { method: "post" },
-    );
-  };
+  fetcher.submit(
+    {
+      type: "save_draft",
+      payload: JSON.stringify({
+        lines: lines.map((l) => ({
+          lineId: l.id,
+          variantId: l.variantId,
+          quantity: l.quantity,
+        })),
+        removedLines, // CHANGED from removedLineIds
+        nextOrderCycleIndex: previewNextOrderCycleIndex, // NEW
+        newLines: newLines.map((l) => ({
+          variantId: l.variantId,
+          quantity: l.quantity,
+          price: l.price,
+        })),
+        deliveryCount,
+        deliveryInterval,
+        deliveryPrice,
+      }),
+    },
+    { method: "post" },
+  );
+};
 
   return (
     <Page
@@ -901,10 +949,6 @@ export default function EditPage() {
 
             {automationLines.length > 0 && (
               <>
-                <Divider />
-                <Text as="p" variant="bodySm" tone="subdued">
-                  Automatically added in an upcoming order
-                </Text>
                 {automationLines.map((li) => (
                   <InlineStack
                     key={automationKey(li)}
