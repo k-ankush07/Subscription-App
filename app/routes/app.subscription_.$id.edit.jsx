@@ -408,69 +408,31 @@ export async function action({ request, params }) {
   }
 
   // committed line ka price directly update karo
-  // if (type === "update_line_price") {
-  //   const lineId = formData.get("lineId");
-  //   const price = formData.get("price");
-
-  //   if (!lineId) {
-  //     return { success: false, error: "Invalid line reference" };
-  //   }
-  //   if (price == null || price === "" || Number.isNaN(Number(price))) {
-  //     return { success: false, error: "Invalid price" };
-  //   }
-
-  //   try {
-  //     const result = await updateContractLinePrice(admin, contractId, {
-  //       lineId,
-  //       price,
-  //     });
-  //     if (!result.success) {
-  //       return { success: false, error: result.error };
-  //     }
-  //     return { success: true, isAutomationChange: true }; // reuse flag so page doesn't redirect back
-  //   } catch (err) {
-  //     console.error("[edit update_line_price] failed:", err);
-  //     return { success: false, error: String(err?.message || err) };
-  //   }
-  // }
-
   if (type === "update_line_price") {
-  const lineId = formData.get("lineId");
-  const price = formData.get("price");
-  const cycleIndex = formData.get("cycleIndex");
+    const lineId = formData.get("lineId");
+    const price = formData.get("price");
 
-  if (!lineId) {
-    return { success: false, error: "Invalid line reference" };
-  }
-  if (price == null || price === "" || Number.isNaN(Number(price))) {
-    return { success: false, error: "Invalid price" };
-  }
-
-  try {
-    const currentSettings = await getEffectiveSettingsForContract(
-      admin,
-      contractId,
-      null,
-    );
-    const updatedSettings = setBaseLineFixedPrice(
-      currentSettings,
-      cycleIndex != null ? Number(cycleIndex) : 0,
-      price,
-    );
-    const { snapshotted } = await snapshotContractSettings(
-      admin,
-      contractId,
-      updatedSettings,
-    );
-    if (!snapshotted) {
-      return { success: false, error: "Failed to save updated price" };
+    if (!lineId) {
+      return { success: false, error: "Invalid line reference" };
     }
-    return { success: true, isAutomationChange: true };
-  } catch (err) {
-    console.error("[edit update_line_price] failed:", err);
-    return { success: false, error: String(err?.message || err) };
+    if (price == null || price === "" || Number.isNaN(Number(price))) {
+      return { success: false, error: "Invalid price" };
+    }
+
+    try {
+      const result = await updateContractLinePrice(admin, contractId, {
+        lineId,
+        price,
+      });
+      if (!result.success) {
+        return { success: false, error: result.error };
+      }
+      return { success: true, isAutomationChange: true }; // reuse flag so page doesn't redirect back
+    } catch (err) {
+      console.error("[edit update_line_price] failed:", err);
+      return { success: false, error: String(err?.message || err) };
+    }
   }
-}   
 
   return { success: false, error: "Unknown action type" };
 }
@@ -548,35 +510,8 @@ export default function EditPage() {
 
   const handleBack = () => navigate(`/app/subscription/${id}`);
 
-  // useEffect(() => {
-  //   if (fetcher.state !== "idle" || fetcher.data == null) return;
 
-  //   const submittedType = fetcher.formData?.get("type");
-  //   const isPriceEditSubmit =
-  //     submittedType === "update_automation_price" ||
-  //     submittedType === "update_line_price";
-
-  //   if (fetcher.data.success) {
-  //     if (isPriceEditSubmit) {
-
-        
-  //       // // Modal sirf ab close hoga — jab tak loading thi tab tak open rahi
-  //       // setPriceEditTarget(null);
-  //       // setPriceEditValue("");
-  //       // setPriceEditError("");
-  //     }
-  //     if (submittedType === "update_automation_quantity") {
-  //       setAutomationQtyDrafts({});
-  //     }
-  //     if (!fetcher.data.isAutomationChange) {
-  //       handleBack();
-  //     }
-  //   } else if (isPriceEditSubmit) {
-  //     // Fail ho gaya — modal open hi rakho, error dikhao
-  //     setPriceEditError(fetcher.data.error || "Failed to update price");
-  //   }
-  // }, [fetcher.state, fetcher.data]);
-useEffect(() => {
+  useEffect(() => {
     if (fetcher.state !== "idle" || fetcher.data == null) return;
 
     const submittedType = fetcher.formData?.get("type");
@@ -586,20 +521,6 @@ useEffect(() => {
 
     if (fetcher.data.success) {
       if (isPriceEditSubmit) {
-        // FIX: committed base-line ka local state bhi patch karo, warna
-        // naya price UI me turant reflect nahi hoga (page reload tak purana hi dikhega)
-        if (submittedType === "update_line_price") {
-          const updatedLineId = fetcher.formData?.get("lineId");
-          const updatedPrice = fetcher.formData?.get("price");
-          setLines((prev) =>
-            prev.map((l) =>
-              l.id === updatedLineId
-                ? { ...l, displayPrice: Number(updatedPrice) }
-                : l,
-            ),
-          );
-        }
-
         // Modal sirf ab close hoga — jab tak loading thi tab tak open rahi
         setPriceEditTarget(null);
         setPriceEditValue("");
@@ -616,6 +537,7 @@ useEffect(() => {
       setPriceEditError(fetcher.data.error || "Failed to update price");
     }
   }, [fetcher.state, fetcher.data]);
+
   const handleQuantityChange = (lineId, value) => {
     setLines((prev) =>
       prev.map((l) => (l.id === lineId ? { ...l, quantity: value } : l)),
@@ -761,7 +683,6 @@ useEffect(() => {
           type: "update_line_price",
           lineId: priceEditTarget.lineId,
           price: priceEditValue,
-           cycleIndex: String(previewNextOrderCycleIndex),
         },
         { method: "post" },
       );
