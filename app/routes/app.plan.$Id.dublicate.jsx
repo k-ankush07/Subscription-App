@@ -48,18 +48,6 @@ export const action = async ({ request }) => {
         },
       });
 
-      // if (sp.changeDiscountAfterOrders && sp.afterOrders != null) {
-      //   pricingPolicies.push({
-      //     recurring: {
-      //       afterCycle: Math.max(0, Number(sp.afterOrders) - 1),
-      //       adjustmentType: sp.afterDiscountType ?? "PERCENTAGE",
-      //       adjustmentValue:
-      //         (sp.afterDiscountType ?? "PERCENTAGE") === "PERCENTAGE"
-      //           ? { percentage: Number(sp.afterDiscountValue) ?? 0 }
-      //           : { fixedValue: Number(sp.afterDiscountValue) ?? 0 },
-      //     },
-      //   });
-      // }
     }
 
     return pricingPolicies;
@@ -98,8 +86,6 @@ export const action = async ({ request }) => {
   ];
 };
 
-  //  Step 3: Saare plans ka sellingPlansToCreate array banao
-  // Duplicate mein saare plans NAYE honge — koi existing ID use nahi hogi
   const sellingPlansToCreate = sellingPlans.map((sp) => {
     const pricingPolicies = buildPricingPolicies(sp);
     const metafields = buildMetafields(sp,payload.customerProductChanges);

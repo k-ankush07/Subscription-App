@@ -22,9 +22,6 @@ async function getVariantProductId(admin, variantId) {
   return data.data?.productVariant?.product?.id ?? null;
 }
 
-// contract ki current line (lineId) ka productId nikalta hai, taaki hum
-// pata laga sakein ki request "same product ke andar variant change" hai
-// ya "bilkul alag product pe swap" hai.
 async function getCurrentLineProductId(admin, contractId, lineId) {
   if (!contractId) return null;
 
@@ -54,8 +51,6 @@ async function getCurrentLineProductId(admin, contractId, lineId) {
     if (match) return match.node.productId ?? null;
   }
 
-  // lineId na mile ya na diya gaya ho to (single-line subscriptions ke liye)
-  // pehli line ka productId fallback ke taur pe use karo.
   return lines[0]?.node.productId ?? null;
 }
 
@@ -126,10 +121,6 @@ export const action = async ({ request }) => {
     const allowVariantChanges = !!settings?.customerProductChanges?.allowVariantChanges;
     const allowProductSwaps = !!settings?.customerProductChanges?.allowProductSwaps;
     const optionsCount = settings?.products?.length ?? 0;
-
-    // Naye variant ka product id, aur contract ki current line ka product id —
-    // dono compare karke decide karo ki yeh "variant-only change" hai ya
-    // "cross-product swap".
     const [newProductId, currentProductId] = await Promise.all([
       getVariantProductId(admin, variantId),
       getCurrentLineProductId(admin, contractId, lineId),
@@ -203,34 +194,6 @@ if (keepDiscounts) {
     console.warn(`[swap_product] failed to persist discount-disable flags for ${contractId}:`, err);
   }
 }
-    // if (!keepDiscounts && settings) {
-    //   try {
-    //     const clonedSettings = JSON.parse(JSON.stringify(settings));
-    //     let changed = false;
-
-    //     if (!clonedSettings.beforeDiscountDisabled) {
-    //       clonedSettings.beforeDiscountDisabled = true;
-    //       changed = true;
-    //     }
-    //     if (clonedSettings.changeDiscountAfterOrders) {
-    //       clonedSettings.changeDiscountAfterOrders = false;
-    //       changed = true;
-    //     }
-
-    //     if (changed) {
-    //       await snapshotContractSettings(admin, contractId, clonedSettings);
-    //     }
-    //   } catch (err) {
-    //     console.warn(
-    //       `[swap_product] failed to persist discount-disable flags for ${contractId}:`,
-    //       err,
-    //     );
-    //   }
-    // }
-
-    // Sirf cross-product swap ke case me hi automation-conflict clear karna
-    // zaroori hai — variant-only change me product khud change nahi hua,
-    // isliye source-product automation entries clash nahi karti.
     if (!isSameProduct) {
       try {
         await clearConflictingAutomationForProduct(admin, contractId, newProductId);

@@ -1,4 +1,3 @@
-
 import { unauthenticated } from "../shopify.server";
 import prisma from "../db.server";
 import {
@@ -36,7 +35,10 @@ export const action = async ({ request }) => {
     if (shopOverride) {
       if (!shops.includes(shopOverride)) {
         return json(
-          { success: false, error: `Shop "${shopOverride}" has no offline token / is not installed` },
+          {
+            success: false,
+            error: `Shop "${shopOverride}" has no offline token / is not installed`,
+          },
           404,
         );
       }
@@ -235,12 +237,21 @@ async function markCycleCharged(admin, shopId, chargedSet, marker) {
 const MAX_LOOKBACK_DAYS = 90;
 
 async function findEarliestDueCycle(admin, contractId, now, contractCreatedAt) {
-  const lookbackFloor = new Date(now.getTime() - MAX_LOOKBACK_DAYS * 24 * 60 * 60 * 1000);
-  const createdAtDate = contractCreatedAt ? new Date(contractCreatedAt) : lookbackFloor;
+  const lookbackFloor = new Date(
+    now.getTime() - MAX_LOOKBACK_DAYS * 24 * 60 * 60 * 1000,
+  );
+  const createdAtDate = contractCreatedAt
+    ? new Date(contractCreatedAt)
+    : lookbackFloor;
 
   const effectiveStart =
-    createdAtDate.getTime() > lookbackFloor.getTime() ? createdAtDate : lookbackFloor;
-  const startDate = effectiveStart.getTime() < now.getTime() ? effectiveStart.toISOString() : now.toISOString();
+    createdAtDate.getTime() > lookbackFloor.getTime()
+      ? createdAtDate
+      : lookbackFloor;
+  const startDate =
+    effectiveStart.getTime() < now.getTime()
+      ? effectiveStart.toISOString()
+      : now.toISOString();
   const endDate = now.toISOString();
 
   let cycles = [];
@@ -271,10 +282,17 @@ async function findEarliestDueCycle(admin, contractId, now, contractCreatedAt) {
     if (data.errors) {
       throw new Error(data.errors[0]?.message || "unknown GraphQL error");
     }
-    cycles = (data.data?.subscriptionBillingCycles?.edges || []).map((e) => e.node);
+    cycles = (data.data?.subscriptionBillingCycles?.edges || []).map(
+      (e) => e.node,
+    );
   } catch (err) {
-    console.error(`[findEarliestDueCycle] range query failed for ${contractId}, retrying with 7-day window:`, err);
-    const fallbackStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    console.error(
+      `[findEarliestDueCycle] range query failed for ${contractId}, retrying with 7-day window:`,
+      err,
+    );
+    const fallbackStart = new Date(
+      now.getTime() - 7 * 24 * 60 * 60 * 1000,
+    ).toISOString();
     const res = await admin.graphql(
       `
       query getDueCyclesFallback($contractId: ID!, $startDate: DateTime!, $endDate: DateTime!) {
@@ -298,9 +316,13 @@ async function findEarliestDueCycle(admin, contractId, now, contractCreatedAt) {
     );
     const data = await res.json();
     if (data.errors) {
-      throw new Error(data.errors[0]?.message || "unknown GraphQL error (fallback)");
+      throw new Error(
+        data.errors[0]?.message || "unknown GraphQL error (fallback)",
+      );
     }
-    cycles = (data.data?.subscriptionBillingCycles?.edges || []).map((e) => e.node);
+    cycles = (data.data?.subscriptionBillingCycles?.edges || []).map(
+      (e) => e.node,
+    );
   }
 
   const nowTime = now.getTime();
@@ -316,7 +338,9 @@ async function findEarliestDueCycle(admin, contractId, now, contractCreatedAt) {
     return { cycle: dueUnbilled[0], nextUpcoming: null };
   }
   const FORWARD_LOOKAHEAD_DAYS = 30;
-  const forwardEnd = new Date(now.getTime() + FORWARD_LOOKAHEAD_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const forwardEnd = new Date(
+    now.getTime() + FORWARD_LOOKAHEAD_DAYS * 24 * 60 * 60 * 1000,
+  ).toISOString();
 
   let nextUpcoming = null;
   try {
@@ -339,26 +363,48 @@ async function findEarliestDueCycle(admin, contractId, now, contractCreatedAt) {
         }
       }
       `,
-      { variables: { contractId, startDate: now.toISOString(), endDate: forwardEnd } },
+      {
+        variables: {
+          contractId,
+          startDate: now.toISOString(),
+          endDate: forwardEnd,
+        },
+      },
     );
     const forwardData = await forwardRes.json();
     if (forwardData.errors) {
-      throw new Error(forwardData.errors[0]?.message || "unknown GraphQL error (forward lookahead)");
+      throw new Error(
+        forwardData.errors[0]?.message ||
+          "unknown GraphQL error (forward lookahead)",
+      );
     }
-    const forwardCycles = (forwardData.data?.subscriptionBillingCycles?.edges || []).map((e) => e.node);
+    const forwardCycles = (
+      forwardData.data?.subscriptionBillingCycles?.edges || []
+    ).map((e) => e.node);
     const upcoming = forwardCycles
-      .filter((c) => !c.skipped && c.status !== "BILLED" && c.billingAttemptExpectedDate)
-      .sort((a, b) => new Date(a.billingAttemptExpectedDate) - new Date(b.billingAttemptExpectedDate));
+      .filter(
+        (c) =>
+          !c.skipped && c.status !== "BILLED" && c.billingAttemptExpectedDate,
+      )
+      .sort(
+        (a, b) =>
+          new Date(a.billingAttemptExpectedDate) -
+          new Date(b.billingAttemptExpectedDate),
+      );
     nextUpcoming = upcoming[0] || null;
   } catch (err) {
-    console.error(`[findEarliestDueCycle] forward lookahead failed for ${contractId}:`, err);
+    console.error(
+      `[findEarliestDueCycle] forward lookahead failed for ${contractId}:`,
+      err,
+    );
   }
 
   return { cycle: null, nextUpcoming };
 }
 
 async function processShop(admin) {
-  const { shopId, sellingPlanIdToInfo } = await loadPlanGroupsAndSettings(admin);
+  const { shopId, sellingPlanIdToInfo } =
+    await loadPlanGroupsAndSettings(admin);
   const processedCycles = await getProcessedCycles(admin, shopId);
   const chargedCycles = await getChargedCycles(admin, shopId);
 
@@ -402,7 +448,9 @@ async function processShop(admin) {
     }
   `);
   const contractsData = await contractsRes.json();
-  const contracts = contractsData.data.subscriptionContracts.edges.map((e) => e.node);
+  const contracts = contractsData.data.subscriptionContracts.edges.map(
+    (e) => e.node,
+  );
 
   const edited = [];
   const charged = [];
@@ -410,18 +458,35 @@ async function processShop(admin) {
 
   for (const contract of contracts) {
     const now = new Date();
-    const { cycle, nextUpcoming } = await findEarliestDueCycle(admin, contract.id, now, contract.createdAt);
+    const { cycle, nextUpcoming } = await findEarliestDueCycle(
+      admin,
+      contract.id,
+      now,
+      contract.createdAt,
+    );
 
     const sellingPlanId = contract.lines.edges[0]?.node?.sellingPlanId;
     // const basePriceAmount = contract.lines.edges[0]?.node?.pricingPolicy?.basePrice?.amount ?? null;
     const firstLineNode = contract.lines.edges[0]?.node;
-const liveVariantPrice = await fetchVariantPrice(admin, firstLineNode?.variantId);
-const basePriceAmount = liveVariantPrice ?? firstLineNode?.pricingPolicy?.basePrice?.amount ?? null;
+    const liveVariantPrice = await fetchVariantPrice(
+      admin,
+      firstLineNode?.variantId,
+    );
+    const basePriceAmount =
+      liveVariantPrice ??
+      firstLineNode?.pricingPolicy?.basePrice?.amount ??
+      null;
     const pricingPolicy = contract.lines.edges[0]?.node?.pricingPolicy ?? null; // needed for swap price recalc
     const deliveryPriceAmount = contract.deliveryPrice?.amount ?? null; // needed for shipping discount recalc
-    const planInfo = sellingPlanId ? sellingPlanIdToInfo.get(sellingPlanId) : null;
+    const planInfo = sellingPlanId
+      ? sellingPlanIdToInfo.get(sellingPlanId)
+      : null;
     const groupId = planInfo?.groupId ?? null;
-    const settings = await getContractSettingsSnapshot(admin, contract.id, shopId);
+    const settings = await getContractSettingsSnapshot(
+      admin,
+      contract.id,
+      shopId,
+    );
     try {
       const minCycles = contract.billingPolicy?.minCycles ?? null;
       const maxCycles = contract.billingPolicy?.maxCycles ?? null;
@@ -431,7 +496,11 @@ const basePriceAmount = liveVariantPrice ?? firstLineNode?.pricingPolicy?.basePr
       const nextCycleIdx = preview?.nextOrder?.cycleIndex ?? null;
 
       let cancelReason = null;
-      if (maxCycles != null && nextCycleIdx != null && nextCycleIdx >= maxCycles) {
+      if (
+        maxCycles != null &&
+        nextCycleIdx != null &&
+        nextCycleIdx >= maxCycles
+      ) {
         cancelReason = `maximum billing cycles reached (cycle ${nextCycleIdx} >= max ${maxCycles})`;
       } else if (preview && nextLineItems.length === 0) {
         cancelReason =
@@ -451,7 +520,9 @@ const basePriceAmount = liveVariantPrice ?? firstLineNode?.pricingPolicy?.basePr
         `;
         const isOpenEditError = (payload) =>
           payload?.userErrors?.some((e) =>
-            /billing cycle contract edit|incomplete billing attempts/i.test(e.message || ""),
+            /billing cycle contract edit|incomplete billing attempts/i.test(
+              e.message || "",
+            ),
           );
         const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
         const WAIT_STEPS_MS = [2000, 4000, 6000];
@@ -498,7 +569,10 @@ const basePriceAmount = liveVariantPrice ?? firstLineNode?.pricingPolicy?.basePr
         }
 
         if (cancelPayload?.userErrors?.length) {
-          console.error(`[process-billing-cycles] auto-cancel failed for ${contract.id}:`, cancelPayload.userErrors);
+          console.error(
+            `[process-billing-cycles] auto-cancel failed for ${contract.id}:`,
+            cancelPayload.userErrors,
+          );
           await appendAuditLog(admin, shopId, {
             contractId: contract.id,
             groupId,
@@ -530,15 +604,28 @@ const basePriceAmount = liveVariantPrice ?? firstLineNode?.pricingPolicy?.basePr
         continue;
       }
     } catch (err) {
-      console.error(`[process-billing-cycles] failed auto-cancel check for ${contract.id}:`, err);
+      console.error(
+        `[process-billing-cycles] failed auto-cancel check for ${contract.id}:`,
+        err,
+      );
     }
 
     if (nextUpcoming && settings) {
-      const minsUntilDue = (new Date(nextUpcoming.billingAttemptExpectedDate).getTime() - now.getTime()) / 60000;
+      const minsUntilDue =
+        (new Date(nextUpcoming.billingAttemptExpectedDate).getTime() -
+          now.getTime()) /
+        60000;
       const editMarker = `${contract.id}:${nextUpcoming.cycleIndex}`;
 
-      if (minsUntilDue >= 0 && minsUntilDue <= EDIT_LOOKAHEAD_MINUTES && !processedCycles.has(editMarker)) {
-        const actionsForUpcoming = collectActionsForCycle(settings, nextUpcoming.cycleIndex);
+      if (
+        minsUntilDue >= 0 &&
+        minsUntilDue <= EDIT_LOOKAHEAD_MINUTES &&
+        !processedCycles.has(editMarker)
+      ) {
+        const actionsForUpcoming = collectActionsForCycle(
+          settings,
+          nextUpcoming.cycleIndex,
+        );
 
         if (actionsForUpcoming.length > 0) {
           try {
@@ -552,20 +639,29 @@ const basePriceAmount = liveVariantPrice ?? firstLineNode?.pricingPolicy?.basePr
               nextUpcoming.billingAttemptExpectedDate, // still future here — date selector is valid
               deliveryPriceAmount,
             );
-            await markCycleProcessed(admin, shopId, processedCycles, editMarker);
+            await markCycleProcessed(
+              admin,
+              shopId,
+              processedCycles,
+              editMarker,
+            );
             await appendAuditLog(admin, shopId, {
               contractId: contract.id,
               groupId,
               cycleIndex: nextUpcoming.cycleIndex,
               actions: actionsForUpcoming.map((a) => a.type),
-              skippedActions: skippedActions?.length ? skippedActions : undefined,
+              skippedActions: skippedActions?.length
+                ? skippedActions
+                : undefined,
               status: "success",
             });
             edited.push({
               contractId: contract.id,
               cycleIndex: nextUpcoming.cycleIndex,
               actions: actionsForUpcoming.map((a) => a.type),
-              skippedActions: skippedActions?.length ? skippedActions : undefined,
+              skippedActions: skippedActions?.length
+                ? skippedActions
+                : undefined,
             });
           } catch (err) {
             await appendAuditLog(admin, shopId, {
@@ -576,11 +672,15 @@ const basePriceAmount = liveVariantPrice ?? firstLineNode?.pricingPolicy?.basePr
               status: "failed",
               error: String(err?.message || err),
             });
-            console.error(`[process-billing-cycles] failed to pre-edit upcoming contract ${contract.id}:`, err);
+            console.error(
+              `[process-billing-cycles] failed to pre-edit upcoming contract ${contract.id}:`,
+              err,
+            );
             skipped.push({
               contractId: contract.id,
               cycleIndex: nextUpcoming.cycleIndex,
-              reason: "error during pre-due draft apply — will retry next run if still not due",
+              reason:
+                "error during pre-due draft apply — will retry next run if still not due",
               error: String(err?.message || err),
             });
           }
@@ -602,12 +702,22 @@ const basePriceAmount = liveVariantPrice ?? firstLineNode?.pricingPolicy?.basePr
     const chargeMarker = `${contract.id}:${cycleIndex}`;
 
     if (chargedCycles.has(chargeMarker)) {
-      skipped.push({ contractId: contract.id, cycleIndex, reason: "already charged", checkedAt: now.toISOString() });
+      skipped.push({
+        contractId: contract.id,
+        cycleIndex,
+        reason: "already charged",
+        checkedAt: now.toISOString(),
+      });
       continue;
     }
     const editMarkerForDueCycle = `${contract.id}:${cycleIndex}`;
-    const actionsThatShouldHaveApplied = settings ? collectActionsForCycle(settings, cycleIndex) : [];
-    if (actionsThatShouldHaveApplied.length > 0 && !processedCycles.has(editMarkerForDueCycle)) {
+    const actionsThatShouldHaveApplied = settings
+      ? collectActionsForCycle(settings, cycleIndex)
+      : [];
+    if (
+      actionsThatShouldHaveApplied.length > 0 &&
+      !processedCycles.has(editMarkerForDueCycle)
+    ) {
       console.warn(
         `[process-billing-cycles] contract ${contract.id} cycle ${cycleIndex} is due but was never pre-edited — configured automation actions will NOT apply to this charge.`,
       );
@@ -639,7 +749,9 @@ const basePriceAmount = liveVariantPrice ?? firstLineNode?.pricingPolicy?.basePr
       const chargeErrors = chargePayload?.userErrors;
 
       if (chargeErrors?.length) {
-        throw new Error(`subscriptionBillingCycleCharge failed: ${chargeErrors[0].message}`);
+        throw new Error(
+          `subscriptionBillingCycleCharge failed: ${chargeErrors[0].message}`,
+        );
       }
 
       const attempt = chargePayload?.subscriptionBillingAttempt;
@@ -669,7 +781,10 @@ const basePriceAmount = liveVariantPrice ?? firstLineNode?.pricingPolicy?.basePr
         status: "failed",
         error: String(err?.message || err),
       });
-      console.error(`[process-billing-cycles] failed to charge contract ${contract.id}:`, err);
+      console.error(
+        `[process-billing-cycles] failed to charge contract ${contract.id}:`,
+        err,
+      );
       skipped.push({
         contractId: contract.id,
         cycleIndex,

@@ -23,7 +23,7 @@ async function getContractSellingPlanId(admin, contractId) {
   return data.data?.subscriptionContract?.lines?.edges?.[0]?.node?.sellingPlanId ?? null;
 }
 
-// ---- Generic pagination helper for any connection field on sellingPlanGroup ----
+
 async function fetchAllPages(admin, { query, getEdgesAndPageInfo, variables }) {
   let allNodes = [];
   let cursor = null;
@@ -49,7 +49,7 @@ async function fetchAllPages(admin, { query, getEdgesAndPageInfo, variables }) {
   return allNodes;
 }
 
-// ---- Find which selling plan group this sellingPlanId belongs to (paginated) ----
+
 async function findSellingPlanGroupId(admin, sellingPlanId) {
   let cursor = null;
   let hasNextPage = true;
@@ -92,7 +92,6 @@ async function findSellingPlanGroupId(admin, sellingPlanId) {
   return null;
 }
 
-// ---- Fetch ALL products for the group (paginated) ----
 async function getAllGroupProducts(admin, groupId) {
   return fetchAllPages(admin, {
     query: `
@@ -119,7 +118,7 @@ async function getAllGroupProducts(admin, groupId) {
   });
 }
 
-// ---- Fetch ALL variants for the group (paginated) ----
+
 async function getAllGroupVariants(admin, groupId) {
   return fetchAllPages(admin, {
     query: `
@@ -147,7 +146,7 @@ async function getAllGroupVariants(admin, groupId) {
   });
 }
 
-// ---- Master function: group ke ALL products + ALL variants (no group metafield — SellingPlanGroup HasMetafields support nahi karta) ----
+
 async function getSellingPlanGroupSnapshotData(admin, sellingPlanId) {
   if (!sellingPlanId) return null;
 
@@ -159,7 +158,6 @@ async function getSellingPlanGroupSnapshotData(admin, sellingPlanId) {
     getAllGroupVariants(admin, groupId),
   ]);
 
-  // Har variant ko uske product ke saath group karo
   const variantsByProduct = {};
   for (const v of allVariants) {
     const pid = v.product?.id;
@@ -201,7 +199,6 @@ export const action = async ({ request }) => {
   try {
     const sellingPlanId = await getContractSellingPlanId(admin, normalizedContractId);
 
-    // extra_settings (automation, discounts, quantity/free-product rules, customerProductChanges — sab ek hi metafield me)
     const liveSettings = sellingPlanId
       ? await (async () => {
           const res = await admin.graphql(
@@ -230,12 +227,11 @@ export const action = async ({ request }) => {
         })()
       : null;
 
-    // Products + variants — ALL, paginated (SellingPlanGroup se, sellingPlanId ke through)
     const groupSnapshotData = await getSellingPlanGroupSnapshotData(admin, sellingPlanId);
 
     if (liveSettings || groupSnapshotData) {
       const combinedSettings = {
-        ...(liveSettings || {}), // customerProductChanges already isi ke andar hai
+        ...(liveSettings || {}), 
         products: groupSnapshotData?.products ?? [],
       };
 

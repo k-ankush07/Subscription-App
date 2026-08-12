@@ -78,7 +78,6 @@ export const action = async ({ request }) => {
       );
     }
 
-    // ownership check — skip.js jaisa hi
     const ownerRes = await admin.graphql(CONTRACT_OWNER_QUERY, {
       variables: { contractId },
     });
@@ -107,7 +106,6 @@ export const action = async ({ request }) => {
       );
     }
 
-    // --- actual unskip ---
     const res = await admin.graphql(UNSKIP_MUTATION, {
       variables: {
         billingCycleInput: {

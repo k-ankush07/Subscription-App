@@ -89,8 +89,6 @@ export const action = async ({ request }) => {
     }
 
     const contract = data?.subscriptionContractActivate?.contract;
-
-    // --- email bhejna (best-effort — fail ho bhi jaye to resume response fail nahi hona chahiye) ---
     try {
       const [emailData, portalBaseUrl, shopName] = await Promise.all([
         getContractEmailData(admin, subscriptionContractId),
