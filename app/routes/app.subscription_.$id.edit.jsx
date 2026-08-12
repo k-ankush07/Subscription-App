@@ -529,6 +529,16 @@ export default function EditPage() {
       submittedType === "update_line_price";
 
     if (fetcher.data.success) {
+      if (submittedType === "update_line_price" && priceEditTarget?.kind === "committed") {
+        setLines((prev) =>
+          prev.map((l) =>
+            l.id === priceEditTarget.lineId
+              ? { ...l, displayPrice: priceEditValue }
+              : l,
+          ),
+        );
+      }
+
       if (isPriceEditSubmit) {
         // Modal sirf ab close hoga — jab tak loading thi tab tak open rahi
         setPriceEditTarget(null);
@@ -545,7 +555,7 @@ export default function EditPage() {
       // Fail ho gaya — modal open hi rakho, error dikhao
       setPriceEditError(fetcher.data.error || "Failed to update price");
     }
-  }, [fetcher.state, fetcher.data]);
+  }, [fetcher.state, fetcher.data, priceEditTarget, priceEditValue]);
 
   const handleQuantityChange = (lineId, value) => {
     setLines((prev) =>
