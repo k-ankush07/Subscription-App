@@ -2251,7 +2251,7 @@ async function getContractPreview(admin, contractId) {
     let automationActionIndexOut = null;
     let pricePerUnit;
 
-    if (isSwapTarget && swapAction.variantId) {
+if (isSwapTarget && swapAction.variantId) {
       const swappedInfo = variantDataMap[swapAction.variantId];
       if (swappedInfo?.price != null) {
         effectiveBase = swappedInfo.price;
@@ -2279,14 +2279,16 @@ async function getContractPreview(admin, contractId) {
             currencyCode: lineCurrency,
           }
         : { amount: effectiveBase.toFixed(2), currencyCode: lineCurrency };
-    } else if (hasRealDiscount && isFirstLine) {
+    } else if (isFirstLine && discountAction) {
       let discounted = effectiveBase;
-      if (discountAction.adjustmentType === "PERCENTAGE") {
-        discounted =
-          effectiveBase -
-          (effectiveBase * Number(discountAction.adjustmentValue)) / 100;
-      } else {
-        discounted = effectiveBase - Number(discountAction.adjustmentValue);
+      if (!discountAction.__default) {
+        if (discountAction.adjustmentType === "PERCENTAGE") {
+          discounted =
+            effectiveBase -
+            (effectiveBase * Number(discountAction.adjustmentValue)) / 100;
+        } else {
+          discounted = effectiveBase - Number(discountAction.adjustmentValue);
+        }
       }
       pricePerUnit = {
         amount: Math.max(0, discounted).toFixed(2),
@@ -2298,7 +2300,6 @@ async function getContractPreview(admin, contractId) {
         currencyCode: lineCurrency,
       };
     }
-
     const qtyApplies =
       quantityAction &&
       !quantityAction.__default &&
