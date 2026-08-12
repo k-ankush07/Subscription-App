@@ -1273,6 +1273,34 @@ function removeAutomationVariant(
 
   return clonedSettings;
 }
+function updateAutomationVariantQuantity(
+  settings,
+  automationCycleIndex,
+  automationActionIndex,
+  quantity,
+) {
+  if (!settings || !Array.isArray(settings.automationCycles)) {
+    throw new Error(
+      "updateAutomationVariantQuantity: no automationCycles configured",
+    );
+  }
+  const clonedSettings = JSON.parse(JSON.stringify(settings));
+  const entry = clonedSettings.automationCycles[automationCycleIndex];
+  if (!entry || !Array.isArray(entry.actions)) {
+    throw new Error(
+      "updateAutomationVariantQuantity: automation cycle entry not found",
+    );
+  }
+  const action = entry.actions[automationActionIndex];
+  if (!action) {
+    throw new Error(
+      "updateAutomationVariantQuantity: target action not found (stale index) — please refresh and retry",
+    );
+  }
+
+  action.quantity = Math.max(1, Number(quantity) || 1);
+  return clonedSettings;
+}
 function removeAllDiscounts(settings) {
   if (!settings) {
     throw new Error("removeAllDiscounts: no settings configured");
@@ -2502,5 +2530,6 @@ export {
   updateContractLineProduct,
   updateContractDeliveryDetails,
   removeContractLine,
-  addContractLine
+  addContractLine,
+  updateAutomationVariantQuantity,
 };

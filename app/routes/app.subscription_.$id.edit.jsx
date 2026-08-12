@@ -20,7 +20,7 @@ import {
   Divider,
   Banner,
 } from "@shopify/polaris";
-import { DeleteIcon } from "@shopify/polaris-icons";
+import { DeleteIcon, PlusIcon, MinusIcon } from "@shopify/polaris-icons";
 import {
   updateContractLineProduct,
   updateContractDeliveryDetails,
@@ -29,6 +29,7 @@ import {
   getContractPreview,
   getEffectiveSettingsForContract,
   removeAutomationVariant,
+  updateAutomationVariantQuantity,
   snapshotContractSettings,
 } from "../lib/billing-preview.server";
 
@@ -107,8 +108,6 @@ export async function loader({ params, request }) {
     oneTimePrice: variantPriceMap[l.variantId] ?? null,
   }));
 
-  // NEW: preview fetch karo — isse pata chalega ki agla order kya banega
-  // (discounted price + automation se add hone waale upcoming products)
   const preview = await getContractPreview(admin, contractId);
 
   const currencyCode =
@@ -141,15 +140,11 @@ export async function action({ request, params }) {
     try {
       const payload = JSON.parse(formData.get("payload"));
 
-      // 1. Pehle removed lines ko hatao
       for (const lineId of payload.removedLineIds || []) {
         const result = await removeContractLine(admin, contractId, lineId);
-        if (!result.success) {
-          return { success: false, error: result.error };
-        }
+        if (!result.success) return { success: false, error: result.error };
       }
 
-      // 2. Baaki lines ki quantity update karo
       for (const line of payload.lines) {
         const result = await updateContractLineProduct(admin, contractId, {
           lineId: line.lineId,
@@ -158,23 +153,17 @@ export async function action({ request, params }) {
           keepDiscount: true,
           allowQuantityChanges: true,
         });
-        if (!result.success) {
-          return { success: false, error: result.error };
-        }
+        if (!result.success) return { success: false, error: result.error };
       }
 
-      // 3. Naye add kiye gaye line items commit karo
       for (const newLine of payload.newLines || []) {
         const result = await addContractLine(admin, contractId, {
           variantId: newLine.variantId,
           quantity: Number(newLine.quantity) || 1,
         });
-        if (!result.success) {
-          return { success: false, error: result.error };
-        }
+        if (!result.success) return { success: false, error: result.error };
       }
 
-      // 4. Delivery policy + price update karo
       const deliveryResult = await updateContractDeliveryDetails(admin, contractId, {
         interval: payload.deliveryInterval,
         intervalCount: payload.deliveryCount,
@@ -191,7 +180,6 @@ export async function action({ request, params }) {
     }
   }
 
-  // Automation se aane wale (abhi tak non-committed) product ko turant hata do
   if (type === "remove_automation_item") {
     const automationCycleIndex = parseInt(formData.get("automationCycleIndex"), 10);
     const automationActionIndex = parseInt(formData.get("automationActionIndex"), 10);
@@ -221,9 +209,46 @@ export async function action({ request, params }) {
       if (!snapshotted) {
         return { success: false, error: "Failed to save updated automation settings" };
       }
-      return { success: true, isAutomationRemove: true };
+      return { success: true, isAutomationChange: true };
     } catch (err) {
       console.error("[edit remove_automation_item] failed:", err);
+      return { success: false, error: String(err?.message || err) };
+    }
+  }
+
+  // NEW: automation-added product ki quantity update karo
+  if (type === "update_automation_quantity") {
+    const automationCycleIndex = parseInt(formData.get("automationCycleIndex"), 10);
+    const automationActionIndex = parseInt(formData.get("automationActionIndex"), 10);
+    const quantity = formData.get("quantity");
+    const sellingPlanId = formData.get("sellingPlanId") || null;
+
+    if (Number.isNaN(automationCycleIndex) || Number.isNaN(automationActionIndex)) {
+      return { success: false, error: "Invalid automation item reference" };
+    }
+
+    try {
+      const currentSettings = await getEffectiveSettingsForContract(
+        admin,
+        contractId,
+        sellingPlanId,
+      );
+      if (!currentSettings) {
+        return { success: false, error: "No automation settings found for this subscription" };
+      }
+      const updatedSettings = updateAutomationVariantQuantity(
+        currentSettings,
+        automationCycleIndex,
+        automationActionIndex,
+        quantity,
+      );
+      const { snapshotted } = await snapshotContractSettings(admin, contractId, updatedSettings);
+      if (!snapshotted) {
+        return { success: false, error: "Failed to save updated automation settings" };
+      }
+      return { success: true, isAutomationChange: true };
+    } catch (err) {
+      console.error("[edit update_automation_quantity] failed:", err);
       return { success: false, error: String(err?.message || err) };
     }
   }
@@ -245,7 +270,6 @@ export default function EditPage() {
   const fetcher = useFetcher();
   const { id } = useParams();
 
-  // Committed (real, editable) lines — merged with preview ka discounted price
   const [lines, setLines] = useState(() =>
     initialLines.map((l) => {
       const previewMatch = previewLineItems.find(
@@ -261,14 +285,14 @@ export default function EditPage() {
     }),
   );
   const [removedLineIds, setRemovedLineIds] = useState([]);
-
-  // Naye products jo "Add line item" se select hue hain — abhi tak saved nahi hain
   const [newLines, setNewLines] = useState([]);
 
-  // Automation se next cycle me add hone waale products (real committed line nahi hain)
   const automationLines = previewLineItems.filter(
     (li) => !li.isBaseLine && li.automationCycleIndex != null,
   );
+
+  // Automation lines ke liye local qty draft (typing ke dauraan)
+  const [automationQtyDrafts, setAutomationQtyDrafts] = useState({});
 
   const [deliveryCount, setDeliveryCount] = useState(
     String(contract?.deliveryPolicy?.intervalCount ?? "1"),
@@ -288,8 +312,12 @@ export default function EditPage() {
   const handleBack = () => navigate(`/app/subscription/${id}`);
 
   useEffect(() => {
-    if (fetcher.state === "idle" && fetcher.data?.success && !fetcher.data?.isAutomationRemove) {
+    if (fetcher.state === "idle" && fetcher.data?.success && !fetcher.data?.isAutomationChange) {
       handleBack();
+    }
+    // Automation change ke baad qty drafts clear kardo (loader revalidate ho chuka hoga)
+    if (fetcher.state === "idle" && fetcher.data?.success && fetcher.data?.isAutomationChange) {
+      setAutomationQtyDrafts({});
     }
   }, [fetcher.state, fetcher.data]);
 
@@ -306,7 +334,7 @@ export default function EditPage() {
   };
 
   const handleRemoveLine = (lineId, title) => {
-    if (totalLineCount <= 1 && automationLines.length === 0) return; // safety guard
+    if (totalLineCount <= 1 && automationLines.length === 0) return;
     const confirmed = confirm(`"${title}" ko subscription se remove karein?`);
     if (!confirmed) return;
 
@@ -320,7 +348,7 @@ export default function EditPage() {
 
   const handleRemoveAutomationLine = (li) => {
     const confirmed = confirm(
-      `"${li.title}" ko upcoming order se remove karein? Ye automation setting turant update ho jayegi.`,
+      `"${li.title}" ko upcoming order se remove karein? Ye turant apply ho jayega.`,
     );
     if (!confirmed) return;
 
@@ -336,6 +364,60 @@ export default function EditPage() {
     );
   };
 
+  const automationKey = (li) => `${li.automationCycleIndex}-${li.automationActionIndex}`;
+
+  const getAutomationQty = (li) => {
+    const key = automationKey(li);
+    return automationQtyDrafts[key] ?? String(li.quantity);
+  };
+
+  const handleAutomationQtyInputChange = (li, value) => {
+    const key = automationKey(li);
+    setAutomationQtyDrafts((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const submitAutomationQty = (li, quantity) => {
+    const qty = Math.max(1, Number(quantity) || 1);
+    fetcher.submit(
+      {
+        type: "update_automation_quantity",
+        automationCycleIndex: li.automationCycleIndex,
+        automationActionIndex: li.automationActionIndex,
+        quantity: String(qty),
+        sellingPlanId,
+      },
+      { method: "post" },
+    );
+  };
+
+  // +/- buttons — turant submit karte hain
+  const handleAutomationQtyStep = (li, delta) => {
+    const current = Number(getAutomationQty(li)) || 1;
+    const next = Math.max(1, current + delta);
+    const key = automationKey(li);
+    setAutomationQtyDrafts((prev) => ({ ...prev, [key]: String(next) }));
+    submitAutomationQty(li, next);
+  };
+
+  // Typing ke baad blur pe submit
+  const handleAutomationQtyBlur = (li) => {
+    const value = getAutomationQty(li);
+    if (Number(value) === Number(li.quantity)) return; // koi change nahi hua
+    submitAutomationQty(li, value);
+  };
+
+  const isAutomationQtyPending = (li) =>
+    fetcher.state !== "idle" &&
+    fetcher.formData?.get("type") === "update_automation_quantity" &&
+    fetcher.formData?.get("automationCycleIndex") === String(li.automationCycleIndex) &&
+    fetcher.formData?.get("automationActionIndex") === String(li.automationActionIndex);
+
+  const isAutomationRemovePending = (li) =>
+    fetcher.state !== "idle" &&
+    fetcher.formData?.get("type") === "remove_automation_item" &&
+    fetcher.formData?.get("automationCycleIndex") === String(li.automationCycleIndex) &&
+    fetcher.formData?.get("automationActionIndex") === String(li.automationActionIndex);
+
   const handleAddLineItem = async () => {
     if (!window?.shopify?.resourcePicker) {
       alert("Product picker is not available in this environment.");
@@ -345,43 +427,53 @@ export default function EditPage() {
     const selected = await window.shopify.resourcePicker({
       type: "product",
       action: "select",
-      multiple: false,
+      multiple: true,
     });
 
     if (!selected || selected.length === 0) return;
 
-    const product = selected[0];
-    const variant = (product.variants || [])[0];
-
-    if (!variant) {
-      alert("Selected product has no variant.");
-      return;
-    }
-
-    const alreadyAdded =
-      lines.some((l) => l.variantId === variant.id) ||
-      newLines.some((l) => l.variantId === variant.id) ||
-      automationLines.some((l) => l.variantId === variant.id);
-
-    if (alreadyAdded) {
-      alert("Ye product/variant already subscription me hai (ya upcoming order me hai).");
-      return;
-    }
-
-    setNewLines((prev) => [
-      ...prev,
-      {
-        tempId: `new-${Date.now()}`,
-        variantId: variant.id,
-        title: product.title,
-        variantTitle:
-          variant.title && variant.title !== "Default Title" ? variant.title : null,
-        imageUrl:
-          variant.image?.originalSrc || product.images?.[0]?.originalSrc || "",
-        price: variant.price,
-        quantity: "1",
-      },
+    const existingVariantIds = new Set([
+      ...lines.map((l) => l.variantId),
+      ...newLines.map((l) => l.variantId),
+      ...automationLines.map((l) => l.variantId),
     ]);
+
+    const toAdd = [];
+    const skippedTitles = [];
+
+    for (const product of selected) {
+      const pickedVariants = product.variants || [];
+
+      for (const variant of pickedVariants) {
+        if (existingVariantIds.has(variant.id)) {
+          skippedTitles.push(`${product.title} (${variant.title})`);
+          continue;
+        }
+        existingVariantIds.add(variant.id);
+
+        toAdd.push({
+          tempId: `new-${Date.now()}-${variant.id}`,
+          variantId: variant.id,
+          title: product.title,
+          variantTitle:
+            variant.title && variant.title !== "Default Title" ? variant.title : null,
+          imageUrl:
+            variant.image?.originalSrc || product.images?.[0]?.originalSrc || "",
+          price: variant.price,
+          quantity: "1",
+        });
+      }
+    }
+
+    if (toAdd.length > 0) {
+      setNewLines((prev) => [...prev, ...toAdd]);
+    }
+
+    if (skippedTitles.length > 0) {
+      alert(
+        `Ye already subscription/upcoming order me hain, skip kar diye:\n${skippedTitles.join("\n")}`,
+      );
+    }
   };
 
   const subtotal =
@@ -446,7 +538,6 @@ export default function EditPage() {
               Subscription details
             </Text>
 
-            {/* --- Committed (real) lines --- */}
             {lines.map((line) => {
               const hasDiscount =
                 line.discountLabel &&
@@ -521,7 +612,6 @@ export default function EditPage() {
               );
             })}
 
-            {/* --- Newly added (not yet saved) lines --- */}
             {newLines.map((line) => (
               <InlineStack
                 key={line.tempId}
@@ -571,7 +661,6 @@ export default function EditPage() {
               </InlineStack>
             ))}
 
-            {/* --- Automation se next order me add honge waale products --- */}
             {automationLines.length > 0 && (
               <>
                 <Divider />
@@ -580,7 +669,7 @@ export default function EditPage() {
                 </Text>
                 {automationLines.map((li) => (
                   <InlineStack
-                    key={`${li.automationCycleIndex}-${li.automationActionIndex}`}
+                    key={automationKey(li)}
                     align="space-between"
                     blockAlign="center"
                     wrap={false}
@@ -603,21 +692,48 @@ export default function EditPage() {
                       </BlockStack>
                     </InlineStack>
 
-                    <InlineStack gap="300" blockAlign="center">
-                      <Text>Qty: {li.quantity}</Text>
+                    <InlineStack gap="200" blockAlign="center">
+                      <InlineStack gap="0" blockAlign="center">
+                        <Button
+                          icon={MinusIcon}
+                          variant="tertiary"
+                          accessibilityLabel="Decrease quantity"
+                          disabled={Number(getAutomationQty(li)) <= 1}
+                          loading={isAutomationQtyPending(li)}
+                          onClick={() => handleAutomationQtyStep(li, -1)}
+                        />
+                        <div style={{ width: "56px" }}>
+                          <TextField
+                            label="Qty"
+                            labelHidden
+                            type="number"
+                            min={1}
+                            value={getAutomationQty(li)}
+                            onChange={(value) =>
+                              handleAutomationQtyInputChange(li, value)
+                            }
+                            onBlur={() => handleAutomationQtyBlur(li)}
+                          />
+                        </div>
+                        <Button
+                          icon={PlusIcon}
+                          variant="tertiary"
+                          accessibilityLabel="Increase quantity"
+                          loading={isAutomationQtyPending(li)}
+                          onClick={() => handleAutomationQtyStep(li, 1)}
+                        />
+                      </InlineStack>
+
                       <Text fontWeight="semibold">
                         {currencyCode} {li.pricePerUnit?.amount}
                       </Text>
+
                       <Button
                         icon={DeleteIcon}
                         variant="tertiary"
                         tone="critical"
                         accessibilityLabel="Remove upcoming product"
-                        loading={
-                          fetcher.state !== "idle" &&
-                          fetcher.formData?.get("type") === "remove_automation_item" &&
-                          fetcher.formData?.get("variantId") === li.variantId
-                        }
+                        loading={isAutomationRemovePending(li)}
                         onClick={() => handleRemoveAutomationLine(li)}
                       />
                     </InlineStack>
