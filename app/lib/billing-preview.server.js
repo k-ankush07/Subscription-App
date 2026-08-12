@@ -2526,6 +2526,72 @@ async function addContractLine(
 
   return { success: true };
 }
+async function updateContractLinePrice(admin, contractId, { lineId, price }) {
+  if (!lineId) return { success: false, error: "No line specified" };
+  if (price == null || price === "" || Number.isNaN(Number(price))) {
+    return { success: false, error: "Invalid price" };
+  }
+
+  try {
+    await clearAnyOpenDraft(admin, contractId);
+  } catch (err) {
+    console.warn(`[update_line_price] clearAnyOpenDraft failed for ${contractId}:`, err);
+  }
+
+  const draftRes = await admin.graphql(CONTRACT_UPDATE_MUTATION_WITH_LINES, {
+    variables: { contractId },
+  });
+  const draftData = await draftRes.json();
+  const draftPayload = draftData?.data?.subscriptionContractUpdate;
+  if (!draftPayload?.draft?.id || draftPayload.userErrors?.length) {
+    return {
+      success: false,
+      error:
+        draftPayload?.userErrors?.map((e) => e.message).join(", ") ||
+        "Failed to open draft for price update",
+    };
+  }
+
+  const draftId = draftPayload.draft.id;
+  const draftLines = draftPayload.draft.lines?.edges?.map((e) => e.node) ?? [];
+  const targetLine = draftLines.find((l) => l.id === lineId) || draftLines[0];
+
+  if (!targetLine) {
+    return { success: false, error: "Subscription line not found" };
+  }
+
+  const updateRes = await admin.graphql(
+    `
+    mutation updateDraftLinePrice($draftId: ID!, $lineId: ID!, $price: Decimal!) {
+      subscriptionDraftLineUpdate(draftId: $draftId, lineId: $lineId, input: { currentPrice: $price }) {
+        userErrors { field message }
+      }
+    }
+    `,
+    { variables: { draftId, lineId: targetLine.id, price: Number(price).toFixed(2) } },
+  );
+  const updateData = await updateRes.json();
+  const updateErrors = updateData?.data?.subscriptionDraftLineUpdate?.userErrors;
+  if (updateErrors?.length) {
+    return { success: false, error: updateErrors.map((e) => e.message).join(", ") };
+  }
+
+  const commitRes = await admin.graphql(DRAFT_COMMIT_MUTATION, {
+    variables: { draftId },
+  });
+  const commitData = await commitRes.json();
+  const commitPayload = commitData?.data?.subscriptionDraftCommit;
+  if (!commitPayload?.contract || commitPayload.userErrors?.length) {
+    return {
+      success: false,
+      error:
+        commitPayload?.userErrors?.map((e) => e.message).join(", ") ||
+        "Failed to commit price update",
+    };
+  }
+
+  return { success: true };
+}
 export {
   getContractPreview,
   collectActionsForCycle,
@@ -2559,4 +2625,5 @@ export {
   addContractLine,
   updateAutomationVariantQuantity,
   setAutomationVariantPrice,
+  updateContractLinePrice
 };

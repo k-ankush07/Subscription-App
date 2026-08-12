@@ -27,6 +27,7 @@ import {
   updateContractDeliveryDetails,
   removeContractLine,
   addContractLine,
+  updateContractLinePrice,
   getContractPreview,
   getEffectiveSettingsForContract,
   removeAutomationVariant,
@@ -162,6 +163,7 @@ export async function action({ request, params }) {
         const result = await addContractLine(admin, contractId, {
           variantId: newLine.variantId,
           quantity: Number(newLine.quantity) || 1,
+          currentPrice: newLine.price != null ? Number(newLine.price) : null,
         });
         if (!result.success) return { success: false, error: result.error };
       }
@@ -254,7 +256,6 @@ export async function action({ request, params }) {
     }
   }
 
-  // NEW: automation-added product ki subscription price directly set karo
   if (type === "update_automation_price") {
     const automationCycleIndex = parseInt(formData.get("automationCycleIndex"), 10);
     const automationActionIndex = parseInt(formData.get("automationActionIndex"), 10);
@@ -290,6 +291,33 @@ export async function action({ request, params }) {
       return { success: true, isAutomationChange: true };
     } catch (err) {
       console.error("[edit update_automation_price] failed:", err);
+      return { success: false, error: String(err?.message || err) };
+    }
+  }
+
+  // NEW: committed line ka price directly update karo
+  if (type === "update_line_price") {
+    const lineId = formData.get("lineId");
+    const price = formData.get("price");
+
+    if (!lineId) {
+      return { success: false, error: "Invalid line reference" };
+    }
+    if (price == null || price === "" || Number.isNaN(Number(price))) {
+      return { success: false, error: "Invalid price" };
+    }
+
+    try {
+      const result = await updateContractLinePrice(admin, contractId, {
+        lineId,
+        price,
+      });
+      if (!result.success) {
+        return { success: false, error: result.error };
+      }
+      return { success: true, isAutomationChange: true }; // reuse flag so page doesn't redirect back
+    } catch (err) {
+      console.error("[edit update_line_price] failed:", err);
       return { success: false, error: String(err?.message || err) };
     }
   }
@@ -334,9 +362,11 @@ export default function EditPage() {
 
   const [automationQtyDrafts, setAutomationQtyDrafts] = useState({});
 
-  // Price-edit modal state
-  const [priceEditLine, setPriceEditLine] = useState(null);
+  // Unified price-edit modal state
+  // target = { kind: "committed" | "new" | "automation", ...refs }
+  const [priceEditTarget, setPriceEditTarget] = useState(null);
   const [priceEditValue, setPriceEditValue] = useState("");
+  const [priceEditError, setPriceEditError] = useState("");
 
   const [deliveryCount, setDeliveryCount] = useState(
     String(contract?.deliveryPolicy?.intervalCount ?? "1"),
@@ -355,12 +385,31 @@ export default function EditPage() {
 
   const handleBack = () => navigate(`/app/subscription/${id}`);
 
+  // Fetcher result handle karo — save_draft ke baad wapas jao,
+  // instant actions (automation qty/price, line price) ke baad sirf revalidate + modal close karo
   useEffect(() => {
-    if (fetcher.state === "idle" && fetcher.data?.success && !fetcher.data?.isAutomationChange) {
-      handleBack();
-    }
-    if (fetcher.state === "idle" && fetcher.data?.success && fetcher.data?.isAutomationChange) {
-      setAutomationQtyDrafts({});
+    if (fetcher.state !== "idle" || fetcher.data == null) return;
+
+    const submittedType = fetcher.formData?.get("type");
+    const isPriceEditSubmit =
+      submittedType === "update_automation_price" || submittedType === "update_line_price";
+
+    if (fetcher.data.success) {
+      if (isPriceEditSubmit) {
+        // Modal sirf ab close hoga — jab tak loading thi tab tak open rahi
+        setPriceEditTarget(null);
+        setPriceEditValue("");
+        setPriceEditError("");
+      }
+      if (submittedType === "update_automation_quantity") {
+        setAutomationQtyDrafts({});
+      }
+      if (!fetcher.data.isAutomationChange) {
+        handleBack();
+      }
+    } else if (isPriceEditSubmit) {
+      // Fail ho gaya — modal open hi rakho, error dikhao
+      setPriceEditError(fetcher.data.error || "Failed to update price");
     }
   }, [fetcher.state, fetcher.data]);
 
@@ -422,7 +471,7 @@ export default function EditPage() {
   const handleAutomationQtyBlur = (li) => {
     const value = getAutomationQty(li);
     const qty = Math.max(1, Number(value) || 1);
-    if (qty === Number(li.quantity)) return; // koi change nahi hua
+    if (qty === Number(li.quantity)) return;
 
     fetcher.submit(
       {
@@ -448,34 +497,81 @@ export default function EditPage() {
     fetcher.formData?.get("automationCycleIndex") === String(li.automationCycleIndex) &&
     fetcher.formData?.get("automationActionIndex") === String(li.automationActionIndex);
 
-  // --- Price edit modal handlers ---
-  const openPriceEditor = (li) => {
-    setPriceEditLine(li);
-    setPriceEditValue(String(li.pricePerUnit?.amount ?? "0"));
+  // --- Unified price editor ---
+  const openPriceEditor = (kind, item) => {
+    setPriceEditError("");
+    if (kind === "committed") {
+      setPriceEditTarget({ kind, lineId: item.id, title: item.title });
+      setPriceEditValue(String(item.displayPrice ?? "0"));
+    } else if (kind === "new") {
+      setPriceEditTarget({ kind, tempId: item.tempId, title: item.title });
+      setPriceEditValue(String(item.price ?? "0"));
+    } else if (kind === "automation") {
+      setPriceEditTarget({
+        kind,
+        automationCycleIndex: item.automationCycleIndex,
+        automationActionIndex: item.automationActionIndex,
+        title: item.title,
+        discountLabel: item.discountLabel,
+      });
+      setPriceEditValue(String(item.pricePerUnit?.amount ?? "0"));
+    }
   };
 
   const closePriceEditor = () => {
-    setPriceEditLine(null);
+    if (isPriceUpdatePending) return; // loading ke dauraan close mat hone do
+    setPriceEditTarget(null);
     setPriceEditValue("");
+    setPriceEditError("");
   };
 
   const handleUpdatePrice = () => {
-    if (!priceEditLine) return;
-    fetcher.submit(
-      {
-        type: "update_automation_price",
-        automationCycleIndex: priceEditLine.automationCycleIndex,
-        automationActionIndex: priceEditLine.automationActionIndex,
-        price: priceEditValue,
-        sellingPlanId,
-      },
-      { method: "post" },
-    );
-    closePriceEditor();
+    if (!priceEditTarget) return;
+    setPriceEditError("");
+
+    if (priceEditTarget.kind === "new") {
+      // Naya (abhi tak unsaved) line — sirf local state update karo, server call nahi chahiye
+      setNewLines((prev) =>
+        prev.map((l) =>
+          l.tempId === priceEditTarget.tempId ? { ...l, price: priceEditValue } : l,
+        ),
+      );
+      setPriceEditTarget(null);
+      setPriceEditValue("");
+      return;
+    }
+
+    if (priceEditTarget.kind === "committed") {
+      fetcher.submit(
+        {
+          type: "update_line_price",
+          lineId: priceEditTarget.lineId,
+          price: priceEditValue,
+        },
+        { method: "post" },
+      );
+      return; // modal close hoga useEffect me success ke baad
+    }
+
+    if (priceEditTarget.kind === "automation") {
+      fetcher.submit(
+        {
+          type: "update_automation_price",
+          automationCycleIndex: priceEditTarget.automationCycleIndex,
+          automationActionIndex: priceEditTarget.automationActionIndex,
+          price: priceEditValue,
+          sellingPlanId,
+        },
+        { method: "post" },
+      );
+      return; // modal close hoga useEffect me success ke baad
+    }
   };
 
   const isPriceUpdatePending =
-    fetcher.state !== "idle" && fetcher.formData?.get("type") === "update_automation_price";
+    fetcher.state !== "idle" &&
+    (fetcher.formData?.get("type") === "update_automation_price" ||
+      fetcher.formData?.get("type") === "update_line_price");
 
   const handleAddLineItem = async () => {
     if (!window?.shopify?.resourcePicker) {
@@ -563,6 +659,7 @@ export default function EditPage() {
           newLines: newLines.map((l) => ({
             variantId: l.variantId,
             quantity: l.quantity,
+            price: l.price,
           })),
           deliveryCount,
           deliveryInterval,
@@ -585,7 +682,7 @@ export default function EditPage() {
       subtitle={id}
     >
       <BlockStack gap="400">
-        {fetcher.data?.success === false && (
+        {fetcher.data?.success === false && !isPriceUpdatePending && !priceEditTarget && (
           <Banner tone="critical" title="Save failed">
             {fetcher.data.error}
           </Banner>
@@ -653,9 +750,12 @@ export default function EditPage() {
                           {currencyCode} {Number(line.originalPrice).toFixed(2)}
                         </Text>
                       )}
-                      <Text fontWeight="semibold">
+                      <Button
+                        variant="plain"
+                        onClick={() => openPriceEditor("committed", line)}
+                      >
                         {currencyCode} {Number(line.displayPrice ?? 0).toFixed(2)}
-                      </Text>
+                      </Button>
                     </BlockStack>
                     {totalLineCount > 1 && (
                       <Button
@@ -706,9 +806,9 @@ export default function EditPage() {
                       }
                     />
                   </div>
-                  <Text fontWeight="semibold">
+                  <Button variant="plain" onClick={() => openPriceEditor("new", line)}>
                     {currencyCode} {line.price}
-                  </Text>
+                  </Button>
                   <Button
                     icon={DeleteIcon}
                     variant="tertiary"
@@ -765,10 +865,7 @@ export default function EditPage() {
                         />
                       </div>
 
-                      <Button
-                        variant="plain"
-                        onClick={() => openPriceEditor(li)}
-                      >
+                      <Button variant="plain" onClick={() => openPriceEditor("automation", li)}>
                         {currencyCode} {li.pricePerUnit?.amount}
                       </Button>
 
@@ -888,9 +985,9 @@ export default function EditPage() {
         </InlineStack>
       </BlockStack>
 
-      {/* --- Edit price modal (automation line items) --- */}
+      {/* --- Unified price editor modal --- */}
       <Modal
-        open={!!priceEditLine}
+        open={!!priceEditTarget}
         onClose={closePriceEditor}
         title="Edit price"
         primaryAction={{
@@ -898,7 +995,9 @@ export default function EditPage() {
           onAction: handleUpdatePrice,
           loading: isPriceUpdatePending,
         }}
-        secondaryActions={[{ content: "Cancel", onAction: closePriceEditor }]}
+        secondaryActions={[
+          { content: "Cancel", onAction: closePriceEditor, disabled: isPriceUpdatePending },
+        ]}
       >
         <Modal.Section>
           <BlockStack gap="200">
@@ -907,15 +1006,21 @@ export default function EditPage() {
               type="number"
               min={0}
               autoComplete="off"
+              disabled={isPriceUpdatePending}
               prefix={currencyCode === "INR" ? "₹" : undefined}
               value={priceEditValue}
               onChange={setPriceEditValue}
             />
-            {priceEditLine?.discountLabel && (
+            {priceEditTarget?.discountLabel && (
               <Text as="p" variant="bodySm" tone="subdued">
-                {priceEditLine.discountLabel} discount currently applied to{" "}
-                {priceEditLine.title}. Updating here will set a fixed
+                {priceEditTarget.discountLabel} discount currently applied to{" "}
+                {priceEditTarget.title}. Updating here will set a fixed
                 subscription price instead.
+              </Text>
+            )}
+            {priceEditError && (
+              <Text as="p" tone="critical" variant="bodySm">
+                {priceEditError}
               </Text>
             )}
           </BlockStack>
