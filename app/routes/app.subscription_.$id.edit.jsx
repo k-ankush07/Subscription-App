@@ -1,0 +1,570 @@
+import { authenticate } from "../shopify.server";
+import { useState, useEffect } from "react";
+import {
+  useLoaderData,
+  useNavigate,
+  useFetcher,
+  useParams,
+} from "react-router";
+import {
+  Page,
+  Card,
+  Button,
+  TextField,
+  Select,
+  Text,
+  InlineStack,
+  BlockStack,
+  Thumbnail,
+  Badge,
+  Divider,
+  Banner,
+} from "@shopify/polaris";
+import { DeleteIcon } from "@shopify/polaris-icons";
+import {
+  updateContractLineProduct,
+  updateContractDeliveryDetails,
+  removeContractLine,
+  addContractLine,
+} from "../lib/billing-preview.server";
+
+/* ---------------------------------------------------------
+   LOADER  (unchanged)
+--------------------------------------------------------- */
+export async function loader({ params, request }) {
+  const { admin, session } = await authenticate.admin(request);
+
+  const subscriptionId = params.id;
+  const contractId = `gid://shopify/SubscriptionContract/${subscriptionId}`;
+
+  const res = await admin.graphql(
+    `
+    query GetContractForEdit($contractId: ID!) {
+      subscriptionContract(id: $contractId) {
+        id
+        status
+        deliveryPrice { amount currencyCode }
+        deliveryPolicy { interval intervalCount }
+        billingPolicy { interval intervalCount }
+        lines(first: 50) {
+          edges {
+            node {
+              id
+              title
+              variantTitle
+              quantity
+              productId
+              variantId
+              currentPrice { amount currencyCode }
+              variantImage { url }
+            }
+          }
+        }
+      }
+    }
+    `,
+    { variables: { contractId } },
+  );
+
+  const data = await res.json();
+  const contract = data?.data?.subscriptionContract;
+
+  if (!contract) {
+    throw new Response("Subscription not found", { status: 404 });
+  }
+
+  const lines = contract.lines.edges.map((e) => e.node);
+
+  const variantIds = lines.map((l) => l.variantId).filter(Boolean);
+  let variantPriceMap = {};
+  if (variantIds.length > 0) {
+    const variantRes = await admin.graphql(
+      `
+      query GetVariantPrices($ids: [ID!]!) {
+        nodes(ids: $ids) {
+          ... on ProductVariant {
+            id
+            price
+          }
+        }
+      }
+      `,
+      { variables: { ids: variantIds } },
+    );
+    const variantData = await variantRes.json();
+    for (const node of variantData?.data?.nodes ?? []) {
+      if (node?.id) variantPriceMap[node.id] = node.price;
+    }
+  }
+
+  const linesWithOneTimePrice = lines.map((l) => ({
+    ...l,
+    oneTimePrice: variantPriceMap[l.variantId] ?? null,
+  }));
+
+  const currencyCode =
+    contract.deliveryPrice?.currencyCode ||
+    lines[0]?.currentPrice?.currencyCode ||
+    "INR";
+
+  return {
+    contract,
+    lines: linesWithOneTimePrice,
+    currencyCode,
+    subscriptionId,
+    shop: session.shop,
+  };
+}
+
+/* ---------------------------------------------------------
+   ACTION
+--------------------------------------------------------- */
+export async function action({ request, params }) {
+  const { admin } = await authenticate.admin(request);
+  const formData = await request.formData();
+  const subscriptionId = params.id;
+  const contractId = `gid://shopify/SubscriptionContract/${subscriptionId}`;
+
+  const type = formData.get("type");
+
+  if (type === "save_draft") {
+    try {
+      const payload = JSON.parse(formData.get("payload"));
+
+      // 1. Pehle removed lines ko hatao
+      for (const lineId of payload.removedLineIds || []) {
+        const result = await removeContractLine(admin, contractId, lineId);
+        if (!result.success) {
+          return { success: false, error: result.error };
+        }
+      }
+
+      // 2. Baaki lines ki quantity update karo
+      for (const line of payload.lines) {
+        const result = await updateContractLineProduct(admin, contractId, {
+          lineId: line.lineId,
+          variantId: line.variantId,
+          quantity: Number(line.quantity) || 1,
+          keepDiscount: true,
+          allowQuantityChanges: true,
+        });
+        if (!result.success) {
+          return { success: false, error: result.error };
+        }
+      }
+
+      // 3. Naye add kiye gaye line items commit karo
+      for (const newLine of payload.newLines || []) {
+        const result = await addContractLine(admin, contractId, {
+          variantId: newLine.variantId,
+          quantity: Number(newLine.quantity) || 1,
+        });
+        if (!result.success) {
+          return { success: false, error: result.error };
+        }
+      }
+
+      // 4. Delivery policy + price update karo
+      const deliveryResult = await updateContractDeliveryDetails(admin, contractId, {
+        interval: payload.deliveryInterval,
+        intervalCount: payload.deliveryCount,
+        deliveryPrice: payload.deliveryPrice,
+      });
+      if (!deliveryResult.success) {
+        return { success: false, error: deliveryResult.error };
+      }
+
+      return { success: true };
+    } catch (err) {
+      console.error("[edit save_draft] failed:", err);
+      return { success: false, error: String(err?.message || err) };
+    }
+  }
+
+  return { success: false, error: "Unknown action type" };
+}
+
+/* ---------------------------------------------------------
+   COMPONENT
+--------------------------------------------------------- */
+export default function EditPage() {
+  const { contract, lines: initialLines, currencyCode } = useLoaderData();
+  const navigate = useNavigate();
+  const fetcher = useFetcher();
+  const { id } = useParams();
+
+  const [lines, setLines] = useState(
+    initialLines.map((l) => ({ ...l, quantity: String(l.quantity) })),
+  );
+  const [removedLineIds, setRemovedLineIds] = useState([]);
+
+  // Naye products jo "Add line item" se select hue hain — abhi tak saved nahi hain
+  const [newLines, setNewLines] = useState([]);
+
+  const [deliveryCount, setDeliveryCount] = useState(
+    String(contract?.deliveryPolicy?.intervalCount ?? "1"),
+  );
+  const [deliveryInterval, setDeliveryInterval] = useState(
+    contract?.deliveryPolicy?.interval || "DAY",
+  );
+  const [billingType, setBillingType] = useState("PAYASYOUGO");
+  const [deliveryPrice, setDeliveryPrice] = useState(
+    String(contract?.deliveryPrice?.amount ?? "0"),
+  );
+
+  const isSaving = fetcher.state !== "idle";
+  const totalLineCount = lines.length + newLines.length;
+
+  const handleBack = () => navigate(`/app/subscription/${id}`);
+
+  useEffect(() => {
+    if (fetcher.state === "idle" && fetcher.data?.success) {
+      handleBack();
+    }
+  }, [fetcher.state, fetcher.data]);
+
+  const handleQuantityChange = (lineId, value) => {
+    setLines((prev) =>
+      prev.map((l) => (l.id === lineId ? { ...l, quantity: value } : l)),
+    );
+  };
+
+  const handleNewLineQuantityChange = (tempId, value) => {
+    setNewLines((prev) =>
+      prev.map((l) => (l.tempId === tempId ? { ...l, quantity: value } : l)),
+    );
+  };
+
+  const handleRemoveLine = (lineId, title) => {
+    if (totalLineCount <= 1) return; // safety guard, button already hidden
+    const confirmed = confirm(`"${title}" ko subscription se remove karein?`);
+    if (!confirmed) return;
+
+    setLines((prev) => prev.filter((l) => l.id !== lineId));
+    setRemovedLineIds((prev) => [...prev, lineId]);
+  };
+
+  const handleRemoveNewLine = (tempId) => {
+    setNewLines((prev) => prev.filter((l) => l.tempId !== tempId));
+  };
+
+  const handleAddLineItem = async () => {
+    if (!window?.shopify?.resourcePicker) {
+      alert("Product picker is not available in this environment.");
+      return;
+    }
+
+    const selected = await window.shopify.resourcePicker({
+      type: "product",
+      action: "select",
+      multiple: false,
+    });
+
+    if (!selected || selected.length === 0) return;
+
+    const product = selected[0];
+    const variant = (product.variants || [])[0];
+
+    if (!variant) {
+      alert("Selected product has no variant.");
+      return;
+    }
+
+    const alreadyAdded =
+      lines.some((l) => l.variantId === variant.id) ||
+      newLines.some((l) => l.variantId === variant.id);
+
+    if (alreadyAdded) {
+      alert("Ye product/variant already is subscription me hai.");
+      return;
+    }
+
+    setNewLines((prev) => [
+      ...prev,
+      {
+        tempId: `new-${Date.now()}`,
+        variantId: variant.id,
+        title: product.title,
+        variantTitle:
+          variant.title && variant.title !== "Default Title"
+            ? variant.title
+            : null,
+        imageUrl:
+          variant.image?.originalSrc ||
+          product.images?.[0]?.originalSrc ||
+          "",
+        price: variant.price,
+        quantity: "1",
+      },
+    ]);
+  };
+
+  const subtotal =
+    lines.reduce((sum, l) => {
+      const qty = Number(l.quantity) || 0;
+      const price = Number(l.currentPrice?.amount) || 0;
+      return sum + qty * price;
+    }, 0) +
+    newLines.reduce((sum, l) => {
+      const qty = Number(l.quantity) || 0;
+      const price = Number(l.price) || 0;
+      return sum + qty * price;
+    }, 0);
+
+  const total = subtotal + (Number(deliveryPrice) || 0);
+
+  const handleSave = () => {
+    fetcher.submit(
+      {
+        type: "save_draft",
+        payload: JSON.stringify({
+          lines: lines.map((l) => ({
+            lineId: l.id,
+            variantId: l.variantId,
+            quantity: l.quantity,
+          })),
+          removedLineIds,
+          newLines: newLines.map((l) => ({
+            variantId: l.variantId,
+            quantity: l.quantity,
+          })),
+          deliveryCount,
+          deliveryInterval,
+          deliveryPrice,
+        }),
+      },
+      { method: "post" },
+    );
+  };
+
+  return (
+    <Page
+      title="Edit subscription"
+      backAction={{ onAction: handleBack }}
+      titleMetadata={
+        contract?.status === "CANCELLED" ? (
+          <Badge tone="warning">Canceled</Badge>
+        ) : null
+      }
+      subtitle={id}
+    >
+      <BlockStack gap="400">
+        {fetcher.data?.success === false && (
+          <Banner tone="critical" title="Save failed">
+            {fetcher.data.error}
+          </Banner>
+        )}
+
+        <Card>
+          <BlockStack gap="300">
+            <Text as="h2" variant="headingMd">
+              Subscription details
+            </Text>
+
+            {lines.map((line) => (
+              <InlineStack
+                key={line.id}
+                align="space-between"
+                blockAlign="center"
+                wrap={false}
+              >
+                <InlineStack gap="300" blockAlign="center">
+                  <Thumbnail
+                    source={line.variantImage?.url || ""}
+                    alt={line.title}
+                    size="small"
+                  />
+                  <BlockStack gap="050">
+                    <Text fontWeight="medium">{line.title}</Text>
+                    {line.variantTitle && (
+                      <Badge>{line.variantTitle}</Badge>
+                    )}
+                    {line.oneTimePrice && (
+                      <Text as="span" variant="bodySm" tone="subdued">
+                        One-time purchase price: {currencyCode}{" "}
+                        {Number(line.oneTimePrice).toFixed(2)}
+                      </Text>
+                    )}
+                  </BlockStack>
+                </InlineStack>
+
+                <InlineStack gap="300" blockAlign="center">
+                  <div style={{ width: "80px" }}>
+                    <TextField
+                      label="Qty"
+                      labelHidden
+                      type="number"
+                      min={1}
+                      value={line.quantity}
+                      onChange={(value) => handleQuantityChange(line.id, value)}
+                    />
+                  </div>
+                  <Text fontWeight="semibold">
+                    {currencyCode} {line.currentPrice?.amount}
+                  </Text>
+                  {totalLineCount > 1 && (
+                    <Button
+                      icon={DeleteIcon}
+                      variant="tertiary"
+                      tone="critical"
+                      accessibilityLabel="Remove product"
+                      onClick={() => handleRemoveLine(line.id, line.title)}
+                    />
+                  )}
+                </InlineStack>
+              </InlineStack>
+            ))}
+
+            {newLines.map((line) => (
+              <InlineStack
+                key={line.tempId}
+                align="space-between"
+                blockAlign="center"
+                wrap={false}
+              >
+                <InlineStack gap="300" blockAlign="center">
+                  <Thumbnail
+                    source={line.imageUrl || ""}
+                    alt={line.title}
+                    size="small"
+                  />
+                  <BlockStack gap="050">
+                    <InlineStack gap="100" blockAlign="center">
+                      <Text fontWeight="medium">{line.title}</Text>
+                      <Badge tone="success">New</Badge>
+                    </InlineStack>
+                    {line.variantTitle && <Badge>{line.variantTitle}</Badge>}
+                  </BlockStack>
+                </InlineStack>
+
+                <InlineStack gap="300" blockAlign="center">
+                  <div style={{ width: "80px" }}>
+                    <TextField
+                      label="Qty"
+                      labelHidden
+                      type="number"
+                      min={1}
+                      value={line.quantity}
+                      onChange={(value) =>
+                        handleNewLineQuantityChange(line.tempId, value)
+                      }
+                    />
+                  </div>
+                  <Text fontWeight="semibold">
+                    {currencyCode} {line.price}
+                  </Text>
+                  <Button
+                    icon={DeleteIcon}
+                    variant="tertiary"
+                    tone="critical"
+                    accessibilityLabel="Remove product"
+                    onClick={() => handleRemoveNewLine(line.tempId)}
+                  />
+                </InlineStack>
+              </InlineStack>
+            ))}
+
+            <InlineStack gap="200">
+              <Button onClick={handleAddLineItem}>Add line item</Button>
+            </InlineStack>
+          </BlockStack>
+        </Card>
+
+        <Card>
+          <BlockStack gap="300">
+            <Text as="h2" variant="headingMd">
+              Delivery & Billing details
+            </Text>
+
+            <Select
+              label="Billing type"
+              options={[
+                { label: "Pay as you go", value: "PAYASYOUGO" },
+                { label: "Prepaid", value: "PREPAID" },
+              ]}
+              value={billingType}
+              onChange={setBillingType}
+            />
+
+            <InlineStack gap="300" wrap={false}>
+              <div style={{ flex: 1 }}>
+                <TextField
+                  label="Delivery frequency"
+                  type="number"
+                  min={1}
+                  value={deliveryCount}
+                  onChange={setDeliveryCount}
+                />
+              </div>
+              <div style={{ flex: 1 }}>
+                <Select
+                  label="Delivery interval"
+                  options={[
+                    { label: "days", value: "DAY" },
+                    { label: "weeks", value: "WEEK" },
+                    { label: "months", value: "MONTH" },
+                  ]}
+                  value={deliveryInterval}
+                  onChange={setDeliveryInterval}
+                />
+              </div>
+            </InlineStack>
+
+            <TextField
+              label="Billing frequency"
+              disabled
+              value={`Every ${deliveryCount} ${deliveryInterval.toLowerCase()}(s)`}
+            />
+
+            <Divider />
+
+            <TextField
+              label="Delivery price"
+              type="number"
+              min={0}
+              prefix={currencyCode === "INR" ? "₹" : undefined}
+              value={deliveryPrice}
+              onChange={setDeliveryPrice}
+            />
+          </BlockStack>
+        </Card>
+
+        <Card>
+          <BlockStack gap="200">
+            <Text as="h2" variant="headingMd">
+              Payment Summary
+            </Text>
+            <InlineStack align="space-between">
+              <Text>Subtotal</Text>
+              <Text>
+                {currencyCode} {subtotal.toFixed(2)}
+              </Text>
+            </InlineStack>
+            <InlineStack align="space-between">
+              <Text>Shipping</Text>
+              <Text>
+                {currencyCode} {(Number(deliveryPrice) || 0).toFixed(2)}
+              </Text>
+            </InlineStack>
+            <Divider />
+            <InlineStack align="space-between">
+              <Text fontWeight="bold">Total</Text>
+              <Text fontWeight="bold">
+                {currencyCode} {total.toFixed(2)}
+              </Text>
+            </InlineStack>
+          </BlockStack>
+        </Card>
+
+        <InlineStack align="end" gap="200">
+          <Button onClick={handleBack} disabled={isSaving}>
+            Cancel
+          </Button>
+          <Button variant="primary" loading={isSaving} onClick={handleSave}>
+            Save
+          </Button>
+        </InlineStack>
+      </BlockStack>
+    </Page>
+  );
+}

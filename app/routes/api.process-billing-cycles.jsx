@@ -6,6 +6,7 @@ import {
   getContractSettingsSnapshot,
   getContractPreview,
   clearAnyOpenDraft,
+  fetchVariantPrice,
 } from "../lib/billing-preview.server";
 
 const EXTRA_SETTINGS_NAMESPACE = "subscription_app";

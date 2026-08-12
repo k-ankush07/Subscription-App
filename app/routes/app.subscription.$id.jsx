@@ -12,8 +12,8 @@ import {
   removeAllDiscounts,
   removeLineDiscount,
   clearAnyOpenDraft,       
-   updateContractAddress,
-      fetchVariantPrice,
+  updateContractAddress,
+  fetchVariantPrice,
 } from "../lib/billing-preview.server";
 const API = import.meta.env.VITE_API_URL;
 const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
