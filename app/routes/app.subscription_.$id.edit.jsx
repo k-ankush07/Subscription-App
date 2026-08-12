@@ -139,55 +139,6 @@ export async function action({ request, params }) {
 
   const type = formData.get("type");
 
-  // if (type === "save_draft") {
-  //   try {
-  //     const payload = JSON.parse(formData.get("payload"));
-
-  //     for (const newLine of payload.newLines || []) {
-  //       const result = await addContractLine(admin, contractId, {
-  //         variantId: newLine.variantId,
-  //         quantity: Number(newLine.quantity) || 1,
-  //         currentPrice: newLine.price != null ? Number(newLine.price) : null,
-  //       });
-  //       if (!result.success) return { success: false, error: result.error };
-  //     }
-
-  //     for (const line of payload.lines) {
-  //       const result = await updateContractLineProduct(admin, contractId, {
-  //         lineId: line.lineId,
-  //         variantId: line.variantId,
-  //         quantity: Number(line.quantity) || 1,
-  //         keepDiscount: true,
-  //         allowQuantityChanges: true,
-  //       });
-  //       if (!result.success) return { success: false, error: result.error };
-  //     }
-
-  //     for (const lineId of payload.removedLineIds || []) {
-  //       const result = await removeContractLine(admin, contractId, lineId);
-  //       if (!result.success) return { success: false, error: result.error };
-  //     }
-
-  //     const deliveryResult = await updateContractDeliveryDetails(
-  //       admin,
-  //       contractId,
-  //       {
-  //         interval: payload.deliveryInterval,
-  //         intervalCount: payload.deliveryCount,
-  //         deliveryPrice: payload.deliveryPrice,
-  //       },
-  //     );
-  //     if (!deliveryResult.success) {
-  //       return { success: false, error: deliveryResult.error };
-  //     }
-
-  //     return { success: true };
-  //   } catch (err) {
-  //     console.error("[edit save_draft] failed:", err);
-  //     return { success: false, error: String(err?.message || err) };
-  //   }
-  // }
-
   if (type === "save_draft") {
   try {
     const payload = JSON.parse(formData.get("payload"));
@@ -224,26 +175,6 @@ export async function action({ request, params }) {
     });
     if (!deliveryResult.success) {
       return { success: false, error: deliveryResult.error };
-    }
-    if (payload.promotedAutomation) {
-      try {
-        const currentSettings = await getEffectiveSettingsForContract(
-          admin,
-          contractId,
-          payload.sellingPlanId,
-        );
-        if (currentSettings) {
-          const updatedSettings = removeAutomationVariant(
-            currentSettings,
-            payload.promotedAutomation.automationCycleIndex,
-            payload.promotedAutomation.automationActionIndex,
-            payload.promotedAutomation.variantId,
-          );
-          await snapshotContractSettings(admin, contractId, updatedSettings);
-        }
-      } catch (err) {
-        console.warn("[save_draft] promoted automation cleanup failed:", err);
-      }
     }
 
     return { success: true };
@@ -488,8 +419,9 @@ export default function EditPage() {
   );
 
   const [automationQtyDrafts, setAutomationQtyDrafts] = useState({});
-  const [promotedAutomation, setPromotedAutomation] = useState(null);
 
+  // Unified price-edit modal state
+  // target = { kind: "committed" | "new" | "automation", ...refs }
   const [priceEditTarget, setPriceEditTarget] = useState(null);
   const [priceEditValue, setPriceEditValue] = useState("");
   const [priceEditError, setPriceEditError] = useState("");
@@ -554,48 +486,7 @@ export default function EditPage() {
   };
 
   const handleRemoveLine = (lineId, title) => {
-    const remainingCommittedCount =
-      lines.filter((l) => l.id !== lineId).length + newLines.length;
-
-    if (remainingCommittedCount === 0) {
-      // Ye aakhri committed line hai — Shopify contract ko kabhi 0 lines pe
-      // nahi jaane deta. Agar automation ka "Upcoming" product mojood hai,
-      // to usse turant asli line bana ke is jagah promote kar do.
-      if (automationLines.length === 0) {
-        alert(
-          "Ye aakhri product hai — subscription me kam se kam ek product zaroor hona chahiye.",
-        );
-        return;
-      }
-
-      const promoted = automationLines[0];
-      const confirmed = confirm(
-        `"${title}" hataya jayega aur iski jagah "${promoted.title}" (jo automation se upcoming tha) is subscription ka current product ban jayega. Continue karein?`,
-      );
-      if (!confirmed) return;
-
-      setNewLines((prev) => [
-        ...prev,
-        {
-          tempId: `promoted-${Date.now()}-${promoted.variantId}`,
-          variantId: promoted.variantId,
-          title: promoted.title,
-          variantTitle: promoted.variantTitle,
-          imageUrl: promoted.imageUrl,
-          price: String(promoted.pricePerUnit?.amount ?? "0"),
-          quantity: String(promoted.quantity ?? 1),
-        },
-      ]);
-      setPromotedAutomation({
-        automationCycleIndex: promoted.automationCycleIndex,
-        automationActionIndex: promoted.automationActionIndex,
-        variantId: promoted.variantId,
-      });
-      setLines((prev) => prev.filter((l) => l.id !== lineId));
-      setRemovedLineIds((prev) => [...prev, lineId]);
-      return;
-    }
-
+    if (totalLineCount <= 1 && automationLines.length === 0) return;
     const confirmed = confirm(`"${title}" ko subscription se remove karein?`);
     if (!confirmed) return;
 
@@ -826,31 +717,30 @@ export default function EditPage() {
   const total = subtotal + (Number(deliveryPrice) || 0);
 
   const handleSave = () => {
-  fetcher.submit(
-    {
-      type: "save_draft",
-      payload: JSON.stringify({
-        lines: lines.map((l) => ({
-          lineId: l.id,
-          variantId: l.variantId,
-          quantity: l.quantity,
-        })),
-        removedLineIds,
-        newLines: newLines.map((l) => ({
-          variantId: l.variantId,
-          quantity: l.quantity,
-          price: l.price,
-        })),
-        deliveryCount,
-        deliveryInterval,
-        deliveryPrice,
-        promotedAutomation, // NEW
-        sellingPlanId
-      }),
-    },
-    { method: "post" },
-  );
-};
+    fetcher.submit(
+      {
+        type: "save_draft",
+        payload: JSON.stringify({
+          lines: lines.map((l) => ({
+            lineId: l.id,
+            variantId: l.variantId,
+            quantity: l.quantity,
+          })),
+          removedLineIds,
+          newLines: newLines.map((l) => ({
+            variantId: l.variantId,
+            quantity: l.quantity,
+            price: l.price,
+          })),
+          deliveryCount,
+          deliveryInterval,
+          deliveryPrice,
+        }),
+      },
+      { method: "post" },
+    );
+  };
+
   return (
     <Page
       title="Edit subscription"
