@@ -236,6 +236,9 @@ function resolveDiscountForCycle(settings, pricingPolicy, cycleIndex) {
     };
   }
 
+  // Custom "after" discount isn't active (either not configured, or we haven't hit the threshold yet).
+  // Fall back to the native selling-plan discount tier, unless the merchant explicitly removed it
+  // for this contract.
   if (!settings?.beforeDiscountDisabled) {
     const nativeTier = getDiscountTierForCycle(pricingPolicy, cycleIndex);
     if (nativeTier) {
@@ -929,12 +932,25 @@ async function applyActionsToCycle(
             "Base line was already removed by another action this cycle.";
           continue;
         }
+        // const basePrice = effectiveBasePrice;
+
+        // let newPrice = basePrice;
+        // if (action.adjustmentType === "PERCENTAGE") {
+        //   newPrice =
+        //     basePrice - (basePrice * Number(action.adjustmentValue)) / 100;
+        // } else {
+        //   newPrice = basePrice - Number(action.adjustmentValue);
+        // }
+        // newPrice = Math.max(0, newPrice).toFixed(2);
+
         const basePrice = effectiveBasePrice;
 
         let newPrice = basePrice;
         if (action.adjustmentType === "PERCENTAGE") {
           newPrice =
             basePrice - (basePrice * Number(action.adjustmentValue)) / 100;
+        } else if (action.adjustmentType === "FIXED_PRICE") {
+          newPrice = Number(action.adjustmentValue); // NEW — direct price set karo, subtract nahi
         } else {
           newPrice = basePrice - Number(action.adjustmentValue);
         }
@@ -1346,6 +1362,50 @@ function removeAllDiscounts(settings) {
 
   return clonedSettings;
 }
+function setBaseLineFixedPrice(settings, cycleIndex, price) {
+  const clonedSettings = settings ? JSON.parse(JSON.stringify(settings)) : {};
+  clonedSettings.changeDiscountAfterOrders = true;
+  clonedSettings.afterOrders = Number(cycleIndex) || 0;
+  clonedSettings.afterDiscountType = "FIXED_PRICE";
+  clonedSettings.afterDiscountValue = String(Math.max(0, Number(price) || 0));
+  return clonedSettings;
+}
+// function removeLineDiscount(
+//   settings,
+//   { isBaseLine, discountPhase, automationCycleIndex, automationActionIndex },
+// ) {
+//   if (!settings) {
+//     throw new Error("removeLineDiscount: no settings configured");
+//   }
+//   const clonedSettings = JSON.parse(JSON.stringify(settings));
+
+//   if (isBaseLine) {
+//     if (discountPhase === "before") {
+//       clonedSettings.beforeDiscountDisabled = true;
+//     } else {
+//       // "after" ya legacy calls (jinme phase nahi bheja gaya) → purana behavior
+//       clonedSettings.changeDiscountAfterOrders = false;
+//     }
+//     return clonedSettings;
+//   }
+
+//   if (!Array.isArray(clonedSettings.automationCycles)) {
+//     throw new Error("removeLineDiscount: no automationCycles configured");
+//   }
+//   const entry = clonedSettings.automationCycles[automationCycleIndex];
+//   if (!entry || !Array.isArray(entry.actions)) {
+//     throw new Error("removeLineDiscount: automation cycle entry not found");
+//   }
+//   const action = entry.actions[automationActionIndex];
+//   if (!action) {
+//     throw new Error(
+//       "removeLineDiscount: target action not found (stale index) — please refresh and retry",
+//     );
+//   }
+//   action.discountEnabled = false;
+
+//   return clonedSettings;
+// }
 
 function removeLineDiscount(
   settings,
@@ -1357,12 +1417,8 @@ function removeLineDiscount(
   const clonedSettings = JSON.parse(JSON.stringify(settings));
 
   if (isBaseLine) {
-    if (discountPhase === "before") {
-      clonedSettings.beforeDiscountDisabled = true;
-    } else {
-      // "after" ya legacy calls (jinme phase nahi bheja gaya) → purana behavior
-      clonedSettings.changeDiscountAfterOrders = false;
-    }
+    clonedSettings.changeDiscountAfterOrders = false;
+    clonedSettings.beforeDiscountDisabled = true;
     return clonedSettings;
   }
 
@@ -2276,20 +2332,22 @@ async function getContractPreview(admin, contractId) {
             currencyCode: lineCurrency,
           }
         : { amount: effectiveBase.toFixed(2), currencyCode: lineCurrency };
-    } else if (hasRealDiscount && isFirstLine) {
-      let discounted = effectiveBase;
-      if (discountAction.adjustmentType === "PERCENTAGE") {
-        discounted =
-          effectiveBase -
-          (effectiveBase * Number(discountAction.adjustmentValue)) / 100;
-      } else {
-        discounted = effectiveBase - Number(discountAction.adjustmentValue);
-      }
-      pricePerUnit = {
-        amount: Math.max(0, discounted).toFixed(2),
-        currencyCode: lineCurrency,
-      };
-    } else {
+    }  else if (hasRealDiscount && isFirstLine) {
+  let discounted = effectiveBase;
+  if (discountAction.adjustmentType === "PERCENTAGE") {
+    discounted =
+      effectiveBase -
+      (effectiveBase * Number(discountAction.adjustmentValue)) / 100;
+  } else if (discountAction.adjustmentType === "FIXED_PRICE") {
+    discounted = Number(discountAction.adjustmentValue);   // NEW
+  } else {
+    discounted = effectiveBase - Number(discountAction.adjustmentValue);
+  }
+  pricePerUnit = {
+    amount: Math.max(0, discounted).toFixed(2),
+    currencyCode: lineCurrency,
+  };
+} else {
       pricePerUnit = {
         amount: (line.currentPrice?.amount ?? effectiveBase).toString(),
         currencyCode: lineCurrency,
@@ -3208,5 +3266,6 @@ export {
   addContractLine,
   updateAutomationVariantQuantity,
   setAutomationVariantPrice,
-  updateContractLinePrice
+  updateContractLinePrice,
+  setBaseLineFixedPrice
 };
