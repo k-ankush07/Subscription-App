@@ -76,7 +76,7 @@ export async function loader({ params, request }) {
 
   const data = await res.json();
   const contract = data?.data?.subscriptionContract;
-  console.log('vjdbvjdbvjh',contract)
+  // console.log('vjdbvjdbvjh',contract)
 
   if (!contract) {
     throw new Response("Subscription not found", { status: 404 });
