@@ -3,147 +3,7 @@ import { currencySymbol } from "../routes/utils/formatMoney.js";
 const EXTRA_SETTINGS_NAMESPACE = "subscription_app";
 // const CONTRACT_SETTINGS_SNAPSHOTS_KEY = "contract_settings_snapshots";
 const PRODUCT_CATALOG_KEY = "product_catalog_snapshot";
-// async function getShopIdForSnapshot(admin) {
-//   const res = await admin.graphql(`query { shop { id } }`);
-//   const data = await res.json();
-//   return data.data?.shop?.id ?? null;
-// }
-// async function readContractSnapshotsList(admin) {
-//   const res = await admin.graphql(
-//     `
-//     query getContractSnapshots($namespace: String!, $key: String!) {
-//       shop {
-//         metafield(namespace: $namespace, key: $key) {
-//           value
-//         }
-//       }
-//     }
-//     `,
-//     {
-//       variables: {
-//         namespace: EXTRA_SETTINGS_NAMESPACE,
-//         key: CONTRACT_SETTINGS_SNAPSHOTS_KEY,
-//       },
-//     },
-//   );
-//   const data = await res.json();
-//   if (data.errors) {
-//     console.warn(
-//       `[readContractSnapshotsList] query failed: ${data.errors[0]?.message}`,
-//     );
-//     return [];
-//   }
-//   const raw = data.data?.shop?.metafield?.value;
-//   if (!raw) return [];
-//   try {
-//     const parsed = JSON.parse(raw);
-//     return Array.isArray(parsed) ? parsed : [];
-//   } catch {
-//     return [];
-//   }
-// }
 
-// async function writeContractSnapshotsList(admin, shopId, list) {
-//   const MAX_METAFIELD_LENGTH = 2000000;
-//   const MAX_SAFE_LENGTH = 1900000;
-
-//   let safeList = list.slice(-500);
-//   let value = JSON.stringify(safeList);
-
-//   while (value.length > MAX_SAFE_LENGTH && safeList.length > 1) {
-//     safeList.shift();
-//     value = JSON.stringify(safeList);
-//   }
-
-//   if (value.length > MAX_METAFIELD_LENGTH) {
-//     console.warn(
-//       `[writeContractSnapshotsList] snapshot data too large (${value.length} chars) after trimming; keeping only latest snapshot`,
-//     );
-//     safeList = safeList.slice(-1);
-//     value = JSON.stringify(safeList);
-//   }
-
-//   if (value.length > MAX_METAFIELD_LENGTH) {
-//     console.warn(
-//       `[writeContractSnapshotsList] latest snapshot still too large (${value.length} chars); skipping write`,
-//     );
-//     return false;
-//   }
-
-//   const res = await admin.graphql(
-//     `
-//     mutation setContractSnapshots($metafields: [MetafieldsSetInput!]!) {
-//       metafieldsSet(metafields: $metafields) {
-//         userErrors { field message }
-//       }
-//     }
-//     `,
-//     {
-//       variables: {
-//         metafields: [
-//           {
-//             ownerId: shopId,
-//             namespace: EXTRA_SETTINGS_NAMESPACE,
-//             key: CONTRACT_SETTINGS_SNAPSHOTS_KEY,
-//             type: "json",
-//             value,
-//           },
-//         ],
-//       },
-//     },
-//   );
-//   const data = await res.json();
-//   const errors = data.data?.metafieldsSet?.userErrors;
-//   if (errors?.length) {
-//     throw new Error(`writeContractSnapshotsList failed: ${errors[0].message}`);
-//   }
-//   return true;
-// }
-// async function getContractSettingsSnapshot(admin, contractId, shopId = null) {
-//   try {
-//     const resolvedShopId = shopId ?? (await getShopIdForSnapshot(admin));
-//     if (!resolvedShopId) return null;
-//     const list = await readContractSnapshotsList(admin);
-//     for (let i = list.length - 1; i >= 0; i--) {
-//       if (list[i]?.contractId === contractId) {
-//         return list[i].settings ?? null;
-//       }
-//     }
-//     return null;
-//   } catch (err) {
-//     console.warn(
-//       `[getContractSettingsSnapshot] failed for ${contractId}:`,
-//       err,
-//     );
-//     return null;
-//   }
-// }
-// async function snapshotContractSettings(
-//   admin,
-//   contractId,
-//   settings,
-//   shopId = null,
-// ) {
-//   if (!settings) {
-//     console.warn(
-//       `[snapshotContractSettings] no settings to snapshot for ${contractId} — skipping`,
-//     );
-//     return { snapshotted: false };
-//   }
-
-//   const resolvedShopId = shopId ?? (await getShopIdForSnapshot(admin));
-//   if (!resolvedShopId) {
-//     console.warn(
-//       `[snapshotContractSettings] could not resolve shop id — skipping snapshot for ${contractId}`,
-//     );
-//     return { snapshotted: false };
-//   }
-
-//   const list = await readContractSnapshotsList(admin);
-//   list.push({ contractId, settings, capturedAt: new Date().toISOString() });
-//   await writeContractSnapshotsList(admin, resolvedShopId, list);
-//   return { snapshotted: true };
-// }
 
 
 async function getShopIdForSnapshot(admin) {
@@ -151,63 +11,20 @@ async function getShopIdForSnapshot(admin) {
   const data = await res.json();
   return data.data?.shop?.id ?? null;
 }
+async function getShopCurrencyCode(admin) {
+  try {
+    const res = await admin.graphql(`query { shop { currencyCode } }`);
+    const data = await res.json();
+    return data.data?.shop?.currencyCode ?? null;
+  } catch (err) {
+    console.warn("[getShopCurrencyCode] failed:", err);
+    return null;
+  }
+}
 
 function contractSnapshotKey(contractId) {
   const numericId = String(contractId).split("/").pop();
   return `contract_snapshot_${numericId}`;
-}
-
-async function readProductCatalog(admin) {
-  try {
-    const res = await admin.graphql(
-      `
-      query getProductCatalog($namespace: String!, $key: String!) {
-        shop { metafield(namespace: $namespace, key: $key) { value } }
-      }
-      `,
-      { variables: { namespace: EXTRA_SETTINGS_NAMESPACE, key: PRODUCT_CATALOG_KEY } },
-    );
-    const data = await res.json();
-    const raw = data.data?.shop?.metafield?.value;
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (err) {
-    console.warn("[readProductCatalog] failed:", err);
-    return [];
-  }
-}
-
-async function writeProductCatalog(admin, shopId, products) {
-  const value = JSON.stringify(products ?? []);
-  if (value.length > 1_900_000) {
-    console.warn(`[writeProductCatalog] catalog too large (${value.length} chars) — skipping`);
-    return { written: false };
-  }
-  const res = await admin.graphql(
-    `
-    mutation setProductCatalog($metafields: [MetafieldsSetInput!]!) {
-      metafieldsSet(metafields: $metafields) { userErrors { field message } }
-    }
-    `,
-    {
-      variables: {
-        metafields: [{
-          ownerId: shopId,
-          namespace: EXTRA_SETTINGS_NAMESPACE,
-          key: PRODUCT_CATALOG_KEY,
-          type: "json",
-          value,
-        }],
-      },
-    },
-  );
-  const data = await res.json();
-  if (data.data?.metafieldsSet?.userErrors?.length) {
-    console.warn(`[writeProductCatalog] failed: ${data.data.metafieldsSet.userErrors[0].message}`);
-    return { written: false };
-  }
-  return { written: true };
 }
 
 // async function getContractSettingsSnapshot(admin, contractId, shopId = null) {
@@ -1945,9 +1762,15 @@ async function getContractPreview(admin, contractId) {
   );
 
   const currencyCodeFallback =
-    firstLine?.pricingPolicy?.basePrice?.currencyCode ??
-    firstLine?.currentPrice?.currencyCode ??
-    "INR";
+  firstLine?.pricingPolicy?.basePrice?.currencyCode ??
+  firstLine?.currentPrice?.currencyCode ??
+  (await getShopCurrencyCode(admin)) ??
+  "USD";
+
+  // const currencyCodeFallback =
+  //   firstLine?.pricingPolicy?.basePrice?.currencyCode ??
+  //   firstLine?.currentPrice?.currencyCode ??
+  //   "INR";
 
   const lineItems = [];
 

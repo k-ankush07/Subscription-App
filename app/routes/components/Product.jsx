@@ -15,7 +15,7 @@ import {
 } from "@shopify/polaris";
 import React, { useCallback } from "react";
 import { ViewIcon } from "@shopify/polaris-icons";
-
+import { currencySymbol } from "../../routes/utils/formatMoney.js";
 const discountModeOptions = [
   { label: "None", value: "NONE" },
    { label: "Use discounts from selling plan", value: "SELLING_PLAN" },
@@ -245,9 +245,7 @@ function Product({
                                     label="Unit Price"
                                     type="number"
                                     min={0}
-                                    prefix={
-                                      currencyCode === "INR" ? "₹" : undefined
-                                    }
+                                     prefix={currencySymbol(currencyCode)}
                                     value={variant.unitPrice ?? "0"}
                                     onChange={(value) =>
                                       updateVariantField(
