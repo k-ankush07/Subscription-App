@@ -1,11 +1,8 @@
+
 import React from "react";
 import { useLoaderData } from "react-router";
 import { authenticate } from "../shopify.server";
 import CreateSubscription from "./components/createSubscription";
-// ---- FIX: discount snapshot ke liye import ----
-// Apne actual path ke hisaab se adjust kar lena (jahan bhi
-// contractsettings.js rakha hai — models/, utils/, lib/ etc.)
-import { snapshotContractSettings } from "../models/contractsettings.js";
 
 export async function loader({ request }) {
   const { admin, session } = await authenticate.admin(request);
@@ -74,14 +71,10 @@ export async function loader({ request }) {
     return { success: true, customers };
   }
 
-  // shop currencyCode ke saath timezoneOffset bhi loader me hi le lo,
-  // taaki UI khud bhi shop ke local time ke hisaab se date/time dikha sake
   const response = await admin.graphql(`
     query {
       shop {
         currencyCode
-        timezoneOffset
-        ianaTimezone
       }
     }
   `);
@@ -91,8 +84,6 @@ export async function loader({ request }) {
 
   return {
     currencyCode: shopData.currencyCode,
-    timezoneOffset: shopData.timezoneOffset,
-    ianaTimezone: shopData.ianaTimezone,
     shop: session.shop,
   };
 }
@@ -114,20 +105,6 @@ mutation CreateCustomerSubscriptionContract(
   }
 }
 `;
-
-// ---- FIX: discount ko actual price me apply karne ka helper ----
-function applyDiscountToPrice(basePrice, type, amount) {
-  const base = Number(basePrice) || 0;
-  const val = Number(amount) || 0;
-  if (!val) return base;
-  if (type === "PERCENTAGE") {
-    return Math.max(0, base - (base * val) / 100);
-  }
-  if (type === "PRICE") {
-    return Math.max(0, val); // fixed price directly
-  }
-  return Math.max(0, base - val); // FIXED_AMOUNT
-}
 
 export async function action({ request }) {
   const { admin, session } = await authenticate.admin(request);
@@ -152,46 +129,15 @@ export async function action({ request }) {
   }
 
   try {
-    // ---- FIX 1: shop ka actual timezone offset lo (Z hardcode hata diya) ----
-    const shopTzRes = await admin.graphql(`
-      query { shop { timezoneOffset } }
-    `);
-    const shopTzData = await shopTzRes.json();
-    const timezoneOffset = shopTzData.data?.shop?.timezoneOffset || "+00:00";
-
     const nextOrderDate = contractDetails.nextOrderDate; // "YYYY-MM-DD"
     const nextOrderTime = contractDetails.nextOrderTime; // "HH:MM"
-
-    if (!nextOrderDate || !nextOrderTime) {
-      return {
-        success: false,
-        errors: [{ message: "Next order date and time are required." }],
-      };
-    }
-
-    // Selected date/time ko shop ke local timezone me treat karke sahi UTC nikalo
     const nextBillingDate = new Date(
-      `${nextOrderDate}T${nextOrderTime}:00${timezoneOffset}`,
+      `${nextOrderDate}T${nextOrderTime}:00Z`,
     ).toISOString();
 
-    // ---- FIX 2: agar (sahi timezone ke baad bhi) time past/bahut close ho, reject karo ----
-    // Yehi cheez cycle-8 wale bug se bachati hai — kyunki agar galti se past
-    // date chali jaaye aur contract ACTIVE ho, Shopify turant elapsed cycles
-    // process karke cycleIndex aage bhga deta hai.
-    if (new Date(nextBillingDate).getTime() <= Date.now()) {
-      return {
-        success: false,
-        errors: [
-          {
-            message:
-              "Selected next order date/time is in the past (shop timezone ke hisaab se). Please choose a future date/time.",
-          },
-        ],
-      };
-    }
-
     const interval = contractDetails.interval || "MONTH";
-    const intervalCount = Number(contractDetails.intervalCount ?? 1) || 1;
+    const intervalCount =
+      Number(contractDetails.intervalCount ?? 1) || 1;
 
     const minCycles = contractDetails.minOrders
       ? Number(contractDetails.minOrders)
@@ -224,39 +170,18 @@ export async function action({ request }) {
     const deliveryPrice = Number(delivery.deliveryPrice || 0);
     const paymentMethodId = customer.paymentMethod?.id || null;
 
-    // ---- FIX: discount ko yahan hi first-order price me apply kar do ----
     const lines = products.flatMap((p) =>
       (p.variants || []).map((v) => {
         const quantity = Number(v.quantity || 1);
-        const baseUnitPrice = Number(v.unitPrice ?? v.price ?? 0);
-
-        let currentPrice = baseUnitPrice;
-
-        if (v.discountMode === "CUSTOM") {
-          // variant ke apne custom discount fields use karo
-          currentPrice = applyDiscountToPrice(
-            baseUnitPrice,
-            v.discountType,
-            v.discountAmount,
-          );
-        } else if (
-          v.discountMode === "SELLING_PLAN" &&
-          contractDetails.giveDiscount
-        ) {
-          // top-level "Selling Plan Discount" use karo
-          currentPrice = applyDiscountToPrice(
-            baseUnitPrice,
-            contractDetails.discountType,
-            contractDetails.discountAmount,
-          );
-        }
-        // discountMode === "NONE" → currentPrice = baseUnitPrice as-is
+        const currentPrice = Number(
+          v.unitPrice ?? v.price ?? 0,
+        );
 
         return {
           line: {
             productVariantId: v.variantsId,
             quantity,
-            currentPrice: Number(currentPrice.toFixed(2)),
+            currentPrice,
           },
         };
       }),
@@ -274,11 +199,7 @@ export async function action({ request }) {
       currencyCode: contractDetails.currencyCode,
       nextBillingDate,
       contract: {
-        // ---- FIX 3: ACTIVE ki jagah PAUSED ----
-        // UI khud "pause" dikha rahi hai, isliye backend ko bhi wahi bhejna
-        // chahiye. Agar merchant chahta hai ki selected date pe khud-ba-khud
-        // activate ho jaaye, uske liye alag se scheduler/cron chahiye hoga.
-        status: contractDetails.status === "ACTIVE" ? "ACTIVE" : "PAUSED",
+        status: "ACTIVE",
         note: "Created from app UI",
         paymentMethodId: paymentMethodId || undefined,
         billingPolicy: {
@@ -299,7 +220,9 @@ export async function action({ request }) {
 
     const gqlResponse = await admin.graphql(
       CREATE_CUSTOMER_SUBSCRIPTION_CONTRACT_MUTATION,
-      { variables: { input } },
+      {
+        variables: { input },
+      },
     );
 
     const result = await gqlResponse.json();
@@ -309,37 +232,14 @@ export async function action({ request }) {
     if (userErrors.length > 0) {
       return {
         success: false,
-        errors: userErrors.map((e) => ({ message: e.message, field: e.field })),
+        errors: userErrors.map((e) => ({
+          message: e.message,
+          field: e.field,
+        })),
       };
     }
 
     const contract = data?.contract;
-
-    // ---- FIX: contract create hone ke baad discount settings snapshot karo ----
-    // Isse "changeDiscountAfterOrders" / "afterOrders" wale rules agle
-    // billing cycles pe automatically apply ho payenge
-    // (contractsettings.js ka collectActionsForCycle / resolveDiscountForCycle
-    // isi snapshot ko read karte hain).
-    if (contract?.id) {
-      try {
-        await snapshotContractSettings(admin, contract.id, {
-          giveDiscount: contractDetails.giveDiscount,
-          discountAmount: contractDetails.discountAmount,
-          discountType: contractDetails.discountType,
-          changeDiscountAfterOrders: contractDetails.changeDiscountAfterOrders,
-          afterOrders: contractDetails.afterOrders,
-          afterDiscountValue: contractDetails.discountAmount2,
-          afterDiscountType: contractDetails.discountType2,
-          // per-variant discount config bhi rakh do future reference ke liye
-          products,
-        });
-      } catch (err) {
-        console.warn(
-          `[contractCreate] snapshotContractSettings failed for ${contract.id}:`,
-          err,
-        );
-      }
-    }
 
     return {
       success: true,
@@ -360,16 +260,11 @@ export async function action({ request }) {
 }
 
 function contractCreate() {
-  const { currencyCode, shop, timezoneOffset, ianaTimezone } = useLoaderData();
+  const { currencyCode, shop } = useLoaderData();
 
   return (
     <div>
-      <CreateSubscription
-        currencyCode={currencyCode}
-        shop={shop}
-        timezoneOffset={timezoneOffset}
-        ianaTimezone={ianaTimezone}
-      />
+      <CreateSubscription currencyCode={currencyCode} shop={shop} />
     </div>
   );
 }
