@@ -350,6 +350,64 @@ export async function action({ request, params }) {
     }
   }
 
+  // if (type === "update_automation_price") {
+  //   const automationCycleIndex = parseInt(
+  //     formData.get("automationCycleIndex"),
+  //     10,
+  //   );
+  //   const automationActionIndex = parseInt(
+  //     formData.get("automationActionIndex"),
+  //     10,
+  //   );
+  //   const price = formData.get("price");
+  //   const sellingPlanId = formData.get("sellingPlanId") || null;
+
+  //   if (
+  //     Number.isNaN(automationCycleIndex) ||
+  //     Number.isNaN(automationActionIndex)
+  //   ) {
+  //     return { success: false, error: "Invalid automation item reference" };
+  //   }
+  //   if (price == null || price === "" || Number.isNaN(Number(price))) {
+  //     return { success: false, error: "Invalid price" };
+  //   }
+
+  //   try {
+  //     const currentSettings = await getEffectiveSettingsForContract(
+  //       admin,
+  //       contractId,
+  //       sellingPlanId,
+  //     );
+  //     if (!currentSettings) {
+  //       return {
+  //         success: false,
+  //         error: "No automation settings found for this subscription",
+  //       };
+  //     }
+  //     const updatedSettings = setAutomationVariantPrice(
+  //       currentSettings,
+  //       automationCycleIndex,
+  //       automationActionIndex,
+  //       price,
+  //     );
+  //     const { snapshotted } = await snapshotContractSettings(
+  //       admin,
+  //       contractId,
+  //       updatedSettings,
+  //     );
+  //     if (!snapshotted) {
+  //       return {
+  //         success: false,
+  //         error: "Failed to save updated automation settings",
+  //       };
+  //     }
+  //     return { success: true, isAutomationChange: true };
+  //   } catch (err) {
+  //     console.error("[edit update_automation_price] failed:", err);
+  //     return { success: false, error: String(err?.message || err) };
+  //   }
+  // }
+
   if (type === "update_automation_price") {
     const automationCycleIndex = parseInt(
       formData.get("automationCycleIndex"),
@@ -366,10 +424,18 @@ export async function action({ request, params }) {
       Number.isNaN(automationCycleIndex) ||
       Number.isNaN(automationActionIndex)
     ) {
-      return { success: false, error: "Invalid automation item reference" };
+      return {
+        success: false,
+        error: "Invalid automation item reference",
+        type: "update_automation_price",
+      };
     }
     if (price == null || price === "" || Number.isNaN(Number(price))) {
-      return { success: false, error: "Invalid price" };
+      return {
+        success: false,
+        error: "Invalid price",
+        type: "update_automation_price",
+      };
     }
 
     try {
@@ -382,6 +448,7 @@ export async function action({ request, params }) {
         return {
           success: false,
           error: "No automation settings found for this subscription",
+          type: "update_automation_price",
         };
       }
       const updatedSettings = setAutomationVariantPrice(
@@ -399,86 +466,67 @@ export async function action({ request, params }) {
         return {
           success: false,
           error: "Failed to save updated automation settings",
+          type: "update_automation_price",
         };
       }
-      return { success: true, isAutomationChange: true };
+      return {
+        success: true,
+        isAutomationChange: true,
+        type: "update_automation_price",
+        automationCycleIndex,
+        automationActionIndex,
+        price,
+      };
     } catch (err) {
       console.error("[edit update_automation_price] failed:", err);
-      return { success: false, error: String(err?.message || err) };
+      return {
+        success: false,
+        error: String(err?.message || err),
+        type: "update_automation_price",
+      };
     }
   }
 
-  // committed line ka price directly update karo
-  // if (type === "update_line_price") {
-  //   const lineId = formData.get("lineId");
-  //   const price = formData.get("price");
 
-  //   if (!lineId) {
-  //     return { success: false, error: "Invalid line reference" };
-  //   }
-  //   if (price == null || price === "" || Number.isNaN(Number(price))) {
-  //     return { success: false, error: "Invalid price" };
-  //   }
-
-  //   try {
-  //     const result = await updateContractLinePrice(admin, contractId, {
-  //       lineId,
-  //       price,
-  //     });
-  //     if (!result.success) {
-  //       return { success: false, error: result.error };
-  //     }
-  //     return { success: true, isAutomationChange: true }; // reuse flag so page doesn't redirect back
-  //   } catch (err) {
-  //     console.error("[edit update_line_price] failed:", err);
-  //     return { success: false, error: String(err?.message || err) };
-  //   }
-  // }
-  if (type === "update_line_price") {
+if (type === "update_line_price") {
   const lineId = formData.get("lineId");
   const price = formData.get("price");
 
   if (!lineId) {
-    return { success: false, error: "Invalid line reference" };
+    return { success: false, error: "Invalid line reference", type: "update_line_price" };
   }
   if (price == null || price === "" || Number.isNaN(Number(price))) {
-    return { success: false, error: "Invalid price" };
+    return { success: false, error: "Invalid price", type: "update_line_price" };
   }
 
   try {
-    // 1. Shopify pe committed line ka price update karo
-    const result = await updateContractLinePrice(admin, contractId, {
-      lineId,
-      price,
-    });
+    const result = await updateContractLinePrice(admin, contractId, { lineId, price });
     if (!result.success) {
-      return { success: false, error: result.error };
+      return { success: false, error: result.error, type: "update_line_price" };
     }
 
-    // 2. Settings me bhi fixed-price override save karo — warna preview/automation
-    //    discount se dobara calculate karke overwrite kar dega
-    const currentSettings = await getEffectiveSettingsForContract(
-      admin,
-      contractId,
-      null,
-    );
+    const currentSettings = await getEffectiveSettingsForContract(admin, contractId, null);
     const updatedSettings = setBaseLineFixedPrice(currentSettings, price);
-    const { snapshotted } = await snapshotContractSettings(
-      admin,
-      contractId,
-      updatedSettings,
-    );
+    const { snapshotted } = await snapshotContractSettings(admin, contractId, updatedSettings);
     if (!snapshotted) {
       return {
         success: false,
         error: "Price updated but failed to save it for future orders",
+        type: "update_line_price",
       };
     }
 
-    return { success: true, isAutomationChange: true };
+    // NEW — client ko bhej do taaki formData pe depend na karna pade (idle hote hi wo undefined ho jata hai)
+    return {
+      success: true,
+      isAutomationChange: true,
+      type: "update_line_price",
+      lineId,
+      price,
+    };
   } catch (err) {
     console.error("[edit update_line_price] failed:", err);
-    return { success: false, error: String(err?.message || err) };
+    return { success: false, error: String(err?.message || err), type: "update_line_price" };
   }
 }
 
@@ -568,8 +616,24 @@ export default function EditPage() {
   //     submittedType === "update_line_price";
 
   //   if (fetcher.data.success) {
+  //     if (submittedType === "update_line_price") {
+  //       const updatedLineId = fetcher.formData?.get("lineId");
+  //       const updatedPrice = fetcher.formData?.get("price");
+  //       setLines((prev) =>
+  //         prev.map((l) =>
+  //           l.id === updatedLineId
+  //             ? {
+  //                 ...l,
+  //                 displayPrice: Number(updatedPrice) || 0,
+  //                 originalPrice: null,   
+  //                 discountLabel: null,   
+  //               }
+  //             : l,
+  //         ),
+  //       );
+  //     }
+
   //     if (isPriceEditSubmit) {
-  //       // Modal sirf ab close hoga — jab tak loading thi tab tak open rahi
   //       setPriceEditTarget(null);
   //       setPriceEditValue("");
   //       setPriceEditError("");
@@ -581,54 +645,53 @@ export default function EditPage() {
   //       handleBack();
   //     }
   //   } else if (isPriceEditSubmit) {
-  //     // Fail ho gaya — modal open hi rakho, error dikhao
   //     setPriceEditError(fetcher.data.error || "Failed to update price");
   //   }
   // }, [fetcher.state, fetcher.data]);
-useEffect(() => {
-    if (fetcher.state !== "idle" || fetcher.data == null) return;
+ useEffect(() => {
+  if (fetcher.state !== "idle" || fetcher.data == null) return;
 
-    const submittedType = fetcher.formData?.get("type");
-    const isPriceEditSubmit =
-      submittedType === "update_automation_price" ||
-      submittedType === "update_line_price";
+  const data = fetcher.data;
+  const submittedType = data.type; // CHANGED — ab response se, formData se nahi (idle hote hi formData undefined ho jata hai)
 
-    if (fetcher.data.success) {
-      // NEW — committed line ka price update success hote hi local state mein bhi update kar do,
-      // taaki page revisit kiye bina turant naya price dikhe
-      if (submittedType === "update_line_price") {
-        const updatedLineId = fetcher.formData?.get("lineId");
-        const updatedPrice = fetcher.formData?.get("price");
-        setLines((prev) =>
-          prev.map((l) =>
-            l.id === updatedLineId
-              ? {
-                  ...l,
-                  displayPrice: Number(updatedPrice) || 0,
-                  originalPrice: null,   // manual override — ab strikethrough discount price nahi dikhna chahiye
-                  discountLabel: null,   // manual override — discount badge bhi nahi dikhna chahiye
-                }
-              : l,
-          ),
-        );
-      }
+  const isPriceEditSubmit =
+    submittedType === "update_automation_price" ||
+    submittedType === "update_line_price";
 
-      if (isPriceEditSubmit) {
-        // Modal sirf ab close hoga — jab tak loading thi tab tak open rahi
-        setPriceEditTarget(null);
-        setPriceEditValue("");
-        setPriceEditError("");
-      }
-      if (submittedType === "update_automation_quantity") {
-        setAutomationQtyDrafts({});
-      }
-      if (!fetcher.data.isAutomationChange) {
-        handleBack();
-      }
-    } else if (isPriceEditSubmit) {
-      setPriceEditError(fetcher.data.error || "Failed to update price");
+  if (data.success) {
+    if (submittedType === "update_line_price") {
+      setLines((prev) =>
+        prev.map((l) =>
+          l.id === data.lineId
+            ? {
+                ...l,
+                displayPrice: Number(data.price) || 0,
+                originalPrice: null,
+                discountLabel: null,
+              }
+            : l,
+        ),
+      );
     }
-  }, [fetcher.state, fetcher.data]);
+
+    if (isPriceEditSubmit) {
+      setPriceEditTarget(null);
+      setPriceEditValue("");
+      setPriceEditError("");
+    }
+    if (submittedType === "update_automation_quantity") {
+      setAutomationQtyDrafts({});
+    }
+    if (!data.isAutomationChange) {
+      handleBack();
+    }
+  } else if (isPriceEditSubmit) {
+    setPriceEditError(data.error || "Failed to update price");
+  }
+}, [fetcher.state, fetcher.data]);
+ 
+ 
+ 
   const handleQuantityChange = (lineId, value) => {
     setLines((prev) =>
       prev.map((l) => (l.id === lineId ? { ...l, quantity: value } : l)),
@@ -722,7 +785,6 @@ useEffect(() => {
     fetcher.formData?.get("automationActionIndex") ===
       String(li.automationActionIndex);
 
-  // --- Unified price editor ---
   const openPriceEditor = (kind, item) => {
     setPriceEditError("");
     if (kind === "committed") {
@@ -744,7 +806,7 @@ useEffect(() => {
   };
 
   const closePriceEditor = () => {
-    if (isPriceUpdatePending) return; // loading ke dauraan close mat hone do
+    if (isPriceUpdatePending) return; 
     setPriceEditTarget(null);
     setPriceEditValue("");
     setPriceEditError("");
@@ -755,7 +817,6 @@ useEffect(() => {
     setPriceEditError("");
 
     if (priceEditTarget.kind === "new") {
-      // Naya (abhi tak unsaved) line — sirf local state update karo, server call nahi chahiye
       setNewLines((prev) =>
         prev.map((l) =>
           l.tempId === priceEditTarget.tempId
@@ -777,7 +838,7 @@ useEffect(() => {
         },
         { method: "post" },
       );
-      return; // modal close hoga useEffect me success ke baad
+      return; 
     }
 
     if (priceEditTarget.kind === "automation") {
@@ -791,7 +852,7 @@ useEffect(() => {
         },
         { method: "post" },
       );
-      return; // modal close hoga useEffect me success ke baad
+      return; 
     }
   };
 
@@ -958,12 +1019,7 @@ useEffect(() => {
                       {line.discountLabel && (
                         <Badge tone="success">{line.discountLabel}</Badge>
                       )}
-                      {line.oneTimePrice && (
-                        <Text as="span" variant="bodySm" tone="subdued">
-                          One-time purchase price: {currencyCode}{" "}
-                          {Number(line.oneTimePrice).toFixed(2)}
-                        </Text>
-                      )}
+                      
                     </BlockStack>
                   </InlineStack>
 
