@@ -1,19 +1,3 @@
-// import React from "react";
-// import PortalNav from "./components/PortalNav";
-// import { BlockStack, Page } from "@shopify/polaris";
-// function CancelSubscription() {
-//   return (
-//     <Page title="Cancellation reason">
-//       <BlockStack gap="400">
-//         <PortalNav />
-//         Coming Soon.....
-//       </BlockStack>
-//     </Page>
-//   );
-// }
-
-// export default CancelSubscription;
-
 
 import React from "react";
 import PortalNav from "./components/PortalNav";
@@ -102,13 +86,9 @@ function CancelSubscription() {
   const rowMarkup = items.map((item, index) => (
     <IndexTable.Row id={item.id} key={item.id} position={index}>
       <IndexTable.Cell>
-        <Link
-          onClick={() =>
-            navigate(`/app/subscriptions?q=${encodeURIComponent(item.email)}`)
-          }
-        >
+        <Text>
           {item.email}
-        </Link>
+        </Text>
       </IndexTable.Cell>
       <IndexTable.Cell>
         <Link onClick={() => navigate(`/app/subscription/${item.subscriptionId}`)}>

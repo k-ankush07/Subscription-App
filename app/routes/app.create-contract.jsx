@@ -71,10 +71,14 @@ export async function loader({ request }) {
     return { success: true, customers };
   }
 
+  // --- FIX: shop currencyCode ke saath timezoneOffset bhi loader me hi le lo,
+  // taaki UI khud bhi shop ke local time ke hisaab se date/time dikha sake
   const response = await admin.graphql(`
     query {
       shop {
         currencyCode
+        timezoneOffset
+        ianaTimezone
       }
     }
   `);
@@ -84,6 +88,8 @@ export async function loader({ request }) {
 
   return {
     currencyCode: shopData.currencyCode,
+    timezoneOffset: shopData.timezoneOffset,
+    ianaTimezone: shopData.ianaTimezone,
     shop: session.shop,
   };
 }
@@ -129,15 +135,46 @@ export async function action({ request }) {
   }
 
   try {
-    const nextOrderDate = contractDetails.nextOrderDate; // "YYYY-MM-DD"
+    // ---- FIX 1: shop ka actual timezone offset lo (Z hardcode hata diya) ----
+    const shopTzRes = await admin.graphql(`
+      query { shop { timezoneOffset } }
+    `);
+    const shopTzData = await shopTzRes.json();
+    const timezoneOffset = shopTzData.data?.shop?.timezoneOffset || "+00:00";
+
+    const nextOrderDate = contractDetails.nextOrderDate; // "YYYY-MM-DD" (HTML date input hamesha ISO deta hai)
     const nextOrderTime = contractDetails.nextOrderTime; // "HH:MM"
+
+    if (!nextOrderDate || !nextOrderTime) {
+      return {
+        success: false,
+        errors: [{ message: "Next order date and time are required." }],
+      };
+    }
+
+    // Selected date/time ko shop ke local timezone me treat karke sahi UTC nikalo
     const nextBillingDate = new Date(
-      `${nextOrderDate}T${nextOrderTime}:00Z`,
+      `${nextOrderDate}T${nextOrderTime}:00${timezoneOffset}`,
     ).toISOString();
 
+    // ---- FIX 2: agar (sahi timezone ke baad bhi) time past/bahut close ho, reject karo ----
+    // Yehi cheez cycle-8 wale bug se bachati hai — kyunki agar galti se past
+    // date chali jaaye aur contract ACTIVE ho, Shopify turant elapsed cycles
+    // process karke cycleIndex aage bhga deta hai.
+    if (new Date(nextBillingDate).getTime() <= Date.now()) {
+      return {
+        success: false,
+        errors: [
+          {
+            message:
+              "Selected next order date/time is in the past (shop timezone ke hisaab se). Please choose a future date/time.",
+          },
+        ],
+      };
+    }
+
     const interval = contractDetails.interval || "MONTH";
-    const intervalCount =
-      Number(contractDetails.intervalCount ?? 1) || 1;
+    const intervalCount = Number(contractDetails.intervalCount ?? 1) || 1;
 
     const minCycles = contractDetails.minOrders
       ? Number(contractDetails.minOrders)
@@ -173,10 +210,7 @@ export async function action({ request }) {
     const lines = products.flatMap((p) =>
       (p.variants || []).map((v) => {
         const quantity = Number(v.quantity || 1);
-        const currentPrice = Number(
-          v.unitPrice ?? v.price ?? 0,
-        );
-
+        const currentPrice = Number(v.unitPrice ?? v.price ?? 0);
         return {
           line: {
             productVariantId: v.variantsId,
@@ -199,7 +233,11 @@ export async function action({ request }) {
       currencyCode: contractDetails.currencyCode,
       nextBillingDate,
       contract: {
-        status: "ACTIVE",
+        // ---- FIX 3: ACTIVE ki jagah PAUSED ----
+        // UI khud "pause" dikha rahi hai, isliye backend ko bhi wahi bhejna
+        // chahiye. Agar merchant chahta hai ki selected date pe khud-ba-khud
+        // activate ho jaaye, uske liye alag se scheduler/cron chahiye hoga.
+        status: contractDetails.status === "ACTIVE" ? "ACTIVE" : "PAUSED",
         note: "Created from app UI",
         paymentMethodId: paymentMethodId || undefined,
         billingPolicy: {
@@ -220,9 +258,7 @@ export async function action({ request }) {
 
     const gqlResponse = await admin.graphql(
       CREATE_CUSTOMER_SUBSCRIPTION_CONTRACT_MUTATION,
-      {
-        variables: { input },
-      },
+      { variables: { input } },
     );
 
     const result = await gqlResponse.json();
@@ -232,10 +268,7 @@ export async function action({ request }) {
     if (userErrors.length > 0) {
       return {
         success: false,
-        errors: userErrors.map((e) => ({
-          message: e.message,
-          field: e.field,
-        })),
+        errors: userErrors.map((e) => ({ message: e.message, field: e.field })),
       };
     }
 
@@ -260,11 +293,16 @@ export async function action({ request }) {
 }
 
 function contractCreate() {
-  const { currencyCode, shop } = useLoaderData();
+  const { currencyCode, shop, timezoneOffset, ianaTimezone } = useLoaderData();
 
   return (
     <div>
-      <CreateSubscription currencyCode={currencyCode} shop={shop} />
+      <CreateSubscription
+        currencyCode={currencyCode}
+        shop={shop}
+        timezoneOffset={timezoneOffset}
+        ianaTimezone={ianaTimezone}
+      />
     </div>
   );
 }

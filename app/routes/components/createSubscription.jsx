@@ -105,7 +105,7 @@ function CreateSubscription({ currencyCode, shop }) {
   const [province, setProvince] = useState("");
   const [city, setCity] = useState("");
   const [zip, setZip] = useState("");
-  const [deliveryPrice, setDeliveryPrice] = useState("0");
+  const [deliveryPrice, setDeliveryPrice] = useState("");
   const [deliveryMethodTitle, setDeliveryMethodTitle] = useState("");
   const [deliveryError, setDeliveryError] = useState(null);
 
@@ -123,7 +123,22 @@ function CreateSubscription({ currencyCode, shop }) {
       setter(value);
     }
   };
+const handleDeliveryPriceChange = (value) => {
+  
+  let cleaned = value.replace(/[^0-9.]/g, "");
 
+  
+  const parts = cleaned.split(".");
+  if (parts.length > 2) {
+    cleaned = parts[0] + "." + parts.slice(1).join("");
+  }
+
+  if (/^0+[0-9]/.test(cleaned)) {
+    cleaned = cleaned.replace(/^0+/, "");
+  }
+
+  setDeliveryPrice(cleaned);
+};
   const handleDiscountTypeChange = (
     value,
     currentAmount,
@@ -329,7 +344,7 @@ function CreateSubscription({ currencyCode, shop }) {
       province: isDigitalProduct ? province : "",
       city: isDigitalProduct ? city : "",
       zip: isDigitalProduct ? zip : "",
-      deliveryPrice,
+      deliveryPrice: deliveryPrice === "" ? "0" : deliveryPrice,
       deliveryMethodTitle,
     };
 
@@ -839,16 +854,16 @@ function CreateSubscription({ currencyCode, shop }) {
             )}
 
             <div style={{ marginTop: "12px" }}>
-              <TextField
-                label="Delivery price"
-                type="number"
-                min={0}
-                prefix="₹"
-                value={deliveryPrice}
-                onChange={(value) => setDeliveryPrice(value)}
-                autoComplete="off"
-              />
-            </div>
+  <TextField
+    label="Delivery price"
+    type="number"
+    min={0}
+    prefix="₹"
+    value={deliveryPrice}
+    onChange={handleDeliveryPriceChange}   
+    autoComplete="off"
+  />
+</div>
 
             <div style={{ marginTop: "12px" }}>
               <TextField

@@ -2084,13 +2084,6 @@ if (isSwapTarget && swapAction.variantId) {
         ? `Fixed price: ${currencySymbol(pricePerUnit.currencyCode)}${discountAction.adjustmentValue}`
         : `${currencySymbol(pricePerUnit.currencyCode)}${discountAction.adjustmentValue} off`
   : null,
-      // discountLabel: showDiscountOnThisLine
-      //   ? String(discountAction.adjustmentType).toUpperCase() === "PERCENTAGE"
-      //     ? `${discountAction.adjustmentValue}% off`
-      //     : String(discountAction.adjustmentType).toUpperCase() === "FIXED_AMOUNT"
-      //       ? `Fixed price: ${currencySymbol(pricePerUnit.currencyCode)}${discountAction.adjustmentValue}`
-      //       : `${currencySymbol(pricePerUnit.currencyCode)}${discountAction.adjustmentValue} off`
-      //   : null,
     });
   }
 
@@ -2180,14 +2173,6 @@ if (isSwapTarget && swapAction.variantId) {
               ? `Fixed price: ${currencySymbol(currencyCodeFallback)}${action.discountValue}`
               : `${currencySymbol(currencyCodeFallback)}${action.discountValue} off`
           : null,
-      // discountLabel:
-      //   action.discountEnabled && Number(action.discountValue) > 0
-      //     ? String(action.discountType).toLowerCase() === "percentage"
-      //       ? `${action.discountValue}% off`
-      //       : String(action.discountType).toLowerCase() === "fixed_amount"
-      //         ? `Fixed price: ${currencySymbol(currencyCodeFallback)}${action.discountValue}`
-      //         : `${currencySymbol(currencyCodeFallback)}${action.discountValue} off`
-      //     : null,
     });
   }
 
