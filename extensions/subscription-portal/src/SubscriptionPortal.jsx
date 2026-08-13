@@ -1218,7 +1218,7 @@ const visibleSwapProducts = (sub.swapOptions ?? []).filter(
   </s-stack>
 </s-box>
 
-          <s-modal
+     <s-modal
   id={`cancel-modal-${numericId}`}
   ref={cancelModalRef}
   heading="Cancel subscription"
@@ -1240,6 +1240,9 @@ const visibleSwapProducts = (sub.swapOptions ?? []).filter(
       onChange={(e) => {
         setCancelReason(e.target.value);
         setCancelReasonError(null);
+        if (e.target.value !== "Other (please specify)") {
+          setCancelReasonNote("");
+        }
       }}
     >
       <s-option value="">-- Select a reason --</s-option>
@@ -1250,12 +1253,14 @@ const visibleSwapProducts = (sub.swapOptions ?? []).filter(
       ))}
     </s-select>
 
-    <s-text-field
-      label="Tell us more (optional)"
-      placeholder="Tell us more"
-      value={cancelReasonNote}
-      onInput={(e) => setCancelReasonNote(e.target.value)}
-    />
+    {cancelReason === "Other (please specify)" && (
+      <s-text-field
+        label="Please specify"
+        placeholder="Tell us more"
+        value={cancelReasonNote}
+        onInput={(e) => setCancelReasonNote(e.target.value)}
+      />
+    )}
   </s-stack>
 
   <s-button
