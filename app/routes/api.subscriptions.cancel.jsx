@@ -93,20 +93,17 @@ const cancelReason = body.reason || "";
 try {
   await fetch(`${API}/api/subscription`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": SECRET_KEY,
-    },
+    headers: { "Content-Type": "application/json", "x-api-key": SECRET_KEY },
     body: JSON.stringify({
-      subscriptionId: getNumericId(subscriptionContractId),
-      contractId: subscriptionContractId,
-      cancelledBy: "customer",
-      cancelledAt: new Date().toISOString(),
-      cancelReason,
+      subscriptionId,
+      contractId,
+      actionType: "cancelled",
+      actionBy: "merchant",
+      actionAt: new Date().toISOString(),
     }),
   });
 } catch (err) {
-  console.error("[cancel] failed to record cancel source:", err.message);
+  console.error("Failed to record cancel source:", err);
 }
     try {
       if (emailData?.email) {

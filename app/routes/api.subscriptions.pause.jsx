@@ -210,22 +210,22 @@ export const action = async ({ request }) => {
 
     const contract = data?.subscriptionContractPause?.contract;
 
-    // 👇 ADD KARO — customer-side pause ko record karo (Mongo)
-    try {
-      await fetch(`${API}/api/subscription`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-api-key": SECRET_KEY },
-        body: JSON.stringify({
-          subscriptionId: getNumericId(subscriptionContractId),
-          contractId: subscriptionContractId,
-          pausedBy: "customer",
-          pausedAt: new Date().toISOString(),
-          pauseReason: reason || "",
-        }),
-      });
-    } catch (err) {
-      console.error("[pause] failed to record pause source/reason:", err.message);
-    }
+   try {
+  await fetch(`${API}/api/subscription`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-api-key": SECRET_KEY },
+    body: JSON.stringify({
+      subscriptionId: getNumericId(subscriptionContractId),
+      contractId: subscriptionContractId,
+      actionType: "paused",
+      actionBy: "customer",
+      actionAt: new Date().toISOString(),
+      actionReason: reason || "",
+    }),
+  });
+} catch (err) {
+  console.error("[pause] failed to record action:", err.message);
+}
 
     // --- email bhejna (best-effort — fail ho bhi jaye to pause response fail nahi hona chahiye) ---
     try {

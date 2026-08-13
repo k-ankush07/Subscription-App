@@ -385,6 +385,22 @@ export async function action({ request, params }) {
             "Pause failed",
         };
       }
+
+      try {
+    await fetch(`${API}/api/subscription`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": SECRET_KEY },
+      body: JSON.stringify({
+        subscriptionId,
+        contractId,
+        actionType: "paused",
+        actionBy: "merchant",
+        actionAt: new Date().toISOString(),
+      }),
+    });
+  } catch (err) {
+    console.error("Failed to record pause source:", err);
+  }
       return { success: true, status: payload.contract.status };
     }
     if (type === "cancel") {
