@@ -1185,71 +1185,13 @@ const visibleSwapProducts = (sub.swapOptions ?? []).filter(
                   {pauseResumeLoading ? <s-spinner size="small" /> : "Resume"}
                 </s-button>
               ) : (
-                <s-modal
-  id={`pause-modal-${numericId}`}
-  ref={pauseModalRef}
-  heading="Pause subscription"
->
-  <s-stack direction="block" gap="base">
-    <s-text tone="subdued">
-      Your subscription will be paused temporarily. You can resume it anytime.
-    </s-text>
-
-    {pauseReasonError && (
-      <s-text tone="critical">{pauseReasonError}</s-text>
-    )}
-
-    <s-select
-      label="Select a reason"
-      value={pauseReason}
-      onChange={(e) => {
-        setPauseReason(e.target.value);
-        setPauseReasonError(null);
-        if (e.target.value !== "Other (please specify)") {
-          setPauseReasonNote("");
-        }
-      }}
-    >
-      <s-option value="">-- Select a reason --</s-option>
-      {CANCEL_REASONS.map((reason) => (
-        <s-option key={reason} value={reason}>
-          {reason}
-        </s-option>
-      ))}
-    </s-select>
-
-    {pauseReason === "Other (please specify)" && (
-      <s-text-field
-        label="Please specify"
-        placeholder="Tell us more"
-        value={pauseReasonNote}
-        onInput={(e) => setPauseReasonNote(e.target.value)}
-      />
-    )}
-  </s-stack>
-
-  <s-button
-    slot="primary-action"
-    variant="primary"
-    disabled={pauseResumeLoading}
-    onClick={handlePause}
-  >
-    {pauseResumeLoading ? <s-spinner size="small" /> : "Yes, pause"}
-  </s-button>
-  <s-button
-    slot="secondary-actions"
-    command="--hide"
-    commandFor={`pause-modal-${numericId}`}
-    disabled={pauseResumeLoading}
-    onClick={() => {
-      setPauseReason("");
-      setPauseReasonNote("");
-      setPauseReasonError(null);
-    }}
-  >
-    Keep active
-  </s-button>
-</s-modal>
+                <s-button
+                  variant="secondary"
+                  disabled={pauseResumeLoading}
+                  onClick={handlePause}
+                >
+                  {pauseResumeLoading ? <s-spinner size="small" /> : "Pause"}
+                </s-button>
               )}
            
 
@@ -1299,7 +1241,7 @@ const visibleSwapProducts = (sub.swapOptions ?? []).filter(
     </s-stack>
   </s-stack>
 </s-box>
-
+{/* CANCEL MODEL */}
      <s-modal
   id={`cancel-modal-${numericId}`}
   ref={cancelModalRef}
@@ -1366,6 +1308,73 @@ const visibleSwapProducts = (sub.swapOptions ?? []).filter(
     }}
   >
     Keep subscription
+  </s-button>
+</s-modal>
+
+{/* PAUSE MODEL */}
+<s-modal
+  id={`pause-modal-${numericId}`}
+  ref={pauseModalRef}
+  heading="Pause subscription"
+>
+  <s-stack direction="block" gap="base">
+    <s-text tone="subdued">
+      Your subscription will be paused temporarily. You can resume it anytime.
+    </s-text>
+
+    {pauseReasonError && (
+      <s-text tone="critical">{pauseReasonError}</s-text>
+    )}
+
+    <s-select
+      label="Select a reason"
+      value={pauseReason}
+      onChange={(e) => {
+        setPauseReason(e.target.value);
+        setPauseReasonError(null);
+        if (e.target.value !== "Other (please specify)") {
+          setPauseReasonNote("");
+        }
+      }}
+    >
+      <s-option value="">-- Select a reason --</s-option>
+      {CANCEL_REASONS.map((reason) => (
+        <s-option key={reason} value={reason}>
+          {reason}
+        </s-option>
+      ))}
+    </s-select>
+
+    {pauseReason === "Other (please specify)" && (
+      <s-text-field
+        label="Please specify"
+        placeholder="Tell us more"
+        value={pauseReasonNote}
+        onInput={(e) => setPauseReasonNote(e.target.value)}
+      />
+    )}
+  </s-stack>
+
+  <s-button
+    slot="primary-action"
+    variant="primary"
+    disabled={pauseResumeLoading}
+    onClick={handlePause}
+  >
+    {pauseResumeLoading ? <s-spinner size="small" /> : "Yes, pause"}
+  </s-button>
+  <s-button
+    slot="secondary-actions"
+    command="--hide"
+    commandFor={`pause-modal-${numericId}`}
+    disabled={pauseResumeLoading}
+    onClick={() => {
+      setPauseReason("");
+      setPauseReasonNote("");
+      setPauseReasonError(null);
+    }}
+  >
+    Keep active
   </s-button>
 </s-modal>
 
