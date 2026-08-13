@@ -95,15 +95,16 @@ try {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-api-key": SECRET_KEY },
     body: JSON.stringify({
-      subscriptionId,
-      contractId,
+      subscriptionId: getNumericId(subscriptionContractId),
+      contractId: subscriptionContractId,
       actionType: "cancelled",
-      actionBy: "merchant",
+      actionBy: "customer",       // customer portal se cancel ho raha hai, "merchant" galat tha
       actionAt: new Date().toISOString(),
+      actionReason: cancelReason,  // yeh missing tha — ab reason bhi save hoga
     }),
   });
 } catch (err) {
-  console.error("Failed to record cancel source:", err);
+  console.error("Failed to record cancel source:", err.message);
 }
     try {
       if (emailData?.email) {

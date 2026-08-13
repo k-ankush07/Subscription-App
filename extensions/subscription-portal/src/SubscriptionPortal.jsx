@@ -509,6 +509,13 @@ const [swapError, setSwapError] = useState(null);
   const [cancelReason, setCancelReason] = useState("");
 const [cancelReasonNote, setCancelReasonNote] = useState("");
 const [cancelReasonError, setCancelReasonError] = useState(null);
+const [pauseReason, setPauseReason] = useState("");
+const [pauseReasonNote, setPauseReasonNote] = useState("");
+const [pauseReasonError, setPauseReasonError] = useState(null);
+const pauseModalRef = useRef(null);
+
+
+
   const [rescheduleCycle, setRescheduleCycle] = useState(null);
   const [rescheduleDate, setRescheduleDate] = useState("");
   const [rescheduleSaving, setRescheduleSaving] = useState(false);
@@ -618,40 +625,57 @@ const [cancelReasonError, setCancelReasonError] = useState(null);
       setLoadingAction(null);
     }
   }
-  async function handlePause() {
-    if (pauseResumeLoading) return;
-    try {
-      setPauseResumeLoading(true);
-      const token = await shopify.sessionToken.get();
-      const res = await fetch(`${API_BASE}/api/subscriptions/pause`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ subscriptionContractId: sub.id }),
-      });
+ async function handlePause() {
+  if (pauseResumeLoading) return;
 
-      const data = await res.json();
-      if (!res.ok || data.error) {
-        throw new Error(
-          typeof data.error === "string" ? data.error : "Pause failed",
-        );
-      }
-
-      setStatus(data.contract?.status || "PAUSED");
-      shopify.toast.show("Subscription paused");
-
-      refreshSubscriptions().catch((err) =>
-        console.error("Background refresh after pause failed:", err),
-      );
-    } catch (err) {
-      console.error(err);
-      shopify.toast.show(err.message);
-    } finally {
-      setPauseResumeLoading(false);
-    }
+  if (!pauseReason) {
+    setPauseReasonError("Please select a reason");
+    return;
   }
+
+  const finalReason = pauseReasonNote.trim()
+    ? `${pauseReason}; ${pauseReasonNote.trim()}`
+    : pauseReason;
+
+  try {
+    setPauseResumeLoading(true);
+    setPauseReasonError(null);
+    const token = await shopify.sessionToken.get();
+    const res = await fetch(`${API_BASE}/api/subscriptions/pause`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        subscriptionContractId: sub.id,
+        reason: finalReason,
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok || data.error) {
+      throw new Error(
+        typeof data.error === "string" ? data.error : "Pause failed",
+      );
+    }
+
+    setStatus(data.contract?.status || "PAUSED");
+    shopify.toast.show("Subscription paused");
+    pauseModalRef.current?.hide?.();
+    setPauseReason("");
+    setPauseReasonNote("");
+
+    refreshSubscriptions().catch((err) =>
+      console.error("Background refresh after pause failed:", err),
+    );
+  } catch (err) {
+    console.error(err);
+    shopify.toast.show(err.message);
+  } finally {
+    setPauseResumeLoading(false);
+  }
+}
   async function handleResume() {
     if (pauseResumeLoading) return;
     try {
@@ -1161,13 +1185,71 @@ const visibleSwapProducts = (sub.swapOptions ?? []).filter(
                   {pauseResumeLoading ? <s-spinner size="small" /> : "Resume"}
                 </s-button>
               ) : (
-                <s-button
-                  variant="secondary"
-                  disabled={pauseResumeLoading}
-                  onClick={handlePause}
-                >
-                  {pauseResumeLoading ? <s-spinner size="small" /> : "Pause"}
-                </s-button>
+                <s-modal
+  id={`pause-modal-${numericId}`}
+  ref={pauseModalRef}
+  heading="Pause subscription"
+>
+  <s-stack direction="block" gap="base">
+    <s-text tone="subdued">
+      Your subscription will be paused temporarily. You can resume it anytime.
+    </s-text>
+
+    {pauseReasonError && (
+      <s-text tone="critical">{pauseReasonError}</s-text>
+    )}
+
+    <s-select
+      label="Select a reason"
+      value={pauseReason}
+      onChange={(e) => {
+        setPauseReason(e.target.value);
+        setPauseReasonError(null);
+        if (e.target.value !== "Other (please specify)") {
+          setPauseReasonNote("");
+        }
+      }}
+    >
+      <s-option value="">-- Select a reason --</s-option>
+      {CANCEL_REASONS.map((reason) => (
+        <s-option key={reason} value={reason}>
+          {reason}
+        </s-option>
+      ))}
+    </s-select>
+
+    {pauseReason === "Other (please specify)" && (
+      <s-text-field
+        label="Please specify"
+        placeholder="Tell us more"
+        value={pauseReasonNote}
+        onInput={(e) => setPauseReasonNote(e.target.value)}
+      />
+    )}
+  </s-stack>
+
+  <s-button
+    slot="primary-action"
+    variant="primary"
+    disabled={pauseResumeLoading}
+    onClick={handlePause}
+  >
+    {pauseResumeLoading ? <s-spinner size="small" /> : "Yes, pause"}
+  </s-button>
+  <s-button
+    slot="secondary-actions"
+    command="--hide"
+    commandFor={`pause-modal-${numericId}`}
+    disabled={pauseResumeLoading}
+    onClick={() => {
+      setPauseReason("");
+      setPauseReasonNote("");
+      setPauseReasonError(null);
+    }}
+  >
+    Keep active
+  </s-button>
+</s-modal>
               )}
            
 
