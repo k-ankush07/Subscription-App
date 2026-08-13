@@ -309,6 +309,7 @@ const ACTION_ORDER = [
   "VARIANT_SWAP",
   "PRODUCT_SWAP",
   "DISCOUNT_CHANGE",
+   "VARIANT_DISCOUNT_CHANGE",
   "SHIPPING_DISCOUNT_CHANGE",
 ];
 
@@ -325,9 +326,17 @@ function sortActionsForApply(actions) {
 function resolveDiscountForCycle(settings, pricingPolicy, cycleIndex) {
   cycleIndex = Number(cycleIndex);
 
+  // const customActive =
+  //   settings?.changeDiscountAfterOrders &&
+  //   cycleIndex >= Number(settings.afterOrders) &&
+  //   Number(settings.afterDiscountValue) > 0;
+   const useStrictThreshold = !!settings?.useStrictAfterOrders;
+
   const customActive =
     settings?.changeDiscountAfterOrders &&
-    cycleIndex >= Number(settings.afterOrders) &&
+    (useStrictThreshold
+      ? cycleIndex > Number(settings.afterOrders)
+      : cycleIndex >= Number(settings.afterOrders)) &&
     Number(settings.afterDiscountValue) > 0;
 
   if (customActive) {
@@ -400,6 +409,49 @@ function resolveShippingDiscountForCycle(settings, cycleIndex) {
   };
 }
 
+function resolveVariantDiscountForCycle(product, variant, settings, cycleIndex) {
+  cycleIndex = Number(cycleIndex);
+  const mode = variant.discountMode || "SELLING_PLAN";
+  if (mode === "NONE") return null;
+
+  let baseAmount, baseType, afterActive, afterAmount, afterType, afterThreshold;
+
+  if (mode === "CUSTOM") {
+    baseAmount = Number(variant.discountAmount || 0);
+    baseType = variant.discountType || "PERCENTAGE";
+    afterActive = !!variant.changeDiscountAfterOrders;
+    afterAmount = Number(variant.discountAmount2 || 0);
+    afterType = variant.discountType2 || "PERCENTAGE";
+    afterThreshold = Number(variant.afterOrders || 0);
+  } else {
+    if (!settings?.giveDiscount) return null;
+    baseAmount = Number(settings.discountAmount || 0);
+    baseType = settings.discountType || "PERCENTAGE";
+    afterActive = !!settings.changeDiscountAfterOrders;
+    afterAmount = Number(settings.afterDiscountValue || 0);
+    afterType = settings.afterDiscountType || "PERCENTAGE";
+    afterThreshold = Number(settings.afterOrders || 0);
+  }
+
+  const useAfter = afterActive && cycleIndex >= afterThreshold;
+  const adjustmentValue = useAfter ? afterAmount : baseAmount;
+  const adjustmentType = useAfter ? afterType : baseType;
+
+  if (!(adjustmentValue > 0) && adjustmentType !== "PRICE") {
+    return null; 
+  }
+
+  return {
+    type: "VARIANT_DISCOUNT_CHANGE",
+    sourceProductId: product.id,
+    sourceVariantId: variant.variantsId,
+    adjustmentType,
+    adjustmentValue,
+    after: useAfter ? afterThreshold : 0,
+    __phase: useAfter ? "after" : "before",
+  };
+}
+
 function applyShippingDiscountToPrice(basePrice, action) {
   const base = Number(basePrice) || 0;
   if (!action || action.__default) return base;
@@ -422,9 +474,34 @@ function collectActionsForCycle(settings, cycleIndex, pricingPolicy = null) {
   const actions = [];
   if (!settings) return actions;
 
+  // cycleIndex = Number(cycleIndex);
+
   cycleIndex = Number(cycleIndex);
 
-  actions.push(resolveDiscountForCycle(settings, pricingPolicy, cycleIndex));
+ const hasPerVariantProducts =
+    Array.isArray(settings.products) && settings.products.length > 0;
+
+  let anyVariantDiscountAction = false;
+
+  if (hasPerVariantProducts) {
+    for (const product of settings.products) {
+      for (const variant of product.variants || []) {
+        const variantAction = resolveVariantDiscountForCycle(
+          product,
+          variant,
+          settings,
+          cycleIndex,
+        );
+        if (variantAction) {
+          actions.push(variantAction);
+          anyVariantDiscountAction = true;
+        }
+      }
+    }
+  }
+  if (!anyVariantDiscountAction) {
+    actions.push(resolveDiscountForCycle(settings, pricingPolicy, cycleIndex));
+  }
   actions.push(resolveShippingDiscountForCycle(settings, cycleIndex));
 
   if (
@@ -488,11 +565,20 @@ function collectActionsForCycle(settings, cycleIndex, pricingPolicy = null) {
     (a) => a.type === "VARIANT_SWAP" || a.type === "PRODUCT_SWAP",
   );
 
-  if (hasSwapAction) {
+   if (hasSwapAction) {
     return actions.filter(
-      (a) => a.type !== "DISCOUNT_CHANGE" && a.type !== "QUANTITY_CHANGE",
+      (a) =>
+        a.type !== "DISCOUNT_CHANGE" &&
+        a.type !== "VARIANT_DISCOUNT_CHANGE" &&
+        a.type !== "QUANTITY_CHANGE",
     );
   }
+
+  // if (hasSwapAction) {
+  //   return actions.filter(
+  //     (a) => a.type !== "DISCOUNT_CHANGE" && a.type !== "QUANTITY_CHANGE",
+  //   );
+  // }
 
   const hasBaseLineRemoval = actions.some(
     (a) =>
@@ -500,9 +586,14 @@ function collectActionsForCycle(settings, cycleIndex, pricingPolicy = null) {
       a.__automationCycleIndex != null,
   );
 
-  if (hasSwapAction || hasBaseLineRemoval) {
-    return actions.filter((a) => a.type !== "DISCOUNT_CHANGE");
+    if (hasSwapAction || hasBaseLineRemoval) {
+    return actions.filter(
+      (a) => a.type !== "DISCOUNT_CHANGE" && a.type !== "VARIANT_DISCOUNT_CHANGE",
+    );
   }
+  // if (hasSwapAction || hasBaseLineRemoval) {
+  //   return actions.filter((a) => a.type !== "DISCOUNT_CHANGE");
+  // }
 
   return actions;
 }
@@ -882,11 +973,21 @@ async function applyActionsToCycle(
   const sellingPlanIdForNewLines =
     draftLines.find((l) => l.sellingPlanId)?.sellingPlanId ?? null;
 
-  const allActionVariantIds = actions.map((a) => a.variantId).filter(Boolean);
+
+    const allActionVariantIds = actions
+    .map((a) => a.variantId)
+    .concat(actions.map((a) => a.sourceVariantId))
+    .concat(draftLines.map((l) => l.variantId))
+    .filter(Boolean);
   const batchedVariantData = await fetchVariantsBatch(
     admin,
     allActionVariantIds,
   );
+  // const allActionVariantIds = actions.map((a) => a.variantId).filter(Boolean);
+  // const batchedVariantData = await fetchVariantsBatch(
+  //   admin,
+  //   allActionVariantIds,
+  // );
 
   const effectiveBasePrice = await getEffectiveBasePrice(
     admin,
@@ -1077,6 +1178,63 @@ async function applyActionsToCycle(
         const errors = data.data?.subscriptionDraftLineUpdate?.userErrors;
         if (errors?.length)
           throw new Error(`DISCOUNT_CHANGE failed: ${errors[0].message}`);
+      }
+      // ── VARIANT_DISCOUNT_CHANGE ── (kisi bhi specific variant line ka discount)
+      if (action.type === "VARIANT_DISCOUNT_CHANGE") {
+        const targetLine = resolveLineForAction(draftLines, action);
+        if (!targetLine) {
+          console.warn(
+            `[applyActionsToCycle] VARIANT_DISCOUNT_CHANGE skipped — configured variant doesn't match this subscription`,
+          );
+          action.__skippedReason =
+            "Configured variant doesn't match this subscription's lines — discount not applied.";
+          continue;
+        }
+        if (removedLineIds.has(targetLine.id)) {
+          console.warn(
+            `[applyActionsToCycle] VARIANT_DISCOUNT_CHANGE skipped — target line already removed this cycle`,
+          );
+          action.__skippedReason =
+            "Target line was already removed by another action this cycle.";
+          continue;
+        }
+
+        const variantBasePrice =
+          batchedVariantData[targetLine.variantId]?.price ??
+          Number(targetLine.currentPrice?.amount) ??
+          0;
+
+        let newPrice = Number(variantBasePrice) || 0;
+        if (action.adjustmentType === "PERCENTAGE") {
+          newPrice = newPrice - (newPrice * Number(action.adjustmentValue)) / 100;
+        } else if (
+          action.adjustmentType === "PRICE" ||
+          action.adjustmentType === "FIXED_PRICE"
+        ) {
+          newPrice = Number(action.adjustmentValue);
+        } else {
+          newPrice = newPrice - Number(action.adjustmentValue);
+        }
+        newPrice = Math.max(0, newPrice).toFixed(2);
+
+        const res = await admin.graphql(
+          `
+          mutation updateVariantLinePrice($draftId: ID!, $lineId: ID!, $price: Decimal!) {
+            subscriptionDraftLineUpdate(draftId: $draftId, lineId: $lineId, input: { currentPrice: $price }) {
+              userErrors { field message }
+            }
+          }
+          `,
+          { variables: { draftId, lineId: targetLine.id, price: newPrice } },
+        );
+        const data = await res.json();
+        if (data.errors)
+          throw new Error(
+            `VARIANT_DISCOUNT_CHANGE failed (GraphQL): ${data.errors[0]?.message}`,
+          );
+        const errors = data.data?.subscriptionDraftLineUpdate?.userErrors;
+        if (errors?.length)
+          throw new Error(`VARIANT_DISCOUNT_CHANGE failed: ${errors[0].message}`);
       }
       if (action.type === "SHIPPING_DISCOUNT_CHANGE") {
         if (action.__default) continue; // no shipping discount configured for this cycle
@@ -1735,6 +1893,9 @@ async function getContractPreview(admin, contractId) {
   const discountAction = rawActionsForNextCycle.find(
     (a) => a.type === "DISCOUNT_CHANGE",
   );
+  const variantDiscountActions = rawActionsForNextCycle.filter(
+    (a) => a.type === "VARIANT_DISCOUNT_CHANGE",
+  );
   const quantityAction = rawActionsForNextCycle.find(
     (a) => a.type === "QUANTITY_CHANGE",
   );
@@ -1836,24 +1997,47 @@ if (isSwapTarget && swapAction.variantId) {
             currencyCode: lineCurrency,
           }
         : { amount: effectiveBase.toFixed(2), currencyCode: lineCurrency };
+    }  else if (
+      variantDiscountActions.find((a) => actionMatchesLine(a, line))
+    ) {
+      const matchedVariantDiscount = variantDiscountActions.find((a) =>
+        actionMatchesLine(a, line),
+      );
+      let discounted = effectiveBase;
+      if (matchedVariantDiscount.adjustmentType === "PERCENTAGE") {
+        discounted =
+          effectiveBase -
+          (effectiveBase * Number(matchedVariantDiscount.adjustmentValue)) / 100;
+      } else if (
+        matchedVariantDiscount.adjustmentType === "PRICE" ||
+        matchedVariantDiscount.adjustmentType === "FIXED_PRICE"
+      ) {
+        discounted = Number(matchedVariantDiscount.adjustmentValue);
+      } else {
+        discounted = effectiveBase - Number(matchedVariantDiscount.adjustmentValue);
+      }
+      pricePerUnit = {
+        amount: Math.max(0, discounted).toFixed(2),
+        currencyCode: lineCurrency,
+      };
     } else if (isFirstLine && discountAction) {
-  let discounted = effectiveBase;
-  if (!discountAction.__default) {
-    if (discountAction.adjustmentType === "PERCENTAGE") {
-      discounted =
-        effectiveBase -
-        (effectiveBase * Number(discountAction.adjustmentValue)) / 100;
-    } else if (discountAction.adjustmentType === "FIXED_PRICE") {
-      discounted = Number(discountAction.adjustmentValue); // exact price, koi calc nahi
-    } else {
-      discounted = effectiveBase - Number(discountAction.adjustmentValue);
-    }
-  }
-  pricePerUnit = {
-    amount: Math.max(0, discounted).toFixed(2),
-    currencyCode: lineCurrency,
-  };
-}else {
+      let discounted = effectiveBase;
+      if (!discountAction.__default) {
+        if (discountAction.adjustmentType === "PERCENTAGE") {
+          discounted =
+            effectiveBase -
+            (effectiveBase * Number(discountAction.adjustmentValue)) / 100;
+        } else if (discountAction.adjustmentType === "FIXED_PRICE") {
+          discounted = Number(discountAction.adjustmentValue);
+        } else {
+          discounted = effectiveBase - Number(discountAction.adjustmentValue);
+        }
+      }
+      pricePerUnit = {
+        amount: Math.max(0, discounted).toFixed(2),
+        currencyCode: lineCurrency,
+      };
+    }else {
       pricePerUnit = {
         amount: (line.currentPrice?.amount ?? effectiveBase).toString(),
         currencyCode: lineCurrency,
@@ -1897,16 +2081,31 @@ if (isSwapTarget && swapAction.variantId) {
       isBaseLine: true,
       automationCycleIndex: automationCycleIndexOut,
       automationActionIndex: automationActionIndexOut,
-      discountPhase: showDiscountOnThisLine ? discountAction.__phase : null,
-      discountLabel: showDiscountOnThisLine
-  ? String(discountAction.adjustmentType).toUpperCase() === "PERCENTAGE"
-    ? `${discountAction.adjustmentValue}% off`
-    : String(discountAction.adjustmentType).toUpperCase() === "FIXED_PRICE"
-      ? `Fixed price: ${currencySymbol(pricePerUnit.currencyCode)}${discountAction.adjustmentValue}`
-      : String(discountAction.adjustmentType).toUpperCase() === "FIXED_AMOUNT"
-        ? `Fixed price: ${currencySymbol(pricePerUnit.currencyCode)}${discountAction.adjustmentValue}`
-        : `${currencySymbol(pricePerUnit.currencyCode)}${discountAction.adjustmentValue} off`
-  : null,
+      discountPhase: (() => {
+        const m = variantDiscountActions.find((a) => actionMatchesLine(a, line));
+        if (m) return m.__phase;
+        return showDiscountOnThisLine ? discountAction.__phase : null;
+      })(),
+      discountLabel: (() => {
+        const m = variantDiscountActions.find((a) => actionMatchesLine(a, line));
+        const src = m || (showDiscountOnThisLine ? discountAction : null);
+        if (!src) return null;
+        const type = String(src.adjustmentType).toUpperCase();
+        if (type === "PERCENTAGE") return `${src.adjustmentValue}% off`;
+        if (type === "PRICE" || type === "FIXED_PRICE" || type === "FIXED_AMOUNT")
+          return `Fixed price: ${currencySymbol(pricePerUnit.currencyCode)}${src.adjustmentValue}`;
+        return `${currencySymbol(pricePerUnit.currencyCode)}${src.adjustmentValue} off`;
+      })(),
+  //     discountPhase: showDiscountOnThisLine ? discountAction.__phase : null,
+  //     discountLabel: showDiscountOnThisLine
+  // ? String(discountAction.adjustmentType).toUpperCase() === "PERCENTAGE"
+  //   ? `${discountAction.adjustmentValue}% off`
+  //   : String(discountAction.adjustmentType).toUpperCase() === "FIXED_PRICE"
+  //     ? `Fixed price: ${currencySymbol(pricePerUnit.currencyCode)}${discountAction.adjustmentValue}`
+  //     : String(discountAction.adjustmentType).toUpperCase() === "FIXED_AMOUNT"
+  //       ? `Fixed price: ${currencySymbol(pricePerUnit.currencyCode)}${discountAction.adjustmentValue}`
+  //       : `${currencySymbol(pricePerUnit.currencyCode)}${discountAction.adjustmentValue} off`
+  // : null,
     });
   }
 

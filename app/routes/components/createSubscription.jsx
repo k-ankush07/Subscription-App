@@ -60,6 +60,21 @@ function CreateSubscription({ currencyCode, shop }) {
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
   const minDate = tomorrow.toISOString().split("T")[0];
+  function getMaxOrderDate(interval, intervalCount) {
+  const max = new Date();
+  const count = Number(intervalCount) || 1;
+  if (interval === "DAY") {
+    max.setDate(max.getDate() + count);
+  } else if (interval === "WEEK") {
+    max.setDate(max.getDate() + count * 7);
+  } else if (interval === "YEAR") {
+    max.setFullYear(max.getFullYear() + count);
+  } else {
+    // MONTH (default)
+    max.setMonth(max.getMonth() + count);
+  }
+  return max.toISOString().split("T")[0];
+}
 
   const [nextOrderDate, setNextOrderDate] = useState(minDate);
   const [nextOrderTime, setNextOrderTime] = useState(timeOptions[0].value);
@@ -279,6 +294,7 @@ function CreateSubscription({ currencyCode, shop }) {
     const contractDetails = {
       nextOrderDate,
       nextOrderTime,
+      nextBillingDateISO: new Date(`${nextOrderDate}T${nextOrderTime}:00`).toISOString(),
       currencyCode,
       billingType,
       intervalCount,
@@ -347,7 +363,7 @@ function CreateSubscription({ currencyCode, shop }) {
       { method: "post" },
     );
   };
-
+const maxDate = getMaxOrderDate(interval, intervalCount);
   useEffect(() => {
     if (createFetcher.state !== "idle" || !createFetcher.data) return;
 
@@ -367,7 +383,12 @@ function CreateSubscription({ currencyCode, shop }) {
       setSaveError(msg);
     }
   }, [createFetcher.state, createFetcher.data]);
-
+useEffect(() => {
+  const newMax = getMaxOrderDate(interval, intervalCount);
+  if (nextOrderDate > newMax) {
+    setNextOrderDate(newMax);
+  }
+}, [interval, intervalCount]);
   return (
     <Page
       title="Create subscription"
@@ -402,6 +423,7 @@ function CreateSubscription({ currencyCode, shop }) {
           <input
             type="date"
             min={minDate}
+            max={maxDate}
             value={nextOrderDate}
             onChange={(e) => setNextOrderDate(e.target.value)}
           />
