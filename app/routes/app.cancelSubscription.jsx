@@ -52,12 +52,8 @@ export async function loader({ request }) {
       { headers: { "x-api-key": SECRET_KEY } },
     );
 
-    console.log("[CancelSubscription] API URL:", `${API}/api/subscriptions/cancellations?${params.toString()}`);
-    console.log("[CancelSubscription] API status:", res.status);
-
     if (res.ok) {
       const data = await res.json();
-      console.log("[CancelSubscription] API data:", JSON.stringify(data));
       items = data.data || [];
       pageInfo = data.pageInfo || pageInfo;
     } else {
@@ -80,6 +76,16 @@ function formatDate(date) {
     day: "numeric",
     year: "numeric",
   });
+}
+
+function ActionBadge({ actionType }) {
+  if (actionType === "cancelled") {
+    return <Badge tone="critical">Cancelled</Badge>;
+  }
+  if (actionType === "paused") {
+    return <Badge tone="warning">Paused</Badge>;
+  }
+  return <Badge>{actionType || "-"}</Badge>;
 }
 
 function CancelSubscription() {
@@ -110,7 +116,7 @@ function CancelSubscription() {
         </Link>
       </IndexTable.Cell>
       <IndexTable.Cell>
-        <Badge tone="critical">Cancelled</Badge>
+        <ActionBadge actionType={item.actionType} />
       </IndexTable.Cell>
       <IndexTable.Cell>
         <Text as="span">{item.actionReason || "-"}</Text>
@@ -125,11 +131,8 @@ function CancelSubscription() {
         <PortalNav />
         <Card padding="0">
           {items.length === 0 ? (
-            <EmptyState heading="No customer cancellations yet" image="">
-              <p>
-                Jab customer khud apni subscription cancel karega, wo yahan
-                dikhega.
-              </p>
+            <EmptyState heading="No customer actions yet" image="">
+              
             </EmptyState>
           ) : (
             <>
