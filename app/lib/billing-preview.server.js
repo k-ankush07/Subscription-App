@@ -433,7 +433,11 @@ function resolveVariantDiscountForCycle(product, variant, settings, cycleIndex) 
     afterThreshold = Number(settings.afterOrders || 0);
   }
 
-  const useAfter = afterActive && cycleIndex >= afterThreshold;
+  // const useAfter = afterActive && cycleIndex >= afterThreshold;
+  const useStrictThreshold = !!settings?.useStrictAfterOrders;
+  const useAfter = afterActive && (
+    useStrictThreshold ? cycleIndex > afterThreshold : cycleIndex >= afterThreshold
+  );
   const adjustmentValue = useAfter ? afterAmount : baseAmount;
   const adjustmentType = useAfter ? afterType : baseType;
 
@@ -470,22 +474,37 @@ function applyShippingDiscountToPrice(basePrice, action) {
   return Math.max(0, Number(action.adjustmentValue || 0));
 }
 
-function collectActionsForCycle(settings, cycleIndex, pricingPolicy = null) {
+function collectActionsForCycle(settings, cycleIndex, pricingPolicy = null ,baseVariantId = null) {
   const actions = [];
   if (!settings) return actions;
 
-  // cycleIndex = Number(cycleIndex);
+    cycleIndex = Number(cycleIndex);
 
-  cycleIndex = Number(cycleIndex);
-
- const hasPerVariantProducts =
+  const hasPerVariantProducts =
     Array.isArray(settings.products) && settings.products.length > 0;
 
+  const isManualBaseOverride = !!settings.afterDiscountIsManualOverride;
+  const lineFixedPrices =
+    settings.lineFixedPrices && typeof settings.lineFixedPrices === "object"
+      ? settings.lineFixedPrices
+      : {};
+
   let anyVariantDiscountAction = false;
+  const variantActionsByVariantId = {};
 
   if (hasPerVariantProducts) {
     for (const product of settings.products) {
       for (const variant of product.variants || []) {
+        if (
+          isManualBaseOverride &&
+          baseVariantId &&
+          variant.variantsId === baseVariantId
+        ) {
+          continue;
+        }
+        if (lineFixedPrices[variant.variantsId] != null) {
+          continue; // manual per-line override wins, catalog discount skip
+        }
         const variantAction = resolveVariantDiscountForCycle(
           product,
           variant,
@@ -493,13 +512,32 @@ function collectActionsForCycle(settings, cycleIndex, pricingPolicy = null) {
           cycleIndex,
         );
         if (variantAction) {
-          actions.push(variantAction);
+          variantActionsByVariantId[variant.variantsId] = variantAction;
           anyVariantDiscountAction = true;
         }
       }
     }
   }
-  if (!anyVariantDiscountAction) {
+
+  // Manual per-line fixed-price overrides (Edit page se set kiye gaye)
+  for (const [variantId, price] of Object.entries(lineFixedPrices)) {
+    variantActionsByVariantId[variantId] = {
+      type: "VARIANT_DISCOUNT_CHANGE",
+      sourceVariantId: variantId,
+      adjustmentType: "FIXED_PRICE",
+      adjustmentValue: Number(price),
+      after: 0,
+      __phase: "manual",
+      __manualOverride: true,
+    };
+    anyVariantDiscountAction = true;
+  }
+
+  for (const action of Object.values(variantActionsByVariantId)) {
+    actions.push(action);
+  }
+
+  if (!anyVariantDiscountAction || isManualBaseOverride) {
     actions.push(resolveDiscountForCycle(settings, pricingPolicy, cycleIndex));
   }
   actions.push(resolveShippingDiscountForCycle(settings, cycleIndex));
@@ -1627,7 +1665,7 @@ function removeAllDiscounts(settings) {
 
 function removeLineDiscount(
   settings,
-  { isBaseLine, discountPhase, automationCycleIndex, automationActionIndex },
+  { isBaseLine, discountPhase, automationCycleIndex, automationActionIndex, variantId },
 ) {
   if (!settings) {
     throw new Error("removeLineDiscount: no settings configured");
@@ -1635,14 +1673,41 @@ function removeLineDiscount(
   const clonedSettings = JSON.parse(JSON.stringify(settings));
 
   if (isBaseLine) {
-   if (discountPhase === "before") {
-     clonedSettings.beforeDiscountDisabled = true;
-   } else {
-     clonedSettings.changeDiscountAfterOrders = false;
-    clonedSettings.beforeDiscountDisabled = true;
-   }
-   return clonedSettings;
- }
+    if (variantId && clonedSettings.lineFixedPrices?.[variantId] != null) {
+      delete clonedSettings.lineFixedPrices[variantId];
+      return clonedSettings;
+    }
+    if (variantId && Array.isArray(clonedSettings.products)) {
+      for (const product of clonedSettings.products) {
+        const variant = (product.variants || []).find((v) => v.variantsId === variantId);
+        if (variant) {
+          variant.discountMode = "NONE";
+          return clonedSettings;
+        }
+      }
+    }
+    if (discountPhase === "before") {
+      clonedSettings.beforeDiscountDisabled = true;
+    } else {
+      clonedSettings.changeDiscountAfterOrders = false;
+      clonedSettings.beforeDiscountDisabled = true;
+    }
+    return clonedSettings;
+  }
+//   if (!settings) {
+//     throw new Error("removeLineDiscount: no settings configured");
+//   }
+//   const clonedSettings = JSON.parse(JSON.stringify(settings));
+
+//   if (isBaseLine) {
+//    if (discountPhase === "before") {
+//      clonedSettings.beforeDiscountDisabled = true;
+//    } else {
+//      clonedSettings.changeDiscountAfterOrders = false;
+//     clonedSettings.beforeDiscountDisabled = true;
+//    }
+//    return clonedSettings;
+//  }
 
   if (!Array.isArray(clonedSettings.automationCycles)) {
     throw new Error("removeLineDiscount: no automationCycles configured");
@@ -1669,6 +1734,14 @@ function setBaseLineFixedPrice(settings, price) {
   clonedSettings.afterDiscountValue = Number(price) || 0;
   clonedSettings.beforeDiscountDisabled = true; 
   clonedSettings.afterDiscountIsManualOverride = true;  
+  return clonedSettings;
+}
+function setLineFixedPrice(settings, variantId, price) {
+  const clonedSettings = settings ? JSON.parse(JSON.stringify(settings)) : {};
+  if (!clonedSettings.lineFixedPrices || typeof clonedSettings.lineFixedPrices !== "object") {
+    clonedSettings.lineFixedPrices = {};
+  }
+  clonedSettings.lineFixedPrices[variantId] = Number(price) || 0;
   return clonedSettings;
 }
 function addBaseLineRemoval(settings, cycleIndex, productId, variantId) {
@@ -1872,12 +1945,22 @@ async function getContractPreview(admin, contractId) {
     }
   }
 
+  // const rawActionsForNextCycle =
+  //   cycleIndex != null
+  //     ? collectActionsForCycle(
+  //         extraSettings,
+  //         cycleIndex,
+  //         firstLine?.pricingPolicy,
+  //       )
+  //     : [];
+
   const rawActionsForNextCycle =
     cycleIndex != null
       ? collectActionsForCycle(
           extraSettings,
           cycleIndex,
           firstLine?.pricingPolicy,
+          firstLine?.variantId,
         )
       : [];
 
@@ -2086,10 +2169,15 @@ if (isSwapTarget && swapAction.variantId) {
         if (m) return m.__phase;
         return showDiscountOnThisLine ? discountAction.__phase : null;
       })(),
+      // discountLabel: (() => {
+      //   const m = variantDiscountActions.find((a) => actionMatchesLine(a, line));
+      //   const src = m || (showDiscountOnThisLine ? discountAction : null);
+      //   if (!src) return null;
       discountLabel: (() => {
-        const m = variantDiscountActions.find((a) => actionMatchesLine(a, line));
-        const src = m || (showDiscountOnThisLine ? discountAction : null);
-        if (!src) return null;
+  const m = variantDiscountActions.find((a) => actionMatchesLine(a, line));
+  const src = m || (showDiscountOnThisLine ? discountAction : null);
+  if (!src) return null;
+  if (src.__manualOverride) return null;
         const type = String(src.adjustmentType).toUpperCase();
         if (type === "PERCENTAGE") return `${src.adjustmentValue}% off`;
         if (type === "PRICE" || type === "FIXED_PRICE" || type === "FIXED_AMOUNT")
@@ -2957,5 +3045,6 @@ export {
   updateAutomationVariantQuantity,
   setAutomationVariantPrice,
   updateContractLinePrice,
-  setBaseLineFixedPrice
+  setBaseLineFixedPrice,
+  setLineFixedPrice
 };

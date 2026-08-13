@@ -35,7 +35,8 @@ import {
   setAutomationVariantPrice,
   snapshotContractSettings,
   addBaseLineRemoval,
-  setBaseLineFixedPrice
+  setBaseLineFixedPrice,
+   setLineFixedPrice,
 } from "../lib/billing-preview.server";
 
 export async function loader({ params, request }) {
@@ -487,9 +488,9 @@ export async function action({ request, params }) {
     }
   }
 
-
 if (type === "update_line_price") {
   const lineId = formData.get("lineId");
+  const variantId = formData.get("variantId");   // NEW
   const price = formData.get("price");
 
   if (!lineId) {
@@ -506,7 +507,9 @@ if (type === "update_line_price") {
     }
 
     const currentSettings = await getEffectiveSettingsForContract(admin, contractId, null);
-    const updatedSettings = setBaseLineFixedPrice(currentSettings, price);
+    const updatedSettings = variantId
+      ? setLineFixedPrice(currentSettings, variantId, price)   // CHANGED
+      : setBaseLineFixedPrice(currentSettings, price);          // fallback agar variantId na mile
     const { snapshotted } = await snapshotContractSettings(admin, contractId, updatedSettings);
     if (!snapshotted) {
       return {
@@ -516,19 +519,54 @@ if (type === "update_line_price") {
       };
     }
 
-    // NEW — client ko bhej do taaki formData pe depend na karna pade (idle hote hi wo undefined ho jata hai)
-    return {
-      success: true,
-      isAutomationChange: true,
-      type: "update_line_price",
-      lineId,
-      price,
-    };
+    return { success: true, isAutomationChange: true, type: "update_line_price", lineId, price };
   } catch (err) {
     console.error("[edit update_line_price] failed:", err);
     return { success: false, error: String(err?.message || err), type: "update_line_price" };
   }
 }
+// if (type === "update_line_price") {
+//   const lineId = formData.get("lineId");
+  
+//   const price = formData.get("price");
+
+//   if (!lineId) {
+//     return { success: false, error: "Invalid line reference", type: "update_line_price" };
+//   }
+//   if (price == null || price === "" || Number.isNaN(Number(price))) {
+//     return { success: false, error: "Invalid price", type: "update_line_price" };
+//   }
+
+//   try {
+//     const result = await updateContractLinePrice(admin, contractId, { lineId, price });
+//     if (!result.success) {
+//       return { success: false, error: result.error, type: "update_line_price" };
+//     }
+
+//     const currentSettings = await getEffectiveSettingsForContract(admin, contractId, null);
+//     const updatedSettings = setBaseLineFixedPrice(currentSettings, price);
+//     const { snapshotted } = await snapshotContractSettings(admin, contractId, updatedSettings);
+//     if (!snapshotted) {
+//       return {
+//         success: false,
+//         error: "Price updated but failed to save it for future orders",
+//         type: "update_line_price",
+//       };
+//     }
+
+//     // NEW — client ko bhej do taaki formData pe depend na karna pade (idle hote hi wo undefined ho jata hai)
+//     return {
+//       success: true,
+//       isAutomationChange: true,
+//       type: "update_line_price",
+//       lineId,
+//       price,
+//     };
+//   } catch (err) {
+//     console.error("[edit update_line_price] failed:", err);
+//     return { success: false, error: String(err?.message || err), type: "update_line_price" };
+//   }
+// }
 
   return { success: false, error: "Unknown action type" };
 }
@@ -788,7 +826,7 @@ export default function EditPage() {
   const openPriceEditor = (kind, item) => {
     setPriceEditError("");
     if (kind === "committed") {
-      setPriceEditTarget({ kind, lineId: item.id, title: item.title });
+      setPriceEditTarget({ kind, lineId: item.id,variantId: item.variantId, title: item.title });
       setPriceEditValue(String(item.displayPrice ?? "0"));
     } else if (kind === "new") {
       setPriceEditTarget({ kind, tempId: item.tempId, title: item.title });
@@ -834,6 +872,7 @@ export default function EditPage() {
         {
           type: "update_line_price",
           lineId: priceEditTarget.lineId,
+           variantId: priceEditTarget.variantId,
           price: priceEditValue,
         },
         { method: "post" },

@@ -107,7 +107,27 @@ mutation CreateCustomerSubscriptionContract(
   }
 }
 `;
-
+const EDIT_BILLING_CYCLE_SCHEDULE_MUTATION = `
+mutation SubscriptionBillingCycleScheduleEdit(
+  $contractId: ID!
+  $index: Int!
+  $date: DateTime!
+) {
+  subscriptionBillingCycleScheduleEdit(
+    billingCycleInput: { contractId: $contractId, selector: { index: $index } }
+    input: { billingDate: $date, reason: BUYER_INITIATED }
+  ) {
+    billingCycle {
+      cycleIndex
+      billingAttemptExpectedDate
+    }
+    userErrors {
+      field
+      message
+    }
+  }
+}
+`;
 function computeVariantCurrentPrice(variant, sellingPlanDiscount) {
   const baseUnitPrice = Number(variant.unitPrice ?? variant.price ?? 0);
   const mode = variant.discountMode || "SELLING_PLAN";
@@ -287,6 +307,33 @@ export async function action({ request }) {
 
     if (contract?.id) {
       try {
+    const scheduleRes = await admin.graphql(
+      EDIT_BILLING_CYCLE_SCHEDULE_MUTATION,
+      {
+        variables: {
+          contractId: contract.id,
+          index: 0, // pehla billing cycle
+          date: nextBillingDate, // wahi ISO datetime jo merchant ne form me choose kiya
+        },
+      },
+    );
+    const scheduleData = await scheduleRes.json();
+    const scheduleErrors =
+      scheduleData.data?.subscriptionBillingCycleScheduleEdit?.userErrors;
+
+    if (scheduleErrors?.length) {
+      console.warn(
+        `[contractCreate] subscriptionBillingCycleScheduleEdit failed for ${contract.id}:`,
+        scheduleErrors,
+      );
+    }
+  } catch (err) {
+    console.warn(
+      `[contractCreate] subscriptionBillingCycleScheduleEdit threw for ${contract.id}:`,
+      err,
+    );
+  }
+      try {
         await snapshotContractSettings(admin, contract.id, {
           giveDiscount: contractDetails.giveDiscount,
           discountAmount: contractDetails.discountAmount,
@@ -324,176 +371,6 @@ export async function action({ request }) {
   }
 }
 
-// const CREATE_CUSTOMER_SUBSCRIPTION_CONTRACT_MUTATION = `
-// mutation CreateCustomerSubscriptionContract(
-//   $input: SubscriptionContractAtomicCreateInput!
-// ) {
-//   subscriptionContractAtomicCreate(input: $input) {
-//     contract {
-//       id
-//       status
-//       nextBillingDate
-//     }
-//     userErrors {
-//       field
-//       message
-//     }
-//   }
-// }
-// `;
-
-// export async function action({ request }) {
-//   const { admin, session } = await authenticate.admin(request);
-//   const formData = await request.formData();
-
-//   const payloadRaw = formData.get("payload");
-//   if (!payloadRaw || typeof payloadRaw !== "string") {
-//     return { success: false, errors: [{ message: "No payload received." }] };
-//   }
-
-//   const payload = JSON.parse(payloadRaw);
-//   const { contractDetails, customer, delivery, products } = payload;
-
-//   if (!customer?.customerId) {
-//     return { success: false, errors: [{ message: "Customer is required." }] };
-//   }
-//   if (!Array.isArray(products) || products.length === 0) {
-//     return {
-//       success: false,
-//       errors: [{ message: "Please select at least one product." }],
-//     };
-//   }
-
-//   try {
-//     const nextOrderDate = contractDetails.nextOrderDate; // "YYYY-MM-DD"
-//     const nextOrderTime = contractDetails.nextOrderTime; // "HH:MM"
-//     const nextBillingDate = new Date(
-//       `${nextOrderDate}T${nextOrderTime}:00Z`,
-//     ).toISOString();
-
-//     const interval = contractDetails.interval || "MONTH";
-//     const intervalCount =
-//       Number(contractDetails.intervalCount ?? 1) || 1;
-
-//     const minCycles = contractDetails.minOrders
-//       ? Number(contractDetails.minOrders)
-//       : null;
-//     const maxCycles = contractDetails.maxOrders
-//       ? Number(contractDetails.maxOrders)
-//       : null;
-
-//     const isDigital = !!delivery.isDigitalProduct;
-
-//     const deliveryMethod = isDigital
-//       ? undefined
-//       : {
-//           shipping: {
-//             address: {
-//               firstName: customer.firstName || "",
-//               lastName: customer.lastName || "",
-//               address1: delivery.address1 || "",
-//               address2: delivery.address2 || "",
-//               city: delivery.city || "",
-//               provinceCode: delivery.province || "",
-//               countryCode: delivery.country || "",
-//               zip: delivery.zip || "",
-//               phone: customer.phoneNumber || "",
-//               company: customer.company || "",
-//             },
-//           },
-//         };
-
-//     const deliveryPrice = Number(delivery.deliveryPrice || 0);
-//     const paymentMethodId = customer.paymentMethod?.id || null;
-
-//     const lines = products.flatMap((p) =>
-//       (p.variants || []).map((v) => {
-//         const quantity = Number(v.quantity || 1);
-//         const currentPrice = Number(
-//           v.unitPrice ?? v.price ?? 0,
-//         );
-
-//         return {
-//           line: {
-//             productVariantId: v.variantsId,
-//             quantity,
-//             currentPrice,
-//           },
-//         };
-//       }),
-//     );
-
-//     if (lines.length === 0) {
-//       return {
-//         success: false,
-//         errors: [{ message: "No variants found on selected products." }],
-//       };
-//     }
-
-//     const input = {
-//       customerId: customer.customerId,
-//       currencyCode: contractDetails.currencyCode,
-//       nextBillingDate,
-//       contract: {
-//         status: "ACTIVE",
-//         note: "Created from app UI",
-//         paymentMethodId: paymentMethodId || undefined,
-//         billingPolicy: {
-//           interval,
-//           intervalCount,
-//           minCycles: minCycles ?? undefined,
-//           maxCycles: maxCycles ?? undefined,
-//         },
-//         deliveryPolicy: {
-//           interval,
-//           intervalCount,
-//         },
-//         deliveryMethod,
-//         deliveryPrice,
-//       },
-//       lines,
-//     };
-
-//     const gqlResponse = await admin.graphql(
-//       CREATE_CUSTOMER_SUBSCRIPTION_CONTRACT_MUTATION,
-//       {
-//         variables: { input },
-//       },
-//     );
-
-//     const result = await gqlResponse.json();
-//     const data = result.data?.subscriptionContractAtomicCreate;
-//     const userErrors = data?.userErrors || [];
-
-//     if (userErrors.length > 0) {
-//       return {
-//         success: false,
-//         errors: userErrors.map((e) => ({
-//           message: e.message,
-//           field: e.field,
-//         })),
-//       };
-//     }
-
-//     const contract = data?.contract;
-
-//     return {
-//       success: true,
-//       subscription: {
-//         id: contract?.id,
-//         status: contract?.status,
-//         nextBillingDate: contract?.nextBillingDate,
-//         shop: session.shop,
-//       },
-//     };
-//   } catch (err) {
-//     console.error("Subscription contract create error:", err);
-//     return {
-//       success: false,
-//       errors: [{ message: "Server error while creating subscription." }],
-//     };
-//   }
-// }
 
 function contractCreate() {
   const { currencyCode, shop } = useLoaderData();

@@ -812,6 +812,7 @@ export async function action({ request, params }) {
           discountPhase,
           automationCycleIndex,
           automationActionIndex,
+          variantId: formData.get("variantId") || null,
         });
         const { snapshotted } = await snapshotContractSettings(
           admin,
@@ -894,8 +895,11 @@ const basePriceAmount = liveVariantPrice ?? firstLine?.pricingPolicy?.basePrice?
         contractId,
       );
       const actionsForThisCycle = extraSettings
-        ? collectActionsForCycle(extraSettings, cycleIndex, pricingPolicy)
+        ? collectActionsForCycle(extraSettings, cycleIndex, pricingPolicy, firstLine?.variantId)
         : [];
+      // const actionsForThisCycle = extraSettings
+      //   ? collectActionsForCycle(extraSettings, cycleIndex, pricingPolicy)
+      //   : [];
 
       let skippedActions = [];
       if (actionsForThisCycle.length > 0) {
