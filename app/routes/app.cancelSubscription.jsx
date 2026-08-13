@@ -51,13 +51,21 @@ export async function loader({ request }) {
       `${API}/api/subscriptions/cancellations?${params.toString()}`,
       { headers: { "x-api-key": SECRET_KEY } },
     );
+
+    console.log("[CancelSubscription] API URL:", `${API}/api/subscriptions/cancellations?${params.toString()}`);
+    console.log("[CancelSubscription] API status:", res.status);
+
     if (res.ok) {
       const data = await res.json();
+      console.log("[CancelSubscription] API data:", JSON.stringify(data));
       items = data.data || [];
       pageInfo = data.pageInfo || pageInfo;
+    } else {
+      const text = await res.text();
+      console.error("[CancelSubscription] API failed:", res.status, text);
     }
   } catch (err) {
-    console.error("Failed to load cancellations:", err);
+    console.error("[CancelSubscription] Failed to load cancellations:", err);
   }
 
   return { items, pageInfo, shop: session.shop };
@@ -105,9 +113,9 @@ function CancelSubscription() {
         <Badge tone="critical">Cancelled</Badge>
       </IndexTable.Cell>
       <IndexTable.Cell>
-        <Text as="span">{item.cancelReason}</Text>
+        <Text as="span">{item.actionReason || "-"}</Text>
       </IndexTable.Cell>
-      <IndexTable.Cell>{formatDate(item.cancelledAt)}</IndexTable.Cell>
+      <IndexTable.Cell>{formatDate(item.actionAt)}</IndexTable.Cell>
     </IndexTable.Row>
   ));
 
@@ -117,10 +125,7 @@ function CancelSubscription() {
         <PortalNav />
         <Card padding="0">
           {items.length === 0 ? (
-            <EmptyState
-              heading="No customer cancellations yet"
-              image=""
-            >
+            <EmptyState heading="No customer cancellations yet" image="">
               <p>
                 Jab customer khud apni subscription cancel karega, wo yahan
                 dikhega.
