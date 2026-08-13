@@ -1,8 +1,11 @@
-
 import React from "react";
 import { useLoaderData } from "react-router";
 import { authenticate } from "../shopify.server";
 import CreateSubscription from "./components/createSubscription";
+// ---- FIX: discount snapshot ke liye import ----
+// Apne actual path ke hisaab se adjust kar lena (jahan bhi
+// contractsettings.js rakha hai — models/, utils/, lib/ etc.)
+import { snapshotContractSettings } from "../models/contractsettings.js";
 
 export async function loader({ request }) {
   const { admin, session } = await authenticate.admin(request);
@@ -71,7 +74,7 @@ export async function loader({ request }) {
     return { success: true, customers };
   }
 
-  // --- FIX: shop currencyCode ke saath timezoneOffset bhi loader me hi le lo,
+  // shop currencyCode ke saath timezoneOffset bhi loader me hi le lo,
   // taaki UI khud bhi shop ke local time ke hisaab se date/time dikha sake
   const response = await admin.graphql(`
     query {
@@ -112,6 +115,20 @@ mutation CreateCustomerSubscriptionContract(
 }
 `;
 
+// ---- FIX: discount ko actual price me apply karne ka helper ----
+function applyDiscountToPrice(basePrice, type, amount) {
+  const base = Number(basePrice) || 0;
+  const val = Number(amount) || 0;
+  if (!val) return base;
+  if (type === "PERCENTAGE") {
+    return Math.max(0, base - (base * val) / 100);
+  }
+  if (type === "PRICE") {
+    return Math.max(0, val); // fixed price directly
+  }
+  return Math.max(0, base - val); // FIXED_AMOUNT
+}
+
 export async function action({ request }) {
   const { admin, session } = await authenticate.admin(request);
   const formData = await request.formData();
@@ -142,7 +159,7 @@ export async function action({ request }) {
     const shopTzData = await shopTzRes.json();
     const timezoneOffset = shopTzData.data?.shop?.timezoneOffset || "+00:00";
 
-    const nextOrderDate = contractDetails.nextOrderDate; // "YYYY-MM-DD" (HTML date input hamesha ISO deta hai)
+    const nextOrderDate = contractDetails.nextOrderDate; // "YYYY-MM-DD"
     const nextOrderTime = contractDetails.nextOrderTime; // "HH:MM"
 
     if (!nextOrderDate || !nextOrderTime) {
@@ -207,15 +224,39 @@ export async function action({ request }) {
     const deliveryPrice = Number(delivery.deliveryPrice || 0);
     const paymentMethodId = customer.paymentMethod?.id || null;
 
+    // ---- FIX: discount ko yahan hi first-order price me apply kar do ----
     const lines = products.flatMap((p) =>
       (p.variants || []).map((v) => {
         const quantity = Number(v.quantity || 1);
-        const currentPrice = Number(v.unitPrice ?? v.price ?? 0);
+        const baseUnitPrice = Number(v.unitPrice ?? v.price ?? 0);
+
+        let currentPrice = baseUnitPrice;
+
+        if (v.discountMode === "CUSTOM") {
+          // variant ke apne custom discount fields use karo
+          currentPrice = applyDiscountToPrice(
+            baseUnitPrice,
+            v.discountType,
+            v.discountAmount,
+          );
+        } else if (
+          v.discountMode === "SELLING_PLAN" &&
+          contractDetails.giveDiscount
+        ) {
+          // top-level "Selling Plan Discount" use karo
+          currentPrice = applyDiscountToPrice(
+            baseUnitPrice,
+            contractDetails.discountType,
+            contractDetails.discountAmount,
+          );
+        }
+        // discountMode === "NONE" → currentPrice = baseUnitPrice as-is
+
         return {
           line: {
             productVariantId: v.variantsId,
             quantity,
-            currentPrice,
+            currentPrice: Number(currentPrice.toFixed(2)),
           },
         };
       }),
@@ -273,6 +314,32 @@ export async function action({ request }) {
     }
 
     const contract = data?.contract;
+
+    // ---- FIX: contract create hone ke baad discount settings snapshot karo ----
+    // Isse "changeDiscountAfterOrders" / "afterOrders" wale rules agle
+    // billing cycles pe automatically apply ho payenge
+    // (contractsettings.js ka collectActionsForCycle / resolveDiscountForCycle
+    // isi snapshot ko read karte hain).
+    if (contract?.id) {
+      try {
+        await snapshotContractSettings(admin, contract.id, {
+          giveDiscount: contractDetails.giveDiscount,
+          discountAmount: contractDetails.discountAmount,
+          discountType: contractDetails.discountType,
+          changeDiscountAfterOrders: contractDetails.changeDiscountAfterOrders,
+          afterOrders: contractDetails.afterOrders,
+          afterDiscountValue: contractDetails.discountAmount2,
+          afterDiscountType: contractDetails.discountType2,
+          // per-variant discount config bhi rakh do future reference ke liye
+          products,
+        });
+      } catch (err) {
+        console.warn(
+          `[contractCreate] snapshotContractSettings failed for ${contract.id}:`,
+          err,
+        );
+      }
+    }
 
     return {
       success: true,
