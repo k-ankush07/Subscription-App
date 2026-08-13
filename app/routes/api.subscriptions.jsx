@@ -6,7 +6,8 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Methods": "GET, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
-
+const API = process.env.VITE_API_URL || import.meta.env.VITE_API_URL;
+const SECRET_KEY = process.env.VITE_API_SECRET_KEY || import.meta.env.VITE_API_SECRET_KEY;
 const DEFAULT_LIMIT = 7;
 const MAX_LIMIT = 50;
 
@@ -37,7 +38,10 @@ function hasAutomationSwapForProduct(extraSettings, productId, cycleIndex) {
     );
   });
 }
-
+function getNumericId(gid) {
+  if (!gid) return null;
+  return gid.split("/").pop();
+}
 export const loader = async ({ request }) => {
   try {
     const { sessionToken } = await authenticate.public.customerAccount(request);
@@ -86,6 +90,13 @@ export const loader = async ({ request }) => {
               status
               nextBillingDate
               note
+               customer {
+                    id
+                    displayName
+                    defaultEmailAddress {
+                      emailAddress
+                    }
+                  }
               deliveryPolicy {
                 interval
                 intervalCount
@@ -521,7 +532,38 @@ const canSwapProduct =
         };
       }),
     );
-
+  Promise.all(
+      enriched.map((sub) =>
+        fetch(`${API}/api/subscription`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-api-key": SECRET_KEY },
+          body: JSON.stringify({
+            subscriptionId: getNumericId(sub.id),
+            contractId: sub.id,
+            customerEmail: sub.customer?.defaultEmailAddress?.emailAddress || "",
+            contract: {
+              id: sub.id,
+              status: sub.status,
+              customer: {
+                defaultEmailAddress: {
+                  emailAddress: sub.customer?.defaultEmailAddress?.emailAddress || "",
+                },
+              },
+              customerName: sub.customer?.displayName || "",
+              lineItems: sub.nextOrderLineItems || [],
+              subtotal: sub.subtotal ?? null,
+              shipping: sub.nextOrderShipping ?? null,
+              total: sub.nextOrderTotal ?? null,
+              shippingAddress: sub.deliveryMethod?.address || null,
+              paymentBrand: sub.paymentMethod?.brand || null,
+              paymentLast4: sub.paymentMethod?.lastDigits || null,
+            },
+          }),
+        }).catch((err) =>
+          console.error(`[sync] failed to save subscription ${sub.id}:`, err.message),
+        ),
+      ),
+    ).catch(() => {});
     return Response.json(
       {
         subscriptions: enriched,
