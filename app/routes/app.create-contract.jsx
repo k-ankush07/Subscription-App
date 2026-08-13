@@ -312,7 +312,7 @@ export async function action({ request }) {
       {
         variables: {
           contractId: contract.id,
-          index: 0, // pehla billing cycle
+          index: 1, // pehla billing cycle
           date: nextBillingDate, // wahi ISO datetime jo merchant ne form me choose kiya
         },
       },
