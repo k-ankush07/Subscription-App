@@ -3,7 +3,7 @@ import { render } from "preact";
 import { useState, useEffect, useCallback, useRef } from "preact/hooks";
 import { COUNTRIES } from "../../../app/routes/utils/countries";
 
-const API_BASE = "https://bye-graduated-reason-qualities.trycloudflare.com";
+const API_BASE = "https://window-verse-tar-built.trycloudflare.com";
 const PAGE_SIZE = 7;
 const CANCEL_REASONS = [
   "Too expensive",
@@ -132,7 +132,7 @@ function Extension() {
   const [cursor, setCursor] = useState(null);
   const [hasMore, setHasMore] = useState(false);
   const [selectedSub, setSelectedSub] = useState(null);
-    const [statusFilter, setStatusFilter] = useState("ALL"); 
+  const [statusFilter, setStatusFilter] = useState("ALL");
   const customerIdRef = useRef(null);
 
   const getCustomerId = useCallback(async () => {
@@ -189,60 +189,66 @@ function Extension() {
   }, [subscriptions]);
 
   const fetchPage = useCallback(
-  async ({ afterCursor = null, reset = true, status = statusFilter } = {}) => {
-    try {
-      const customerId = await getCustomerId();
-      if (!customerId) {
-        setError("Customer ID not found");
+    async ({
+      afterCursor = null,
+      reset = true,
+      status = statusFilter,
+    } = {}) => {
+      try {
+        const customerId = await getCustomerId();
+        if (!customerId) {
+          setError("Customer ID not found");
+          return null;
+        }
+        const token = await shopify.sessionToken.get();
+
+        const params = new URLSearchParams({
+          customerId,
+          limit: String(PAGE_SIZE),
+        });
+        if (afterCursor) params.set("cursor", afterCursor);
+        if (status && status !== "ALL") params.set("status", status);
+
+        const res = await fetch(
+          `${API_BASE}/api/subscriptions?${params.toString()}`,
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(`API ${res.status}: ${text}`);
+        }
+
+        const data = await res.json();
+        const newSubs = data.subscriptions || [];
+        const pageInfo = data.pageInfo || {
+          hasNextPage: false,
+          endCursor: null,
+        };
+
+        setSubscriptions((prev) => (reset ? newSubs : [...prev, ...newSubs]));
+        setHasMore(!!pageInfo.hasNextPage);
+        setCursor(pageInfo.endCursor || null);
+
+        return reset ? newSubs : [...subscriptions, ...newSubs];
+      } catch (err) {
+        console.error("Failed to load subscriptions", err);
+        setError(err.message);
         return null;
       }
-      const token = await shopify.sessionToken.get();
-
-      const params = new URLSearchParams({
-        customerId,
-        limit: String(PAGE_SIZE),
-      });
-      if (afterCursor) params.set("cursor", afterCursor);
-      if (status && status !== "ALL") params.set("status", status); 
-
-      const res = await fetch(
-        `${API_BASE}/api/subscriptions?${params.toString()}`,
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
-
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`API ${res.status}: ${text}`);
-      }
-
-      const data = await res.json();
-      const newSubs = data.subscriptions || [];
-      const pageInfo = data.pageInfo || { hasNextPage: false, endCursor: null };
-
-      setSubscriptions((prev) => (reset ? newSubs : [...prev, ...newSubs]));
-      setHasMore(!!pageInfo.hasNextPage);
-      setCursor(pageInfo.endCursor || null);
-
-      return reset ? newSubs : [...subscriptions, ...newSubs];
-    } catch (err) {
-      console.error("Failed to load subscriptions", err);
-      setError(err.message);
-      return null;
-    }
-  },
-  [getCustomerId, subscriptions, statusFilter], 
-);
+    },
+    [getCustomerId, subscriptions, statusFilter],
+  );
 
   useEffect(() => {
-  (async () => {
-    setLoading(true);
-    setCursor(null);
-    setHasMore(false);
-    await fetchPage({ afterCursor: null, reset: true, status: statusFilter });
-    setLoading(false);
-  })();
-}, [statusFilter]); 
-
+    (async () => {
+      setLoading(true);
+      setCursor(null);
+      setHasMore(false);
+      await fetchPage({ afterCursor: null, reset: true, status: statusFilter });
+      setLoading(false);
+    })();
+  }, [statusFilter]);
 
   async function handleViewMore() {
     if (!hasMore || loadingMore) return;
@@ -251,8 +257,8 @@ function Extension() {
     setLoadingMore(false);
   }
   function handleStatusFilterChange(e) {
-  setStatusFilter(e.target.value);
-}
+    setStatusFilter(e.target.value);
+  }
 
   function handleSelect(sub) {
     setSelectedSub(sub);
@@ -323,17 +329,17 @@ function Extension() {
     <s-page heading="Subscriptions">
       <s-section>
         <s-box paddingBlockEnd="base" inlineSize="200px">
-        <s-select
-          label="Status"
-          value={statusFilter}
-          onChange={handleStatusFilterChange}
-        >
-          <s-option value="ALL">All</s-option>
-          <s-option value="ACTIVE">Active</s-option>
-          <s-option value="PAUSED">Paused</s-option>
-          <s-option value="CANCELLED">Cancelled</s-option>
-        </s-select>
-      </s-box>
+          <s-select
+            label="Status"
+            value={statusFilter}
+            onChange={handleStatusFilterChange}
+          >
+            <s-option value="ALL">All</s-option>
+            <s-option value="ACTIVE">Active</s-option>
+            <s-option value="PAUSED">Paused</s-option>
+            <s-option value="CANCELLED">Cancelled</s-option>
+          </s-select>
+        </s-box>
 
         {loading ? (
           <s-stack direction="block" gap="base">
@@ -477,9 +483,9 @@ function SubscriptionDetail({
     sub.hasMoreCycles ?? false,
   );
   const swapModalRef = useRef(null);
-const [swapSelections, setSwapSelections] = useState({});
-const [savingProductId, setSavingProductId] = useState(null);
-const [swapError, setSwapError] = useState(null);
+  const [swapSelections, setSwapSelections] = useState({});
+  const [savingProductId, setSavingProductId] = useState(null);
+  const [swapError, setSwapError] = useState(null);
 
   const [loadingCycleIndex, setLoadingCycleIndex] = useState(null);
   const [loadingAction, setLoadingAction] = useState(null);
@@ -505,16 +511,13 @@ const [swapError, setSwapError] = useState(null);
   const [cancelLoading, setCancelLoading] = useState(false);
   const cancelModalRef = useRef(null);
 
-
   const [cancelReason, setCancelReason] = useState("");
-const [cancelReasonNote, setCancelReasonNote] = useState("");
-const [cancelReasonError, setCancelReasonError] = useState(null);
-const [pauseReason, setPauseReason] = useState("");
-const [pauseReasonNote, setPauseReasonNote] = useState("");
-const [pauseReasonError, setPauseReasonError] = useState(null);
-const pauseModalRef = useRef(null);
-
-
+  const [cancelReasonNote, setCancelReasonNote] = useState("");
+  const [cancelReasonError, setCancelReasonError] = useState(null);
+  const [pauseReason, setPauseReason] = useState("");
+  const [pauseReasonNote, setPauseReasonNote] = useState("");
+  const [pauseReasonError, setPauseReasonError] = useState(null);
+  const pauseModalRef = useRef(null);
 
   const [rescheduleCycle, setRescheduleCycle] = useState(null);
   const [rescheduleDate, setRescheduleDate] = useState("");
@@ -625,57 +628,57 @@ const pauseModalRef = useRef(null);
       setLoadingAction(null);
     }
   }
- async function handlePause() {
-  if (pauseResumeLoading) return;
+  async function handlePause() {
+    if (pauseResumeLoading) return;
 
-  if (!pauseReason) {
-    setPauseReasonError("Please select a reason");
-    return;
-  }
-
-  const finalReason = pauseReasonNote.trim()
-    ? `${pauseReason}; ${pauseReasonNote.trim()}`
-    : pauseReason;
-
-  try {
-    setPauseResumeLoading(true);
-    setPauseReasonError(null);
-    const token = await shopify.sessionToken.get();
-    const res = await fetch(`${API_BASE}/api/subscriptions/pause`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        subscriptionContractId: sub.id,
-        reason: finalReason,
-      }),
-    });
-
-    const data = await res.json();
-    if (!res.ok || data.error) {
-      throw new Error(
-        typeof data.error === "string" ? data.error : "Pause failed",
-      );
+    if (!pauseReason) {
+      setPauseReasonError("Please select a reason");
+      return;
     }
 
-    setStatus(data.contract?.status || "PAUSED");
-    shopify.toast.show("Subscription paused");
-    pauseModalRef.current?.hide?.();
-    setPauseReason("");
-    setPauseReasonNote("");
+    const finalReason = pauseReasonNote.trim()
+      ? `${pauseReason}; ${pauseReasonNote.trim()}`
+      : pauseReason;
 
-    refreshSubscriptions().catch((err) =>
-      console.error("Background refresh after pause failed:", err),
-    );
-  } catch (err) {
-    console.error(err);
-    shopify.toast.show(err.message);
-  } finally {
-    setPauseResumeLoading(false);
+    try {
+      setPauseResumeLoading(true);
+      setPauseReasonError(null);
+      const token = await shopify.sessionToken.get();
+      const res = await fetch(`${API_BASE}/api/subscriptions/pause`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          subscriptionContractId: sub.id,
+          reason: finalReason,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        throw new Error(
+          typeof data.error === "string" ? data.error : "Pause failed",
+        );
+      }
+
+      setStatus(data.contract?.status || "PAUSED");
+      shopify.toast.show("Subscription paused");
+      pauseModalRef.current?.hide?.();
+      setPauseReason("");
+      setPauseReasonNote("");
+
+      refreshSubscriptions().catch((err) =>
+        console.error("Background refresh after pause failed:", err),
+      );
+    } catch (err) {
+      console.error(err);
+      shopify.toast.show(err.message);
+    } finally {
+      setPauseResumeLoading(false);
+    }
   }
-}
   async function handleResume() {
     if (pauseResumeLoading) return;
     try {
@@ -745,54 +748,54 @@ const pauseModalRef = useRef(null);
   //   }
   // }
   async function handleCancel() {
-  if (cancelLoading) return;
+    if (cancelLoading) return;
 
-  if (!cancelReason) {
-    setCancelReasonError("Please select a reason");
-    return;
-  }
-
-  const finalReason = cancelReasonNote.trim()
-    ? `${cancelReason}; ${cancelReasonNote.trim()}`
-    : cancelReason;
-
-  try {
-    setCancelLoading(true);
-    setCancelReasonError(null);
-    const token = await shopify.sessionToken.get();
-    const res = await fetch(`${API_BASE}/api/subscriptions/cancel`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        subscriptionContractId: sub.id,
-        reason: finalReason,
-      }),
-    });
-
-    const data = await res.json();
-    if (!res.ok || !data.success) {
-      throw new Error(data.error || "Cancel failed");
+    if (!cancelReason) {
+      setCancelReasonError("Please select a reason");
+      return;
     }
 
-    setStatus(data.subscription?.status || "CANCELLED");
-    shopify.toast.show("Subscription cancelled");
-    cancelModalRef.current?.hide?.();
-    setCancelReason("");
-    setCancelReasonNote("");
+    const finalReason = cancelReasonNote.trim()
+      ? `${cancelReason}; ${cancelReasonNote.trim()}`
+      : cancelReason;
 
-    refreshSubscriptions().catch((err) =>
-      console.error("Background refresh after cancel failed:", err),
-    );
-  } catch (err) {
-    console.error(err);
-    shopify.toast.show(err.message);
-  } finally {
-    setCancelLoading(false);
+    try {
+      setCancelLoading(true);
+      setCancelReasonError(null);
+      const token = await shopify.sessionToken.get();
+      const res = await fetch(`${API_BASE}/api/subscriptions/cancel`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          subscriptionContractId: sub.id,
+          reason: finalReason,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Cancel failed");
+      }
+
+      setStatus(data.subscription?.status || "CANCELLED");
+      shopify.toast.show("Subscription cancelled");
+      cancelModalRef.current?.hide?.();
+      setCancelReason("");
+      setCancelReasonNote("");
+
+      refreshSubscriptions().catch((err) =>
+        console.error("Background refresh after cancel failed:", err),
+      );
+    } catch (err) {
+      console.error(err);
+      shopify.toast.show(err.message);
+    } finally {
+      setCancelLoading(false);
+    }
   }
-}
 
   function openRescheduleModal(cycle) {
     if (!cycle || loadingCycleIndex != null) return;
@@ -1040,90 +1043,91 @@ const pauseModalRef = useRef(null);
     }
   }
 
-function openSwapModal() {
-  setSwapError(null);
-  const allowProductSwaps = !!(sub.customerProductChanges ?? {}).allowProductSwaps;
-  const currentProductId = items[0]?.productId;
-  const currentQuantity = items[0]?.quantity ?? 1;   
-  const visible = (sub.swapOptions ?? []).filter(
-    (product) => allowProductSwaps || product.id === currentProductId,
-  );
-  const defaults = {};
-  visible.forEach((product) => {
-    const isCurrentProductCard = product.id === currentProductId;
-    defaults[product.id] = {
-      variantId: isCurrentProductCard
-        ? (items[0]?.variantId ?? product.variants?.[0]?.variantsId ?? "")
-        : (product.variants?.[0]?.variantsId ?? ""),
-      quantity: isCurrentProductCard ? currentQuantity : 1,
-    };
-  });
-  setSwapSelections(defaults);
-}
-
-async function handleSwapProduct(product) {
-  if (savingProductId != null) return;
-  const selection = swapSelections[product.id];
-  const variantId = selection?.variantId || product.variants?.[0]?.variantsId;
-  const quantity = allowQuantityChanges
-    ? (selection?.quantity || 1)
-    : (items[0]?.quantity || 1);
-
-  if (!variantId) {
-    setSwapError("Please select a variant");
-    return;
+  function openSwapModal() {
+    setSwapError(null);
+    const allowProductSwaps = !!(sub.customerProductChanges ?? {})
+      .allowProductSwaps;
+    const currentProductId = items[0]?.productId;
+    const currentQuantity = items[0]?.quantity ?? 1;
+    const visible = (sub.swapOptions ?? []).filter(
+      (product) => allowProductSwaps || product.id === currentProductId,
+    );
+    const defaults = {};
+    visible.forEach((product) => {
+      const isCurrentProductCard = product.id === currentProductId;
+      defaults[product.id] = {
+        variantId: isCurrentProductCard
+          ? (items[0]?.variantId ?? product.variants?.[0]?.variantsId ?? "")
+          : (product.variants?.[0]?.variantsId ?? ""),
+        quantity: isCurrentProductCard ? currentQuantity : 1,
+      };
+    });
+    setSwapSelections(defaults);
   }
 
-  try {
-    setSavingProductId(product.id);
-    setSwapError(null);
+  async function handleSwapProduct(product) {
+    if (savingProductId != null) return;
+    const selection = swapSelections[product.id];
+    const variantId = selection?.variantId || product.variants?.[0]?.variantsId;
+    const quantity = allowQuantityChanges
+      ? selection?.quantity || 1
+      : items[0]?.quantity || 1;
 
-    const token = await shopify.sessionToken.get();
-    const res = await fetch(`${API_BASE}/api/subscriptions/swap-product`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        contractId: sub.id,
-        lineId: items[0]?.id,
-        variantId,
-        quantity,
-      }),
-    });
-
-    const data = await res.json();
-    if (!res.ok || !data.success) {
-      throw new Error(data.error || "Swap failed");
+    if (!variantId) {
+      setSwapError("Please select a variant");
+      return;
     }
 
-    shopify.toast.show("Product swapped");
-    swapModalRef.current?.hide?.();
+    try {
+      setSavingProductId(product.id);
+      setSwapError(null);
 
-    refreshSubscriptions().catch((err) =>
-      console.error("Background refresh after swap failed:", err),
-    );
-  } catch (err) {
-    console.error(err);
-    setSwapError(err.message);
-  } finally {
-    setSavingProductId(null);
+      const token = await shopify.sessionToken.get();
+      const res = await fetch(`${API_BASE}/api/subscriptions/swap-product`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contractId: sub.id,
+          lineId: items[0]?.id,
+          variantId,
+          quantity,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Swap failed");
+      }
+
+      shopify.toast.show("Product swapped");
+      swapModalRef.current?.hide?.();
+
+      refreshSubscriptions().catch((err) =>
+        console.error("Background refresh after swap failed:", err),
+      );
+    } catch (err) {
+      console.error(err);
+      setSwapError(err.message);
+    } finally {
+      setSavingProductId(null);
+    }
   }
-}
 
   const items = sub.nextOrderLineItems?.length
     ? sub.nextOrderLineItems
     : (sub.lines?.edges?.map((e) => e.node) ?? []);
 
   const customerChanges = sub.customerProductChanges ?? {};
-const allowQuantityChanges = !!customerChanges.allowQuantityChanges;
-const allowProductSwaps = !!customerChanges.allowProductSwaps;   
-const allowVariantChanges = !!customerChanges.allowVariantChanges; 
-const keepDiscounts = !!customerChanges.keepDiscounts;
-const visibleSwapProducts = (sub.swapOptions ?? []).filter(
-  (product) => allowProductSwaps || product.id === items[0]?.productId,
-);
+  const allowQuantityChanges = !!customerChanges.allowQuantityChanges;
+  const allowProductSwaps = !!customerChanges.allowProductSwaps;
+  const allowVariantChanges = !!customerChanges.allowVariantChanges;
+  const keepDiscounts = !!customerChanges.keepDiscounts;
+  const visibleSwapProducts = (sub.swapOptions ?? []).filter(
+    (product) => allowProductSwaps || product.id === items[0]?.productId,
+  );
   const total = sub.nextOrderTotal;
   const shipping = sub.nextOrderShipping;
   const grandTotal =
@@ -1133,7 +1137,7 @@ const visibleSwapProducts = (sub.swapOptions ?? []).filter(
         ).toFixed(2)
       : null;
 
-      const minCycles = sub.billingPolicy?.minCycles ?? null;
+  const minCycles = sub.billingPolicy?.minCycles ?? null;
   const minCyclesReached = sub.billingPolicy?.minCyclesReached;
   const canModifySubscription = minCyclesReached !== false;
 
@@ -1174,316 +1178,366 @@ const visibleSwapProducts = (sub.swapOptions ?? []).filter(
           >
             Status: {status}
           </s-badge>
-          {status !== "CANCELLED" && status !== "EXPIRED" && canModifySubscription &&  (
-            <s-stack direction="inline" gap="tight">
-              {status === "PAUSED" ? (
+          {status !== "CANCELLED" &&
+            status !== "EXPIRED" &&
+            canModifySubscription && (
+              <s-stack direction="inline" gap="tight">
+                {status === "PAUSED" ? (
+                  <s-button
+                    variant="secondary"
+                    disabled={pauseResumeLoading}
+                    onClick={handleResume}
+                  >
+                    {pauseResumeLoading ? <s-spinner size="small" /> : "Resume"}
+                  </s-button>
+                ) : (
+                  <s-button
+                    variant="secondary"
+                    command="--show"
+                    commandFor={`pause-modal-${numericId}`}
+                    disabled={pauseResumeLoading}
+                  >
+                    {pauseResumeLoading ? <s-spinner size="small" /> : "Pause"}
+                  </s-button>
+                )}
+
                 <s-button
-                  variant="secondary"
-                  disabled={pauseResumeLoading}
-                  onClick={handleResume}
+                  variant="tertiary"
+                  tone="critical"
+                  command="--show"
+                  commandFor={`cancel-modal-${numericId}`}
+                  disabled={pauseResumeLoading || cancelLoading}
                 >
-                  {pauseResumeLoading ? <s-spinner size="small" /> : "Resume"}
+                  Cancel subscription
                 </s-button>
-              ) : (
-                <s-button
-  variant="secondary"
-  command="--show"
-  commandFor={`pause-modal-${numericId}`}
-  disabled={pauseResumeLoading}
->
-  {pauseResumeLoading ? <s-spinner size="small" /> : "Pause"}
-</s-button>
-              )}
-           
-
-              <s-button
-                variant="tertiary"
-                tone="critical"
-                command="--show"
-                commandFor={`cancel-modal-${numericId}`}
-                disabled={pauseResumeLoading || cancelLoading}
-              >
-                Cancel subscription
-              </s-button>
-            </s-stack>
+              </s-stack>
+            )}
+          {sub.canSwapProduct && (
+            <s-button
+              variant="primary"
+              command="--show"
+              commandFor={swapModalId}
+              onClick={openSwapModal}
+            >
+              Swap product
+            </s-button>
           )}
-             {sub.canSwapProduct && (
-      <s-button
-        variant="primary"
-        command="--show"
-        commandFor={swapModalId}
-        onClick={openSwapModal}
-      >
-        Swap product
-      </s-button>
-    )}
-    <s-box border="base" borderRadius="base" padding="base">
-  <s-stack direction="block" gap="base">
-    <s-text fontWeight="bold">Subscription permissions</s-text>
-    <s-stack direction="inline" gap="tight" alignItems="center">
-      <s-badge tone={allowProductSwaps ? "success" : "neutral"}>
-        Product swaps: {allowProductSwaps ? "Allowed" : "Not allowed"}
-      </s-badge>
-    </s-stack>
-    <s-stack direction="inline" gap="tight" alignItems="center">
-      <s-badge tone={allowVariantChanges ? "success" : "neutral"}>
-        Variant changes: {allowVariantChanges ? "Allowed" : "Not allowed"}
-      </s-badge>
-    </s-stack>
-    <s-stack direction="inline" gap="tight" alignItems="center">
-      <s-badge tone={allowQuantityChanges ? "success" : "neutral"}>
-        Quantity changes: {allowQuantityChanges ? "Allowed" : "Not allowed"}
-      </s-badge>
-    </s-stack>
-    <s-stack direction="inline" gap="tight" alignItems="center">
-      <s-badge tone={keepDiscounts ? "success" : "neutral"}>
-        Keep discount on change: {keepDiscounts ? "Yes" : "No"}
-      </s-badge>
-    </s-stack>
-  </s-stack>
-</s-box>
-{/* CANCEL MODEL */}
-     <s-modal
-  id={`cancel-modal-${numericId}`}
-  ref={cancelModalRef}
-  heading="Cancel subscription"
->
-  <s-stack direction="block" gap="base">
-    <s-text tone="subdued">
-      If you cancel your subscription, billing and delivery will end
-      immediately. Canceling a subscription cannot be undone. To
-      temporarily stop receiving orders, pause your subscription.
-    </s-text>
-
-    {cancelReasonError && (
-      <s-text tone="critical">{cancelReasonError}</s-text>
-    )}
-
-    <s-select
-      label="Select a reason"
-      value={cancelReason}
-      onChange={(e) => {
-        setCancelReason(e.target.value);
-        setCancelReasonError(null);
-        if (e.target.value !== "Other (please specify)") {
-          setCancelReasonNote("");
-        }
-      }}
-    >
-      <s-option value="">-- Select a reason --</s-option>
-      {CANCEL_REASONS.map((reason) => (
-        <s-option key={reason} value={reason}>
-          {reason}
-        </s-option>
-      ))}
-    </s-select>
-
-    {cancelReason === "Other (please specify)" && (
-      <s-text-field
-        label="Please specify"
-        placeholder="Tell us more"
-        value={cancelReasonNote}
-        onInput={(e) => setCancelReasonNote(e.target.value)}
-      />
-    )}
-  </s-stack>
-
-  <s-button
-    slot="primary-action"
-    variant="primary"
-    tone="critical"
-    disabled={cancelLoading}
-    onClick={handleCancel}
-  >
-    {cancelLoading ? <s-spinner size="small" /> : "Yes, cancel"}
-  </s-button>
-  <s-button
-    slot="secondary-actions"
-    command="--hide"
-    commandFor={`cancel-modal-${numericId}`}
-    disabled={cancelLoading}
-    onClick={() => {
-      setCancelReason("");
-      setCancelReasonNote("");
-      setCancelReasonError(null);
-    }}
-  >
-    Keep subscription
-  </s-button>
-</s-modal>
-
-{/* PAUSE MODEL */}
-<s-modal
-  id={`pause-modal-${numericId}`}
-  ref={pauseModalRef}
-  heading="Pause subscription"
->
-  <s-stack direction="block" gap="base">
-    <s-text tone="subdued">
-      Your subscription will be paused temporarily. You can resume it anytime.
-    </s-text>
-
-    {pauseReasonError && (
-      <s-text tone="critical">{pauseReasonError}</s-text>
-    )}
-
-    <s-select
-      label="Select a reason"
-      value={pauseReason}
-      onChange={(e) => {
-        setPauseReason(e.target.value);
-        setPauseReasonError(null);
-        if (e.target.value !== "Other (please specify)") {
-          setPauseReasonNote("");
-        }
-      }}
-    >
-      <s-option value="">-- Select a reason --</s-option>
-      {CANCEL_REASONS.map((reason) => (
-        <s-option key={reason} value={reason}>
-          {reason}
-        </s-option>
-      ))}
-    </s-select>
-
-    {pauseReason === "Other (please specify)" && (
-      <s-text-field
-        label="Please specify"
-        placeholder="Tell us more"
-        value={pauseReasonNote}
-        onInput={(e) => setPauseReasonNote(e.target.value)}
-      />
-    )}
-  </s-stack>
-
-  <s-button
-    slot="primary-action"
-    variant="primary"
-    disabled={pauseResumeLoading}
-    onClick={handlePause}
-  >
-    {pauseResumeLoading ? <s-spinner size="small" /> : "Yes, pause"}
-  </s-button>
-  <s-button
-    slot="secondary-actions"
-    command="--hide"
-    commandFor={`pause-modal-${numericId}`}
-    disabled={pauseResumeLoading}
-    onClick={() => {
-      setPauseReason("");
-      setPauseReasonNote("");
-      setPauseReasonError(null);
-    }}
-  >
-    Keep active
-  </s-button>
-</s-modal>
-
-<s-modal id={swapModalId} ref={swapModalRef} heading="Swap product">
-  <s-stack direction="block" gap="base">
-    {swapError && <s-text tone="critical">{swapError}</s-text>}
-
-{visibleSwapProducts.map((product) => {
-  const isCurrentProductCard = product.id === items[0]?.productId;
-  const currentQuantity = items[0]?.quantity ?? 1;
-  const currentVariantId = items[0]?.variantId ?? product.variants?.[0]?.variantsId;
-
-  const selection = swapSelections[product.id] ?? {
-    variantId: isCurrentProductCard
-      ? (currentVariantId ?? "")
-      : (product.variants?.[0]?.variantsId ?? ""),
-    quantity: isCurrentProductCard ? currentQuantity : 1,
-  };
-
-  const selectedVariant =
-    product.variants?.find((v) => v.variantsId === selection.variantId) ??
-    product.variants?.[0];
-
-  const canEditThisCard = isCurrentProductCard ? allowVariantChanges : allowProductSwaps;
-
-  const isNoChangeSelected =
-    isCurrentProductCard &&
-    selection.variantId === currentVariantId &&
-    Number(selection.quantity) === Number(currentQuantity);
-
-  return (
-    <s-box key={product.id} border="base" borderRadius="base" padding="base">
-      <s-stack direction="block" gap="tight">
-        <s-stack direction="inline" gap="tight" alignItems="center">
-          <s-box inlineSize="56px" blockSize="56px" borderRadius="base" overflow="hidden">
-            <s-image
-              src={isCurrentProductCard ? (items[0]?.imageUrl ?? product.ProductImage) : product.ProductImage}
-              alt={product.title}
-            />
+          <s-box border="base" borderRadius="base" padding="base">
+            <s-stack direction="block" gap="base">
+              <s-text fontWeight="bold">Subscription permissions</s-text>
+              <s-stack direction="inline" gap="tight" alignItems="center">
+                <s-badge tone={allowProductSwaps ? "success" : "neutral"}>
+                  Product swaps: {allowProductSwaps ? "Allowed" : "Not allowed"}
+                </s-badge>
+              </s-stack>
+              <s-stack direction="inline" gap="tight" alignItems="center">
+                <s-badge tone={allowVariantChanges ? "success" : "neutral"}>
+                  Variant changes:{" "}
+                  {allowVariantChanges ? "Allowed" : "Not allowed"}
+                </s-badge>
+              </s-stack>
+              <s-stack direction="inline" gap="tight" alignItems="center">
+                <s-badge tone={allowQuantityChanges ? "success" : "neutral"}>
+                  Quantity changes:{" "}
+                  {allowQuantityChanges ? "Allowed" : "Not allowed"}
+                </s-badge>
+              </s-stack>
+              <s-stack direction="inline" gap="tight" alignItems="center">
+                <s-badge tone={keepDiscounts ? "success" : "neutral"}>
+                  Keep discount on change: {keepDiscounts ? "Yes" : "No"}
+                </s-badge>
+              </s-stack>
+            </s-stack>
           </s-box>
-          <s-stack direction="block" gap="none">
-            <s-text fontWeight="bold">{product.title}</s-text>
-            {selectedVariant?.variantsTitle && (
-              <s-text tone="subdued">{selectedVariant.variantsTitle}</s-text>
-            )}
-            {selectedVariant?.price != null && (
-              <s-text tone="subdued">₹{selectedVariant.price}.00</s-text>
-            )}
-            {isCurrentProductCard && <s-text tone="subdued">(Current product)</s-text>}
-          </s-stack>
-        </s-stack>
+          {/* CANCEL MODEL */}
+          <s-modal
+            id={`cancel-modal-${numericId}`}
+            ref={cancelModalRef}
+            heading="Cancel subscription"
+          >
+            <s-stack direction="block" gap="base">
+              <s-text tone="subdued">
+                If you cancel your subscription, billing and delivery will end
+                immediately. Canceling a subscription cannot be undone. To
+                temporarily stop receiving orders, pause your subscription.
+              </s-text>
 
-        <s-select
-          label="Select variant"
-          value={selection.variantId}
-          disabled={!canEditThisCard}
-          onChange={(e) =>
-            setSwapSelections((prev) => ({
-              ...prev,
-              [product.id]: { ...selection, variantId: e.target.value },
-            }))
-          }
-        >
-          {(product.variants ?? []).map((v) => (
-            <s-option key={v.variantsId} value={v.variantsId}>
-              {v.variantsTitle}
-            </s-option>
-          ))}
-        </s-select>
+              {cancelReasonError && (
+                <s-text tone="critical">{cancelReasonError}</s-text>
+              )}
 
-        <s-text-field
-          label="Quantity"
-          type="number"
-          value={String(selection.quantity)}
-          disabled={!canEditThisCard || !allowQuantityChanges || savingProductId != null}
-          onInput={(e) =>
-            setSwapSelections((prev) => ({
-              ...prev,
-              [product.id]: {
-                ...selection,
-                quantity: Math.max(1, Number(e.target.value) || 1),
-              },
-            }))
-          }
-        />
+              <s-select
+                label="Select a reason"
+                value={cancelReason}
+                onChange={(e) => {
+                  setCancelReason(e.target.value);
+                  setCancelReasonError(null);
+                  if (e.target.value !== "Other (please specify)") {
+                    setCancelReasonNote("");
+                  }
+                }}
+              >
+                <s-option value="">-- Select a reason --</s-option>
+                {CANCEL_REASONS.map((reason) => (
+                  <s-option key={reason} value={reason}>
+                    {reason}
+                  </s-option>
+                ))}
+              </s-select>
 
-        <s-button
-          variant="primary"
-          disabled={!canEditThisCard || savingProductId != null || isNoChangeSelected}
-          onClick={() => handleSwapProduct(product)}
-        >
-          {savingProductId === product.id ? <s-spinner size="small" /> : "Swap product"}
-        </s-button>
-      </s-stack>
-    </s-box>
-  );
-})}
-  </s-stack>
+              {cancelReason === "Other (please specify)" && (
+                <s-text-field
+                  label="Please specify"
+                  placeholder="Tell us more"
+                  value={cancelReasonNote}
+                  onInput={(e) => setCancelReasonNote(e.target.value)}
+                />
+              )}
+            </s-stack>
 
-  <s-button
-    slot="secondary-actions"
-    command="--hide"
-    commandFor={swapModalId}
-    disabled={savingProductId != null}
-  >
-    Close
-  </s-button>
-</s-modal>
+            <s-button
+              slot="primary-action"
+              variant="primary"
+              tone="critical"
+              disabled={cancelLoading}
+              onClick={handleCancel}
+            >
+              {cancelLoading ? <s-spinner size="small" /> : "Yes, cancel"}
+            </s-button>
+            <s-button
+              slot="secondary-actions"
+              command="--hide"
+              commandFor={`cancel-modal-${numericId}`}
+              disabled={cancelLoading}
+              onClick={() => {
+                setCancelReason("");
+                setCancelReasonNote("");
+                setCancelReasonError(null);
+              }}
+            >
+              Keep subscription
+            </s-button>
+          </s-modal>
+
+          {/* PAUSE MODEL */}
+          <s-modal
+            id={`pause-modal-${numericId}`}
+            ref={pauseModalRef}
+            heading="Pause subscription"
+          >
+            <s-stack direction="block" gap="base">
+              <s-text tone="subdued">
+                Your subscription will be paused temporarily. You can resume it
+                anytime.
+              </s-text>
+
+              {pauseReasonError && (
+                <s-text tone="critical">{pauseReasonError}</s-text>
+              )}
+
+              <s-select
+                label="Select a reason"
+                value={pauseReason}
+                onChange={(e) => {
+                  setPauseReason(e.target.value);
+                  setPauseReasonError(null);
+                  if (e.target.value !== "Other (please specify)") {
+                    setPauseReasonNote("");
+                  }
+                }}
+              >
+                <s-option value="">-- Select a reason --</s-option>
+                {CANCEL_REASONS.map((reason) => (
+                  <s-option key={reason} value={reason}>
+                    {reason}
+                  </s-option>
+                ))}
+              </s-select>
+
+              {pauseReason === "Other (please specify)" && (
+                <s-text-field
+                  label="Please specify"
+                  placeholder="Tell us more"
+                  value={pauseReasonNote}
+                  onInput={(e) => setPauseReasonNote(e.target.value)}
+                />
+              )}
+            </s-stack>
+
+            <s-button
+              slot="primary-action"
+              variant="primary"
+              disabled={pauseResumeLoading}
+              onClick={handlePause}
+            >
+              {pauseResumeLoading ? <s-spinner size="small" /> : "Yes, pause"}
+            </s-button>
+            <s-button
+              slot="secondary-actions"
+              command="--hide"
+              commandFor={`pause-modal-${numericId}`}
+              disabled={pauseResumeLoading}
+              onClick={() => {
+                setPauseReason("");
+                setPauseReasonNote("");
+                setPauseReasonError(null);
+              }}
+            >
+              Keep active
+            </s-button>
+          </s-modal>
+
+          <s-modal id={swapModalId} ref={swapModalRef} heading="Swap product">
+            <s-stack direction="block" gap="base">
+              {swapError && <s-text tone="critical">{swapError}</s-text>}
+
+              {visibleSwapProducts.map((product) => {
+                const isCurrentProductCard = product.id === items[0]?.productId;
+                const currentQuantity = items[0]?.quantity ?? 1;
+                const currentVariantId =
+                  items[0]?.variantId ?? product.variants?.[0]?.variantsId;
+
+                const selection = swapSelections[product.id] ?? {
+                  variantId: isCurrentProductCard
+                    ? (currentVariantId ?? "")
+                    : (product.variants?.[0]?.variantsId ?? ""),
+                  quantity: isCurrentProductCard ? currentQuantity : 1,
+                };
+
+                const selectedVariant =
+                  product.variants?.find(
+                    (v) => v.variantsId === selection.variantId,
+                  ) ?? product.variants?.[0];
+
+                const canEditThisCard = isCurrentProductCard
+                  ? allowVariantChanges
+                  : allowProductSwaps;
+
+                const isNoChangeSelected =
+                  isCurrentProductCard &&
+                  selection.variantId === currentVariantId &&
+                  Number(selection.quantity) === Number(currentQuantity);
+
+                return (
+                  <s-box
+                    key={product.id}
+                    border="base"
+                    borderRadius="base"
+                    padding="base"
+                  >
+                    <s-stack direction="block" gap="tight">
+                      <s-stack
+                        direction="inline"
+                        gap="tight"
+                        alignItems="center"
+                      >
+                        <s-box
+                          inlineSize="56px"
+                          blockSize="56px"
+                          borderRadius="base"
+                          overflow="hidden"
+                        >
+                          <s-image
+                            src={
+                              isCurrentProductCard
+                                ? (items[0]?.imageUrl ?? product.ProductImage)
+                                : product.ProductImage
+                            }
+                            alt={product.title}
+                          />
+                        </s-box>
+                        <s-stack direction="block" gap="none">
+                          <s-text fontWeight="bold">{product.title}</s-text>
+                          {selectedVariant?.variantsTitle && (
+                            <s-text tone="subdued">
+                              {selectedVariant.variantsTitle}
+                            </s-text>
+                          )}
+                          {selectedVariant?.price != null && (
+                            <s-text tone="subdued">
+                              ₹{selectedVariant.price}.00
+                            </s-text>
+                          )}
+                          {isCurrentProductCard && (
+                            <s-text tone="subdued">(Current product)</s-text>
+                          )}
+                        </s-stack>
+                      </s-stack>
+
+                      <s-select
+                        label="Select variant"
+                        value={selection.variantId}
+                        disabled={!canEditThisCard}
+                        onChange={(e) =>
+                          setSwapSelections((prev) => ({
+                            ...prev,
+                            [product.id]: {
+                              ...selection,
+                              variantId: e.target.value,
+                            },
+                          }))
+                        }
+                      >
+                        {(product.variants ?? []).map((v) => (
+                          <s-option key={v.variantsId} value={v.variantsId}>
+                            {v.variantsTitle}
+                          </s-option>
+                        ))}
+                      </s-select>
+
+                      <s-text-field
+                        label="Quantity"
+                        type="number"
+                        value={String(selection.quantity)}
+                        disabled={
+                          !canEditThisCard ||
+                          !allowQuantityChanges ||
+                          savingProductId != null
+                        }
+                        onInput={(e) =>
+                          setSwapSelections((prev) => ({
+                            ...prev,
+                            [product.id]: {
+                              ...selection,
+                              quantity: Math.max(
+                                1,
+                                Number(e.target.value) || 1,
+                              ),
+                            },
+                          }))
+                        }
+                      />
+
+                      <s-button
+                        variant="primary"
+                        disabled={
+                          !canEditThisCard ||
+                          savingProductId != null ||
+                          isNoChangeSelected
+                        }
+                        onClick={() => handleSwapProduct(product)}
+                      >
+                        {savingProductId === product.id ? (
+                          <s-spinner size="small" />
+                        ) : (
+                          "Swap product"
+                        )}
+                      </s-button>
+                    </s-stack>
+                  </s-box>
+                );
+              })}
+            </s-stack>
+
+            <s-button
+              slot="secondary-actions"
+              command="--hide"
+              commandFor={swapModalId}
+              disabled={savingProductId != null}
+            >
+              Close
+            </s-button>
+          </s-modal>
           <s-box border="base" borderRadius="base" padding="base">
             <s-stack direction="block" gap="base">
               <s-stack direction="block" gap="tight">
@@ -1634,48 +1688,47 @@ const visibleSwapProducts = (sub.swapOptions ?? []).filter(
                           </s-stack>
 
                           {!cycle.skipped &&
-                              (isAnyLoading ? (
-                                <s-text tone="subdued">Reschedule</s-text>
-                              ) : (
-                                <s-link
-                                  onClick={() =>
-                                    openRescheduleInsideUpcomingModal({
-                                      ...cycle,
-                                      __fromUpcomingModal: true,
-                                    })
-                                  }
-                                >
-                                  Reschedule
-                                </s-link>
-                              ))}
+                            (isAnyLoading ? (
+                              <s-text tone="subdued">Reschedule</s-text>
+                            ) : (
+                              <s-link
+                                onClick={() =>
+                                  openRescheduleInsideUpcomingModal({
+                                    ...cycle,
+                                    __fromUpcomingModal: true,
+                                  })
+                                }
+                              >
+                                Reschedule
+                              </s-link>
+                            ))}
 
-                            {canModifySubscription && (
-                              isThisLoading ? (
-                                <s-spinner size="small" />
-                              ) : cycle.skipped ? (
-                                isAnyLoading ? (
-                                  <s-text tone="subdued">Unskip</s-text>
-                                ) : (
-                                  <s-link
-                                    onClick={() =>
-                                      handleUnskip(sub.id, cycle.cycleIndex)
-                                    }
-                                  >
-                                    Unskip
-                                  </s-link>
-                                )
-                              ) : isAnyLoading ? (
-                                <s-text tone="subdued">Skip</s-text>
+                          {canModifySubscription &&
+                            (isThisLoading ? (
+                              <s-spinner size="small" />
+                            ) : cycle.skipped ? (
+                              isAnyLoading ? (
+                                <s-text tone="subdued">Unskip</s-text>
                               ) : (
                                 <s-link
                                   onClick={() =>
-                                    handleSkip(sub.id, cycle.cycleIndex)
+                                    handleUnskip(sub.id, cycle.cycleIndex)
                                   }
                                 >
-                                  Skip
+                                  Unskip
                                 </s-link>
                               )
-                            )}
+                            ) : isAnyLoading ? (
+                              <s-text tone="subdued">Skip</s-text>
+                            ) : (
+                              <s-link
+                                onClick={() =>
+                                  handleSkip(sub.id, cycle.cycleIndex)
+                                }
+                              >
+                                Skip
+                              </s-link>
+                            ))}
                         </s-stack>
                       );
                     })}
@@ -1766,13 +1819,14 @@ const visibleSwapProducts = (sub.swapOptions ?? []).filter(
                         }
                       >
                         {availablePaymentMethods.map((m) => (
-                              <s-option key={m.id} value={m.id}>
-                                {m.cardHolderName || "Card"} •••• {m.lastDigits || "----"}
-                                {m.expiryMonth && m.expiryYear
-                                  ? ` (exp ${m.expiryMonth}/${m.expiryYear})`
-                                  : ""}
-                              </s-option>
-                            ))}
+                          <s-option key={m.id} value={m.id}>
+                            {m.cardHolderName || "Card"} ••••{" "}
+                            {m.lastDigits || "----"}
+                            {m.expiryMonth && m.expiryYear
+                              ? ` (exp ${m.expiryMonth}/${m.expiryYear})`
+                              : ""}
+                          </s-option>
+                        ))}
                       </s-select>
                     )}
                   </s-stack>
