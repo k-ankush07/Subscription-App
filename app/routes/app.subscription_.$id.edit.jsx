@@ -626,7 +626,6 @@ useEffect(() => {
         handleBack();
       }
     } else if (isPriceEditSubmit) {
-      // Fail ho gaya — modal open hi rakho, error dikhao
       setPriceEditError(fetcher.data.error || "Failed to update price");
     }
   }, [fetcher.state, fetcher.data]);
