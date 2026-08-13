@@ -1230,38 +1230,25 @@ const visibleSwapProducts = (sub.swapOptions ?? []).filter(
       temporarily stop receiving orders, pause your subscription.
     </s-text>
 
-    <s-text fontWeight="bold">
-      Select a reason why you want to cancel your subscription
-    </s-text>
-
     {cancelReasonError && (
       <s-text tone="critical">{cancelReasonError}</s-text>
     )}
 
-    <s-stack direction="block" gap="tight">
+    <s-select
+      label="Select a reason"
+      value={cancelReason}
+      onChange={(e) => {
+        setCancelReason(e.target.value);
+        setCancelReasonError(null);
+      }}
+    >
+      <s-option value="">-- Select a reason --</s-option>
       {CANCEL_REASONS.map((reason) => (
-        <s-stack
-          key={reason}
-          direction="inline"
-          gap="tight"
-          alignItems="center"
-        >
-          <input
-            type="radio"
-            id={`cancel-reason-${numericId}-${reason}`}
-            name={`cancel-reason-${numericId}`}
-            checked={cancelReason === reason}
-            onChange={() => {
-              setCancelReason(reason);
-              setCancelReasonError(null);
-            }}
-          />
-          <label htmlFor={`cancel-reason-${numericId}-${reason}`}>
-            <s-text>{reason}</s-text>
-          </label>
-        </s-stack>
+        <s-option key={reason} value={reason}>
+          {reason}
+        </s-option>
       ))}
-    </s-stack>
+    </s-select>
 
     <s-text-field
       label="Tell us more (optional)"
