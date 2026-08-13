@@ -12,7 +12,8 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
-
+const API = import.meta.env.VITE_API_URL;
+const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
 function getNumericId(gid) {
   if (!gid) return null;
   return gid.split("/").pop();
@@ -89,8 +90,23 @@ export const action = async ({ request }) => {
         { status: 400, headers: CORS_HEADERS },
       );
     }
-
-    // --- email bhejna (best-effort) ---
+try {
+  await fetch(`${API}/api/subscription`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": SECRET_KEY,
+    },
+    body: JSON.stringify({
+      subscriptionId: getNumericId(subscriptionContractId),
+      contractId: subscriptionContractId,
+      cancelledBy: "customer",
+      cancelledAt: new Date().toISOString(),
+    }),
+  });
+} catch (err) {
+  console.error("[cancel] failed to record cancel source:", err.message);
+}
     try {
       if (emailData?.email) {
         const [portalBaseUrl, shopName] = await Promise.all([

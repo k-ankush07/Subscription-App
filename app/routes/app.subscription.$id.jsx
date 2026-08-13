@@ -426,7 +426,20 @@ export async function action({ request, params }) {
             "Cancel failed",
         };
       }
-
+ try {
+    await fetch(`${API}/api/subscription`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": SECRET_KEY },
+      body: JSON.stringify({
+        subscriptionId,
+        contractId,
+        cancelledBy: "merchant",
+        cancelledAt: new Date().toISOString(),
+      }),
+    });
+  } catch (err) {
+    console.error("Failed to record cancel source:", err);
+  }
       return { success: true, status: payload.contract.status };
     }
     if (type === "resume") {
