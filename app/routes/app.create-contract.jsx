@@ -257,7 +257,7 @@ export async function action({ request }) {
       currencyCode: contractDetails.currencyCode,
       nextBillingDate,
       contract: {
-        status: "ACTIVE",
+        status: "PAUSED",
         note: "Created from app UI",
         paymentMethodId: paymentMethodId || undefined,
         billingPolicy: {

@@ -265,7 +265,106 @@ function CreateSubscription({ currencyCode, shop }) {
     }
   };
 
-  const handleSubmit = async () => {
+  // const handleSubmit = async () => {
+  //   if (selectedProducts.length === 0) {
+  //     setProductError(true);
+  //     return;
+  //   }
+  //   setProductError(false);
+  //   setSaveError(null);
+  //   setDeliveryError(null);
+
+  //   if (isDigitalProduct) {
+  //     const missing =
+  //       !address1.trim() ||
+  //       !city.trim() ||
+  //       !province.trim() ||
+  //       !zip.trim() ||
+  //       !country.trim();
+
+  //     if (missing) {
+  //       const firstProductTitle = selectedProducts[0]?.title || "This product";
+  //       setDeliveryError(
+  //         `"${firstProductTitle}" requires shipping information`,
+  //       );
+  //       return;
+  //     }
+  //   }
+
+  //   const contractDetails = {
+  //     nextOrderDate,
+  //     nextOrderTime,
+  //     nextBillingDateISO: new Date(`${nextOrderDate}T${nextOrderTime}:00`).toISOString(),
+  //     currencyCode,
+  //     billingType,
+  //     intervalCount,
+  //     interval,
+  //     billingFrequency: intervalCount,
+  //     billingInterval: interval,
+  //     minOrders,
+  //     maxOrders,
+  //     giveDiscount,
+  //     discountAmount,
+  //     discountType,
+  //     changeDiscountAfterOrders,
+  //     afterOrders,
+  //     discountAmount2,
+  //     discountType2,
+  //   };
+
+  //   const selectedCard = paymentMethods.find(
+  //     (pm) => pm.id === selectedPaymentMethod,
+  //   );
+
+  //   const paymentMethod = selectedCard
+  //     ? {
+  //         id: selectedCard.id,
+  //         name: selectedCard.instrument?.name || "",
+  //         brand: selectedCard.instrument?.brand || "",
+  //         lastDigits: selectedCard.instrument?.lastDigits || "",
+  //         expiryMonth: selectedCard.instrument?.expiryMonth || "",
+  //         expiryYear: selectedCard.instrument?.expiryYear || "",
+  //       }
+  //     : null;
+
+  //   const customer = {
+  //     customerId,
+  //     customerEmail,
+  //     firstName,
+  //     lastName,
+  //     phoneNumber,
+  //     company,
+  //     paymentMethod,
+  //   };
+
+  //   const delivery = {
+  //     isDigitalProduct,
+  //     address1: isDigitalProduct ? address1 : "",
+  //     address2: isDigitalProduct ? address2 : "",
+  //     country: isDigitalProduct ? country : "",
+  //     province: isDigitalProduct ? province : "",
+  //     city: isDigitalProduct ? city : "",
+  //     zip: isDigitalProduct ? zip : "",
+  //     deliveryPrice,
+  //     deliveryMethodTitle,
+  //   };
+
+  //   const payload = {
+  //     shop,
+  //     contractDetails,
+  //     customer,
+  //     delivery,
+  //     products: selectedProducts,
+  //   };
+
+  //   setIsSaving(true);
+  //   createFetcher.submit(
+  //     { payload: JSON.stringify(payload) },
+  //     { method: "post" },
+  //   );
+  // };
+
+const handleSubmit = async () => {
     if (selectedProducts.length === 0) {
       setProductError(true);
       return;
@@ -274,21 +373,28 @@ function CreateSubscription({ currencyCode, shop }) {
     setSaveError(null);
     setDeliveryError(null);
 
-    if (isDigitalProduct) {
-      const missing =
-        !address1.trim() ||
-        !city.trim() ||
-        !province.trim() ||
-        !zip.trim() ||
-        !country.trim();
+    // 1. Customer must be selected
+    if (!customerId) {
+      setSaveError("Please select a customer before saving.");
+      return;
+    }
 
-      if (missing) {
-        const firstProductTitle = selectedProducts[0]?.title || "This product";
-        setDeliveryError(
-          `"${firstProductTitle}" requires shipping information`,
-        );
-        return;
-      }
+    const missing =
+      !address1.trim() ||
+      !address2.trim() ||
+      !city.trim() ||
+      !province.trim() ||
+      !zip.trim() ||
+      !country.trim() ||
+      !deliveryPrice.toString().trim() ||
+      Number(deliveryPrice) <= 0;
+
+    if (missing) {
+      const firstProductTitle = selectedProducts[0]?.title || "This product";
+      setDeliveryError(
+        `"${firstProductTitle}" requires complete delivery information (address, country, province, city, zip, and price).`,
+      );
+      return;
     }
 
     const contractDetails = {
@@ -339,12 +445,12 @@ function CreateSubscription({ currencyCode, shop }) {
 
     const delivery = {
       isDigitalProduct,
-      address1: isDigitalProduct ? address1 : "",
-      address2: isDigitalProduct ? address2 : "",
-      country: isDigitalProduct ? country : "",
-      province: isDigitalProduct ? province : "",
-      city: isDigitalProduct ? city : "",
-      zip: isDigitalProduct ? zip : "",
+      address1,
+      address2,
+      country,
+      province,
+      city,
+      zip,
       deliveryPrice,
       deliveryMethodTitle,
     };
@@ -362,8 +468,9 @@ function CreateSubscription({ currencyCode, shop }) {
       { payload: JSON.stringify(payload) },
       { method: "post" },
     );
-  };
-const maxDate = getMaxOrderDate(interval, intervalCount);
+};
+
+  const maxDate = getMaxOrderDate(interval, intervalCount);
   useEffect(() => {
     if (createFetcher.state !== "idle" || !createFetcher.data) return;
 
@@ -372,10 +479,16 @@ const maxDate = getMaxOrderDate(interval, intervalCount);
     if (createFetcher.data.success) {
       setSaveSuccess(true);
       if (createFetcher.data.warning) {
-        // Shopify me contract ban gaya, lekin Node API store fail hua
         setSaveError(createFetcher.data.warning);
       }
+      const contractGid = createFetcher.data.subscription?.id; 
+    const numericId = contractGid ? contractGid.split("/").pop() : null;
       navigate("/app/subscriptions");
+      if (numericId) {
+      navigate(`/app/subscription/${numericId}`);
+    } else {
+      navigate("/app/subscriptions");
+    }
     } else {
       const msg =
         createFetcher.data.errors?.map((e) => e.message).join(", ") ||
@@ -792,7 +905,11 @@ useEffect(() => {
           checked={isDigitalProduct}
           onChange={(checked) => setIsDigitalProduct(checked)}
         />
-
+{deliveryError && (
+  <p style={{ color: "#d82c0d", fontSize: "13px", marginTop: "4px" }}>
+    {deliveryError}
+  </p>
+)}
         {isDigitalProduct && (
           <>
             <div style={{ display: "flex", gap: "12px", marginTop: "12px" }}>
@@ -852,13 +969,6 @@ useEffect(() => {
               </div>
             </div>
 
-            {deliveryError && (
-              <div style={{ marginTop: "12px" }}>
-                <Banner tone="critical">
-                  <p>{deliveryError}</p>
-                </Banner>
-              </div>
-            )}
 
             <div style={{ marginTop: "12px" }}>
               <TextField

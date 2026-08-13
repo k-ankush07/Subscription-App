@@ -213,22 +213,51 @@ export default function SubscriptionDetail() {
     fetcher.submit({ type: "cancel" }, { method: "post" });
   };
 
+  // const handleReschedule = (cycle) => {
+  //   if (!editDate) {
+  //     return;
+  //   }
+  //   fetcher.submit(
+  //     {
+  //       type: "reschedule",
+  //       cycleIndex: cycle.cycleIndex,
+  //       newDate: editDate,
+  //       originalDate: cycle.billingAttemptExpectedDate,
+  //     },
+  //     { method: "post" },
+  //   );
+  //   setEditingCycleIndex(null);
+  //   setEditDate("");
+  // };
+  
   const handleReschedule = (cycle) => {
-    if (!editDate) {
-      return;
-    }
-    fetcher.submit(
-      {
-        type: "reschedule",
-        cycleIndex: cycle.cycleIndex,
-        newDate: editDate,
-        originalDate: cycle.billingAttemptExpectedDate,
-      },
-      { method: "post" },
-    );
-    setEditingCycleIndex(null);
-    setEditDate("");
-  };
+  if (!editDate) {
+    return;
+  }
+
+  // Original cycle ka time-of-day (browser/local timezone me) nikal lo,
+  // taaki sirf date badle, time wahi rahe jo pehle set tha
+  const originalDate = new Date(cycle.billingAttemptExpectedDate);
+  const hours = String(originalDate.getHours()).padStart(2, "0");
+  const minutes = String(originalDate.getMinutes()).padStart(2, "0");
+
+  // Naya date + purana time combine karke local time se UTC ISO banao
+  const newDateTimeISO = new Date(
+    `${editDate}T${hours}:${minutes}:00`,
+  ).toISOString();
+
+  fetcher.submit(
+    {
+      type: "reschedule",
+      cycleIndex: cycle.cycleIndex,
+      newDate: newDateTimeISO,          
+      originalDate: cycle.billingAttemptExpectedDate,
+    },
+    { method: "post" },
+  );
+  setEditingCycleIndex(null);
+  setEditDate("");
+};
   const handleRemoveBaseLine = ({ productId, variantId }) => {
     const confirmed = confirm(
       "Remove this product from the upcoming order? It won't be applied to the next order.",
