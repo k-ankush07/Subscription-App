@@ -38,7 +38,7 @@ export const action = async ({ request }) => {
 
     const body = await request.json();
     const subscriptionContractId = body.subscriptionContractId;
-
+const cancelReason = body.reason || "";
     if (!subscriptionContractId) {
       return Response.json(
         { error: "subscriptionContractId is required" },
@@ -102,6 +102,7 @@ try {
       contractId: subscriptionContractId,
       cancelledBy: "customer",
       cancelledAt: new Date().toISOString(),
+      cancelReason,
     }),
   });
 } catch (err) {

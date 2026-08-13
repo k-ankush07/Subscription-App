@@ -5,6 +5,25 @@ import { COUNTRIES } from "../../../app/routes/utils/countries";
 
 const API_BASE = "https://prepaid-cindy-weed-saturn.trycloudflare.com";
 const PAGE_SIZE = 7;
+const CANCEL_REASONS = [
+  "Too expensive",
+  "Found a better deal elsewhere",
+  "The product/service isn't worth the price",
+  "I wasn't using it enough",
+  "I only needed it for a short time",
+  "My needs have changed",
+  "The product didn't meet my expectations",
+  "I had issues with product quality or performance",
+  "I had trouble using the product",
+  "I had issues with customer support",
+  "Delivery or fulfillment was unreliable",
+  "The website or app was difficult to use",
+  "I switched to another brand/service",
+  "I already have a similar product",
+  "I'm taking a break / going on vacation",
+  "Financial reasons or budgeting",
+  "Other (please specify)",
+];
 
 export default async () => {
   render(<Extension />, document.body);
@@ -486,6 +505,10 @@ const [swapError, setSwapError] = useState(null);
   const [cancelLoading, setCancelLoading] = useState(false);
   const cancelModalRef = useRef(null);
 
+
+  const [cancelReason, setCancelReason] = useState("");
+const [cancelReasonNote, setCancelReasonNote] = useState("");
+const [cancelReasonError, setCancelReasonError] = useState(null);
   const [rescheduleCycle, setRescheduleCycle] = useState(null);
   const [rescheduleDate, setRescheduleDate] = useState("");
   const [rescheduleSaving, setRescheduleSaving] = useState(false);
@@ -664,39 +687,88 @@ const [swapError, setSwapError] = useState(null);
     }
   }
 
+  // async function handleCancel() {
+  //   if (cancelLoading) return;
+  //   try {
+  //     setCancelLoading(true);
+  //     const token = await shopify.sessionToken.get();
+  //     const res = await fetch(`${API_BASE}/api/subscriptions/cancel`, {
+  //       method: "POST",
+  //       headers: {
+  //         Authorization: `Bearer ${token}`,
+  //         "Content-Type": "application/json",
+  //       },
+  //       body: JSON.stringify({ subscriptionContractId: sub.id }),
+  //     });
+
+  //     const data = await res.json();
+  //     if (!res.ok || !data.success) {
+  //       throw new Error(data.error || "Cancel failed");
+  //     }
+
+  //     setStatus(data.subscription?.status || "CANCELLED");
+  //     shopify.toast.show("Subscription cancelled");
+  //     cancelModalRef.current?.hide?.();
+
+  //     refreshSubscriptions().catch((err) =>
+  //       console.error("Background refresh after cancel failed:", err),
+  //     );
+  //   } catch (err) {
+  //     console.error(err);
+  //     shopify.toast.show(err.message);
+  //   } finally {
+  //     setCancelLoading(false);
+  //   }
+  // }
   async function handleCancel() {
-    if (cancelLoading) return;
-    try {
-      setCancelLoading(true);
-      const token = await shopify.sessionToken.get();
-      const res = await fetch(`${API_BASE}/api/subscriptions/cancel`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ subscriptionContractId: sub.id }),
-      });
+  if (cancelLoading) return;
 
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || "Cancel failed");
-      }
-
-      setStatus(data.subscription?.status || "CANCELLED");
-      shopify.toast.show("Subscription cancelled");
-      cancelModalRef.current?.hide?.();
-
-      refreshSubscriptions().catch((err) =>
-        console.error("Background refresh after cancel failed:", err),
-      );
-    } catch (err) {
-      console.error(err);
-      shopify.toast.show(err.message);
-    } finally {
-      setCancelLoading(false);
-    }
+  if (!cancelReason) {
+    setCancelReasonError("Please select a reason");
+    return;
   }
+
+  const finalReason = cancelReasonNote.trim()
+    ? `${cancelReason}; ${cancelReasonNote.trim()}`
+    : cancelReason;
+
+  try {
+    setCancelLoading(true);
+    setCancelReasonError(null);
+    const token = await shopify.sessionToken.get();
+    const res = await fetch(`${API_BASE}/api/subscriptions/cancel`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        subscriptionContractId: sub.id,
+        reason: finalReason,
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || "Cancel failed");
+    }
+
+    setStatus(data.subscription?.status || "CANCELLED");
+    shopify.toast.show("Subscription cancelled");
+    cancelModalRef.current?.hide?.();
+    setCancelReason("");
+    setCancelReasonNote("");
+
+    refreshSubscriptions().catch((err) =>
+      console.error("Background refresh after cancel failed:", err),
+    );
+  } catch (err) {
+    console.error(err);
+    shopify.toast.show(err.message);
+  } finally {
+    setCancelLoading(false);
+  }
+}
 
   function openRescheduleModal(cycle) {
     if (!cycle || loadingCycleIndex != null) return;
@@ -1147,33 +1219,81 @@ const visibleSwapProducts = (sub.swapOptions ?? []).filter(
 </s-box>
 
           <s-modal
-            id={`cancel-modal-${numericId}`}
-            ref={cancelModalRef}
-            heading="Cancel subscription"
-          >
-            <s-text>
-              Are you sure you want to cancel this subscription? This action
-              can't be undone.
-            </s-text>
+  id={`cancel-modal-${numericId}`}
+  ref={cancelModalRef}
+  heading="Cancel subscription"
+>
+  <s-stack direction="block" gap="base">
+    <s-text tone="subdued">
+      If you cancel your subscription, billing and delivery will end
+      immediately. Canceling a subscription cannot be undone. To
+      temporarily stop receiving orders, pause your subscription.
+    </s-text>
 
-            <s-button
-              slot="primary-action"
-              variant="primary"
-              tone="critical"
-              disabled={cancelLoading}
-              onClick={handleCancel}
-            >
-              {cancelLoading ? <s-spinner size="small" /> : "Yes, cancel"}
-            </s-button>
-            <s-button
-              slot="secondary-actions"
-              command="--hide"
-              commandFor={`cancel-modal-${numericId}`}
-              disabled={cancelLoading}
-            >
-              Keep subscription
-            </s-button>
-          </s-modal>
+    <s-text fontWeight="bold">
+      Select a reason why you want to cancel your subscription
+    </s-text>
+
+    {cancelReasonError && (
+      <s-text tone="critical">{cancelReasonError}</s-text>
+    )}
+
+    <s-stack direction="block" gap="tight">
+      {CANCEL_REASONS.map((reason) => (
+        <s-stack
+          key={reason}
+          direction="inline"
+          gap="tight"
+          alignItems="center"
+        >
+          <input
+            type="radio"
+            id={`cancel-reason-${numericId}-${reason}`}
+            name={`cancel-reason-${numericId}`}
+            checked={cancelReason === reason}
+            onChange={() => {
+              setCancelReason(reason);
+              setCancelReasonError(null);
+            }}
+          />
+          <label htmlFor={`cancel-reason-${numericId}-${reason}`}>
+            <s-text>{reason}</s-text>
+          </label>
+        </s-stack>
+      ))}
+    </s-stack>
+
+    <s-text-field
+      label="Tell us more (optional)"
+      placeholder="Tell us more"
+      value={cancelReasonNote}
+      onInput={(e) => setCancelReasonNote(e.target.value)}
+    />
+  </s-stack>
+
+  <s-button
+    slot="primary-action"
+    variant="primary"
+    tone="critical"
+    disabled={cancelLoading}
+    onClick={handleCancel}
+  >
+    {cancelLoading ? <s-spinner size="small" /> : "Yes, cancel"}
+  </s-button>
+  <s-button
+    slot="secondary-actions"
+    command="--hide"
+    commandFor={`cancel-modal-${numericId}`}
+    disabled={cancelLoading}
+    onClick={() => {
+      setCancelReason("");
+      setCancelReasonNote("");
+      setCancelReasonError(null);
+    }}
+  >
+    Keep subscription
+  </s-button>
+</s-modal>
 
 <s-modal id={swapModalId} ref={swapModalRef} heading="Swap product">
   <s-stack direction="block" gap="base">
