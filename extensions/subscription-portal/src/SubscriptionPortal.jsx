@@ -3,7 +3,7 @@ import { render } from "preact";
 import { useState, useEffect, useCallback, useRef } from "preact/hooks";
 import { COUNTRIES } from "../../../app/routes/utils/countries";
 
-const API_BASE = "https://jeffrey-lined-swing-dive.trycloudflare.com";
+const API_BASE = "https://bye-graduated-reason-qualities.trycloudflare.com";
 const PAGE_SIZE = 7;
 const CANCEL_REASONS = [
   "Too expensive",
@@ -1186,12 +1186,13 @@ const visibleSwapProducts = (sub.swapOptions ?? []).filter(
                 </s-button>
               ) : (
                 <s-button
-                  variant="secondary"
-                  disabled={pauseResumeLoading}
-                  onClick={handlePause}
-                >
-                  {pauseResumeLoading ? <s-spinner size="small" /> : "Pause"}
-                </s-button>
+  variant="secondary"
+  command="--show"
+  commandFor={`pause-modal-${numericId}`}
+  disabled={pauseResumeLoading}
+>
+  {pauseResumeLoading ? <s-spinner size="small" /> : "Pause"}
+</s-button>
               )}
            
 

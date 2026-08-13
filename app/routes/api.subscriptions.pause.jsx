@@ -124,7 +124,6 @@
 //   }
 // };
 
-
 import { authenticate, unauthenticated } from "../shopify.server";
 import { sendMail } from "../lib/mailer.server";
 import { buildPauseEmail } from "../lib/email-templates/subscription-emails.server";
@@ -140,7 +139,6 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
-// 👇 ADD KARO — top par, imports ke baad
 const API = process.env.VITE_API_URL || import.meta.env.VITE_API_URL;
 const SECRET_KEY = process.env.VITE_API_SECRET_KEY || import.meta.env.VITE_API_SECRET_KEY;
 
@@ -166,7 +164,7 @@ export const action = async ({ request }) => {
     const { admin } = await unauthenticated.admin(shop);
 
     const body = await request.json().catch(() => ({}));
-    const { subscriptionContractId, reason } = body;   // 👈 reason bhi liya
+    const { subscriptionContractId, reason } = body;
 
     if (!subscriptionContractId) {
       return Response.json(
@@ -210,31 +208,43 @@ export const action = async ({ request }) => {
 
     const contract = data?.subscriptionContractPause?.contract;
 
-   try {
-  await fetch(`${API}/api/subscription`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-api-key": SECRET_KEY },
-    body: JSON.stringify({
-      subscriptionId: getNumericId(subscriptionContractId),
-      contractId: subscriptionContractId,
-      actionType: "paused",
-      actionBy: "customer",
-      actionAt: new Date().toISOString(),
-      actionReason: reason || "",
-    }),
-  });
-} catch (err) {
-  console.error("[pause] failed to record action:", err.message);
-}
-
-    // --- email bhejna (best-effort — fail ho bhi jaye to pause response fail nahi hona chahiye) ---
+    // 👇 FIX: emailData ko sabse pehle fetch karo, taaki DB-update aur email-send
+    // dono isi ek variable ko reuse kar saken — pehle yeh block neeche tha,
+    // isliye emailData undefined hone se DB update hi silently fail ho raha tha
+    let emailData = null;
+    let portalBaseUrl = null;
+    let shopName = null;
     try {
-      const [emailData, portalBaseUrl, shopName] = await Promise.all([
+      [emailData, portalBaseUrl, shopName] = await Promise.all([
         getContractEmailData(admin, subscriptionContractId),
         getCustomerPortalBaseUrl(admin),
         getShopName(admin),
       ]);
+    } catch (fetchErr) {
+      console.error("[pause] pre-fetch for email/DB failed:", fetchErr.message);
+    }
 
+    // --- DB record update ---
+    try {
+      await fetch(`${API}/api/subscription`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-api-key": SECRET_KEY },
+        body: JSON.stringify({
+          subscriptionId: getNumericId(subscriptionContractId),
+          contractId: subscriptionContractId,
+          actionType: "paused",
+          actionBy: "customer",
+          actionAt: new Date().toISOString(),
+          actionReason: reason || "",
+          customerEmail: emailData?.email || "",
+        }),
+      });
+    } catch (err) {
+      console.error("[pause] failed to record action:", err.message);
+    }
+
+    // --- email bhejna (best-effort — fail ho bhi jaye to pause response fail nahi hona chahiye) ---
+    try {
       if (emailData?.email && portalBaseUrl) {
         const { subject, html } = buildPauseEmail({
           customerName: emailData.customerName,

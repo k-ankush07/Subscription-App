@@ -101,6 +101,7 @@ try {
       actionBy: "customer",       // customer portal se cancel ho raha hai, "merchant" galat tha
       actionAt: new Date().toISOString(),
       actionReason: cancelReason,  // yeh missing tha — ab reason bhi save hoga
+      customerEmail: emailData?.email || "",
     }),
   });
 } catch (err) {
