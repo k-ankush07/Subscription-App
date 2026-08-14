@@ -15,101 +15,131 @@ import { currencySymbol } from "./utils/formatMoney.js";
 import { formatDate } from "./utils/formatDate.js";
 import { PaginationBar } from "./components/PaginationBar";
 
-const PAGE_SIZE = 10;
-const ORDERS_PER_CONTRACT = 50; // ek contract se max kitne orders khinchne hain
+const PAGE_SIZE = 20;
+const ORDERS_PER_CONTRACT = 50;
+const CONTRACT_BATCH_SIZE = 25; // ek GraphQL call me kitne contracts khinchne hain
 
-// Har subscription contract ke andar uski "orders" connection hoti hai
-// (SubscriptionContract.orders) — yahi se hume asli generated orders milte hain.
-async function fetchAllContractsWithOrders(admin) {
-  let allRows = [];
-  let hasNextPage = true;
-  let cursor = null;
-
-  while (hasNextPage) {
-    const res = await admin.graphql(
-      `
-      query getContractsWithOrders($cursor: String) {
-        subscriptionContracts(first: 50, after: $cursor, reverse: true) {
-          edges {
-            node {
-              id
-              status
-              customer {
-                email
-                firstName
-                lastName
-              }
-              orders(first: ${ORDERS_PER_CONTRACT}, reverse: true) {
-                edges {
-                  node {
-                    id
-                    name
-                    createdAt
-                    displayFinancialStatus
-                    totalPriceSet {
-                      shopMoney {
-                        amount
-                        currencyCode
-                      }
-                    }
+const CONTRACTS_WITH_ORDERS_QUERY = `
+  query getContractsWithOrders($cursor: String, $batchSize: Int!) {
+    subscriptionContracts(first: $batchSize, after: $cursor, reverse: true) {
+      edges {
+        node {
+          id
+          status
+          customer {
+            email
+            firstName
+            lastName
+          }
+          orders(first: ${ORDERS_PER_CONTRACT}, reverse: true) {
+            edges {
+              node {
+                id
+                name
+                createdAt
+                displayFinancialStatus
+                totalPriceSet {
+                  shopMoney {
+                    amount
+                    currencyCode
                   }
                 }
               }
             }
           }
-          pageInfo {
-            hasNextPage
-            endCursor
-          }
         }
       }
-      `,
-      { variables: { cursor } },
-    );
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+    }
+  }
+`;
+
+function flattenContractEdges(edges) {
+  const rows = [];
+  for (const edge of edges) {
+    const contract = edge.node;
+    const contractNumericId = contract.id.split("/").pop();
+    // orders(reverse:true) => naya order pehle; cycle number ke liye ascending order chahiye.
+    const orderNodes = contract.orders.edges.map((e) => e.node).reverse();
+
+    orderNodes.forEach((order, cycleIndex) => {
+      rows.push({
+        orderId: order.id,
+        orderNumericId: order.id.split("/").pop(),
+        orderName: order.name,
+        contractId: contract.id,
+        contractNumericId,
+        email: contract.customer?.email ?? "-",
+        customerName:
+          `${contract.customer?.firstName || ""} ${contract.customer?.lastName || ""}`.trim(),
+        price: order.totalPriceSet?.shopMoney?.amount ?? "0.00",
+        currencyCode: order.totalPriceSet?.shopMoney?.currencyCode ?? "USD",
+        cycle: cycleIndex,
+        status: contract.status,
+        financialStatus: order.displayFinancialStatus,
+        createdAt: order.createdAt,
+      });
+    });
+  }
+  return rows;
+}
+
+// Sirf utne contracts fetch karta hai jitne "neededRows" order-rows jama karne ke
+// liye zaroori hain — poore store ko har baar walk NAHI karta. Isi se speed fix hoti hai.
+async function fetchOrderRowsUpTo(admin, { neededRows }) {
+  let rows = [];
+  let cursor = null;
+  let hasMoreContracts = true;
+
+  while (rows.length < neededRows && hasMoreContracts) {
+    const res = await admin.graphql(CONTRACTS_WITH_ORDERS_QUERY, {
+      variables: { cursor, batchSize: CONTRACT_BATCH_SIZE },
+    });
     const data = await res.json();
     const result = data.data.subscriptionContracts;
 
-    for (const edge of result.edges) {
-      const contract = edge.node;
-      const contractNumericId = contract.id.split("/").pop();
-      // orders(reverse:true) => sabse naya order pehle aata hai.
-      // Cycle number nikalne ke liye ascending order chahiye (0 = sabse pehla order).
-      const orderNodes = contract.orders.edges.map((e) => e.node).reverse();
+    rows = rows.concat(flattenContractEdges(result.edges));
 
-      orderNodes.forEach((order, cycleIndex) => {
-        allRows.push({
-          orderId: order.id,
-          orderNumericId: order.id.split("/").pop(),
-          orderName: order.name,
-          contractId: contract.id,
-          contractNumericId,
-          email: contract.customer?.email ?? "-",
-          customerName:
-            `${contract.customer?.firstName || ""} ${contract.customer?.lastName || ""}`.trim(),
-          price: order.totalPriceSet?.shopMoney?.amount ?? "0.00",
-          currencyCode: order.totalPriceSet?.shopMoney?.currencyCode ?? "USD",
-          cycle: cycleIndex,
-          status: contract.status,
-          financialStatus: order.displayFinancialStatus,
-          createdAt: order.createdAt,
-        });
-      });
-    }
-
-    hasNextPage = result.pageInfo.hasNextPage;
+    hasMoreContracts = result.pageInfo.hasNextPage;
     cursor = result.pageInfo.endCursor;
   }
 
-  // Sabse naya order sabse upar
-  allRows.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-  return allRows;
+  // Sabse naya order sabse upar (jitna data ab tak khincha hai usi ke andar sort)
+  rows.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  return { rows, hasMoreContracts };
+}
+
+// Search me poora data chahiye (filter kisi bhi row par match ho sakta hai) —
+// isliye ye path pura scan karta hai, sirf tab jab user search karta hai.
+async function fetchAllContractsWithOrders(admin) {
+  const { rows } = await fetchOrderRowsUpTo(admin, { neededRows: Infinity });
+  return rows;
 }
 
 export async function loader({ request }) {
   const { admin, session } = await authenticate.admin(request);
   const shop = session.shop.replace(".myshopify.com", "");
-  const rows = await fetchAllContractsWithOrders(admin);
-  return { rows, shop };
+  const url = new URL(request.url);
+  const q = url.searchParams.get("q");
+
+  if (q) {
+    const rows = await fetchAllContractsWithOrders(admin);
+    return { mode: "search", rows, shop };
+  }
+
+  const page = parseInt(url.searchParams.get("page") || "1", 10);
+  // +1 extra row fetch karke pata chal jata hai ki agla page hai ya nahi.
+  const { rows, hasMoreContracts } = await fetchOrderRowsUpTo(admin, {
+    neededRows: page * PAGE_SIZE + 1,
+  });
+
+  const pageRows = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const hasNextPage = rows.length > page * PAGE_SIZE || hasMoreContracts;
+
+  return { mode: "page", rows: pageRows, page, hasNextPage, shop };
 }
 
 function statusBadge(status) {
@@ -127,15 +157,20 @@ function statusBadge(status) {
 }
 
 function SubscriptionOrders() {
-  const { rows, shop } = useLoaderData();
+  const loaderData = useLoaderData();
+  const { shop } = loaderData;
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchValue, setSearchValue] = useState(searchParams.get("q") || "");
 
+  const isSearchMode = loaderData.mode === "search";
+
+  // Search mode: poora dataset aaya hai, isliye client-side filter + paginate karte hain.
   const filteredRows = useMemo(() => {
+    if (!isSearchMode) return [];
     const search = searchValue.trim().toLowerCase();
-    if (!search) return rows;
-    return rows.filter((r) => {
+    if (!search) return loaderData.rows;
+    return loaderData.rows.filter((r) => {
       return (
         r.orderNumericId.includes(search) ||
         r.contractNumericId.includes(search) ||
@@ -143,14 +178,27 @@ function SubscriptionOrders() {
         r.orderName?.toLowerCase().includes(search)
       );
     });
-  }, [rows, searchValue]);
+  }, [isSearchMode, loaderData.rows, searchValue]);
 
   const page = parseInt(searchParams.get("page") || "1", 10);
-  const totalItems = filteredRows.length;
-  const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
-  const safePage = Math.min(page, totalPages);
-  const startIndex = (safePage - 1) * PAGE_SIZE;
-  const paginatedRows = filteredRows.slice(startIndex, startIndex + PAGE_SIZE);
+
+  let paginatedRows, safePage, totalPages, totalItems, hasNextPage;
+
+  if (isSearchMode) {
+    totalItems = filteredRows.length;
+    totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+    safePage = Math.min(page, totalPages);
+    const startIndex = (safePage - 1) * PAGE_SIZE;
+    paginatedRows = filteredRows.slice(startIndex, startIndex + PAGE_SIZE);
+    hasNextPage = safePage < totalPages;
+  } else {
+    // Page mode: loader ne sirf isi page ke rows bheje hain (server-side paginated).
+    paginatedRows = loaderData.rows;
+    safePage = loaderData.page;
+    totalItems = undefined; // total count nahi pata (poora store scan nahi kiya)
+    hasNextPage = loaderData.hasNextPage;
+    totalPages = safePage + (hasNextPage ? 1 : 0);
+  }
 
   const handleSearchChange = useCallback(
     (value) => {
@@ -253,7 +301,7 @@ function SubscriptionOrders() {
                 const next = new URLSearchParams(searchParams);
                 if (p === 1) next.delete("page");
                 else next.set("page", p);
-                setSearchParams(next, { replace: false });
+                setSearchParams(next, { replace: isSearchMode });
               }}
             />
           </div>
