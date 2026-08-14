@@ -2,7 +2,7 @@ import { currencySymbol } from "../routes/utils/formatMoney.js";
 
 const EXTRA_SETTINGS_NAMESPACE = "subscription_app";
 // const CONTRACT_SETTINGS_SNAPSHOTS_KEY = "contract_settings_snapshots";
-const PRODUCT_CATALOG_KEY = "product_catalog_snapshot";
+// const PRODUCT_CATALOG_KEY = "product_catalog_snapshot";
 
 
 
@@ -26,114 +26,6 @@ function contractSnapshotKey(contractId) {
   const numericId = String(contractId).split("/").pop();
   return `contract_snapshot_${numericId}`;
 }
-
-// async function getContractSettingsSnapshot(admin, contractId, shopId = null) {
-//   try {
-//     const key = contractSnapshotKey(contractId);
-//     const res = await admin.graphql(
-//       `
-//       query getContractSnapshot($namespace: String!, $key: String!) {
-//         shop { metafield(namespace: $namespace, key: $key) { value } }
-//       }
-//       `,
-//       { variables: { namespace: EXTRA_SETTINGS_NAMESPACE, key } },
-//     );
-//     const data = await res.json();
-//     if (data.errors) {
-//       console.warn(`[getContractSettingsSnapshot] query failed: ${data.errors[0]?.message}`);
-//       return null;
-//     }
-
-//     const raw = data.data?.shop?.metafield?.value;
-//     if (!raw) return null;
-
-//     const parsed = JSON.parse(raw);
-//     const settings = parsed?.settings ?? null;
-//     if (!settings) return null;
-
-//     if (settings.products === undefined) {
-//       settings.products = await readProductCatalog(admin);
-//     }
-
-//     return settings;
-//   } catch (err) {
-//     console.warn(`[getContractSettingsSnapshot] failed for ${contractId}:`, err);
-//     return null;
-//   }
-// }
-
-// async function snapshotContractSettings(
-//   admin,
-//   contractId,
-//   settings,
-//   shopId = null,
-// ) {
-//   if (!settings) {
-//     console.warn(
-//       `[snapshotContractSettings] no settings to snapshot for ${contractId} — skipping`,
-//     );
-//     return { snapshotted: false };
-//   }
-
-//   const resolvedShopId = shopId ?? (await getShopIdForSnapshot(admin));
-//   if (!resolvedShopId) {
-//     console.warn(
-//       `[snapshotContractSettings] could not resolve shop id — skipping snapshot for ${contractId}`,
-//     );
-//     return { snapshotted: false };
-//   }
-
-//   const { products, ...settingsWithoutCatalog } = settings;
-//   if (Array.isArray(products) && products.length > 0) {
-//     try {
-//       await writeProductCatalog(admin, resolvedShopId, products);
-//     } catch (err) {
-//       console.warn(
-//         `[snapshotContractSettings] writeProductCatalog failed for ${contractId}:`,
-//         err,
-//       );
-//     }
-//   }
-
-//   const key = contractSnapshotKey(contractId);
-//   const value = JSON.stringify({
-//     contractId,
-//     settings: settingsWithoutCatalog,
-//     capturedAt: new Date().toISOString(),
-//   });
-
-//   if (value.length > 1_900_000) {
-//     console.warn(
-//       `[snapshotContractSettings] payload too large (${value.length} chars) for ${contractId} — skipping`,
-//     );
-//     return { snapshotted: false, error: "Settings payload too large to store" };
-//   }
-
-//   const res = await admin.graphql(
-//     `
-//     mutation setContractSnapshot($metafields: [MetafieldsSetInput!]!) {
-//       metafieldsSet(metafields: $metafields) { userErrors { field message } }
-//     }
-//     `,
-//     {
-//       variables: {
-//         metafields: [{
-//           ownerId: resolvedShopId,
-//           namespace: EXTRA_SETTINGS_NAMESPACE,
-//           key,
-//           type: "json",
-//           value,
-//         }],
-//       },
-//     },
-//   );
-//   const data = await res.json();
-//   const errors = data.data?.metafieldsSet?.userErrors;
-//   if (errors?.length) {
-//     throw new Error(`snapshotContractSettings failed: ${errors[0].message}`);
-//   }
-//   return { snapshotted: true };
-// }
 
 async function getContractSettingsSnapshot(admin, contractId, shopId = null) {
   try {
@@ -325,11 +217,6 @@ function sortActionsForApply(actions) {
 }
 function resolveDiscountForCycle(settings, pricingPolicy, cycleIndex) {
   cycleIndex = Number(cycleIndex);
-
-  // const customActive =
-  //   settings?.changeDiscountAfterOrders &&
-  //   cycleIndex >= Number(settings.afterOrders) &&
-  //   Number(settings.afterDiscountValue) > 0;
    const useStrictThreshold = !!settings?.useStrictAfterOrders;
 
   const customActive =
@@ -350,9 +237,6 @@ function resolveDiscountForCycle(settings, pricingPolicy, cycleIndex) {
     };
   }
 
-  // Custom "after" discount isn't active (either not configured, or we haven't hit the threshold yet).
-  // Fall back to the native selling-plan discount tier, unless the merchant explicitly removed it
-  // for this contract.
   if (!settings?.beforeDiscountDisabled) {
     const nativeTier = getDiscountTierForCycle(pricingPolicy, cycleIndex);
     if (nativeTier) {
@@ -612,12 +496,6 @@ function collectActionsForCycle(settings, cycleIndex, pricingPolicy = null ,base
     );
   }
 
-  // if (hasSwapAction) {
-  //   return actions.filter(
-  //     (a) => a.type !== "DISCOUNT_CHANGE" && a.type !== "QUANTITY_CHANGE",
-  //   );
-  // }
-
   const hasBaseLineRemoval = actions.some(
     (a) =>
       (a.type === "REMOVE_PRODUCT" || a.type === "REMOVE_VARIANT") &&
@@ -629,9 +507,6 @@ function collectActionsForCycle(settings, cycleIndex, pricingPolicy = null ,base
       (a) => a.type !== "DISCOUNT_CHANGE" && a.type !== "VARIANT_DISCOUNT_CHANGE",
     );
   }
-  // if (hasSwapAction || hasBaseLineRemoval) {
-  //   return actions.filter((a) => a.type !== "DISCOUNT_CHANGE");
-  // }
 
   return actions;
 }
@@ -1021,11 +896,7 @@ async function applyActionsToCycle(
     admin,
     allActionVariantIds,
   );
-  // const allActionVariantIds = actions.map((a) => a.variantId).filter(Boolean);
-  // const batchedVariantData = await fetchVariantsBatch(
-  //   admin,
-  //   allActionVariantIds,
-  // );
+ 
 
   const effectiveBasePrice = await getEffectiveBasePrice(
     admin,
@@ -1694,20 +1565,7 @@ function removeLineDiscount(
     }
     return clonedSettings;
   }
-//   if (!settings) {
-//     throw new Error("removeLineDiscount: no settings configured");
-//   }
-//   const clonedSettings = JSON.parse(JSON.stringify(settings));
 
-//   if (isBaseLine) {
-//    if (discountPhase === "before") {
-//      clonedSettings.beforeDiscountDisabled = true;
-//    } else {
-//      clonedSettings.changeDiscountAfterOrders = false;
-//     clonedSettings.beforeDiscountDisabled = true;
-//    }
-//    return clonedSettings;
-//  }
 
   if (!Array.isArray(clonedSettings.automationCycles)) {
     throw new Error("removeLineDiscount: no automationCycles configured");
@@ -1776,68 +1634,6 @@ async function getEffectiveSettingsForContract(
   return await getContractSettingsSnapshot(admin, contractId, shopId);
 }
 
-// async function getContractPreview(admin, contractId) {
-//   const contractRes = await admin.graphql(
-//     `
-//     query getContract($id: ID!) {
-//       subscriptionContract(id: $id) {
-//         id
-//         status
-//         nextBillingDate
-//         deliveryPrice { amount currencyCode }
-//         billingPolicy {
-//           interval
-//           intervalCount
-//           minCycles
-//           maxCycles
-//         }
-//         customer {
-//          id
-//          displayName
-//          defaultEmailAddress{
-//           emailAddress
-//           }
-//           }
-//         lines(first: 50) {
-//           edges {
-//             node {
-//               id
-//               title
-//               quantity
-//               sellingPlanId
-//               productId
-//               variantId
-//               currentPrice { amount currencyCode }
-//               pricingPolicy {
-//                 basePrice { amount currencyCode }
-//                 cycleDiscounts {
-//                   afterCycle
-//                   adjustmentType
-//                   adjustmentValue {
-//                     ... on SellingPlanPricingPolicyPercentageValue { percentage }
-//                     ... on MoneyV2 { amount currencyCode }
-//                   }
-//                   computedPrice { amount currencyCode }
-//                 }
-//               }
-//             }
-//           }
-//         }
-//       }
-//     }
-//     `,
-//     { variables: { id: contractId } },
-//   );
-//   const contractData = await contractRes.json();
-//   const contract = contractData.data?.subscriptionContract;
-
-//   if (!contract) {
-//     console.log(`[preview] Contract not found: ${contractId}`);
-//     return null;
-//   }
-
-//   const allLines = contract.lines.edges.map((e) => e.node);
-  
 async function getContractPreview(admin, contractId, preFetchedContract = null) {
   let contract = preFetchedContract;
 
@@ -1915,7 +1711,7 @@ const firstLine = allLines[0];
   let groupId = null;
   let groupName = null;
 
-  if (sellingPlanId) {
+ if (sellingPlanId) {
     const groupsRes = await admin.graphql(`
       query {
         sellingPlanGroups(first: 100) {
@@ -1946,6 +1742,7 @@ const firstLine = allLines[0];
       break;
     }
   }
+
 
   const extraSettings = await getContractSettingsSnapshot(admin, contractId);
   const settingsSource = extraSettings

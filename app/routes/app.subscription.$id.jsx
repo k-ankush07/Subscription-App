@@ -18,12 +18,12 @@ import {
 const API = import.meta.env.VITE_API_URL;
 const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
 
-async function fetchAllBillingCycles(admin, contractId, startDate, endDate) {
+async function fetchAllBillingCycles(admin, contractId, startDate, endDate,maxCycles = 60) {
   let cycles = [];
   let cursor = null;
   let hasNextPage = true;
 
-  while (hasNextPage) {
+  while (hasNextPage && cycles.length < maxCycles) {
     const res = await admin.graphql(
       `
       query getCycles(
@@ -68,8 +68,14 @@ async function fetchAllBillingCycles(admin, contractId, startDate, endDate) {
     const edges = conn?.edges || [];
     cycles.push(...edges.map((e) => e.node));
 
-    hasNextPage = !!conn?.pageInfo?.hasNextPage && edges.length > 0;
+      hasNextPage =
+      !!conn?.pageInfo?.hasNextPage &&
+      edges.length > 0 &&
+      cycles.length < maxCycles;
     cursor = edges.length > 0 ? edges[edges.length - 1].cursor : null;
+
+    // hasNextPage = !!conn?.pageInfo?.hasNextPage && edges.length > 0;
+    // cursor = edges.length > 0 ? edges[edges.length - 1].cursor : null;
   }
 
   return cycles;
@@ -199,7 +205,7 @@ export async function loader({ request, params }) {
 
   const startDate = new Date();
   const endDateObj = new Date();
-  endDateObj.setMonth(endDateObj.getMonth() + 20);
+  endDateObj.setMonth(endDateObj.getMonth() +4 );
   const endDate = endDateObj.toISOString();
 
 const graphqlResponse = await admin.graphql(
@@ -300,7 +306,7 @@ const contract = data.data.subscriptionContract;
   // Ye teeno ek dusre se independent hain — ek saath (parallel) chalao
   const [allOrderEdges, allCycles, preview] = await Promise.all([
     fetchAllOrders(admin, contractId),
-    fetchAllBillingCycles(admin, contractId, startDate, endDate),
+    fetchAllBillingCycles(admin, contractId, startDate, endDate,60),
     getContractPreview(admin, contractId, contract),
   ]);
   contract.orders = { edges: allOrderEdges };
