@@ -15,11 +15,8 @@ import { authenticate } from "../shopify.server";
 import { formatDate } from "./utils/formatDate.js";
 
 const PAGE_SIZE = 30;
+const SEARCH_DEBOUNCE_MS = 400;
 
-// Sirf naam/email/nextOrderDate chahiye yahan — lightweight list build karne ke liye.
-// Ye poore store ke contracts ek baar walk karta hai (250 per page), isliye
-// "next order date" ko saare contracts (na ki sirf 30) se accurately compute
-// kar sakte hain, bina extra API calls badhaye.
 async function fetchAllCustomersFromContracts(admin) {
   let hasNextPage = true;
   let cursor = null;
@@ -68,9 +65,6 @@ async function fetchAllCustomersFromContracts(admin) {
         });
       }
 
-      // Har contract ke liye nearest active billing date track karo,
-      // taaki poore customer ka sabse jaldi wala "next order date" mile —
-      // saare contracts se, na ki sirf pehle 30 (jo expand pe lazy-load hote hain).
       if (node.status !== "CANCELLED" && node.nextBillingDate) {
         const entry = customerMap.get(cust.id);
         const candidate = new Date(node.nextBillingDate).getTime();
@@ -90,7 +84,6 @@ async function fetchAllCustomersFromContracts(admin) {
   return Array.from(customerMap.values());
 }
 
-// Ek customer ke contracts, page-by-page (30 per batch), expand hone par lazy-fetch.
 async function fetchContractsForCustomer(admin, customerNumericId, cursor) {
   const res = await admin.graphql(
     `
@@ -158,20 +151,18 @@ export async function loader({ request }) {
   const url = new URL(request.url);
   const customerId = url.searchParams.get("customerId");
 
-  // Fetcher call: sirf ek customer ke contracts chahiye (row expand / view more).
   if (customerId) {
     const cursor = url.searchParams.get("cursor");
     const result = await fetchContractsForCustomer(admin, customerId, cursor);
     return { mode: "contracts", ...result };
   }
 
-  // Normal page load: saare customers (lightweight, name/email/nextOrderDate).
   const shop = session.shop.replace(".myshopify.com", "");
   const customers = await fetchAllCustomersFromContracts(admin);
   return { mode: "customers", customers, shop };
 }
 
-// Ek customer ki subscriptions — apna alag fetcher, apna alag pagination state.
+
 function CustomerRow({ customer, shop, navigate, location }) {
   const fetcher = useFetcher();
   const [isOpen, setIsOpen] = useState(false);
@@ -180,8 +171,6 @@ function CustomerRow({ customer, shop, navigate, location }) {
   const [hasNextPage, setHasNextPage] = useState(false);
   const [loadedOnce, setLoadedOnce] = useState(false);
 
-  // Kaunse contract ID pe "View details" click hua hai, taaki sirf usi
-  // row ka button loading dikhaye, baaki sab normal rahein.
   const [navigatingId, setNavigatingId] = useState(null);
 
   useEffect(() => {
@@ -322,27 +311,35 @@ function CustomerPage() {
   const loaderData = useLoaderData();
   const navigate = useNavigate();
   const location = useLocation();
+
   const [searchValue, setSearchValue] = useState("");
+
+  const [debouncedSearchValue, setDebouncedSearchValue] = useState("");
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchValue(searchValue);
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => clearTimeout(timer);
+  }, [searchValue]);
 
   const handelBack = () => {
     navigate("/app/subscriptions");
   };
 
-  // Ye guard sirf tab kaam aata hai jab fetcher se return hua data
-  // kabhi is top-level component se accidentally read ho jaye —
-  // normally fetcher.load se ye path navigate/re-render nahi karta.
   const allCustomers = loaderData.mode === "customers" ? loaderData.customers : [];
   const shop = loaderData.shop;
 
   const filteredCustomers = useMemo(() => {
-    const search = searchValue.trim().toLowerCase();
+    const search = debouncedSearchValue.trim().toLowerCase();
     if (!search) return allCustomers;
     return allCustomers.filter((c) => {
       const name = c.name?.toLowerCase() || "";
       const email = c.email?.toLowerCase() || "";
       return name.includes(search) || email.includes(search);
     });
-  }, [allCustomers, searchValue]);
+  }, [allCustomers, debouncedSearchValue]);
 
   return (
     <Page title="Customers" backAction={{ onAction: handelBack }}>
