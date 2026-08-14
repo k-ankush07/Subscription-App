@@ -514,7 +514,7 @@ function CancelSubscription() {
 
   
   const rowMarkup = items.map((item, index) => {
-    const status = String(item.status || "").toUpperCase();
+    const status = String(item.status || "").toLowerCase();
 
     return (
       <IndexTable.Row
@@ -538,7 +538,7 @@ function CancelSubscription() {
 
         {/* Status */}
         <IndexTable.Cell>
-          <StatusBadge status={String(status || "").toLowerCase()} />
+          <StatusBadge status={status} />
         </IndexTable.Cell>
 
         {/* Reason */}
