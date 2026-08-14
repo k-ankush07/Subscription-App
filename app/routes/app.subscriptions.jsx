@@ -250,6 +250,10 @@ function Subscriptions() {
   {
     navigate(`/app/subscriptions/customers`)
   }
+  const handelOrders= ()=>
+  {
+    navigate(`/app/subscriptions/orders`)
+  }
   function getLinePriceWithoutIndex(line) {
     const basePrice = parseFloat(line?.currentPrice?.amount ?? 0);
     const discounts = line?.pricingPolicy?.cycleDiscounts || [];
@@ -345,7 +349,8 @@ function Subscriptions() {
       contracts: paginated,
       formatDate,
       handelRowClick,
-      handelCustomer,      
+      handelCustomer,   
+      handelOrders,   
       getLinePriceWithoutIndex,
       createSubscription,
       pagination: (
@@ -397,6 +402,7 @@ function Subscriptions() {
     formatDate,
     handelRowClick,
      handelCustomer,  
+     handelOrders,
     getLinePriceWithoutIndex,
     createSubscription,
     pagination: (
@@ -423,6 +429,7 @@ function renderPage({
   formatDate,
   handelRowClick,
   handelCustomer,
+  handelOrders,
   getLinePriceWithoutIndex,
   pagination,
   createSubscription,
@@ -451,6 +458,7 @@ function renderPage({
             // },
             {
               content: "View Orders",
+              onAction: handelOrders,
             },
             {
               content: "View Customer",
