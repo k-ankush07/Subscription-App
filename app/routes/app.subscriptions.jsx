@@ -242,6 +242,14 @@ function Subscriptions() {
     navigate(`/app/subscription/${id}`);
   };
 
+  const createSubscription = () => {
+  navigate("/app/create-contract");
+};
+
+  const handelCustomer= ()=>
+  {
+    navigate(`/app/subscriptions/customers`)
+  }
   function getLinePriceWithoutIndex(line) {
     const basePrice = parseFloat(line?.currentPrice?.amount ?? 0);
     const discounts = line?.pricingPolicy?.cycleDiscounts || [];
@@ -279,9 +287,7 @@ function Subscriptions() {
     },
     [searchParams, setSearchParams],
   );
-const createSubscription = () => {
-  navigate("/app/create-contract");
-};
+
   const handleTabChange = useCallback(
     (selectedTabIndexValue) => {
       const newStatus = tabs[selectedTabIndexValue].status;
@@ -339,6 +345,7 @@ const createSubscription = () => {
       contracts: paginated,
       formatDate,
       handelRowClick,
+      handelCustomer,      
       getLinePriceWithoutIndex,
       createSubscription,
       pagination: (
@@ -389,6 +396,7 @@ const createSubscription = () => {
     contracts,
     formatDate,
     handelRowClick,
+     handelCustomer,  
     getLinePriceWithoutIndex,
     createSubscription,
     pagination: (
@@ -414,6 +422,7 @@ function renderPage({
   contracts,
   formatDate,
   handelRowClick,
+  handelCustomer,
   getLinePriceWithoutIndex,
   pagination,
   createSubscription,
@@ -445,6 +454,7 @@ function renderPage({
             },
             {
               content: "View Customer",
+              onAction: handelCustomer,
             },
           ],
         },
