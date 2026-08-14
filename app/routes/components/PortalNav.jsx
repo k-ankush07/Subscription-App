@@ -3,9 +3,9 @@ import { useLocation, useNavigate } from "react-router";
 import { InlineStack, Button } from "@shopify/polaris";
 
 export const PORTAL_TABS = [
-  { label: "Customer portal", path: "/app/customerportal" },
-  { label: "Quick actions", path: "/app/quick-actions" },
-  { label: "Cancellation reason", path: "/app/cancellation-reasons" },
+  { label: "Customer portal", path: "/app/customer-portal" },
+  { label: "Quick actions", path: "/app/customer-portal/quick-actions" },
+  { label: "Cancellation reason", path: "/app/customer-portal/cancellation-reasons" },
 ];
 
 export default function PortalNav() {

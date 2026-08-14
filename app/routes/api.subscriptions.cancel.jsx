@@ -97,10 +97,9 @@ try {
     body: JSON.stringify({
       subscriptionId: getNumericId(subscriptionContractId),
       contractId: subscriptionContractId,
-      actionType: "cancelled",
-      actionBy: "customer",       // customer portal se cancel ho raha hai, "merchant" galat tha
+      actionBy: "customer",     
       actionAt: new Date().toISOString(),
-      actionReason: cancelReason,  // yeh missing tha — ab reason bhi save hoga
+      actionReason: cancelReason,  
       customerEmail: emailData?.email || "",
     }),
   });

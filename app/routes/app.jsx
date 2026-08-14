@@ -39,7 +39,7 @@ export default function App() {
         <s-app-nav>
           <s-link href="/app/plans">Plan Page</s-link>
           <s-link href="/app/subscriptions">Subscriptions</s-link>
-          <s-link href="/app/customerportal">Customer portal & retention</s-link>
+          <s-link href="/app/customer-portal">Customer portal & retention</s-link>
           <s-link href="/app/analystic">Analystic</s-link>
           <s-link href="/app/widgets">Widgets</s-link>
         </s-app-nav>

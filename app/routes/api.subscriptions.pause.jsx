@@ -232,7 +232,6 @@ export const action = async ({ request }) => {
         body: JSON.stringify({
           subscriptionId: getNumericId(subscriptionContractId),
           contractId: subscriptionContractId,
-          actionType: "paused",
           actionBy: "customer",
           actionAt: new Date().toISOString(),
           actionReason: reason || "",

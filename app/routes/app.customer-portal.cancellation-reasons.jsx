@@ -556,13 +556,10 @@ function CancelSubscription() {
   });
 
   return (
-    <Page title="Cancellation reason">
-      <BlockStack gap="400">
-        <PortalNav />
-
-        <Card padding="0">
+     <Card padding="0">
           {items.length === 0 ? (
-            <EmptyState heading="No customer actions yet" image="" />
+            <EmptyState heading="No customer actions yet" image="https://subscriptions-assets.kachingappz.app/emptystate-files.avif" >
+            </EmptyState>
           ) : (
             <>
               <IndexTable
@@ -609,8 +606,6 @@ function CancelSubscription() {
             </>
           )}
         </Card>
-      </BlockStack>
-    </Page>
   );
 }
 

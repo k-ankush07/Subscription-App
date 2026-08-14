@@ -585,31 +585,36 @@ export default function EditPage() {
   const fetcher = useFetcher();
   const { id } = useParams();
 
-  const [lines, setLines] = useState(() =>
-    initialLines
-      .filter(
-        (l) =>
-          !removedVariantIds.includes(l.variantId) &&
-          !removedProductIds.includes(l.productId),
-      )
-      .map((l) => {
-        const previewMatch = previewLineItems.find(
-          (pi) => pi.isBaseLine && pi.variantId === l.variantId,
-        );
-        const resolvedPrice =
-          Number(previewMatch?.pricePerUnit?.amount) ||
-          Number(l.currentPrice?.amount) ||
-          0;
-
-        return {
-          ...l,
-          quantity: String(Number(l.quantity) || 1), // "11" jaisa hi rahega, but safe
-          displayPrice: resolvedPrice,
-          originalPrice: previewMatch?.originalPricePerUnit?.amount ?? null,
-          discountLabel: previewMatch?.discountLabel ?? null,
-        };
-      }),
+ const [lines, setLines] = useState(() => {
+  const committed = initialLines.filter(
+    (l) =>
+      !removedVariantIds.includes(l.variantId) &&
+      !removedProductIds.includes(l.productId),
   );
+
+  const baseLinePreviews = previewLineItems.filter((pi) => pi.isBaseLine);
+
+  return committed.map((l, idx) => {
+    const previewMatch = baseLinePreviews[idx] ?? null;
+
+    const resolvedPrice =
+      Number(previewMatch?.pricePerUnit?.amount) ||
+      Number(l.currentPrice?.amount) ||
+      0;
+
+    return {
+      ...l, // id/variantId/productId untouched rehta hai — save isi se hota hai
+      quantity: String(Number(l.quantity) || 1),
+      displayTitle: previewMatch?.title ?? l.title,
+      displayVariantTitle: previewMatch?.variantTitle ?? l.variantTitle,
+      displayImageUrl: previewMatch?.imageUrl ?? l.variantImage?.url ?? "",
+      displayPrice: resolvedPrice,
+      originalPrice: previewMatch?.originalPricePerUnit?.amount ?? null,
+      discountLabel: previewMatch?.discountLabel ?? null,
+      pendingSwap: !!previewMatch && previewMatch.variantId !== l.variantId,
+    };
+  });
+});
   const [removedLines, setRemovedLines] = useState([]);
   const [newLines, setNewLines] = useState([]);
 
@@ -826,7 +831,7 @@ export default function EditPage() {
   const openPriceEditor = (kind, item) => {
     setPriceEditError("");
     if (kind === "committed") {
-      setPriceEditTarget({ kind, lineId: item.id,variantId: item.variantId, title: item.title });
+      setPriceEditTarget({ kind, lineId: item.id,variantId: item.variantId, title: item.displayTitle  });
       setPriceEditValue(String(item.displayPrice ?? "0"));
     } else if (kind === "new") {
       setPriceEditTarget({ kind, tempId: item.tempId, title: item.title });
@@ -1013,7 +1018,7 @@ export default function EditPage() {
       backAction={{ onAction: handleBack }}
       titleMetadata={
          (
-          <Badge tone="warning" >{contract?.status.toLowerCase()}</Badge>
+          <Badge>{contract?.status.toLowerCase()}</Badge>
         ) 
       }
       subtitle={id}
@@ -1048,18 +1053,20 @@ export default function EditPage() {
                 >
                   <InlineStack gap="300" blockAlign="center">
                     <Thumbnail
-                      source={line.variantImage?.url || ""}
-                      alt={line.title}
-                      size="small"
-                    />
-                    <BlockStack gap="050">
-                      <Text fontWeight="medium">{line.title}</Text>
-                      {line.variantTitle && <Badge>{line.variantTitle}</Badge>}
-                      {line.discountLabel && (
-                        <Badge tone="success">{line.discountLabel}</Badge>
-                      )}
-                      
-                    </BlockStack>
+  source={line.displayImageUrl || ""}
+  alt={line.displayTitle}
+  size="small"
+/>
+<BlockStack gap="050">
+  <Text fontWeight="medium">{line.displayTitle}</Text>
+  {line.displayVariantTitle && <Badge>{line.displayVariantTitle}</Badge>}
+  {line.pendingSwap && (
+    <Badge tone="info">Will switch on next order</Badge>
+  )}
+  {line.discountLabel && (
+    <Badge tone="success">{line.discountLabel}</Badge>
+  )}
+</BlockStack>
                   </InlineStack>
 
                   <InlineStack gap="300" blockAlign="center">
@@ -1100,7 +1107,7 @@ export default function EditPage() {
                         variant="tertiary"
                         tone="critical"
                         accessibilityLabel="Remove product"
-                        onClick={() => handleRemoveLine(line.id, line.title)}
+                        onClick={() => handleRemoveLine(line.id, line.displayTitle)}
                       />
                     )}
                   </InlineStack>

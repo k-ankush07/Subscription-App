@@ -74,11 +74,7 @@ const trimUrl = (url, maxLength = 50) => {
   return url.length > maxLength ? `${url.slice(0, maxLength)}...` : url;
 };
   return (
-    <Page title="Quick actions">
-      <BlockStack gap="400">
-        <PortalNav />
-
-        <Card>
+     <Card>
           <BlockStack gap="200">
             <Card>
               <h2>Pause subscription</h2>
@@ -134,7 +130,5 @@ const trimUrl = (url, maxLength = 50) => {
             </Card>
           </BlockStack>
         </Card>
-      </BlockStack>
-    </Page>
   );
 }
