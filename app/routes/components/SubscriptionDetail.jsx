@@ -213,23 +213,7 @@ export default function SubscriptionDetail() {
     fetcher.submit({ type: "cancel" }, { method: "post" });
   };
 
-  // const handleReschedule = (cycle) => {
-  //   if (!editDate) {
-  //     return;
-  //   }
-  //   fetcher.submit(
-  //     {
-  //       type: "reschedule",
-  //       cycleIndex: cycle.cycleIndex,
-  //       newDate: editDate,
-  //       originalDate: cycle.billingAttemptExpectedDate,
-  //     },
-  //     { method: "post" },
-  //   );
-  //   setEditingCycleIndex(null);
-  //   setEditDate("");
-  // };
-  
+ 
   const handleReschedule = (cycle) => {
   if (!editDate) {
     return;
