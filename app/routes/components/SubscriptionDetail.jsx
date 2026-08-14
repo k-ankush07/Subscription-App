@@ -62,6 +62,7 @@ export default function SubscriptionDetail() {
   //   "cycle",
   //   pastSkippedCycles,
   // );
+ 
   const [localLines, setLocalLines] = useState(contract?.lines?.edges || []);
   const [showInternalNotes, setShowInternalNotes] = useState(false);
   const [Internalnotes, setInternalNotes] = useState(internalNotes || "");

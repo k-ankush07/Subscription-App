@@ -514,7 +514,8 @@ function CancelSubscription() {
 
   
   const rowMarkup = items.map((item, index) => {
-    const status = String(item.status || "").toLowerCase();
+    const status = String(item.status || "");
+    console.log("nfsdfn",status.toLowerCase())
 
     return (
       <IndexTable.Row
@@ -538,7 +539,7 @@ function CancelSubscription() {
 
         {/* Status */}
         <IndexTable.Cell>
-          <StatusBadge status={status} />
+          <StatusBadge status={status.toLowerCase()} />
         </IndexTable.Cell>
 
         {/* Reason */}
