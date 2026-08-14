@@ -515,7 +515,6 @@ function CancelSubscription() {
   
   const rowMarkup = items.map((item, index) => {
     const status = String(item.status || "");
-    console.log("nfsdfn",status.toLowerCase())
 
     return (
       <IndexTable.Row
