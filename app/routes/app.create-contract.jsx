@@ -258,7 +258,6 @@ export async function action({ request }) {
       nextBillingDate,
       contract: {
         status: "PAUSED",
-        note: "Created from app UI",
         paymentMethodId: paymentMethodId || undefined,
         billingPolicy: {
           interval,

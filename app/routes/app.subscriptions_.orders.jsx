@@ -15,7 +15,7 @@ import { currencySymbol } from "./utils/formatMoney.js";
 import { formatDate } from "./utils/formatDate.js";
 import { PaginationBar } from "./components/PaginationBar";
 
-const PAGE_SIZE = 30;
+const PAGE_SIZE = 10;
 const ORDERS_PER_CONTRACT = 50; // ek contract se max kitne orders khinchne hain
 
 // Har subscription contract ke andar uski "orders" connection hoti hai
@@ -152,12 +152,6 @@ function SubscriptionOrders() {
   const startIndex = (safePage - 1) * PAGE_SIZE;
   const paginatedRows = filteredRows.slice(startIndex, startIndex + PAGE_SIZE);
 
-  // Display "ID" column — running serial number (naya sabse upar, bada number).
-  // NOTE: ye aapke kisi internal DB record ka real id nahi hai — Shopify API se
-  // per-order koi standalone sequential "app id" nahi milta. Agar aapke paas
-  // Prisma me OrderLog jaisi table hai to us table ka real `id` yahan use karein.
-  const totalCount = totalItems;
-
   const handleSearchChange = useCallback(
     (value) => {
       setSearchValue(value);
@@ -207,7 +201,6 @@ function SubscriptionOrders() {
             <table border="1" style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr>
-                  <th>ID</th>
                   <th>Order</th>
                   <th>Contract</th>
                   <th>Email</th>
@@ -218,9 +211,8 @@ function SubscriptionOrders() {
                 </tr>
               </thead>
               <tbody>
-                {paginatedRows.map((row, i) => (
+                {paginatedRows.map((row) => (
                   <tr key={row.orderId}>
-                    <td>{totalCount - (startIndex + i)}</td>
                     <td>
                       {row.orderName}{" "}
                       <button
