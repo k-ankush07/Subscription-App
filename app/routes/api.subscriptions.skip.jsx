@@ -6,7 +6,7 @@ import {
   getCustomerPortalBaseUrl,
   getShopName,
 } from "../lib/email-helpers.server";
-
+import { formatDate } from "./utils/formatDate.js"
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -47,16 +47,6 @@ const CONTRACT_OWNER_QUERY = `#graphql
   }
 `;
 
-function formatDateDisplay(dateStr) {
-  if (!dateStr) return "";
-  const d = new Date(dateStr);
-  return d.toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-    timeZone: "UTC",
-  });
-}
 
 function getNumericId(gid) {
   if (!gid) return null;
@@ -175,10 +165,10 @@ export const action = async ({ request }) => {
       if (emailData?.email && portalBaseUrl) {
         const { subject, html } = buildSkipEmail({
           customerName: emailData.customerName,
-          skippedDate: formatDateDisplay(
+          skippedDate: formatDate(
             payload.billingCycle.billingAttemptExpectedDate,
           ),
-          nextOrderDate: formatDateDisplay(emailData.nextOrderDate),
+          nextOrderDate: formatDate(emailData.nextOrderDate),
           lineItems: emailData.lineItems, // was: lineItem: emailData.lineItem
           subtotal: emailData.subtotal, // naya
           shipping: emailData.shipping, // naya

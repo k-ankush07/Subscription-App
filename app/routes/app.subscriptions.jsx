@@ -20,7 +20,7 @@ import {
 } from "react-router";
 import { currencySymbol } from "./utils/formatMoney.js";
 import { PaginationBar } from "./components/PaginationBar";
-
+import { formatDate } from "./utils/formatDate.js"
 const PAGE_SIZE = 10;
 
 export function shouldRevalidate({ currentUrl, nextUrl, defaultShouldRevalidate }) {
@@ -238,13 +238,6 @@ function Subscriptions() {
 
   const isLoading = fetcher.state === "loading" || isNavLoading;
 
-  const formatDate = (date) =>
-    new Date(date).toLocaleDateString("en-US", {
-      month: "long",
-      day: "numeric",
-      year: "numeric",
-    });
-
   const handelRowClick = (id) => {
     navigate(`/app/subscription/${id}`);
   };
@@ -440,22 +433,22 @@ function renderPage({
       //     content: "Export Subscription",
       //   },
       // ]}
-      // actionGroups={[
-      //   {
-      //     title: "More Action",
-      //     actions: [
-      //       {
-      //         content: "View Event",
-      //       },
-      //       {
-      //         content: "View Orders",
-      //       },
-      //       {
-      //         content: "View Customer",
-      //       },
-      //     ],
-      //   },
-      // ]}
+      actionGroups={[
+        {
+          title: "More Action",
+          actions: [
+            // {
+            //   content: "View Event",
+            // },
+            {
+              content: "View Orders",
+            },
+            {
+              content: "View Customer",
+            },
+          ],
+        },
+      ]}
     >
       <Card>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>

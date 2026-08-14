@@ -14,7 +14,7 @@ import {
 } from "@shopify/polaris";
 import { useLoaderData, useSearchParams, useNavigate } from "react-router";
 import { authenticate } from "../shopify.server";
-
+import { formatDate } from "./utils/formatDate.js"
 const API = import.meta.env.VITE_API_URL;
 const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
 const PAGE_SIZE = 10;
@@ -51,16 +51,6 @@ export async function loader({ request }) {
   return { items, pageInfo, shop: session.shop };
 }
 
-function formatDate(date) {
-  if (!date) return "—";
-  const d = new Date(date);
-  if (isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
-}
 
 function ActionBadge({ actionType }) {
   if (actionType === "cancelled") {
