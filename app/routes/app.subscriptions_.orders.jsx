@@ -25,6 +25,7 @@ import { PaginationBar } from "./components/PaginationBar";
 const PAGE_SIZE = 20;
 const ORDERS_PAGE_SIZE = 250; 
 const CONTRACT_BATCH_SIZE = 25; 
+const SEARCH_DEBOUNCE_MS = 500;
 
 const CONTRACTS_WITH_ORDERS_QUERY = `
   query getContractsWithOrders($cursor: String, $batchSize: Int!) {
@@ -243,6 +244,9 @@ function SubscriptionOrders() {
   const location = useLocation();
   const fetcher = useFetcher();
   const [searchParams, setSearchParams] = useSearchParams();
+
+  // searchValue: TextField ka live value — har keystroke pe turant update,
+  // taaki typing me koi lag na ho.
   const [searchValue, setSearchValue] = useState(searchParams.get("q") || "");
 
   const shop = loaderData.shop;
@@ -287,11 +291,48 @@ function SubscriptionOrders() {
     }
   }, [fetcher.state, fetcher.data]);
 
+  // Search input ke liye alag debounce timer. Query param (aur isliye loader's
+  // heavy fetchAllContractsWithOrders call) sirf tab update hota hai jab user
+  // 500ms tak typing rok de — har keystroke pe navigation/API call nahi hoti.
+  const searchDebounceTimerRef = useRef(null);
+
+  const commitSearchParam = useCallback(
+    (value) => {
+      const next = new URLSearchParams(searchParams);
+      if (value) next.set("q", value);
+      else next.delete("q");
+      next.delete("page");
+      setSearchParams(next, { replace: true });
+    },
+    [searchParams, setSearchParams],
+  );
+
+  const handleSearchChange = useCallback(
+    (value) => {
+      setSearchValue(value);
+
+      if (searchDebounceTimerRef.current) {
+        clearTimeout(searchDebounceTimerRef.current);
+      }
+      searchDebounceTimerRef.current = setTimeout(() => {
+        commitSearchParam(value);
+      }, SEARCH_DEBOUNCE_MS);
+    },
+    [commitSearchParam],
+  );
+
+  useEffect(() => {
+    return () => {
+      if (searchDebounceTimerRef.current) {
+        clearTimeout(searchDebounceTimerRef.current);
+      }
+    };
+  }, []);
+
   const isLoadingMore = fetcher.state === "loading";
   const isNavigatingHere =
     navigation.state === "loading" &&
-    navigation.location?.pathname === location.pathname &&
-    !searchParams.toString();
+    navigation.location?.pathname === location.pathname;
 
   const filteredRows = useMemo(() => {
     if (!isSearchMode) return [];
@@ -354,18 +395,6 @@ function SubscriptionOrders() {
       fetcher.load(`${location.pathname}?${params.toString()}`);
     },
     [isSearchMode, isLoadingMore, rowsState, searchParams, setSearchParams, fetcher, location.pathname],
-  );
-
-  const handleSearchChange = useCallback(
-    (value) => {
-      setSearchValue(value);
-      const next = new URLSearchParams(searchParams);
-      if (value) next.set("q", value);
-      else next.delete("q");
-      next.delete("page");
-      setSearchParams(next, { replace: true });
-    },
-    [searchParams, setSearchParams],
   );
 
   const openOrderInShopify = (numericId) => {
