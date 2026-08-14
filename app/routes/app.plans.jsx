@@ -1,8 +1,6 @@
-
-
 import { Page, Icon, Card, EmptyState, Checkbox, TextField, Button } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { useLoaderData, useNavigate, useFetcher } from "react-router";
 import { DuplicateIcon, DeleteIcon, SearchIcon } from "@shopify/polaris-icons";
 import { TitleBar } from "@shopify/app-bridge-react";
@@ -12,6 +10,7 @@ const API = import.meta.env.VITE_API_URL;
 const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
 
 const ITEMS_PER_PAGE = 10;
+const SEARCH_DEBOUNCE_MS = 400;
 
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
@@ -304,9 +303,24 @@ function Plans() {
   const fetcher = useFetcher();
   const bulkFetcher = useFetcher();
 
+  // searchInput: TextField ka live value — har keystroke pe turant update,
+  // taaki typing me koi lag na ho.
+  const [searchInput, setSearchInput] = useState("");
+
+  // searchQuery: debounced value — filter/useMemo isi pe depend karta hai,
+  // taaki har character pe list re-filter na ho, sirf typing rukne
+  // (400ms) ke baad ek hi baar ho.
   const [searchQuery, setSearchQuery] = useState("");
+  const debounceRef = useRef(null);
+
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState(new Set());
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
 
   const handelPlan = () => navigate("/app/createplan");
 
@@ -355,9 +369,22 @@ function Plans() {
   }, [filteredPlans, currentPage]);
 
   const handleSearchChange = (value) => {
-    setSearchQuery(value);
-    setCurrentPage(1); 
-    setSelectedIds(new Set()); 
+    setSearchInput(value);
+    setSelectedIds(new Set());
+
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setSearchQuery(value);
+      setCurrentPage(1);
+    }, SEARCH_DEBOUNCE_MS);
+  };
+
+  const handleClearSearch = () => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    setSearchInput("");
+    setSearchQuery("");
+    setCurrentPage(1);
+    setSelectedIds(new Set());
   };
 
   const handlePageChange = (page) => {
@@ -457,11 +484,11 @@ function Plans() {
                   label=""
                   labelHidden
                   placeholder="Search by plan title or product name"
-                  value={searchQuery}
+                  value={searchInput}
                   onChange={handleSearchChange}
                   prefix={<Icon source={SearchIcon} />}
                   clearButton
-                  onClearButtonClick={() => handleSearchChange("")}
+                  onClearButtonClick={handleClearSearch}
                   autoComplete="off"
                 />
               </div>
