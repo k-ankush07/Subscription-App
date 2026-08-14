@@ -90,6 +90,16 @@ export const loader = async ({ request }) => {
               status
               nextBillingDate
               note
+               deliveryPrice {
+                amount
+                currencyCode
+              }
+              billingPolicy {
+                interval
+                intervalCount
+                minCycles
+                maxCycles
+              }
                customer {
                     id
                     displayName
@@ -104,6 +114,7 @@ export const loader = async ({ request }) => {
               lines(first: 50) {
                 edges {
                   node {
+                    id
                     title
                     variantTitle
                     quantity
@@ -116,6 +127,20 @@ export const loader = async ({ request }) => {
                       currencyCode
                     }
                     productId
+                    variantId
+                    sellingPlanId
+                    pricingPolicy {
+                      basePrice { amount currencyCode }
+                      cycleDiscounts {
+                        afterCycle
+                        adjustmentType
+                        adjustmentValue {
+                          ... on SellingPlanPricingPolicyPercentageValue { percentage }
+                          ... on MoneyV2 { amount currencyCode }
+                        }
+                        computedPrice { amount currencyCode }
+                      }
+                    }
                   }
                 }
               }
@@ -408,8 +433,7 @@ export const loader = async ({ request }) => {
             sum + parseFloat(line.lineDiscountedPrice?.amount ?? 0),
           0,
         );
-
-        const [preview, cyclesResult, pastOrders] = await Promise.all([
+const [preview, cyclesResult, pastOrders] = await Promise.all([
           (async () => {
             if (
               contract.status === "ACTIVE" ||
@@ -417,7 +441,8 @@ export const loader = async ({ request }) => {
               contract.status === "CANCELLED"
             ) {
               try {
-                return await getContractPreview(admin, contract.id);
+                // contract already lines/deliveryPrice/billingPolicy ke saath aa chuka hai — duplicate query skip
+                return await getContractPreview(admin, contract.id, contract);
               } catch (e) {
                 console.error(
                   `getContractPreview failed for ${contract.id}:`,
@@ -431,6 +456,28 @@ export const loader = async ({ request }) => {
           fetchUpcomingBillingCycles(contract.id),
           fetchPastOrders(contract.id),
         ]);
+        // const [preview, cyclesResult, pastOrders] = await Promise.all([
+        //   (async () => {
+        //     if (
+        //       contract.status === "ACTIVE" ||
+        //       contract.status === "PAUSED" ||
+        //       contract.status === "CANCELLED"
+        //     ) {
+        //       try {
+        //         return await getContractPreview(admin, contract.id);
+        //       } catch (e) {
+        //         console.error(
+        //           `getContractPreview failed for ${contract.id}:`,
+        //           e.message,
+        //         );
+        //         return null;
+        //       }
+        //     }
+        //     return null;
+        //   })(),
+        //   fetchUpcomingBillingCycles(contract.id),
+        //   fetchPastOrders(contract.id),
+        // ]);
 
         const resolvedLine =
           preview?.nextOrder?.lineItems?.find((li) => li.isBaseLine) ??

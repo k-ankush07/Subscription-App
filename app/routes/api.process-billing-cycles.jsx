@@ -409,12 +409,53 @@ async function processShop(admin) {
   const processedCycles = await getProcessedCycles(admin, shopId);
   const chargedCycles = await getChargedCycles(admin, shopId);
 
+  // const contractsRes = await admin.graphql(`
+  //   query {
+  //     subscriptionContracts(first: 50, query: "status:active") {
+  //       edges {
+  //         node {
+  //           id
+  //           createdAt
+  //           nextBillingDate
+  //           deliveryPrice { amount currencyCode }
+  //           billingPolicy {
+  //             minCycles
+  //             maxCycles
+  //           }
+  //           lines(first: 5) {
+  //             edges {
+  //               node {
+  //                 id
+  //                 sellingPlanId
+  //                    variantId   
+  //                 pricingPolicy {
+  //                   basePrice { amount currencyCode }
+  //                   cycleDiscounts {
+  //                     afterCycle
+  //                     adjustmentType
+  //                     adjustmentValue {
+  //                       ... on SellingPlanPricingPolicyPercentageValue { percentage }
+  //                       ... on MoneyV2 { amount currencyCode }
+  //                     }
+  //                     computedPrice { amount currencyCode }
+  //                   }
+  //                 }
+  //               }
+  //             }
+  //           }
+  //         }
+  //       }
+  //     }
+  //   }
+  // `);
+  
   const contractsRes = await admin.graphql(`
     query {
       subscriptionContracts(first: 50, query: "status:active") {
         edges {
           node {
             id
+            status
             createdAt
             nextBillingDate
             deliveryPrice { amount currencyCode }
@@ -422,12 +463,21 @@ async function processShop(admin) {
               minCycles
               maxCycles
             }
-            lines(first: 5) {
+            customer {
+              id
+              displayName
+              defaultEmailAddress { emailAddress }
+            }
+            lines(first: 50) {
               edges {
                 node {
                   id
+                  title
+                  quantity
+                  productId
                   sellingPlanId
-                     variantId   
+                  variantId
+                  currentPrice { amount currencyCode }
                   pricingPolicy {
                     basePrice { amount currencyCode }
                     cycleDiscounts {
@@ -492,7 +542,7 @@ async function processShop(admin) {
       const minCycles = contract.billingPolicy?.minCycles ?? null;
       const maxCycles = contract.billingPolicy?.maxCycles ?? null;
 
-      const preview = await getContractPreview(admin, contract.id);
+      const preview = await getContractPreview(admin, contract.id,contract);
       const nextLineItems = preview?.nextOrder?.lineItems ?? [];
       const nextCycleIdx = preview?.nextOrder?.cycleIndex ?? null;
 

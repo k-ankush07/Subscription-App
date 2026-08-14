@@ -18,6 +18,179 @@ import {
 const API = import.meta.env.VITE_API_URL;
 const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
 
+async function fetchAllBillingCycles(admin, contractId, startDate, endDate) {
+  let cycles = [];
+  let cursor = null;
+  let hasNextPage = true;
+
+  while (hasNextPage) {
+    const res = await admin.graphql(
+      `
+      query getCycles(
+        $contractId: ID!
+        $startDate: DateTime!
+        $endDate: DateTime!
+        $after: String
+      ) {
+        subscriptionBillingCycles(
+          contractId: $contractId
+          first: 50
+          after: $after
+          billingCyclesDateRangeSelector: { startDate: $startDate, endDate: $endDate }
+        ) {
+          edges {
+            cursor
+            node {
+              billingAttemptExpectedDate
+              cycleEndAt
+              cycleIndex
+              cycleStartAt
+              edited
+              skipped
+              sourceContract { id }
+              status
+            }
+          }
+          pageInfo { hasNextPage }
+        }
+      }
+      `,
+      { variables: { contractId, startDate, endDate, after: cursor } },
+    );
+    const data = await res.json();
+
+    if (data.errors) {
+      console.error("[fetchAllBillingCycles] GraphQL errors:", JSON.stringify(data.errors));
+      break;
+    }
+
+    const conn = data?.data?.subscriptionBillingCycles;
+    const edges = conn?.edges || [];
+    cycles.push(...edges.map((e) => e.node));
+
+    hasNextPage = !!conn?.pageInfo?.hasNextPage && edges.length > 0;
+    cursor = edges.length > 0 ? edges[edges.length - 1].cursor : null;
+  }
+
+  return cycles;
+}
+async function fetchAllLines(admin, contractId) {
+  let edges = [];
+  let cursor = null;
+  let hasNextPage = true;
+
+  while (hasNextPage) {
+    const res = await admin.graphql(
+      `
+      query getContractLines($contractId: ID!, $after: String) {
+        subscriptionContract(id: $contractId) {
+          lines(first: 50, after: $after) {
+            edges {
+              cursor
+              node {
+                id
+                title
+                variantTitle
+                quantity
+                productId
+                variantId
+                sku
+                sellingPlanId
+                sellingPlanName
+                currentPrice { amount currencyCode }
+                variantImage { url }
+                pricingPolicy {
+                  basePrice { amount currencyCode }
+                  cycleDiscounts {
+                    afterCycle
+                    adjustmentType
+                    adjustmentValue {
+                      ... on SellingPlanPricingPolicyPercentageValue { percentage }
+                      ... on MoneyV2 { amount currencyCode }
+                    }
+                    computedPrice { amount currencyCode }
+                  }
+                }
+              }
+            }
+            pageInfo { hasNextPage }
+          }
+        }
+      }
+      `,
+      { variables: { contractId, after: cursor } },
+    );
+    const data = await res.json();
+
+    if (data.errors) {
+      console.error("[fetchAllLines] GraphQL errors:", JSON.stringify(data.errors));
+      break;
+    }
+
+    const conn = data?.data?.subscriptionContract?.lines;
+    const pageEdges = conn?.edges || [];
+    edges.push(...pageEdges);
+
+    hasNextPage = !!conn?.pageInfo?.hasNextPage && pageEdges.length > 0;
+    cursor = pageEdges.length > 0 ? pageEdges[pageEdges.length - 1].cursor : null;
+  }
+
+  return edges;
+}
+
+async function fetchAllOrders(admin, contractId) {
+  let edges = [];
+  let cursor = null;
+  let hasNextPage = true;
+
+  while (hasNextPage) {
+    const res = await admin.graphql(
+      `
+      query getContractOrders($contractId: ID!, $after: String) {
+        subscriptionContract(id: $contractId) {
+          orders(first: 50, after: $after) {
+            edges {
+              cursor
+              node {
+                id
+                createdAt
+                name
+                processedAt
+                displayFinancialStatus
+                displayFulfillmentStatus
+                cancelReason
+                cancelledAt
+                currencyCode
+                shippingLine { title }
+                totalShippingPriceSet {
+                  shopMoney { amount currencyCode }
+                }
+              }
+            }
+            pageInfo { hasNextPage }
+          }
+        }
+      }
+      `,
+      { variables: { contractId, after: cursor } },
+    );
+    const data = await res.json();
+
+    if (data.errors) {
+      console.error("[fetchAllOrders] GraphQL errors:", JSON.stringify(data.errors));
+      break;
+    }
+
+    const conn = data?.data?.subscriptionContract?.orders;
+    const pageEdges = conn?.edges || [];
+    edges.push(...pageEdges);
+
+    hasNextPage = !!conn?.pageInfo?.hasNextPage && pageEdges.length > 0;
+    cursor = pageEdges.length > 0 ? pageEdges[pageEdges.length - 1].cursor : null;
+  }
+
+  return edges;
+}
 export async function loader({ request, params }) {
   const { admin,session } = await authenticate.admin(request);
 
@@ -29,12 +202,10 @@ export async function loader({ request, params }) {
   endDateObj.setMonth(endDateObj.getMonth() + 20);
   const endDate = endDateObj.toISOString();
 
-  const graphqlResponse = await admin.graphql(
+const graphqlResponse = await admin.graphql(
     `
     query SubscriptionContractWithUpcoming(
       $contractId: ID!
-      $startDate: DateTime!
-      $endDate: DateTime!
     ) {
       subscriptionContract(id: $contractId) {
         id
@@ -64,6 +235,7 @@ export async function loader({ request, params }) {
               id
               firstName
               lastName
+              displayName
               note
               defaultEmailAddress { emailAddress }
               addresses {
@@ -104,123 +276,35 @@ export async function loader({ request, params }) {
             }
           }
         }
-        orders(first: 10) {
-          edges {
-            node {
-              id
-              createdAt
-              name
-              processedAt
-          displayFinancialStatus
-          displayFulfillmentStatus
-          cancelReason
-          cancelledAt
-          currencyCode
-
-              shippingLine {
-                title
-              }
-              totalShippingPriceSet {
-                shopMoney {
-                  amount
-                  currencyCode
-                }
-              }
-            }
-          }
-        }
-        lines(first: 50) {
-          edges {
-            node {
-              id
-              title
-              variantTitle
-              quantity
-              productId
-              variantId
-              sku
-              sellingPlanId     
-              sellingPlanName
-              currentPrice {
-                amount
-                currencyCode
-              }
-              variantImage {
-                url
-              }
-              pricingPolicy {
-               basePrice { 
-               amount
-               currencyCode
-                }
-                cycleDiscounts {
-                  afterCycle
-                  adjustmentType
-                  adjustmentValue {
-                    ... on SellingPlanPricingPolicyPercentageValue {
-                      percentage
-                    }
-                    ... on MoneyV2 {
-                      amount
-                      currencyCode
-                    }
-                  }
-                  computedPrice {
-                    amount
-                    currencyCode
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-      subscriptionBillingCycles(
-        first:20
-        contractId: $contractId
-        billingCyclesDateRangeSelector: {
-          startDate: $startDate
-          endDate: $endDate
-        }
-      ) {
-        edges {
-          node {
-           billingAttemptExpectedDate
-             cycleEndAt
-             cycleIndex
-             cycleStartAt
-             edited
-              skipped
-              sourceContract {
-        id
-      }
-            status
-          }
-        }
       }
     }
     `,
     {
       variables: {
         contractId,
-        startDate,
-        endDate,
       },
     },
   );
-
   const data = await graphqlResponse.json();
 
   if (!data?.data?.subscriptionContract) {
     throw new Response("Subscription contract not found", { status: 404 });
   }
 
-  const contract = data.data.subscriptionContract;
-  const allCycles =
-    data.data.subscriptionBillingCycles?.edges?.map((edge) => edge.node) || [];
+const contract = data.data.subscriptionContract;
 
-  // Contract lines list
-  const lines = contract.lines?.edges?.map((e) => e.node) || [];
+  // lines pehle chahiye kyunki preview isi par depend karta hai
+  const allLineEdges = await fetchAllLines(admin, contractId);
+  contract.lines = { edges: allLineEdges };
+
+  // Ye teeno ek dusre se independent hain — ek saath (parallel) chalao
+  const [allOrderEdges, allCycles, preview] = await Promise.all([
+    fetchAllOrders(admin, contractId),
+    fetchAllBillingCycles(admin, contractId, startDate, endDate),
+    getContractPreview(admin, contractId, contract),
+  ]);
+  contract.orders = { edges: allOrderEdges };
+
   const maxCycles = contract?.billingPolicy?.maxCycles ?? null;
   const now = new Date();
   let upcomingCycles = allCycles.filter(
@@ -238,31 +322,29 @@ export async function loader({ request, params }) {
   }
   const pastOrders = contract.orders?.edges?.map((edge) => edge.node) || [];
   const pastSkippedCycles = allCycles.filter(
-  (cycle) =>
-    cycle.skipped &&
-    cycle.billingAttemptExpectedDate &&
-    new Date(cycle.billingAttemptExpectedDate) < now,
-);
-  const preview = await getContractPreview(admin, contractId);
-  try {
-    const res = await fetch(`${API}/api/subscription`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": SECRET_KEY,
-      },
-      body: JSON.stringify({
-        subscriptionId,
-        contractId,
-        contract,
-        upcomingCycles,
-        preview,
-          pastSkippedCycles, pastOrders, 
-      }),
-    });
-  } catch (err) {
-    console.error("Backend save call failed:", err);
-  }
+    (cycle) =>
+      cycle.skipped &&
+      cycle.billingAttemptExpectedDate &&
+      new Date(cycle.billingAttemptExpectedDate) < now,
+  );
+
+  // Sirf logging/analytics ke liye hai, response use nahi hota — page ko block mat karo
+  fetch(`${API}/api/subscription`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": SECRET_KEY,
+    },
+    body: JSON.stringify({
+      subscriptionId,
+      contractId,
+      contract,
+      upcomingCycles,
+      preview,
+      pastSkippedCycles,
+      pastOrders,
+    }),
+  }).catch((err) => console.error("Backend save call failed:", err));
 
   let internalNotes = "";
   let customerNotes = "";
@@ -459,43 +541,171 @@ export async function action({ request, params }) {
       return { success: true, status: payload.contract.status };
     }
     if (type === "resume") {
-      const res = await admin.graphql(
+  const res = await admin.graphql(
+    `
+  mutation ActivateSubscriptionContract($contractId: ID!) {
+    subscriptionContractActivate(
+      subscriptionContractId: $contractId
+    ) {
+      contract {
+        id
+        status
+        nextBillingDate
+      }
+      userErrors {
+        field
+        message
+        code
+      }
+    }
+  }
+  `,
+    { variables: { contractId } },
+  );
+
+  const data = await res.json();
+  const payload = data?.data?.subscriptionContractActivate;
+
+  if (!payload || payload.userErrors?.length) {
+    console.error("Resume failed", payload?.userErrors);
+    return {
+      success: false,
+      error:
+        payload?.userErrors?.map((e) => e.message).join(", ") ||
+        "Resume failed",
+    };
+  }
+
+  let autoSkippedCycles = [];
+  try {
+    const now = new Date();
+    const rangeStart = new Date();
+    rangeStart.setFullYear(rangeStart.getFullYear() - 3);
+
+    let overdueCyclesRaw = [];
+    let cursor = null;
+    let hasNextPage = true;
+
+    while (hasNextPage) {
+      const cyclesRes = await admin.graphql(
         `
-      mutation ActivateSubscriptionContract($contractId: ID!) {
-        subscriptionContractActivate(
-          subscriptionContractId: $contractId
+        query getOverdueCycles(
+          $contractId: ID!
+          $startDate: DateTime!
+          $endDate: DateTime!
+          $after: String
         ) {
-          contract {
-            id
-            status
-            nextBillingDate
-          }
-          userErrors {
-            field
-            message
-            code
+          subscriptionBillingCycles(
+            contractId: $contractId
+            first: 50
+            after: $after
+            billingCyclesDateRangeSelector: {
+              startDate: $startDate
+              endDate: $endDate
+            }
+          ) {
+            edges {
+              cursor
+              node {
+                cycleIndex
+                billingAttemptExpectedDate
+                status
+                skipped
+              }
+            }
+            pageInfo { hasNextPage }
           }
         }
-      }
-      `,
-        { variables: { contractId } },
+        `,
+        {
+          variables: {
+            contractId,
+            startDate: rangeStart.toISOString(),
+            endDate: now.toISOString(),
+            after: cursor,
+          },
+        },
       );
+      const cyclesData = await cyclesRes.json();
 
-      const data = await res.json();
-      const payload = data?.data?.subscriptionContractActivate;
-
-      if (!payload || payload.userErrors?.length) {
-        console.error("Resume failed", payload?.userErrors);
-        return {
-          success: false,
-          error:
-            payload?.userErrors?.map((e) => e.message).join(", ") ||
-            "Resume failed",
-        };
+      if (cyclesData.errors) {
+        console.error("[resume] getOverdueCycles GraphQL errors:", JSON.stringify(cyclesData.errors));
+        break;
       }
 
-      return { success: true, status: payload.contract.status };
+      const conn = cyclesData?.data?.subscriptionBillingCycles;
+      const edges = conn?.edges || [];
+      overdueCyclesRaw.push(...edges.map((e) => e.node));
+
+      hasNextPage = !!conn?.pageInfo?.hasNextPage && edges.length > 0;
+      cursor = edges.length > 0 ? edges[edges.length - 1].cursor : null;
     }
+
+    const overdueCycles = overdueCyclesRaw.filter(
+      (c) =>
+        !c.skipped &&
+        c.status !== "BILLED" &&
+        c.billingAttemptExpectedDate &&
+        new Date(c.billingAttemptExpectedDate) < now,
+    );
+
+    for (const c of overdueCycles) {
+      try {
+        const skipRes = await admin.graphql(
+          `
+          mutation SkipOverdueCycle(
+            $billingCycleInput: SubscriptionBillingCycleInput!
+          ) {
+            subscriptionBillingCycleSkip(
+              billingCycleInput: $billingCycleInput
+            ) {
+              billingCycle {
+                cycleIndex
+                skipped
+              }
+              userErrors { field message code }
+            }
+          }
+          `,
+          {
+            variables: {
+              billingCycleInput: {
+                contractId,
+                selector: { index: c.cycleIndex },
+              },
+            },
+          },
+        );
+        const skipData = await skipRes.json();
+        const skipPayload = skipData?.data?.subscriptionBillingCycleSkip;
+        if (skipPayload?.userErrors?.length) {
+          console.warn(
+            `[resume] skip failed for overdue cycle ${c.cycleIndex}:`,
+            skipPayload.userErrors,
+          );
+        } else {
+          autoSkippedCycles.push(c.cycleIndex);
+        }
+      } catch (err) {
+        console.warn(
+          `[resume] skip errored for overdue cycle ${c.cycleIndex}:`,
+          err,
+        );
+      }
+    }
+  } catch (err) {
+    console.warn(
+      `[resume] failed to fetch/skip overdue cycles for ${contractId}:`,
+      err,
+    );
+  }
+
+  return {
+    success: true,
+    status: payload.contract.status,
+    autoSkippedCycles,
+  };
+}
     if (type === "skip") {
       const cycleIndex = parseInt(formData.get("cycleIndex"), 10);
 
@@ -882,8 +1092,6 @@ export async function action({ request, params }) {
 
       const firstLine =
         contractData.data?.subscriptionContract?.lines?.edges?.[0]?.node;
-      // const basePriceAmount =
-      //   firstLine?.pricingPolicy?.basePrice?.amount ?? null;
       const liveVariantPrice = await fetchVariantPrice(admin, firstLine?.variantId);
 const basePriceAmount = liveVariantPrice ?? firstLine?.pricingPolicy?.basePrice?.amount ?? null;
       const pricingPolicy = firstLine?.pricingPolicy ?? null;
@@ -897,9 +1105,6 @@ const basePriceAmount = liveVariantPrice ?? firstLine?.pricingPolicy?.basePrice?
       const actionsForThisCycle = extraSettings
         ? collectActionsForCycle(extraSettings, cycleIndex, pricingPolicy, firstLine?.variantId)
         : [];
-      // const actionsForThisCycle = extraSettings
-      //   ? collectActionsForCycle(extraSettings, cycleIndex, pricingPolicy)
-      //   : [];
 
       let skippedActions = [];
       if (actionsForThisCycle.length > 0) {
@@ -1016,8 +1221,6 @@ const basePriceAmount = liveVariantPrice ?? firstLine?.pricingPolicy?.basePrice?
             }
 
             if (!isOpenEditError(cancelPayload)) {
-              // Either it succeeded, or it failed for a DIFFERENT reason —
-              // either way, no point retrying further.
               break;
             }
 
@@ -1070,7 +1273,7 @@ const basePriceAmount = liveVariantPrice ?? firstLine?.pricingPolicy?.basePrice?
     }
    }
    if (type === "update_address") {
-      const mode = formData.get("mode"); // "select" | "manual"
+      const mode = formData.get("mode");
 
       const buildAddressInput = (a) => ({
         firstName: a.firstName || "",

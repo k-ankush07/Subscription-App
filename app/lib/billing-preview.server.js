@@ -1776,60 +1776,126 @@ async function getEffectiveSettingsForContract(
   return await getContractSettingsSnapshot(admin, contractId, shopId);
 }
 
-async function getContractPreview(admin, contractId) {
-  const contractRes = await admin.graphql(
-    `
-    query getContract($id: ID!) {
-      subscriptionContract(id: $id) {
-        id
-        status
-        nextBillingDate
-        deliveryPrice { amount currencyCode }
-        billingPolicy {
-          interval
-          intervalCount
-          minCycles
-          maxCycles
-        }
-        customer {
-         id
-         displayName
-         defaultEmailAddress{
-          emailAddress
+// async function getContractPreview(admin, contractId) {
+//   const contractRes = await admin.graphql(
+//     `
+//     query getContract($id: ID!) {
+//       subscriptionContract(id: $id) {
+//         id
+//         status
+//         nextBillingDate
+//         deliveryPrice { amount currencyCode }
+//         billingPolicy {
+//           interval
+//           intervalCount
+//           minCycles
+//           maxCycles
+//         }
+//         customer {
+//          id
+//          displayName
+//          defaultEmailAddress{
+//           emailAddress
+//           }
+//           }
+//         lines(first: 50) {
+//           edges {
+//             node {
+//               id
+//               title
+//               quantity
+//               sellingPlanId
+//               productId
+//               variantId
+//               currentPrice { amount currencyCode }
+//               pricingPolicy {
+//                 basePrice { amount currencyCode }
+//                 cycleDiscounts {
+//                   afterCycle
+//                   adjustmentType
+//                   adjustmentValue {
+//                     ... on SellingPlanPricingPolicyPercentageValue { percentage }
+//                     ... on MoneyV2 { amount currencyCode }
+//                   }
+//                   computedPrice { amount currencyCode }
+//                 }
+//               }
+//             }
+//           }
+//         }
+//       }
+//     }
+//     `,
+//     { variables: { id: contractId } },
+//   );
+//   const contractData = await contractRes.json();
+//   const contract = contractData.data?.subscriptionContract;
+
+//   if (!contract) {
+//     console.log(`[preview] Contract not found: ${contractId}`);
+//     return null;
+//   }
+
+//   const allLines = contract.lines.edges.map((e) => e.node);
+  
+async function getContractPreview(admin, contractId, preFetchedContract = null) {
+  let contract = preFetchedContract;
+
+  if (!contract) {
+    const contractRes = await admin.graphql(
+      `
+      query getContract($id: ID!) {
+        subscriptionContract(id: $id) {
+          id
+          status
+          nextBillingDate
+          deliveryPrice { amount currencyCode }
+          billingPolicy {
+            interval
+            intervalCount
+            minCycles
+            maxCycles
           }
-          }
-        lines(first: 50) {
-          edges {
-            node {
-              id
-              title
-              quantity
-              sellingPlanId
-              productId
-              variantId
-              currentPrice { amount currencyCode }
-              pricingPolicy {
-                basePrice { amount currencyCode }
-                cycleDiscounts {
-                  afterCycle
-                  adjustmentType
-                  adjustmentValue {
-                    ... on SellingPlanPricingPolicyPercentageValue { percentage }
-                    ... on MoneyV2 { amount currencyCode }
+          customer {
+           id
+           displayName
+           defaultEmailAddress{
+            emailAddress
+            }
+            }
+          lines(first: 50) {
+            edges {
+              node {
+                id
+                title
+                quantity
+                sellingPlanId
+                productId
+                variantId
+                currentPrice { amount currencyCode }
+                pricingPolicy {
+                  basePrice { amount currencyCode }
+                  cycleDiscounts {
+                    afterCycle
+                    adjustmentType
+                    adjustmentValue {
+                      ... on SellingPlanPricingPolicyPercentageValue { percentage }
+                      ... on MoneyV2 { amount currencyCode }
+                    }
+                    computedPrice { amount currencyCode }
                   }
-                  computedPrice { amount currencyCode }
                 }
               }
             }
           }
         }
       }
-    }
-    `,
-    { variables: { id: contractId } },
-  );
-  const contractData = await contractRes.json();
-  const contract = contractData.data?.subscriptionContract;
+      `,
+      { variables: { id: contractId } },
+    );
+    const contractData = await contractRes.json();
+    contract = contractData.data?.subscriptionContract;
+  }
 
   if (!contract) {
     console.log(`[preview] Contract not found: ${contractId}`);
@@ -1837,7 +1903,8 @@ async function getContractPreview(admin, contractId) {
   }
 
   const allLines = contract.lines.edges.map((e) => e.node);
-  const firstLine = allLines[0]; 
+
+const firstLine = allLines[0]; 
 
   if (allLines.length === 0) {
     console.log(`[preview] Contract has no lines: ${contractId}`);

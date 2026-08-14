@@ -238,7 +238,10 @@ Internationalization:
 
 
 
+me chahta hu jb pause ho susbcription or uske cycles ki date nikal chauki hai or baad me vo susbcription resume ho jaye to jo nikl chuke hai cycle unko skip ki trah maano uske liye koi order nhi generate krna hai 
 
+exaple susbcrtion hai ek 
+aj date hai 14 august or uska next order 15 ko ana hai or mene use 17 ko resume kiya to 15 wala skip ho jaye or agr 16 wala ki v date nikl chuki h to use v skip mana jaye 17 wala ka order create krogye fir sidha 
 
 
 dev-lalit.myshopify.com SHOP  DOMAIN this
