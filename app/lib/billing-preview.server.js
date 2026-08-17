@@ -4,6 +4,8 @@ const EXTRA_SETTINGS_NAMESPACE = "subscription_app";
 // const CONTRACT_SETTINGS_SNAPSHOTS_KEY = "contract_settings_snapshots";
 // const PRODUCT_CATALOG_KEY = "product_catalog_snapshot";
 
+
+
 async function getShopIdForSnapshot(admin) {
   const res = await admin.graphql(`query { shop { id } }`);
   const data = await res.json();
@@ -38,9 +40,7 @@ async function getContractSettingsSnapshot(admin, contractId, shopId = null) {
     );
     const data = await res.json();
     if (data.errors) {
-      console.warn(
-        `[getContractSettingsSnapshot] query failed: ${data.errors[0]?.message}`,
-      );
+      console.warn(`[getContractSettingsSnapshot] query failed: ${data.errors[0]?.message}`);
       return null;
     }
 
@@ -50,10 +50,7 @@ async function getContractSettingsSnapshot(admin, contractId, shopId = null) {
     const parsed = JSON.parse(raw);
     return parsed?.settings ?? null;
   } catch (err) {
-    console.warn(
-      `[getContractSettingsSnapshot] failed for ${contractId}:`,
-      err,
-    );
+    console.warn(`[getContractSettingsSnapshot] failed for ${contractId}:`, err);
     return null;
   }
 }
@@ -101,15 +98,13 @@ async function snapshotContractSettings(
     `,
     {
       variables: {
-        metafields: [
-          {
-            ownerId: resolvedShopId,
-            namespace: EXTRA_SETTINGS_NAMESPACE,
-            key,
-            type: "json",
-            value,
-          },
-        ],
+        metafields: [{
+          ownerId: resolvedShopId,
+          namespace: EXTRA_SETTINGS_NAMESPACE,
+          key,
+          type: "json",
+          value,
+        }],
       },
     },
   );
@@ -206,7 +201,7 @@ const ACTION_ORDER = [
   "VARIANT_SWAP",
   "PRODUCT_SWAP",
   "DISCOUNT_CHANGE",
-  "VARIANT_DISCOUNT_CHANGE",
+   "VARIANT_DISCOUNT_CHANGE",
   "SHIPPING_DISCOUNT_CHANGE",
 ];
 
@@ -222,7 +217,7 @@ function sortActionsForApply(actions) {
 }
 function resolveDiscountForCycle(settings, pricingPolicy, cycleIndex) {
   cycleIndex = Number(cycleIndex);
-  const useStrictThreshold = !!settings?.useStrictAfterOrders;
+   const useStrictThreshold = !!settings?.useStrictAfterOrders;
 
   const customActive =
     settings?.changeDiscountAfterOrders &&
@@ -238,7 +233,7 @@ function resolveDiscountForCycle(settings, pricingPolicy, cycleIndex) {
       adjustmentValue: Number(settings.afterDiscountValue) || 0,
       after: settings.afterOrders,
       __phase: "after",
-      __manualOverride: !!settings.afterDiscountIsManualOverride,
+       __manualOverride: !!settings.afterDiscountIsManualOverride, 
     };
   }
 
@@ -298,12 +293,7 @@ function resolveShippingDiscountForCycle(settings, cycleIndex) {
   };
 }
 
-function resolveVariantDiscountForCycle(
-  product,
-  variant,
-  settings,
-  cycleIndex,
-) {
+function resolveVariantDiscountForCycle(product, variant, settings, cycleIndex) {
   cycleIndex = Number(cycleIndex);
   const mode = variant.discountMode || "SELLING_PLAN";
   if (mode === "NONE") return null;
@@ -329,16 +319,14 @@ function resolveVariantDiscountForCycle(
 
   // const useAfter = afterActive && cycleIndex >= afterThreshold;
   const useStrictThreshold = !!settings?.useStrictAfterOrders;
-  const useAfter =
-    afterActive &&
-    (useStrictThreshold
-      ? cycleIndex > afterThreshold
-      : cycleIndex >= afterThreshold);
+  const useAfter = afterActive && (
+    useStrictThreshold ? cycleIndex > afterThreshold : cycleIndex >= afterThreshold
+  );
   const adjustmentValue = useAfter ? afterAmount : baseAmount;
   const adjustmentType = useAfter ? afterType : baseType;
 
   if (!(adjustmentValue > 0) && adjustmentType !== "PRICE") {
-    return null;
+    return null; 
   }
 
   return {
@@ -370,16 +358,11 @@ function applyShippingDiscountToPrice(basePrice, action) {
   return Math.max(0, Number(action.adjustmentValue || 0));
 }
 
-function collectActionsForCycle(
-  settings,
-  cycleIndex,
-  pricingPolicy = null,
-  baseVariantId = null,
-) {
+function collectActionsForCycle(settings, cycleIndex, pricingPolicy = null ,baseVariantId = null) {
   const actions = [];
   if (!settings) return actions;
 
-  cycleIndex = Number(cycleIndex);
+    cycleIndex = Number(cycleIndex);
 
   const hasPerVariantProducts =
     Array.isArray(settings.products) && settings.products.length > 0;
@@ -443,47 +426,6 @@ function collectActionsForCycle(
   }
   actions.push(resolveShippingDiscountForCycle(settings, cycleIndex));
 
-  if (Array.isArray(settings.manualDiscounts)) {
-    for (const md of settings.manualDiscounts) {
-      const start = Number(md.startCycleIndex) || 0;
-      const withinLimit =
-        md.cycleLimit == null || cycleIndex < start + Number(md.cycleLimit);
-      const started = cycleIndex >= start;
-
-      if (!started || !withinLimit) continue;
-      const targetVariantIds =
-        Array.isArray(md.variantIds) && md.variantIds.length > 0
-          ? md.variantIds
-          : md.variantId
-            ? [md.variantId]
-            : [];
-
-      if (targetVariantIds.length > 0) {
-        for (const vId of targetVariantIds) {
-          actions.push({
-            type: "VARIANT_DISCOUNT_CHANGE",
-            sourceVariantId: vId,
-            adjustmentType: md.adjustmentType,
-            adjustmentValue: Number(md.adjustmentValue),
-            after: start,
-            __phase: "manual",
-            __manualDiscountId: md.id,
-            __manualDiscountName: md.name || null,
-          });
-        }
-      } else {
-        // Purane (legacy) discounts jinme variant info hi nahi thi — old global behaviour
-        actions.push({
-          type: "DISCOUNT_CHANGE",
-          adjustmentType: md.adjustmentType,
-          adjustmentValue: Number(md.adjustmentValue),
-          after: start,
-          __phase: "manual",
-          __manualDiscountId: md.id,
-        });
-      }
-    }
-  }
   if (
     settings.changeQuantityAfterOrders &&
     cycleIndex >= Number(settings.quantityAfterOrders)
@@ -545,24 +487,14 @@ function collectActionsForCycle(
     (a) => a.type === "VARIANT_SWAP" || a.type === "PRODUCT_SWAP",
   );
 
-  if (hasSwapAction) {
-    return actions.filter((a) => {
-      if (a.__manualDiscountId != null) return true;
-      return (
+   if (hasSwapAction) {
+    return actions.filter(
+      (a) =>
         a.type !== "DISCOUNT_CHANGE" &&
         a.type !== "VARIANT_DISCOUNT_CHANGE" &&
-        a.type !== "QUANTITY_CHANGE"
-      );
-    });
+        a.type !== "QUANTITY_CHANGE",
+    );
   }
-  //  if (hasSwapAction) {
-  //   return actions.filter(
-  //     (a) =>
-  //       a.type !== "DISCOUNT_CHANGE" &&
-  //       a.type !== "VARIANT_DISCOUNT_CHANGE" &&
-  //       a.type !== "QUANTITY_CHANGE",
-  //   );
-  // }
 
   const hasBaseLineRemoval = actions.some(
     (a) =>
@@ -570,18 +502,11 @@ function collectActionsForCycle(
       a.__automationCycleIndex != null,
   );
 
-  if (hasSwapAction || hasBaseLineRemoval) {
+    if (hasSwapAction || hasBaseLineRemoval) {
     return actions.filter(
-      (a) =>
-        a.__manualDiscountId != null ||
-        (a.type !== "DISCOUNT_CHANGE" && a.type !== "VARIANT_DISCOUNT_CHANGE"),
+      (a) => a.type !== "DISCOUNT_CHANGE" && a.type !== "VARIANT_DISCOUNT_CHANGE",
     );
   }
-  //   if (hasSwapAction || hasBaseLineRemoval) {
-  //   return actions.filter(
-  //     (a) => a.type !== "DISCOUNT_CHANGE" && a.type !== "VARIANT_DISCOUNT_CHANGE",
-  //   );
-  // }
 
   return actions;
 }
@@ -958,11 +883,11 @@ async function applyActionsToCycle(
   const draftLines = payload.draft.lines.edges.map((e) => e.node);
   const lineId = draftLines[0]?.id;
   const removedLineIds = new Set();
-  const variantRunningPrice = {};
   const sellingPlanIdForNewLines =
     draftLines.find((l) => l.sellingPlanId)?.sellingPlanId ?? null;
 
-  const allActionVariantIds = actions
+
+    const allActionVariantIds = actions
     .map((a) => a.variantId)
     .concat(actions.map((a) => a.sourceVariantId))
     .concat(draftLines.map((l) => l.variantId))
@@ -971,6 +896,7 @@ async function applyActionsToCycle(
     admin,
     allActionVariantIds,
   );
+ 
 
   const effectiveBasePrice = await getEffectiveBasePrice(
     admin,
@@ -1121,19 +1047,27 @@ async function applyActionsToCycle(
             "Base line was already removed by another action this cycle.";
           continue;
         }
+        // const basePrice = effectiveBasePrice;
+
+        // let newPrice = basePrice;
+        // if (action.adjustmentType === "PERCENTAGE") {
+        //   newPrice =
+        //     basePrice - (basePrice * Number(action.adjustmentValue)) / 100;
+        // } else {
+        //   newPrice = basePrice - Number(action.adjustmentValue);
+        // }
+        // newPrice = Math.max(0, newPrice).toFixed(2);
         const basePrice = effectiveBasePrice;
 
-        let newPrice = basePrice;
-        if (action.adjustmentType === "PERCENTAGE") {
-          newPrice =
-            basePrice - (basePrice * Number(action.adjustmentValue)) / 100;
-        } else if (action.adjustmentType === "FIXED_PRICE") {
-          newPrice = Number(action.adjustmentValue);
-        } else {
-          newPrice = basePrice - Number(action.adjustmentValue);
-        }
-        newPrice = Math.max(0, newPrice).toFixed(2);
-        variantRunningPrice[lineId] = Number(newPrice);
+  let newPrice = basePrice;
+  if (action.adjustmentType === "PERCENTAGE") {
+    newPrice = basePrice - (basePrice * Number(action.adjustmentValue)) / 100;
+  } else if (action.adjustmentType === "FIXED_PRICE") {
+    newPrice = Number(action.adjustmentValue); 
+  } else {
+    newPrice = basePrice - Number(action.adjustmentValue);
+  }
+  newPrice = Math.max(0, newPrice).toFixed(2);
 
         const res = await admin.graphql(
           `
@@ -1155,7 +1089,7 @@ async function applyActionsToCycle(
           throw new Error(`DISCOUNT_CHANGE failed: ${errors[0].message}`);
       }
       // ── VARIANT_DISCOUNT_CHANGE ── (kisi bhi specific variant line ka discount)
-     if (action.type === "VARIANT_DISCOUNT_CHANGE") {
+      if (action.type === "VARIANT_DISCOUNT_CHANGE") {
         const targetLine = resolveLineForAction(draftLines, action);
         if (!targetLine) {
           console.warn(
@@ -1174,22 +1108,14 @@ async function applyActionsToCycle(
           continue;
         }
 
-        // Agar isi line par pehle koi discount (native ya doosra manual) already
-        // apply ho chuka hai (variantRunningPrice me save hai), to usi RESULT ko
-        // base bana ke chalo. Warna catalog/current price se shuru karo.
-        const startingPrice =
-          variantRunningPrice[targetLine.id] != null
-            ? variantRunningPrice[targetLine.id]
-            : Number(
-                batchedVariantData[targetLine.variantId]?.price ??
-                  targetLine.currentPrice?.amount ??
-                  0,
-              ) || 0;
+        const variantBasePrice =
+          batchedVariantData[targetLine.variantId]?.price ??
+          Number(targetLine.currentPrice?.amount) ??
+          0;
 
-        let newPrice = startingPrice;
+        let newPrice = Number(variantBasePrice) || 0;
         if (action.adjustmentType === "PERCENTAGE") {
-          newPrice =
-            newPrice - (newPrice * Number(action.adjustmentValue)) / 100;
+          newPrice = newPrice - (newPrice * Number(action.adjustmentValue)) / 100;
         } else if (
           action.adjustmentType === "PRICE" ||
           action.adjustmentType === "FIXED_PRICE"
@@ -1198,9 +1124,7 @@ async function applyActionsToCycle(
         } else {
           newPrice = newPrice - Number(action.adjustmentValue);
         }
-        newPrice = Math.max(0, newPrice);
-        variantRunningPrice[targetLine.id] = newPrice; // agla discount (agar ho) isi par lagega
-        const formattedPrice = newPrice.toFixed(2);
+        newPrice = Math.max(0, newPrice).toFixed(2);
 
         const res = await admin.graphql(
           `
@@ -1210,7 +1134,7 @@ async function applyActionsToCycle(
             }
           }
           `,
-          { variables: { draftId, lineId: targetLine.id, price: formattedPrice } },
+          { variables: { draftId, lineId: targetLine.id, price: newPrice } },
         );
         const data = await res.json();
         if (data.errors)
@@ -1219,9 +1143,7 @@ async function applyActionsToCycle(
           );
         const errors = data.data?.subscriptionDraftLineUpdate?.userErrors;
         if (errors?.length)
-          throw new Error(
-            `VARIANT_DISCOUNT_CHANGE failed: ${errors[0].message}`,
-          );
+          throw new Error(`VARIANT_DISCOUNT_CHANGE failed: ${errors[0].message}`);
       }
       if (action.type === "SHIPPING_DISCOUNT_CHANGE") {
         if (action.__default) continue; // no shipping discount configured for this cycle
@@ -1572,16 +1494,12 @@ function setAutomationVariantPrice(
   price,
 ) {
   if (!settings || !Array.isArray(settings.automationCycles)) {
-    throw new Error(
-      "setAutomationVariantPrice: no automationCycles configured",
-    );
+    throw new Error("setAutomationVariantPrice: no automationCycles configured");
   }
   const clonedSettings = JSON.parse(JSON.stringify(settings));
   const entry = clonedSettings.automationCycles[automationCycleIndex];
   if (!entry || !Array.isArray(entry.actions)) {
-    throw new Error(
-      "setAutomationVariantPrice: automation cycle entry not found",
-    );
+    throw new Error("setAutomationVariantPrice: automation cycle entry not found");
   }
   const action = entry.actions[automationActionIndex];
   if (!action) {
@@ -1592,7 +1510,7 @@ function setAutomationVariantPrice(
   action.discountEnabled = true;
   action.discountType = "fixed_amount";
   action.discountValue = String(Math.max(0, Number(price) || 0));
-  action.__manualPriceOverride = true;
+   action.__manualPriceOverride = true;
 
   return clonedSettings;
 }
@@ -1618,13 +1536,7 @@ function removeAllDiscounts(settings) {
 
 function removeLineDiscount(
   settings,
-  {
-    isBaseLine,
-    discountPhase,
-    automationCycleIndex,
-    automationActionIndex,
-    variantId,
-  },
+  { isBaseLine, discountPhase, automationCycleIndex, automationActionIndex, variantId },
 ) {
   if (!settings) {
     throw new Error("removeLineDiscount: no settings configured");
@@ -1638,9 +1550,7 @@ function removeLineDiscount(
     }
     if (variantId && Array.isArray(clonedSettings.products)) {
       for (const product of clonedSettings.products) {
-        const variant = (product.variants || []).find(
-          (v) => v.variantsId === variantId,
-        );
+        const variant = (product.variants || []).find((v) => v.variantsId === variantId);
         if (variant) {
           variant.discountMode = "NONE";
           return clonedSettings;
@@ -1655,6 +1565,7 @@ function removeLineDiscount(
     }
     return clonedSettings;
   }
+
 
   if (!Array.isArray(clonedSettings.automationCycles)) {
     throw new Error("removeLineDiscount: no automationCycles configured");
@@ -1679,16 +1590,13 @@ function setBaseLineFixedPrice(settings, price) {
   clonedSettings.afterOrders = 0;
   clonedSettings.afterDiscountType = "FIXED_PRICE";
   clonedSettings.afterDiscountValue = Number(price) || 0;
-  clonedSettings.beforeDiscountDisabled = true;
-  clonedSettings.afterDiscountIsManualOverride = true;
+  clonedSettings.beforeDiscountDisabled = true; 
+  clonedSettings.afterDiscountIsManualOverride = true;  
   return clonedSettings;
 }
 function setLineFixedPrice(settings, variantId, price) {
   const clonedSettings = settings ? JSON.parse(JSON.stringify(settings)) : {};
-  if (
-    !clonedSettings.lineFixedPrices ||
-    typeof clonedSettings.lineFixedPrices !== "object"
-  ) {
+  if (!clonedSettings.lineFixedPrices || typeof clonedSettings.lineFixedPrices !== "object") {
     clonedSettings.lineFixedPrices = {};
   }
   clonedSettings.lineFixedPrices[variantId] = Number(price) || 0;
@@ -1717,60 +1625,6 @@ function addBaseLineRemoval(settings, cycleIndex, productId, variantId) {
 
   return clonedSettings;
 }
-function addManualDiscount(
-  settings,
-  {
-    name,
-    adjustmentType,
-    adjustmentValue,
-    appliesToAll,
-    variantId,
-    variantIds,
-    cycleLimit,
-    startCycleIndex = 0,
-  },
-) {
-  const clonedSettings = settings ? JSON.parse(JSON.stringify(settings)) : {};
-  if (!Array.isArray(clonedSettings.manualDiscounts)) {
-    clonedSettings.manualDiscounts = [];
-  }
-
-  const id = `md_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-
-  clonedSettings.manualDiscounts.push({
-    id,
-    name: name || "",
-    adjustmentType:
-      adjustmentType === "FIXED_AMOUNT" ? "FIXED_AMOUNT" : "PERCENTAGE",
-    adjustmentValue: Number(adjustmentValue) || 0,
-    appliesToAll: !!appliesToAll,
-    variantId: appliesToAll ? null : variantId || null,
-    // appliesToAll ke case me subscription ki SAARI current line variant IDs yaha store hoti hain
-    variantIds: appliesToAll
-      ? Array.isArray(variantIds)
-        ? variantIds.filter(Boolean)
-        : []
-      : variantId
-        ? [variantId]
-        : [],
-    cycleLimit:
-      cycleLimit != null && cycleLimit !== "" ? Number(cycleLimit) : null,
-    startCycleIndex: Number(startCycleIndex) || 0,
-  });
-
-  return clonedSettings;
-}
-
-function removeManualDiscount(settings, discountId) {
-  if (!settings || !Array.isArray(settings.manualDiscounts)) {
-    throw new Error("removeManualDiscount: no manualDiscounts configured");
-  }
-  const clonedSettings = JSON.parse(JSON.stringify(settings));
-  clonedSettings.manualDiscounts = clonedSettings.manualDiscounts.filter(
-    (d) => d.id !== discountId,
-  );
-  return clonedSettings;
-}
 async function getEffectiveSettingsForContract(
   admin,
   contractId,
@@ -1779,50 +1633,8 @@ async function getEffectiveSettingsForContract(
 ) {
   return await getContractSettingsSnapshot(admin, contractId, shopId);
 }
-function applyStackedVariantDiscounts(basePrice, matchedActions) {
-  let price = Number(basePrice) || 0;
-  for (const action of matchedActions) {
-    const type = String(action.adjustmentType).toUpperCase();
-    if (type === "PERCENTAGE") {
-      price = price - (price * Number(action.adjustmentValue)) / 100;
-    } else if (type === "PRICE" || type === "FIXED_PRICE") {
-      price = Number(action.adjustmentValue);
-    } else {
-      price = price - Number(action.adjustmentValue);
-    }
-    price = Math.max(0, price);
-  }
-  return price;
-}
 
-function buildStackedDiscountLabel(matchedActions, currencyCode) {
-  const visible = matchedActions.filter((a) => !a.__manualOverride);
-  if (visible.length === 0) return null;
-  return visible
-    .map((src) => {
-      const namePrefix = src.__manualDiscountName ? `${src.__manualDiscountName} ` : "";
-      const type = String(src.adjustmentType).toUpperCase();
-      if (type === "PERCENTAGE") return `${namePrefix}(${src.adjustmentValue}% off)`;
-      if (type === "PRICE" || type === "FIXED_PRICE" || type === "FIXED_AMOUNT")
-        return `${namePrefix}(Fixed price: ${currencySymbol(currencyCode)}${src.adjustmentValue})`;
-      return `${namePrefix}(${currencySymbol(currencyCode)}${src.adjustmentValue} off)`;
-    })
-    .join(", ");
-}
-function formatSingleDiscountLabel(src, currencyCode) {
-  if (!src) return null;
-  const namePrefix = src.__manualDiscountName ? `${src.__manualDiscountName} ` : "";
-  const type = String(src.adjustmentType).toUpperCase();
-  if (type === "PERCENTAGE") return `${namePrefix}${src.adjustmentValue}% off`;
-  if (type === "PRICE" || type === "FIXED_PRICE" || type === "FIXED_AMOUNT")
-    return `${namePrefix}Fixed price: ${currencySymbol(currencyCode)}${src.adjustmentValue}`;
-  return `${namePrefix}${currencySymbol(currencyCode)}${src.adjustmentValue} off`;
-}
-async function getContractPreview(
-  admin,
-  contractId,
-  preFetchedContract = null,
-) {
+async function getContractPreview(admin, contractId, preFetchedContract = null) {
   let contract = preFetchedContract;
 
   if (!contract) {
@@ -1888,7 +1700,7 @@ async function getContractPreview(
 
   const allLines = contract.lines.edges.map((e) => e.node);
 
-  const firstLine = allLines[0];
+const firstLine = allLines[0]; 
 
   if (allLines.length === 0) {
     console.log(`[preview] Contract has no lines: ${contractId}`);
@@ -1899,7 +1711,7 @@ async function getContractPreview(
   let groupId = null;
   let groupName = null;
 
-  if (sellingPlanId) {
+ if (sellingPlanId) {
     const groupsRes = await admin.graphql(`
       query {
         sellingPlanGroups(first: 100) {
@@ -1930,6 +1742,7 @@ async function getContractPreview(
       break;
     }
   }
+
 
   const extraSettings = await getContractSettingsSnapshot(admin, contractId);
   const settingsSource = extraSettings
@@ -2057,25 +1870,29 @@ async function getContractPreview(
   );
 
   const currencyCodeFallback =
-    firstLine?.pricingPolicy?.basePrice?.currencyCode ??
-    firstLine?.currentPrice?.currencyCode ??
-    (await getShopCurrencyCode(admin)) ??
-    "USD";
+  firstLine?.pricingPolicy?.basePrice?.currencyCode ??
+  firstLine?.currentPrice?.currencyCode ??
+  (await getShopCurrencyCode(admin)) ??
+  "USD";
 
+  // const currencyCodeFallback =
+  //   firstLine?.pricingPolicy?.basePrice?.currencyCode ??
+  //   firstLine?.currentPrice?.currencyCode ??
+  //   "INR";
 
   const lineItems = [];
 
   for (const line of allLines) {
-    const isFirstLine = line === allLines[0];
-let matchedSwapVariantDiscount = null; 
-    const isSwapTarget =
-      swapAction &&
-      (isActionTargeted(swapAction)
-        ? actionMatchesLine(swapAction, line)
-        : isFirstLine);
-    const isRemoved = removeActions.some((a) =>
-      isActionTargeted(a) ? actionMatchesLine(a, line) : isFirstLine,
-    );
+     const isFirstLine = line === allLines[0];
+
+  const isSwapTarget =
+    swapAction &&
+    (isActionTargeted(swapAction)
+      ? actionMatchesLine(swapAction, line)
+      : isFirstLine); 
+      const isRemoved = removeActions.some((a) =>
+    isActionTargeted(a) ? actionMatchesLine(a, line) : isFirstLine,
+  );
     if (isRemoved) continue;
 
     const lineCurrency =
@@ -2098,10 +1915,9 @@ let matchedSwapVariantDiscount = null;
     let automationCycleIndexOut = null;
     let automationActionIndexOut = null;
     let pricePerUnit;
-    let matchedSwapVariantDiscounts = [];
 
-    if (isSwapTarget && swapAction.variantId) {
-     const swappedInfo = variantDataMap[swapAction.variantId];
+if (isSwapTarget && swapAction.variantId) {
+      const swappedInfo = variantDataMap[swapAction.variantId];
       if (swappedInfo?.price != null) {
         effectiveBase = swappedInfo.price;
       }
@@ -2119,58 +1935,39 @@ let matchedSwapVariantDiscount = null;
       automationCycleIndexOut = swapAction.__automationCycleIndex ?? null;
       automationActionIndexOut = swapAction.__automationActionIndex ?? null;
 
-      // swap ke baad jo variant final hai (variantIdOut), usi pe
-      // saare manual/variant discounts collect karo (ek se zyada ho sakte hain)
-      matchedSwapVariantDiscounts = variantDiscountActions.filter(
-        (a) => a.sourceVariantId === variantIdOut,
-      );
-
-      if (matchedSwapVariantDiscounts.length > 0) {
-        const discounted = applyStackedVariantDiscounts(
-          effectiveBase,
-          matchedSwapVariantDiscounts,
-        );
-        pricePerUnit = {
-          amount: discounted.toFixed(2),
-          currencyCode: lineCurrency,
-        };
-      } else {
-        pricePerUnit = swapAction.discountEnabled
-          ? {
-              amount: applyCustomDiscountAction(effectiveBase, {
-                adjustmentType: swapAction.discountType,
-                adjustmentValue: swapAction.discountValue,
-              }).toFixed(2),
-              currencyCode: lineCurrency,
-            }
-          : { amount: effectiveBase.toFixed(2), currencyCode: lineCurrency };
-      }
-    } else if (variantDiscountActions.some((a) => actionMatchesLine(a, line))) {
-      const matchedForThisLine = variantDiscountActions.filter((a) =>
+      pricePerUnit = swapAction.discountEnabled
+        ? {
+            amount: applyCustomDiscountAction(effectiveBase, {
+              adjustmentType: swapAction.discountType,
+              adjustmentValue: swapAction.discountValue,
+            }).toFixed(2),
+            currencyCode: lineCurrency,
+          }
+        : { amount: effectiveBase.toFixed(2), currencyCode: lineCurrency };
+    }  else if (
+      variantDiscountActions.find((a) => actionMatchesLine(a, line))
+    ) {
+      const matchedVariantDiscount = variantDiscountActions.find((a) =>
         actionMatchesLine(a, line),
       );
-      // Agar isi (base) line par native/catalog discount (discountAction) bhi laga hai,
-      // to manual discount uske RESULT (currently displayed price) par lage,
-      // poore original base amount par nahi.
-      let baseForManual = effectiveBase;
-      if (isFirstLine && hasRealDiscount) {
-        if (discountAction.adjustmentType === "PERCENTAGE") {
-          baseForManual =
-            effectiveBase -
-            (effectiveBase * Number(discountAction.adjustmentValue)) / 100;
-        } else if (discountAction.adjustmentType === "FIXED_PRICE") {
-          baseForManual = Number(discountAction.adjustmentValue);
-        } else {
-          baseForManual = effectiveBase - Number(discountAction.adjustmentValue);
-        }
-        baseForManual = Math.max(0, baseForManual);
+      let discounted = effectiveBase;
+      if (matchedVariantDiscount.adjustmentType === "PERCENTAGE") {
+        discounted =
+          effectiveBase -
+          (effectiveBase * Number(matchedVariantDiscount.adjustmentValue)) / 100;
+      } else if (
+        matchedVariantDiscount.adjustmentType === "PRICE" ||
+        matchedVariantDiscount.adjustmentType === "FIXED_PRICE"
+      ) {
+        discounted = Number(matchedVariantDiscount.adjustmentValue);
+      } else {
+        discounted = effectiveBase - Number(matchedVariantDiscount.adjustmentValue);
       }
-      const discounted = applyStackedVariantDiscounts(baseForManual, matchedForThisLine);
       pricePerUnit = {
-        amount: discounted.toFixed(2),
+        amount: Math.max(0, discounted).toFixed(2),
         currencyCode: lineCurrency,
       };
-    }else if (isFirstLine && discountAction) {
+    } else if (isFirstLine && discountAction) {
       let discounted = effectiveBase;
       if (!discountAction.__default) {
         if (discountAction.adjustmentType === "PERCENTAGE") {
@@ -2187,10 +1984,26 @@ let matchedSwapVariantDiscount = null;
         amount: Math.max(0, discounted).toFixed(2),
         currencyCode: lineCurrency,
       };
-    } else {
+    }else {
       pricePerUnit = {
         amount: (line.currentPrice?.amount ?? effectiveBase).toString(),
         currencyCode: lineCurrency,
+      };
+      
+    }
+    const priceBeforeManualDiscounts = pricePerUnit;
+    const activeManualDiscounts = getActiveManualDiscountsForLine(
+      extraSettings,
+      cycleIndex,
+      variantIdOut,
+    );
+    if (activeManualDiscounts.length > 0) {
+      pricePerUnit = {
+        amount: applyManualDiscountsToPrice(
+          priceBeforeManualDiscounts.amount,
+          activeManualDiscounts,
+        ).toFixed(2),
+        currencyCode: priceBeforeManualDiscounts.currencyCode,
       };
     }
     const qtyApplies =
@@ -2205,31 +2018,10 @@ let matchedSwapVariantDiscount = null;
       amount: (Number(pricePerUnit.amount) * finalQty).toFixed(2),
       currencyCode: pricePerUnit.currencyCode,
     };
-    //     const matchedVariantDiscountForLine = variantDiscountActions.find((a) =>
-    //   actionMatchesLine(a, line),
-    // );
-    // const showDiscountOnThisLine =
-    //   matchedVariantDiscountForLine != null ||
-    //   (hasRealDiscount && isFirstLine && !isSwapTarget);
-    // BAAD MEIN:
-const matchedVariantDiscountsForLine =
-      matchedSwapVariantDiscounts.length > 0
-        ? matchedSwapVariantDiscounts
-        : variantDiscountActions.filter((a) => actionMatchesLine(a, line));
-    const showDiscountOnThisLine =
-      matchedVariantDiscountsForLine.length > 0 ||
-      (hasRealDiscount && isFirstLine && !isSwapTarget);
-
+    const showDiscountOnThisLine = hasRealDiscount && isFirstLine && !isSwapTarget;
     const originalPricePerUnit = showDiscountOnThisLine
-      ? {
-          amount: effectiveBase.toFixed(2),
-          currencyCode: pricePerUnit.currencyCode,
-        }
+      ? { amount: effectiveBase.toFixed(2), currencyCode: pricePerUnit.currencyCode }
       : pricePerUnit;
-    // const showDiscountOnThisLine = hasRealDiscount && isFirstLine && !isSwapTarget;
-    // const originalPricePerUnit = showDiscountOnThisLine
-    //   ? { amount: effectiveBase.toFixed(2), currencyCode: pricePerUnit.currencyCode }
-    //   : pricePerUnit;
     const originalItemTotal = showDiscountOnThisLine
       ? {
           amount: (effectiveBase * finalQty).toFixed(2),
@@ -2249,60 +2041,38 @@ const matchedVariantDiscountsForLine =
       itemTotal,
       originalPricePerUnit,
       originalItemTotal,
+       priceBeforeManualDiscounts,  
+               
+      manualDiscounts: activeManualDiscounts.map((d) => ({   
+        id: d.id,
+        name: d.name,
+        adjustmentType: d.adjustmentType,
+        adjustmentValue: d.adjustmentValue,
+      })),
       isBaseLine: true,
       automationCycleIndex: automationCycleIndexOut,
       automationActionIndex: automationActionIndexOut,
       discountPhase: (() => {
-        if (matchedVariantDiscountsForLine.length > 0)
-          return matchedVariantDiscountsForLine[0].__phase;
+        const m = variantDiscountActions.find((a) => actionMatchesLine(a, line));
+        if (m) return m.__phase;
         return showDiscountOnThisLine ? discountAction.__phase : null;
       })(),
       discountLabel: (() => {
-        if (matchedVariantDiscountsForLine.length > 0) {
-          return buildStackedDiscountLabel(
-            matchedVariantDiscountsForLine,
-            pricePerUnit.currencyCode,
-          );
-        }
-        const src = showDiscountOnThisLine ? discountAction : null;
-        if (!src) return null;
-        if (src.__manualOverride) return null;
+  const m = variantDiscountActions.find((a) => actionMatchesLine(a, line));
+  const src = m || (showDiscountOnThisLine ? discountAction : null);
+  if (!src) return null;
+  if (src.__manualOverride) return null;
         const type = String(src.adjustmentType).toUpperCase();
         if (type === "PERCENTAGE") return `${src.adjustmentValue}% off`;
         if (type === "PRICE" || type === "FIXED_PRICE" || type === "FIXED_AMOUNT")
           return `Fixed price: ${currencySymbol(pricePerUnit.currencyCode)}${src.adjustmentValue}`;
         return `${currencySymbol(pricePerUnit.currencyCode)}${src.adjustmentValue} off`;
       })(),
-      manualDiscountId: (() => {
-        if (matchedVariantDiscountsForLine.length > 0)
-          return matchedVariantDiscountsForLine[0].__manualDiscountId ?? null;
-        const src = showDiscountOnThisLine ? discountAction : null;
-        return src?.__manualDiscountId ?? null;
-      })(),
-      // NEW — har discount ka apna entry, taaki har ek ka alag delete button ban sake
-      discounts: (() => {
-        if (matchedVariantDiscountsForLine.length > 0) {
-          return matchedVariantDiscountsForLine.map((d) => ({
-            manualDiscountId: d.__manualDiscountId ?? null,
-            label: formatSingleDiscountLabel(d, pricePerUnit.currencyCode),
-            phase: d.__phase,
-          }));
-        }
-        const src = showDiscountOnThisLine ? discountAction : null;
-        if (!src || src.__manualOverride) return [];
-        return [
-          {
-            manualDiscountId: src.__manualDiscountId ?? null,
-            label: formatSingleDiscountLabel(src, pricePerUnit.currencyCode),
-            phase: src.__phase,
-          },
-        ];
-      })(),
     });
   }
 
   for (const action of addProductActions) {
-   const isSwapGenerated = !!action.destProductId || !!action.sourceProductId;
+    const isSwapGenerated = !!action.destProductId || !!action.sourceProductId;
     const qty = Number(action.quantity) || 1;
 
     const variantInfo = variantDataMap[action.variantId];
@@ -2313,36 +2083,41 @@ const matchedVariantDiscountsForLine =
           firstLine?.currentPrice?.amount,
       ) || 0;
 
-    // NEW: is added variant pe koi manual/variant discount hai?
-    const matchedAddVariantDiscounts = variantDiscountActions.filter(
-      (a) => a.sourceVariantId === action.variantId,
-    );
-
     let pricePerUnitNum;
-    if (matchedAddVariantDiscounts.length > 0) {
-      const baseForThis = knownPrice ?? effectiveBaseForAdd;
-      pricePerUnitNum = applyStackedVariantDiscounts(baseForThis, matchedAddVariantDiscounts);
-    } else {
-      try {
-        pricePerUnitNum = computeLinePriceFromKnownPrice(
-          knownPrice,
-          {
-            isSwapGenerated,
-            discountEnabled: action.discountEnabled,
-            discountType: action.discountType,
-            discountValue: action.discountValue,
-          },
-          effectiveBaseForAdd,
-          discountTierForCycle,
-          hasRealDiscount ? discountAction : null,
-        );
-      } catch (err) {
-        console.warn(
-          `[preview] failed computing price for ADD_PRODUCT variant ${action.variantId}:`,
-          err,
-        );
-        pricePerUnitNum = 0;
-      }
+    try {
+      pricePerUnitNum = computeLinePriceFromKnownPrice(
+        knownPrice,
+        {
+          isSwapGenerated,
+          discountEnabled: action.discountEnabled,
+          discountType: action.discountType,
+          discountValue: action.discountValue,
+        },
+        effectiveBaseForAdd,
+        discountTierForCycle,
+        hasRealDiscount ? discountAction : null,
+      );
+    } catch (err) {
+      console.warn(
+        `[preview] failed computing price for ADD_PRODUCT variant ${action.variantId}:`,
+        err,
+      );
+      pricePerUnitNum = 0;
+    }
+      const priceBeforeManualDiscountsForAdd = {
+      amount: pricePerUnitNum.toFixed(2),
+      currencyCode: currencyCodeFallback,
+    };
+    const activeManualDiscountsForAdd = getActiveManualDiscountsForLine(
+      extraSettings,
+      cycleIndex,
+      action.variantId,
+    );
+    if (activeManualDiscountsForAdd.length > 0) {
+      pricePerUnitNum = applyManualDiscountsToPrice(
+        pricePerUnitNum,
+        activeManualDiscountsForAdd,
+      );
     }
 
     let addedImageUrl = action.imageUrl ?? variantInfo?.image?.url ?? null;
@@ -2367,6 +2142,8 @@ const matchedVariantDiscountsForLine =
       quantity: qty,
       imageUrl: addedImageUrl,
       imageAlt: addedImageAlt,
+       priceBeforeManualDiscounts: priceBeforeManualDiscountsForAdd,   
+      manualDiscounts: activeManualDiscountsForAdd.map((d) => ({ id: d.id, name: d.name, adjustmentType: d.adjustmentType, adjustmentValue: d.adjustmentValue })),
       pricePerUnit: {
         amount: pricePerUnitNum.toFixed(2),
         currencyCode: currencyCodeFallback,
@@ -2383,44 +2160,20 @@ const matchedVariantDiscountsForLine =
         amount: (originalPriceValue * qty).toFixed(2),
         currencyCode: currencyCodeFallback,
       },
-     isBaseLine: false,
+      isBaseLine: false,
       automationCycleIndex: action.__automationCycleIndex ?? null,
       automationActionIndex: action.__automationActionIndex ?? null,
-      discountPhase: matchedAddVariantDiscounts.length > 0 ? "manual" : null,
-      discountLabel:
-        matchedAddVariantDiscounts.length > 0
-          ? buildStackedDiscountLabel(matchedAddVariantDiscounts, currencyCodeFallback)
-          : action.discountEnabled &&
-              Number(action.discountValue) > 0 &&
-              !action.__manualPriceOverride
-            ? String(action.discountType).toLowerCase() === "percentage"
-              ? `${action.discountValue}% off`
-              : String(action.discountType).toLowerCase() === "fixed_amount"
-                ? `Fixed price: ${currencySymbol(currencyCodeFallback)}${action.discountValue}`
-                : `${currencySymbol(currencyCodeFallback)}${action.discountValue} off`
-            : null,
-      manualDiscountId: matchedAddVariantDiscounts[0]?.__manualDiscountId ?? null,
-       discounts:
-        matchedAddVariantDiscounts.length > 0
-          ? matchedAddVariantDiscounts.map((d) => ({
-              manualDiscountId: d.__manualDiscountId ?? null,
-              label: formatSingleDiscountLabel(d, currencyCodeFallback),
-              phase: d.__phase,
-            }))
-          : action.discountEnabled &&
-              Number(action.discountValue) > 0 &&
-              !action.__manualPriceOverride
-            ? [
-                {
-                  manualDiscountId: null,
-                  label: formatSingleDiscountLabel(
-                    { adjustmentType: action.discountType, adjustmentValue: action.discountValue },
-                    currencyCodeFallback,
-                  ),
-                  phase: null,
-                },
-              ]
-            : [],
+      discountPhase: null,
+       discountLabel:
+        action.discountEnabled &&
+        Number(action.discountValue) > 0 &&
+        !action.__manualPriceOverride
+          ? String(action.discountType).toLowerCase() === "percentage"
+            ? `${action.discountValue}% off`
+            : String(action.discountType).toLowerCase() === "fixed_amount"
+              ? `Fixed price: ${currencySymbol(currencyCodeFallback)}${action.discountValue}`
+              : `${currencySymbol(currencyCodeFallback)}${action.discountValue} off`
+          : null,
     });
   }
 
@@ -2912,10 +2665,7 @@ async function removeContractLine(admin, contractId, lineId) {
   try {
     await clearAnyOpenDraft(admin, contractId);
   } catch (err) {
-    console.warn(
-      `[remove_line] clearAnyOpenDraft failed for ${contractId}:`,
-      err,
-    );
+    console.warn(`[remove_line] clearAnyOpenDraft failed for ${contractId}:`, err);
   }
 
   const draftRes = await admin.graphql(CONTRACT_UPDATE_MUTATION, {
@@ -2944,13 +2694,9 @@ async function removeContractLine(admin, contractId, lineId) {
     { variables: { draftId, lineId } },
   );
   const removeData = await removeRes.json();
-  const removeErrors =
-    removeData?.data?.subscriptionDraftLineRemove?.userErrors;
+  const removeErrors = removeData?.data?.subscriptionDraftLineRemove?.userErrors;
   if (removeErrors?.length) {
-    return {
-      success: false,
-      error: removeErrors.map((e) => e.message).join(", "),
-    };
+    return { success: false, error: removeErrors.map((e) => e.message).join(", ") };
   }
 
   const commitRes = await admin.graphql(DRAFT_COMMIT_MUTATION, {
@@ -3023,23 +2769,16 @@ async function addContractLine(
 
   const alreadyExists = draftLines.some((l) => l.variantId === variantId);
   if (alreadyExists) {
-    return {
-      success: false,
-      error: "This product variant is already part of the subscription",
-    };
+    return { success: false, error: "This product variant is already part of the subscription" };
   }
 
-  const sellingPlanId =
-    draftLines.find((l) => l.sellingPlanId)?.sellingPlanId ?? null;
+  const sellingPlanId = draftLines.find((l) => l.sellingPlanId)?.sellingPlanId ?? null;
 
   let price = currentPrice;
   if (price == null) {
     price = await fetchVariantPrice(admin, variantId);
     if (price == null) {
-      return {
-        success: false,
-        error: "Could not fetch price for selected variant",
-      };
+      return { success: false, error: "Could not fetch price for selected variant" };
     }
   }
 
@@ -3078,10 +2817,7 @@ async function addContractLine(
   const addData = await addRes.json();
   const addErrors = addData?.data?.subscriptionDraftLineAdd?.userErrors;
   if (addErrors?.length) {
-    return {
-      success: false,
-      error: addErrors.map((e) => e.message).join(", "),
-    };
+    return { success: false, error: addErrors.map((e) => e.message).join(", ") };
   }
 
   const commitRes = await admin.graphql(DRAFT_COMMIT_MUTATION, {
@@ -3109,10 +2845,7 @@ async function updateContractLinePrice(admin, contractId, { lineId, price }) {
   try {
     await clearAnyOpenDraft(admin, contractId);
   } catch (err) {
-    console.warn(
-      `[update_line_price] clearAnyOpenDraft failed for ${contractId}:`,
-      err,
-    );
+    console.warn(`[update_line_price] clearAnyOpenDraft failed for ${contractId}:`, err);
   }
 
   const draftRes = await admin.graphql(CONTRACT_UPDATE_MUTATION_WITH_LINES, {
@@ -3145,22 +2878,12 @@ async function updateContractLinePrice(admin, contractId, { lineId, price }) {
       }
     }
     `,
-    {
-      variables: {
-        draftId,
-        lineId: targetLine.id,
-        price: Number(price).toFixed(2),
-      },
-    },
+    { variables: { draftId, lineId: targetLine.id, price: Number(price).toFixed(2) } },
   );
   const updateData = await updateRes.json();
-  const updateErrors =
-    updateData?.data?.subscriptionDraftLineUpdate?.userErrors;
+  const updateErrors = updateData?.data?.subscriptionDraftLineUpdate?.userErrors;
   if (updateErrors?.length) {
-    return {
-      success: false,
-      error: updateErrors.map((e) => e.message).join(", "),
-    };
+    return { success: false, error: updateErrors.map((e) => e.message).join(", ") };
   }
 
   const commitRes = await admin.graphql(DRAFT_COMMIT_MUTATION, {
@@ -3178,6 +2901,62 @@ async function updateContractLinePrice(admin, contractId, { lineId, price }) {
   }
 
   return { success: true };
+}
+
+function addManualDiscount(settings, discount) {
+  const clonedSettings = settings ? JSON.parse(JSON.stringify(settings)) : {};
+  if (!Array.isArray(clonedSettings.manualDiscounts)) {
+    clonedSettings.manualDiscounts = [];
+  }
+  const id = `md_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  clonedSettings.manualDiscounts.push({
+    id,
+    name: discount.name?.trim() || "Discount",
+    adjustmentType: discount.adjustmentType || "PERCENTAGE",
+    adjustmentValue: Number(discount.adjustmentValue) || 0,
+    appliesToAll: !!discount.appliesToAll,
+    variantId: discount.appliesToAll ? null : (discount.variantId || null),
+    cycleLimit: discount.cycleLimit ? Number(discount.cycleLimit) : null,
+    startCycleIndex: Number(discount.startCycleIndex) || 0,
+    createdAt: new Date().toISOString(),
+  });
+  return clonedSettings;
+}
+
+function removeManualDiscount(settings, discountId) {
+  const clonedSettings = settings ? JSON.parse(JSON.stringify(settings)) : {};
+  clonedSettings.manualDiscounts = (clonedSettings.manualDiscounts || []).filter(
+    (d) => d.id !== discountId,
+  );
+  return clonedSettings;
+}
+
+function getActiveManualDiscountsForLine(settings, cycleIndex, variantId) {
+  cycleIndex = Number(cycleIndex);
+  const all = Array.isArray(settings?.manualDiscounts) ? settings.manualDiscounts : [];
+  return all.filter((d) => {
+    if (cycleIndex < Number(d.startCycleIndex)) return false;
+    if (d.cycleLimit != null) {
+      const endCycle = Number(d.startCycleIndex) + Number(d.cycleLimit) - 1;
+      if (cycleIndex > endCycle) return false;
+    }
+    if (d.appliesToAll) return true;
+    return d.variantId && d.variantId === variantId;
+  });
+}
+
+function applyManualDiscountsToPrice(basePrice, discounts) {
+  let price = Number(basePrice) || 0;
+  for (const d of discounts) {
+    if (d.adjustmentType === "PERCENTAGE") {
+      price = Math.max(0, price - (price * Number(d.adjustmentValue)) / 100);
+    } else if (d.adjustmentType === "FIXED_PRICE") {
+      price = Math.max(0, Number(d.adjustmentValue));
+    } else {
+      price = Math.max(0, price - Number(d.adjustmentValue));
+    }
+  }
+  return price;
 }
 export {
   getContractPreview,
@@ -3215,6 +2994,8 @@ export {
   updateContractLinePrice,
   setBaseLineFixedPrice,
   setLineFixedPrice,
-  addManualDiscount,
+   addManualDiscount,
   removeManualDiscount,
+  getActiveManualDiscountsForLine,
+  applyManualDiscountsToPrice,
 };

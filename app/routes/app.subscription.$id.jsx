@@ -14,7 +14,7 @@ import {
   clearAnyOpenDraft,       
   updateContractAddress,
   fetchVariantPrice,
-    addManualDiscount,
+  addManualDiscount,       
   removeManualDiscount,
 } from "../lib/billing-preview.server";
 const API = import.meta.env.VITE_API_URL;
@@ -75,6 +75,9 @@ async function fetchAllBillingCycles(admin, contractId, startDate, endDate,maxCy
       edges.length > 0 &&
       cycles.length < maxCycles;
     cursor = edges.length > 0 ? edges[edges.length - 1].cursor : null;
+
+    // hasNextPage = !!conn?.pageInfo?.hasNextPage && edges.length > 0;
+    // cursor = edges.length > 0 ? edges[edges.length - 1].cursor : null;
   }
 
   return cycles;
@@ -433,8 +436,8 @@ export async function action({ request, params }) {
     type === "remove_all_discounts" ||   
     type === "remove_line_discount"  ||
     type === "update_address" ||
-       type === "add_discount" ||
-    type === "remove_manual_discount"
+    type === "add_manual_discount" ||     
+    type === "remove_manual_discount" 
   ) {
     if (type === "pause") {
       try {
@@ -551,57 +554,171 @@ export async function action({ request, params }) {
       return { success: true, status: payload.contract.status };
     }
     if (type === "resume") {
-          const res = await admin.graphql(
-            `
-            mutation ActivateSubscriptionContract($contractId: ID!) {
-              subscriptionContractActivate(subscriptionContractId: $contractId) {
-                contract {
-                  id
-                  status
-                  nextBillingDate
-                }
-                userErrors {
-                  field
-                  message
-                  code
-                }
+  const res = await admin.graphql(
+    `
+  mutation ActivateSubscriptionContract($contractId: ID!) {
+    subscriptionContractActivate(
+      subscriptionContractId: $contractId
+    ) {
+      contract {
+        id
+        status
+        nextBillingDate
+      }
+      userErrors {
+        field
+        message
+        code
+      }
+    }
+  }
+  `,
+    { variables: { contractId } },
+  );
+
+  const data = await res.json();
+  const payload = data?.data?.subscriptionContractActivate;
+
+  if (!payload || payload.userErrors?.length) {
+    console.error("Resume failed", payload?.userErrors);
+    return {
+      success: false,
+      error:
+        payload?.userErrors?.map((e) => e.message).join(", ") ||
+        "Resume failed",
+    };
+  }
+
+  let autoSkippedCycles = [];
+  try {
+    const now = new Date();
+    const rangeStart = new Date();
+    rangeStart.setFullYear(rangeStart.getFullYear() - 3);
+
+    let overdueCyclesRaw = [];
+    let cursor = null;
+    let hasNextPage = true;
+
+    while (hasNextPage) {
+      const cyclesRes = await admin.graphql(
+        `
+        query getOverdueCycles(
+          $contractId: ID!
+          $startDate: DateTime!
+          $endDate: DateTime!
+          $after: String
+        ) {
+          subscriptionBillingCycles(
+            contractId: $contractId
+            first: 50
+            after: $after
+            billingCyclesDateRangeSelector: {
+              startDate: $startDate
+              endDate: $endDate
+            }
+          ) {
+            edges {
+              cursor
+              node {
+                cycleIndex
+                billingAttemptExpectedDate
+                status
+                skipped
               }
             }
-            `,
-            { variables: { contractId } },
-          );
-
-          const data = await res.json();
-          const payload = data?.data?.subscriptionContractActivate;
-
-          if (!payload || payload.userErrors?.length) {
-            console.error("Resume failed", payload?.userErrors);
-            return {
-              success: false,
-              error:
-                payload?.userErrors?.map((e) => e.message).join(", ") ||
-                "Resume failed",
-            };
+            pageInfo { hasNextPage }
           }
-
-          try {
-            await fetch(`${API}/api/subscription`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json", "x-api-key": SECRET_KEY },
-              body: JSON.stringify({
-                shop: session.shop,
-                subscriptionId,
-                contractId,
-                actionType: "resumed",
-                resumedAt: new Date().toISOString(),
-              }),
-            });
-          } catch (err) {
-            console.error("Failed to record resume metadata:", err);
-          }
-
-          return { success: true, status: payload.contract.status };
         }
+        `,
+        {
+          variables: {
+            contractId,
+            startDate: rangeStart.toISOString(),
+            endDate: now.toISOString(),
+            after: cursor,
+          },
+        },
+      );
+      const cyclesData = await cyclesRes.json();
+
+      if (cyclesData.errors) {
+        console.error("[resume] getOverdueCycles GraphQL errors:", JSON.stringify(cyclesData.errors));
+        break;
+      }
+
+      const conn = cyclesData?.data?.subscriptionBillingCycles;
+      const edges = conn?.edges || [];
+      overdueCyclesRaw.push(...edges.map((e) => e.node));
+
+      hasNextPage = !!conn?.pageInfo?.hasNextPage && edges.length > 0;
+      cursor = edges.length > 0 ? edges[edges.length - 1].cursor : null;
+    }
+
+    const overdueCycles = overdueCyclesRaw.filter(
+      (c) =>
+        !c.skipped &&
+        c.status !== "BILLED" &&
+        c.billingAttemptExpectedDate &&
+        new Date(c.billingAttemptExpectedDate) < now,
+    );
+
+    for (const c of overdueCycles) {
+      try {
+        const skipRes = await admin.graphql(
+          `
+          mutation SkipOverdueCycle(
+            $billingCycleInput: SubscriptionBillingCycleInput!
+          ) {
+            subscriptionBillingCycleSkip(
+              billingCycleInput: $billingCycleInput
+            ) {
+              billingCycle {
+                cycleIndex
+                skipped
+              }
+              userErrors { field message code }
+            }
+          }
+          `,
+          {
+            variables: {
+              billingCycleInput: {
+                contractId,
+                selector: { index: c.cycleIndex },
+              },
+            },
+          },
+        );
+        const skipData = await skipRes.json();
+        const skipPayload = skipData?.data?.subscriptionBillingCycleSkip;
+        if (skipPayload?.userErrors?.length) {
+          console.warn(
+            `[resume] skip failed for overdue cycle ${c.cycleIndex}:`,
+            skipPayload.userErrors,
+          );
+        } else {
+          autoSkippedCycles.push(c.cycleIndex);
+        }
+      } catch (err) {
+        console.warn(
+          `[resume] skip errored for overdue cycle ${c.cycleIndex}:`,
+          err,
+        );
+      }
+    }
+  } catch (err) {
+    console.warn(
+      `[resume] failed to fetch/skip overdue cycles for ${contractId}:`,
+      err,
+    );
+  }
+
+  return {
+    success: true,
+    status: payload.contract.status,
+    autoSkippedCycles,
+  };
+}
     if (type === "skip") {
       const cycleIndex = parseInt(formData.get("cycleIndex"), 10);
 
@@ -1247,85 +1364,50 @@ const basePriceAmount = liveVariantPrice ?? firstLine?.pricingPolicy?.basePrice?
         return { success: false, error: String(err?.message || err) };
       }
     }
-    if (type === "add_discount") {
-       const sellingPlanId = formData.get("sellingPlanId") || null;
-      const name = formData.get("name") || "";
-      const adjustmentType = formData.get("adjustmentType") || "PERCENTAGE";
+    if (type === "add_manual_discount") {
+      const name = formData.get("name") || "Discount";
+      const adjustmentType = formData.get("adjustmentType");
       const adjustmentValue = formData.get("adjustmentValue");
       const appliesToAll = formData.get("appliesToAll") === "true";
       const variantId = formData.get("variantId") || null;
-      const variantIdsRaw = formData.get("variantIds") || "";
-      const variantIds = variantIdsRaw
-        ? variantIdsRaw.split(",").filter(Boolean)
-        : [];
-      const rawCycleLimit = formData.get("cycleLimit");
-      const cycleLimit = rawCycleLimit && rawCycleLimit !== "" ? rawCycleLimit : null;
-      const cycleIndexRaw = formData.get("startCycleIndex");
-      const startCycleIndex = cycleIndexRaw != null && cycleIndexRaw !== "" ? cycleIndexRaw : 0;
-
-      if (!appliesToAll && !variantId) {
-        return { success: false, error: "Select a line item to target, or apply to all line items" };
-      }
-      if (appliesToAll && variantIds.length === 0) {
-        return { success: false, error: "Could not determine the subscription's current line items" };
-      }
-      if (adjustmentValue == null || adjustmentValue === "" || Number.isNaN(Number(adjustmentValue))) {
-        return { success: false, error: "Enter a valid discount value" };
-      }
+      const cycleLimitRaw = formData.get("cycleLimit");
+      const cycleLimit = cycleLimitRaw ? parseInt(cycleLimitRaw, 10) : null;
+      const cycleIndex = parseInt(formData.get("cycleIndex"), 10) || 0;
+      const sellingPlanId = formData.get("sellingPlanId") || null;
 
       try {
         const currentSettings = await getEffectiveSettingsForContract(
-          admin,
-          contractId,
-          sellingPlanId,
+          admin, contractId, sellingPlanId,
         );
         const updatedSettings = addManualDiscount(currentSettings, {
-          name,
-          adjustmentType,
-          adjustmentValue,
-          appliesToAll,
-          variantId,
-          variantIds,
-          cycleLimit,
-          startCycleIndex,
+          name, adjustmentType, adjustmentValue, appliesToAll, variantId,
+          cycleLimit, startCycleIndex: cycleIndex,
         });
         const { snapshotted } = await snapshotContractSettings(
-          admin,
-          contractId,
-          updatedSettings,
+          admin, contractId, updatedSettings,
         );
         if (!snapshotted) {
           return { success: false, error: "Failed to save discount" };
         }
         return { success: true };
       } catch (err) {
-        console.error("Add discount failed:", err);
+        console.error("Add manual discount failed:", err);
         return { success: false, error: String(err?.message || err) };
       }
     }
     if (type === "remove_manual_discount") {
       const discountId = formData.get("discountId");
       const sellingPlanId = formData.get("sellingPlanId") || null;
-      if (!discountId) {
-        return { success: false, error: "Invalid discount reference" };
-      }
       try {
         const currentSettings = await getEffectiveSettingsForContract(
-          admin,
-          contractId,
-          sellingPlanId,
+          admin, contractId, sellingPlanId,
         );
-        if (!currentSettings) {
-          return { success: false, error: "No automation settings found for this subscription" };
-        }
         const updatedSettings = removeManualDiscount(currentSettings, discountId);
         const { snapshotted } = await snapshotContractSettings(
-          admin,
-          contractId,
-          updatedSettings,
+          admin, contractId, updatedSettings,
         );
         if (!snapshotted) {
-          return { success: false, error: "Failed to save updated settings" };
+          return { success: false, error: "Failed to remove discount" };
         }
         return { success: true };
       } catch (err) {
