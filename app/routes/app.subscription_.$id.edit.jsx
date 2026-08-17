@@ -36,7 +36,7 @@ import {
   snapshotContractSettings,
   addBaseLineRemoval,
   setBaseLineFixedPrice,
-   setLineFixedPrice,
+  setLineFixedPrice,
 } from "../lib/billing-preview.server";
 
 export async function loader({ params, request }) {
@@ -77,7 +77,6 @@ export async function loader({ params, request }) {
 
   const data = await res.json();
   const contract = data?.data?.subscriptionContract;
-  // console.log('vjdbvjdbvjh',contract)
 
   if (!contract) {
     throw new Response("Subscription not found", { status: 404 });
@@ -132,7 +131,7 @@ export async function loader({ params, request }) {
     lines: linesWithOneTimePrice,
     previewLineItems: preview?.nextOrder?.lineItems || [],
     previewNextOrderCycleIndex: preview?.nextOrder?.cycleIndex ?? 0,
-    removedVariantIds, // NEW
+    removedVariantIds, 
     removedProductIds,
     currencyCode,
     subscriptionId,
@@ -351,63 +350,6 @@ export async function action({ request, params }) {
     }
   }
 
-  // if (type === "update_automation_price") {
-  //   const automationCycleIndex = parseInt(
-  //     formData.get("automationCycleIndex"),
-  //     10,
-  //   );
-  //   const automationActionIndex = parseInt(
-  //     formData.get("automationActionIndex"),
-  //     10,
-  //   );
-  //   const price = formData.get("price");
-  //   const sellingPlanId = formData.get("sellingPlanId") || null;
-
-  //   if (
-  //     Number.isNaN(automationCycleIndex) ||
-  //     Number.isNaN(automationActionIndex)
-  //   ) {
-  //     return { success: false, error: "Invalid automation item reference" };
-  //   }
-  //   if (price == null || price === "" || Number.isNaN(Number(price))) {
-  //     return { success: false, error: "Invalid price" };
-  //   }
-
-  //   try {
-  //     const currentSettings = await getEffectiveSettingsForContract(
-  //       admin,
-  //       contractId,
-  //       sellingPlanId,
-  //     );
-  //     if (!currentSettings) {
-  //       return {
-  //         success: false,
-  //         error: "No automation settings found for this subscription",
-  //       };
-  //     }
-  //     const updatedSettings = setAutomationVariantPrice(
-  //       currentSettings,
-  //       automationCycleIndex,
-  //       automationActionIndex,
-  //       price,
-  //     );
-  //     const { snapshotted } = await snapshotContractSettings(
-  //       admin,
-  //       contractId,
-  //       updatedSettings,
-  //     );
-  //     if (!snapshotted) {
-  //       return {
-  //         success: false,
-  //         error: "Failed to save updated automation settings",
-  //       };
-  //     }
-  //     return { success: true, isAutomationChange: true };
-  //   } catch (err) {
-  //     console.error("[edit update_automation_price] failed:", err);
-  //     return { success: false, error: String(err?.message || err) };
-  //   }
-  // }
 
   if (type === "update_automation_price") {
     const automationCycleIndex = parseInt(
@@ -488,85 +430,76 @@ export async function action({ request, params }) {
     }
   }
 
-if (type === "update_line_price") {
-  const lineId = formData.get("lineId");
-  const variantId = formData.get("variantId");   // NEW
-  const price = formData.get("price");
+  if (type === "update_line_price") {
+    const lineId = formData.get("lineId");
+    const variantId = formData.get("variantId"); // NEW
+    const price = formData.get("price");
 
-  if (!lineId) {
-    return { success: false, error: "Invalid line reference", type: "update_line_price" };
-  }
-  if (price == null || price === "" || Number.isNaN(Number(price))) {
-    return { success: false, error: "Invalid price", type: "update_line_price" };
-  }
-
-  try {
-    const result = await updateContractLinePrice(admin, contractId, { lineId, price });
-    if (!result.success) {
-      return { success: false, error: result.error, type: "update_line_price" };
-    }
-
-    const currentSettings = await getEffectiveSettingsForContract(admin, contractId, null);
-    const updatedSettings = variantId
-      ? setLineFixedPrice(currentSettings, variantId, price)   // CHANGED
-      : setBaseLineFixedPrice(currentSettings, price);          // fallback agar variantId na mile
-    const { snapshotted } = await snapshotContractSettings(admin, contractId, updatedSettings);
-    if (!snapshotted) {
+    if (!lineId) {
       return {
         success: false,
-        error: "Price updated but failed to save it for future orders",
+        error: "Invalid line reference",
+        type: "update_line_price",
+      };
+    }
+    if (price == null || price === "" || Number.isNaN(Number(price))) {
+      return {
+        success: false,
+        error: "Invalid price",
         type: "update_line_price",
       };
     }
 
-    return { success: true, isAutomationChange: true, type: "update_line_price", lineId, price };
-  } catch (err) {
-    console.error("[edit update_line_price] failed:", err);
-    return { success: false, error: String(err?.message || err), type: "update_line_price" };
+    try {
+      const result = await updateContractLinePrice(admin, contractId, {
+        lineId,
+        price,
+      });
+      if (!result.success) {
+        return {
+          success: false,
+          error: result.error,
+          type: "update_line_price",
+        };
+      }
+
+      const currentSettings = await getEffectiveSettingsForContract(
+        admin,
+        contractId,
+        null,
+      );
+      const updatedSettings = variantId
+        ? setLineFixedPrice(currentSettings, variantId, price) // CHANGED
+        : setBaseLineFixedPrice(currentSettings, price); // fallback agar variantId na mile
+      const { snapshotted } = await snapshotContractSettings(
+        admin,
+        contractId,
+        updatedSettings,
+      );
+      if (!snapshotted) {
+        return {
+          success: false,
+          error: "Price updated but failed to save it for future orders",
+          type: "update_line_price",
+        };
+      }
+
+      return {
+        success: true,
+        isAutomationChange: true,
+        type: "update_line_price",
+        lineId,
+        price,
+      };
+    } catch (err) {
+      console.error("[edit update_line_price] failed:", err);
+      return {
+        success: false,
+        error: String(err?.message || err),
+        type: "update_line_price",
+      };
+    }
   }
-}
-// if (type === "update_line_price") {
-//   const lineId = formData.get("lineId");
-  
-//   const price = formData.get("price");
-
-//   if (!lineId) {
-//     return { success: false, error: "Invalid line reference", type: "update_line_price" };
-//   }
-//   if (price == null || price === "" || Number.isNaN(Number(price))) {
-//     return { success: false, error: "Invalid price", type: "update_line_price" };
-//   }
-
-//   try {
-//     const result = await updateContractLinePrice(admin, contractId, { lineId, price });
-//     if (!result.success) {
-//       return { success: false, error: result.error, type: "update_line_price" };
-//     }
-
-//     const currentSettings = await getEffectiveSettingsForContract(admin, contractId, null);
-//     const updatedSettings = setBaseLineFixedPrice(currentSettings, price);
-//     const { snapshotted } = await snapshotContractSettings(admin, contractId, updatedSettings);
-//     if (!snapshotted) {
-//       return {
-//         success: false,
-//         error: "Price updated but failed to save it for future orders",
-//         type: "update_line_price",
-//       };
-//     }
-
-//     // NEW — client ko bhej do taaki formData pe depend na karna pade (idle hote hi wo undefined ho jata hai)
-//     return {
-//       success: true,
-//       isAutomationChange: true,
-//       type: "update_line_price",
-//       lineId,
-//       price,
-//     };
-//   } catch (err) {
-//     console.error("[edit update_line_price] failed:", err);
-//     return { success: false, error: String(err?.message || err), type: "update_line_price" };
-//   }
-// }
 
   return { success: false, error: "Unknown action type" };
 }
@@ -585,36 +518,36 @@ export default function EditPage() {
   const fetcher = useFetcher();
   const { id } = useParams();
 
- const [lines, setLines] = useState(() => {
-  const committed = initialLines.filter(
-    (l) =>
-      !removedVariantIds.includes(l.variantId) &&
-      !removedProductIds.includes(l.productId),
-  );
+  const [lines, setLines] = useState(() => {
+    const committed = initialLines.filter(
+      (l) =>
+        !removedVariantIds.includes(l.variantId) &&
+        !removedProductIds.includes(l.productId),
+    );
 
-  const baseLinePreviews = previewLineItems.filter((pi) => pi.isBaseLine);
+    const baseLinePreviews = previewLineItems.filter((pi) => pi.isBaseLine);
 
-  return committed.map((l, idx) => {
-    const previewMatch = baseLinePreviews[idx] ?? null;
+    return committed.map((l, idx) => {
+      const previewMatch = baseLinePreviews[idx] ?? null;
 
-    const resolvedPrice =
-      Number(previewMatch?.pricePerUnit?.amount) ||
-      Number(l.currentPrice?.amount) ||
-      0;
+      const resolvedPrice =
+        Number(previewMatch?.pricePerUnit?.amount) ||
+        Number(l.currentPrice?.amount) ||
+        0;
 
-    return {
-      ...l, // id/variantId/productId untouched rehta hai — save isi se hota hai
-      quantity: String(Number(l.quantity) || 1),
-      displayTitle: previewMatch?.title ?? l.title,
-      displayVariantTitle: previewMatch?.variantTitle ?? l.variantTitle,
-      displayImageUrl: previewMatch?.imageUrl ?? l.variantImage?.url ?? "",
-      displayPrice: resolvedPrice,
-      originalPrice: previewMatch?.originalPricePerUnit?.amount ?? null,
-      discountLabel: previewMatch?.discountLabel ?? null,
-      pendingSwap: !!previewMatch && previewMatch.variantId !== l.variantId,
-    };
+      return {
+        ...l,
+        quantity: String(Number(l.quantity) || 1),
+        displayTitle: previewMatch?.title ?? l.title,
+        displayVariantTitle: previewMatch?.variantTitle ?? l.variantTitle,
+        displayImageUrl: previewMatch?.imageUrl ?? l.variantImage?.url ?? "",
+        displayPrice: resolvedPrice,
+        originalPrice: previewMatch?.originalPricePerUnit?.amount ?? null,
+        discountLabel: previewMatch?.discountLabel ?? null,
+        pendingSwap: !!previewMatch && previewMatch.variantId !== l.variantId,
+      };
+    });
   });
-});
   const [removedLines, setRemovedLines] = useState([]);
   const [newLines, setNewLines] = useState([]);
 
@@ -624,8 +557,6 @@ export default function EditPage() {
 
   const [automationQtyDrafts, setAutomationQtyDrafts] = useState({});
 
-  // Unified price-edit modal state
-  // target = { kind: "committed" | "new" | "automation", ...refs }
   const [priceEditTarget, setPriceEditTarget] = useState(null);
   const [priceEditValue, setPriceEditValue] = useState("");
   const [priceEditError, setPriceEditError] = useState("");
@@ -636,7 +567,7 @@ export default function EditPage() {
   const [deliveryInterval, setDeliveryInterval] = useState(
     contract?.deliveryPolicy?.interval || "DAY",
   );
-  // Ab sirf "Pay as you go" hi support hai — Prepaid dropdown hata diya
+
   const [billingType, setBillingType] = useState("PAYASYOUGO");
   const [deliveryPrice, setDeliveryPrice] = useState(
     String(contract?.deliveryPrice?.amount ?? "0"),
@@ -649,92 +580,48 @@ export default function EditPage() {
 
   const handleBack = () => navigate(`/app/subscription/${id}`);
 
+  useEffect(() => {
+    if (fetcher.state !== "idle" || fetcher.data == null) return;
 
-  // useEffect(() => {
-  //   if (fetcher.state !== "idle" || fetcher.data == null) return;
+    const data = fetcher.data;
+    const submittedType = data.type; // CHANGED — ab response se, formData se nahi (idle hote hi formData undefined ho jata hai)
 
-  //   const submittedType = fetcher.formData?.get("type");
-  //   const isPriceEditSubmit =
-  //     submittedType === "update_automation_price" ||
-  //     submittedType === "update_line_price";
+    const isPriceEditSubmit =
+      submittedType === "update_automation_price" ||
+      submittedType === "update_line_price";
 
-  //   if (fetcher.data.success) {
-  //     if (submittedType === "update_line_price") {
-  //       const updatedLineId = fetcher.formData?.get("lineId");
-  //       const updatedPrice = fetcher.formData?.get("price");
-  //       setLines((prev) =>
-  //         prev.map((l) =>
-  //           l.id === updatedLineId
-  //             ? {
-  //                 ...l,
-  //                 displayPrice: Number(updatedPrice) || 0,
-  //                 originalPrice: null,   
-  //                 discountLabel: null,   
-  //               }
-  //             : l,
-  //         ),
-  //       );
-  //     }
+    if (data.success) {
+      if (submittedType === "update_line_price") {
+        setLines((prev) =>
+          prev.map((l) =>
+            l.id === data.lineId
+              ? {
+                  ...l,
+                  displayPrice: Number(data.price) || 0,
+                  originalPrice: null,
+                  discountLabel: null,
+                }
+              : l,
+          ),
+        );
+      }
 
-  //     if (isPriceEditSubmit) {
-  //       setPriceEditTarget(null);
-  //       setPriceEditValue("");
-  //       setPriceEditError("");
-  //     }
-  //     if (submittedType === "update_automation_quantity") {
-  //       setAutomationQtyDrafts({});
-  //     }
-  //     if (!fetcher.data.isAutomationChange) {
-  //       handleBack();
-  //     }
-  //   } else if (isPriceEditSubmit) {
-  //     setPriceEditError(fetcher.data.error || "Failed to update price");
-  //   }
-  // }, [fetcher.state, fetcher.data]);
- useEffect(() => {
-  if (fetcher.state !== "idle" || fetcher.data == null) return;
-
-  const data = fetcher.data;
-  const submittedType = data.type; // CHANGED — ab response se, formData se nahi (idle hote hi formData undefined ho jata hai)
-
-  const isPriceEditSubmit =
-    submittedType === "update_automation_price" ||
-    submittedType === "update_line_price";
-
-  if (data.success) {
-    if (submittedType === "update_line_price") {
-      setLines((prev) =>
-        prev.map((l) =>
-          l.id === data.lineId
-            ? {
-                ...l,
-                displayPrice: Number(data.price) || 0,
-                originalPrice: null,
-                discountLabel: null,
-              }
-            : l,
-        ),
-      );
+      if (isPriceEditSubmit) {
+        setPriceEditTarget(null);
+        setPriceEditValue("");
+        setPriceEditError("");
+      }
+      if (submittedType === "update_automation_quantity") {
+        setAutomationQtyDrafts({});
+      }
+      if (!data.isAutomationChange) {
+        handleBack();
+      }
+    } else if (isPriceEditSubmit) {
+      setPriceEditError(data.error || "Failed to update price");
     }
+  }, [fetcher.state, fetcher.data]);
 
-    if (isPriceEditSubmit) {
-      setPriceEditTarget(null);
-      setPriceEditValue("");
-      setPriceEditError("");
-    }
-    if (submittedType === "update_automation_quantity") {
-      setAutomationQtyDrafts({});
-    }
-    if (!data.isAutomationChange) {
-      handleBack();
-    }
-  } else if (isPriceEditSubmit) {
-    setPriceEditError(data.error || "Failed to update price");
-  }
-}, [fetcher.state, fetcher.data]);
- 
- 
- 
   const handleQuantityChange = (lineId, value) => {
     setLines((prev) =>
       prev.map((l) => (l.id === lineId ? { ...l, quantity: value } : l)),
@@ -765,9 +652,7 @@ export default function EditPage() {
   };
 
   const handleRemoveAutomationLine = (li) => {
-    const confirmed = confirm(
-      `"${li.title}"`,
-    );
+    const confirmed = confirm(`"${li.title}"`);
     if (!confirmed) return;
 
     fetcher.submit(
@@ -831,8 +716,17 @@ export default function EditPage() {
   const openPriceEditor = (kind, item) => {
     setPriceEditError("");
     if (kind === "committed") {
-      setPriceEditTarget({ kind, lineId: item.id,variantId: item.variantId, title: item.displayTitle  });
-      setPriceEditValue(String(item.displayPrice ?? "0"));
+      setPriceEditTarget({
+        kind,
+        lineId: item.id,
+        variantId: item.variantId,
+        title: item.displayTitle,
+      });
+      const baseAmount =
+        item.originalPrice != null
+          ? Number(item.originalPrice)
+          : Number(item.displayPrice ?? 0);
+      setPriceEditValue(String(baseAmount));
     } else if (kind === "new") {
       setPriceEditTarget({ kind, tempId: item.tempId, title: item.title });
       setPriceEditValue(String(item.price ?? "0"));
@@ -849,7 +743,7 @@ export default function EditPage() {
   };
 
   const closePriceEditor = () => {
-    if (isPriceUpdatePending) return; 
+    if (isPriceUpdatePending) return;
     setPriceEditTarget(null);
     setPriceEditValue("");
     setPriceEditError("");
@@ -877,12 +771,12 @@ export default function EditPage() {
         {
           type: "update_line_price",
           lineId: priceEditTarget.lineId,
-           variantId: priceEditTarget.variantId,
+          variantId: priceEditTarget.variantId,
           price: priceEditValue,
         },
         { method: "post" },
       );
-      return; 
+      return;
     }
 
     if (priceEditTarget.kind === "automation") {
@@ -896,7 +790,7 @@ export default function EditPage() {
         },
         { method: "post" },
       );
-      return; 
+      return;
     }
   };
 
@@ -997,7 +891,7 @@ export default function EditPage() {
             quantity: l.quantity,
           })),
           removedLines,
-          nextOrderCycleIndex: previewNextOrderCycleIndex, 
+          nextOrderCycleIndex: previewNextOrderCycleIndex,
           newLines: newLines.map((l) => ({
             variantId: l.variantId,
             quantity: l.quantity,
@@ -1016,11 +910,7 @@ export default function EditPage() {
     <Page
       title="Edit subscription"
       backAction={{ onAction: handleBack }}
-      titleMetadata={
-         (
-          <Badge>{contract?.status.toLowerCase()}</Badge>
-        ) 
-      }
+      titleMetadata={<Badge>{contract?.status.toLowerCase()}</Badge>}
       subtitle={id}
     >
       <BlockStack gap="400">
@@ -1053,20 +943,22 @@ export default function EditPage() {
                 >
                   <InlineStack gap="300" blockAlign="center">
                     <Thumbnail
-  source={line.displayImageUrl || ""}
-  alt={line.displayTitle}
-  size="small"
-/>
-<BlockStack gap="050">
-  <Text fontWeight="medium">{line.displayTitle}</Text>
-  {line.displayVariantTitle && <Badge>{line.displayVariantTitle}</Badge>}
-  {line.pendingSwap && (
-    <Badge tone="info">Will switch on next order</Badge>
-  )}
-  {line.discountLabel && (
-    <Badge tone="success">{line.discountLabel}</Badge>
-  )}
-</BlockStack>
+                      source={line.displayImageUrl || ""}
+                      alt={line.displayTitle}
+                      size="small"
+                    />
+                    <BlockStack gap="050">
+                      <Text fontWeight="medium">{line.displayTitle}</Text>
+                      {line.displayVariantTitle && (
+                        <Badge>{line.displayVariantTitle}</Badge>
+                      )}
+                      {line.pendingSwap && (
+                        <Badge tone="info">Will switch on next order</Badge>
+                      )}
+                      {line.discountLabel && (
+                        <Badge tone="success">{line.discountLabel}</Badge>
+                      )}
+                    </BlockStack>
                   </InlineStack>
 
                   <InlineStack gap="300" blockAlign="center">
@@ -1107,7 +999,9 @@ export default function EditPage() {
                         variant="tertiary"
                         tone="critical"
                         accessibilityLabel="Remove product"
-                        onClick={() => handleRemoveLine(line.id, line.displayTitle)}
+                        onClick={() =>
+                          handleRemoveLine(line.id, line.displayTitle)
+                        }
                       />
                     )}
                   </InlineStack>
@@ -1245,14 +1139,14 @@ export default function EditPage() {
             </Text>
 
             <Select
-  label="Billing type"
-  options={[
-    { label: "Pay as you go", value: "PAYASYOUGO" },
-    // { label: "Pre-paid", value: "PREPAID" },
-  ]}
-  value={billingType}
-  onChange={setBillingType}
-/>
+              label="Billing type"
+              options={[
+                { label: "Pay as you go", value: "PAYASYOUGO" },
+                // { label: "Pre-paid", value: "PREPAID" },
+              ]}
+              value={billingType}
+              onChange={setBillingType}
+            />
 
             <InlineStack gap="300" wrap={false}>
               <div style={{ flex: 1 }}>

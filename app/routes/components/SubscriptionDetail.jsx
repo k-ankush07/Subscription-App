@@ -911,35 +911,39 @@ export default function SubscriptionDetail() {
                       </span>
                     </div>
 
-                    {contract?.status !== "CANCELLED" && li.discountLabel && (
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "6px",
-                          marginTop: "4px",
-                        }}
-                      >
-                        <div>
-                          <Icon source={DiscountIcon} tone="subdued" />
-                        <span style={{ fontSize: "13px", color: "#6b6b6b" }}>
-                          {li.discountLabel}
-                        </span>
-                        
-                        <span
-                          onClick={() =>
-                            li.manualDiscountId
-                              ? handleRemoveManualDiscount(li.manualDiscountId)
-                              : handleRemoveLineDiscount(li)
-                          }
-                          style={{ cursor: "pointer", display: "inline-flex" }}
-                          title="Remove discount"
+                    {contract?.status !== "CANCELLED" &&
+                      (li.discounts?.length > 0
+                        ? li.discounts
+                        : li.discountLabel
+                          ? [{ label: li.discountLabel, manualDiscountId: li.manualDiscountId }]
+                          : []
+                      ).map((d, dIdx) => (
+                        <div
+                          key={d.manualDiscountId || `${li.variantId || li.productId}-discount-${dIdx}`}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "6px",
+                            marginTop: "4px",
+                          }}
                         >
-                          <Icon source={DeleteIcon} tone="critical" />
-                        </span>
+                          <Icon source={DiscountIcon} tone="subdued" />
+                          <span style={{ fontSize: "13px", color: "#6b6b6b" }}>
+                            {d.label}
+                          </span>
+                          <span
+                            onClick={() =>
+                              d.manualDiscountId
+                                ? handleRemoveManualDiscount(d.manualDiscountId)
+                                : handleRemoveLineDiscount(li)
+                            }
+                            style={{ cursor: "pointer", display: "inline-flex" }}
+                            title="Remove discount"
+                          >
+                            <Icon source={DeleteIcon} tone="critical" />
+                          </span>
                         </div>
-                      </div>
-                    )}
+                      ))}
                     {li.automationCycleIndex != null &&
                     li.automationActionIndex != null &&
                     totalLineItemsCount > 1 ? (

@@ -958,6 +958,7 @@ async function applyActionsToCycle(
   const draftLines = payload.draft.lines.edges.map((e) => e.node);
   const lineId = draftLines[0]?.id;
   const removedLineIds = new Set();
+  const variantRunningPrice = {};
   const sellingPlanIdForNewLines =
     draftLines.find((l) => l.sellingPlanId)?.sellingPlanId ?? null;
 
@@ -1120,16 +1121,6 @@ async function applyActionsToCycle(
             "Base line was already removed by another action this cycle.";
           continue;
         }
-        // const basePrice = effectiveBasePrice;
-
-        // let newPrice = basePrice;
-        // if (action.adjustmentType === "PERCENTAGE") {
-        //   newPrice =
-        //     basePrice - (basePrice * Number(action.adjustmentValue)) / 100;
-        // } else {
-        //   newPrice = basePrice - Number(action.adjustmentValue);
-        // }
-        // newPrice = Math.max(0, newPrice).toFixed(2);
         const basePrice = effectiveBasePrice;
 
         let newPrice = basePrice;
@@ -1142,6 +1133,7 @@ async function applyActionsToCycle(
           newPrice = basePrice - Number(action.adjustmentValue);
         }
         newPrice = Math.max(0, newPrice).toFixed(2);
+        variantRunningPrice[lineId] = Number(newPrice);
 
         const res = await admin.graphql(
           `
@@ -1163,7 +1155,7 @@ async function applyActionsToCycle(
           throw new Error(`DISCOUNT_CHANGE failed: ${errors[0].message}`);
       }
       // ── VARIANT_DISCOUNT_CHANGE ── (kisi bhi specific variant line ka discount)
-      if (action.type === "VARIANT_DISCOUNT_CHANGE") {
+     if (action.type === "VARIANT_DISCOUNT_CHANGE") {
         const targetLine = resolveLineForAction(draftLines, action);
         if (!targetLine) {
           console.warn(
@@ -1182,12 +1174,19 @@ async function applyActionsToCycle(
           continue;
         }
 
-        const variantBasePrice =
-          batchedVariantData[targetLine.variantId]?.price ??
-          Number(targetLine.currentPrice?.amount) ??
-          0;
+        // Agar isi line par pehle koi discount (native ya doosra manual) already
+        // apply ho chuka hai (variantRunningPrice me save hai), to usi RESULT ko
+        // base bana ke chalo. Warna catalog/current price se shuru karo.
+        const startingPrice =
+          variantRunningPrice[targetLine.id] != null
+            ? variantRunningPrice[targetLine.id]
+            : Number(
+                batchedVariantData[targetLine.variantId]?.price ??
+                  targetLine.currentPrice?.amount ??
+                  0,
+              ) || 0;
 
-        let newPrice = Number(variantBasePrice) || 0;
+        let newPrice = startingPrice;
         if (action.adjustmentType === "PERCENTAGE") {
           newPrice =
             newPrice - (newPrice * Number(action.adjustmentValue)) / 100;
@@ -1199,7 +1198,9 @@ async function applyActionsToCycle(
         } else {
           newPrice = newPrice - Number(action.adjustmentValue);
         }
-        newPrice = Math.max(0, newPrice).toFixed(2);
+        newPrice = Math.max(0, newPrice);
+        variantRunningPrice[targetLine.id] = newPrice; // agla discount (agar ho) isi par lagega
+        const formattedPrice = newPrice.toFixed(2);
 
         const res = await admin.graphql(
           `
@@ -1209,7 +1210,7 @@ async function applyActionsToCycle(
             }
           }
           `,
-          { variables: { draftId, lineId: targetLine.id, price: newPrice } },
+          { variables: { draftId, lineId: targetLine.id, price: formattedPrice } },
         );
         const data = await res.json();
         if (data.errors)
@@ -1808,6 +1809,15 @@ function buildStackedDiscountLabel(matchedActions, currencyCode) {
     })
     .join(", ");
 }
+function formatSingleDiscountLabel(src, currencyCode) {
+  if (!src) return null;
+  const namePrefix = src.__manualDiscountName ? `${src.__manualDiscountName} ` : "";
+  const type = String(src.adjustmentType).toUpperCase();
+  if (type === "PERCENTAGE") return `${namePrefix}${src.adjustmentValue}% off`;
+  if (type === "PRICE" || type === "FIXED_PRICE" || type === "FIXED_AMOUNT")
+    return `${namePrefix}Fixed price: ${currencySymbol(currencyCode)}${src.adjustmentValue}`;
+  return `${namePrefix}${currencySymbol(currencyCode)}${src.adjustmentValue} off`;
+}
 async function getContractPreview(
   admin,
   contractId,
@@ -2139,7 +2149,23 @@ let matchedSwapVariantDiscount = null;
       const matchedForThisLine = variantDiscountActions.filter((a) =>
         actionMatchesLine(a, line),
       );
-      const discounted = applyStackedVariantDiscounts(effectiveBase, matchedForThisLine);
+      // Agar isi (base) line par native/catalog discount (discountAction) bhi laga hai,
+      // to manual discount uske RESULT (currently displayed price) par lage,
+      // poore original base amount par nahi.
+      let baseForManual = effectiveBase;
+      if (isFirstLine && hasRealDiscount) {
+        if (discountAction.adjustmentType === "PERCENTAGE") {
+          baseForManual =
+            effectiveBase -
+            (effectiveBase * Number(discountAction.adjustmentValue)) / 100;
+        } else if (discountAction.adjustmentType === "FIXED_PRICE") {
+          baseForManual = Number(discountAction.adjustmentValue);
+        } else {
+          baseForManual = effectiveBase - Number(discountAction.adjustmentValue);
+        }
+        baseForManual = Math.max(0, baseForManual);
+      }
+      const discounted = applyStackedVariantDiscounts(baseForManual, matchedForThisLine);
       pricePerUnit = {
         amount: discounted.toFixed(2),
         currencyCode: lineCurrency,
@@ -2253,6 +2279,25 @@ const matchedVariantDiscountsForLine =
         const src = showDiscountOnThisLine ? discountAction : null;
         return src?.__manualDiscountId ?? null;
       })(),
+      // NEW — har discount ka apna entry, taaki har ek ka alag delete button ban sake
+      discounts: (() => {
+        if (matchedVariantDiscountsForLine.length > 0) {
+          return matchedVariantDiscountsForLine.map((d) => ({
+            manualDiscountId: d.__manualDiscountId ?? null,
+            label: formatSingleDiscountLabel(d, pricePerUnit.currencyCode),
+            phase: d.__phase,
+          }));
+        }
+        const src = showDiscountOnThisLine ? discountAction : null;
+        if (!src || src.__manualOverride) return [];
+        return [
+          {
+            manualDiscountId: src.__manualDiscountId ?? null,
+            label: formatSingleDiscountLabel(src, pricePerUnit.currencyCode),
+            phase: src.__phase,
+          },
+        ];
+      })(),
     });
   }
 
@@ -2355,6 +2400,27 @@ const matchedVariantDiscountsForLine =
                 : `${currencySymbol(currencyCodeFallback)}${action.discountValue} off`
             : null,
       manualDiscountId: matchedAddVariantDiscounts[0]?.__manualDiscountId ?? null,
+       discounts:
+        matchedAddVariantDiscounts.length > 0
+          ? matchedAddVariantDiscounts.map((d) => ({
+              manualDiscountId: d.__manualDiscountId ?? null,
+              label: formatSingleDiscountLabel(d, currencyCodeFallback),
+              phase: d.__phase,
+            }))
+          : action.discountEnabled &&
+              Number(action.discountValue) > 0 &&
+              !action.__manualPriceOverride
+            ? [
+                {
+                  manualDiscountId: null,
+                  label: formatSingleDiscountLabel(
+                    { adjustmentType: action.discountType, adjustmentValue: action.discountValue },
+                    currencyCodeFallback,
+                  ),
+                  phase: null,
+                },
+              ]
+            : [],
     });
   }
 
