@@ -243,3 +243,5 @@ Internationalization:
 dev-lalit.myshopify.com SHOP  DOMAIN this
 gid://shopify/Shop/69853577402 SHOP ID this
 
+agr manuall discount mila h prodcu tko to edit page pr us manual discount ke sath na jaye full amount ke sath ajaye or fir jo amount set hoga edit page pr us amount pr manual discount lgye 
+jo detele ko hum jese mene 20 0r 10 ka diya do mene dono mene se kisi ko v delete kr sku esa nhi hai ki pehle 20 wala ho fir 10 wala ht discount ka apna delete button ho
