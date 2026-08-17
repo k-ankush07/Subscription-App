@@ -46,7 +46,7 @@ export const loader = async ({ request }) => {
   try {
     const { sessionToken } = await authenticate.public.customerAccount(request);
     const shop = sessionToken.dest.replace("https://", "");
-    const { admin } = await unauthenticated.admin(shop);
+    const { admin ,session } = await unauthenticated.admin(shop);
 
     const url = new URL(request.url);
     let customerId = url.searchParams.get("customerId");
@@ -585,6 +585,7 @@ const canSwapProduct =
           method: "POST",
           headers: { "Content-Type": "application/json", "x-api-key": SECRET_KEY },
           body: JSON.stringify({
+             shop: session.shop,
             subscriptionId: getNumericId(sub.id),
             contractId: sub.id,
             customerEmail: sub.customer?.defaultEmailAddress?.emailAddress || "",

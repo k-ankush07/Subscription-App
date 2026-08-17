@@ -40,7 +40,7 @@ export const action = async ({ request }) => {
   try {
     const { sessionToken } = await authenticate.public.customerAccount(request);
     const shop = sessionToken.dest.replace("https://", "");
-    const { admin } = await unauthenticated.admin(shop);
+    const { admin ,session} = await unauthenticated.admin(shop);
 
     const body = await request.json().catch(() => ({}));
     const { subscriptionContractId } = body;
@@ -87,12 +87,13 @@ export const action = async ({ request }) => {
 
     const contract = data?.subscriptionContractActivate?.contract;
 
-    // 👇 ADD KARO — DB record update (yahi missing tha, isliye resume ke baad bhi "paused" hi reh jaata tha)
+
     try {
       await fetch(`${API}/api/subscription`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-api-key": SECRET_KEY },
         body: JSON.stringify({
+           shop: session.shop,
           subscriptionId: getNumericId(subscriptionContractId),
           contractId: subscriptionContractId,
           actionType: "active",

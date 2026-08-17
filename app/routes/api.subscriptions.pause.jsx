@@ -161,7 +161,7 @@ export const action = async ({ request }) => {
   try {
     const { sessionToken } = await authenticate.public.customerAccount(request);
     const shop = sessionToken.dest.replace("https://", "");
-    const { admin } = await unauthenticated.admin(shop);
+    const { admin,session } = await unauthenticated.admin(shop);
 
     const body = await request.json().catch(() => ({}));
     const { subscriptionContractId, reason } = body;
@@ -208,9 +208,6 @@ export const action = async ({ request }) => {
 
     const contract = data?.subscriptionContractPause?.contract;
 
-    // 👇 FIX: emailData ko sabse pehle fetch karo, taaki DB-update aur email-send
-    // dono isi ek variable ko reuse kar saken — pehle yeh block neeche tha,
-    // isliye emailData undefined hone se DB update hi silently fail ho raha tha
     let emailData = null;
     let portalBaseUrl = null;
     let shopName = null;
@@ -230,6 +227,7 @@ export const action = async ({ request }) => {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-api-key": SECRET_KEY },
         body: JSON.stringify({
+           shop: session.shop,
           subscriptionId: getNumericId(subscriptionContractId),
           contractId: subscriptionContractId,
           actionBy: "customer",

@@ -342,6 +342,7 @@ const contract = data.data.subscriptionContract;
       "x-api-key": SECRET_KEY,
     },
     body: JSON.stringify({
+       shop: session.shop,
       subscriptionId,
       contractId,
       contract,
@@ -418,7 +419,7 @@ export async function action({ request, params }) {
   const notes = formData.get("notes");
   const subscriptionId = params.id;
   const contractId = `gid://shopify/SubscriptionContract/${subscriptionId}`;
-  const { admin } = await authenticate.admin(request);
+  const { admin , session} = await authenticate.admin(request);
 
   if (
     type === "pause" ||
@@ -479,6 +480,7 @@ export async function action({ request, params }) {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-api-key": SECRET_KEY },
       body: JSON.stringify({
+         shop: session.shop,
         subscriptionId,
         contractId,
         actionType: "paused",
@@ -535,6 +537,7 @@ export async function action({ request, params }) {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-api-key": SECRET_KEY },
       body: JSON.stringify({
+         shop: session.shop,
         subscriptionId,
         contractId,
         cancelledBy: "merchant",
@@ -1360,6 +1363,7 @@ const basePriceAmount = liveVariantPrice ?? firstLine?.pricingPolicy?.basePrice?
   }
 
   const payload = {
+     shop: session.shop,
     subscriptionId,
     contractId,
     ...(type === "internal"

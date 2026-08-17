@@ -392,11 +392,6 @@ const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
 
 const PAGE_SIZE = 10;
 
-/*
-|--------------------------------------------------------------------------
-| Loader
-|--------------------------------------------------------------------------
-*/
 
 export async function loader({ request }) {
   const { session } = await authenticate.admin(request);
@@ -405,15 +400,10 @@ export async function loader({ request }) {
 
   const cursor = url.searchParams.get("cursor") || "";
 
-  /*
-   * API parameters
-   *
-   * We explicitly tell backend
-   * that we only want PAUSED/CANCELLED.
-   */
   const params = new URLSearchParams({
     limit: String(PAGE_SIZE),
     status: "PAUSED,CANCELLED",
+    shop: session.shop, 
   });
 
   if (cursor) {
@@ -455,13 +445,7 @@ export async function loader({ request }) {
     console.error("[CancelSubscription] Failed to load cancellations:", err);
   }
 
-  /*
-   * Extra safety filter.
-   *
-   * Backend already filters this,
-   * but frontend also makes sure
-   * ACTIVE never appears.
-   */
+
   const visibleItems = items.filter((item) => {
     const status = String(item.status || "").toUpperCase();
 
@@ -475,11 +459,6 @@ export async function loader({ request }) {
   };
 }
 
-/*
-|--------------------------------------------------------------------------
-| Status Badge
-|--------------------------------------------------------------------------
-*/
 
 function StatusBadge({ status }) {
   const normalizedStatus = String(status || "").toUpperCase();

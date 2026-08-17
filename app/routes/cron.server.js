@@ -7,9 +7,9 @@ export function startBillingCycleCron() {
   globalThis.__billingCronStarted = true;
   cron.schedule("*/15 * * * *", async () => {
     console.log("[cron] Running process-billing-cycles...");
-    console.log("process.env https://williams-paso-subsidiaries-muslim.trycloudflare.com")
+    console.log("process.env https://drinking-patient-persistent-acquisition.trycloudflare.com")
     try {
-      const res = await fetch(`https://williams-paso-subsidiaries-muslim.trycloudflare.com/api/process-billing-cycles`, {
+      const res = await fetch(`https://drinking-patient-persistent-acquisition.trycloudflare.com/api/process-billing-cycles`, {
         method: "POST",
         headers: { "x-cron-secret": process.env.CRON_SECRET },
       });
@@ -27,5 +27,5 @@ export function startBillingCycleCron() {
     }
   });
 
-  console.log("[cron] Billing cycle scheduler started (every 5 min).");
+  console.log("[cron] Billing cycle scheduler started (every 15 min).");
 }

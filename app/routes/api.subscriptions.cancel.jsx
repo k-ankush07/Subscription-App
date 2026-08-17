@@ -34,7 +34,7 @@ export const action = async ({ request }) => {
   try {
     const { sessionToken } = await authenticate.public.customerAccount(request);
     const shop = sessionToken.dest.replace("https://", "");
-    const { admin } = await unauthenticated.admin(shop);
+    const { admin ,session} = await unauthenticated.admin(shop);
 
     const body = await request.json();
     const subscriptionContractId = body.subscriptionContractId;
@@ -95,6 +95,7 @@ try {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-api-key": SECRET_KEY },
     body: JSON.stringify({
+       shop: session.shop,
       subscriptionId: getNumericId(subscriptionContractId),
       contractId: subscriptionContractId,
       actionBy: "customer",     
