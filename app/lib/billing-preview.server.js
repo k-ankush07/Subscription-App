@@ -510,7 +510,7 @@ function collectActionsForCycle(settings, cycleIndex, pricingPolicy = null ,base
 
   return actions;
 }
-dfefesfefv
+dfefesfefvsddfsefcdsfdsf
 function computePriceForCycle(pricingPolicy, cycleIndex) {
   if (!pricingPolicy?.cycleDiscounts?.length) {
     return pricingPolicy?.basePrice ?? null;
