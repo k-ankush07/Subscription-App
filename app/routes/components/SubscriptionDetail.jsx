@@ -269,7 +269,7 @@ export default function SubscriptionDetail() {
     );
   };
   const hasAnyDiscount = preview?.nextOrder?.lineItems?.some(
-    (li) => li.discountLabel,
+    (li) => li.discountLabel && !li.manualDiscountId ,
   );
 
   const handleRemoveAllDiscounts = () => {
@@ -920,10 +920,12 @@ export default function SubscriptionDetail() {
                           marginTop: "4px",
                         }}
                       >
-                        <Icon source={DiscountIcon} tone="subdued" />
+                        <div>
+                          <Icon source={DiscountIcon} tone="subdued" />
                         <span style={{ fontSize: "13px", color: "#6b6b6b" }}>
                           {li.discountLabel}
                         </span>
+                        
                         <span
                           onClick={() =>
                             li.manualDiscountId
@@ -935,62 +937,9 @@ export default function SubscriptionDetail() {
                         >
                           <Icon source={DeleteIcon} tone="critical" />
                         </span>
+                        </div>
                       </div>
                     )}
-                    {/* <p>
-                      Qty: {li.quantity} • {li.pricePerUnit?.amount}{" "}
-                      {li.pricePerUnit?.currencyCode} × {li.quantity} ={" "}
-                      {li.itemTotal?.amount} {li.itemTotal?.currencyCode}
-                    </p>
-
-                    {contract?.status !== "CANCELLED" && li.discountLabel && (
-                      <p>
-                        {li.discountLabel}{" "}
-                        <Button
-                          plain
-                           onClick={() =>
-                            li.manualDiscountId
-                              ? handleRemoveManualDiscount(li.manualDiscountId)
-                              : handleRemoveLineDiscount(li)
-                          }
-                          // onClick={() => handleRemoveLineDiscount(li)}
-                          loading={isThisActionPending("remove_line_discount", {
-                            isBaseLine: li.isBaseLine ? "true" : "false",
-                            discountPhase: li.discountPhase || "",
-                            automationCycleIndex:
-                              li.automationCycleIndex != null
-                                ? String(li.automationCycleIndex)
-                                : "",
-                            automationActionIndex:
-                              li.automationActionIndex != null
-                                ? String(li.automationActionIndex)
-                                : "",
-                            productId: li.productId || "",
-                            variantId: li.variantId || "",
-                          })}
-                          disabled={isThisActionPending(
-                            "remove_line_discount",
-                            {
-                              isBaseLine: li.isBaseLine ? "true" : "false",
-                              discountPhase: li.discountPhase || "",
-                              automationCycleIndex:
-                                li.automationCycleIndex != null
-                                  ? String(li.automationCycleIndex)
-                                  : "",
-                              automationActionIndex:
-                                li.automationActionIndex != null
-                                  ? String(li.automationActionIndex)
-                                  : "",
-                              productId: li.productId || "",
-                              variantId: li.variantId || "",
-                            },
-                          )}
-                        >
-                          Remove discount
-                        </Button>
-                      </p>
-                    )} */}
-
                     {li.automationCycleIndex != null &&
                     li.automationActionIndex != null &&
                     totalLineItemsCount > 1 ? (

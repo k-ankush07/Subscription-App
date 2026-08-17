@@ -3,7 +3,7 @@ import { render } from "preact";
 import { useState, useEffect, useCallback, useRef } from "preact/hooks";
 import { COUNTRIES } from "../../../app/routes/utils/countries";
 
-const API_BASE = "https://drinking-patient-persistent-acquisition.trycloudflare.com";
+const API_BASE = "https://informative-upgrade-subcommittee-guru.trycloudflare.com";
 const PAGE_SIZE = 7;
 const CANCEL_REASONS = [
   "Too expensive",
