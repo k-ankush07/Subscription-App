@@ -409,46 +409,6 @@ async function processShop(admin) {
   const processedCycles = await getProcessedCycles(admin, shopId);
   const chargedCycles = await getChargedCycles(admin, shopId);
 
-  // const contractsRes = await admin.graphql(`
-  //   query {
-  //     subscriptionContracts(first: 50, query: "status:active") {
-  //       edges {
-  //         node {
-  //           id
-  //           createdAt
-  //           nextBillingDate
-  //           deliveryPrice { amount currencyCode }
-  //           billingPolicy {
-  //             minCycles
-  //             maxCycles
-  //           }
-  //           lines(first: 5) {
-  //             edges {
-  //               node {
-  //                 id
-  //                 sellingPlanId
-  //                    variantId   
-  //                 pricingPolicy {
-  //                   basePrice { amount currencyCode }
-  //                   cycleDiscounts {
-  //                     afterCycle
-  //                     adjustmentType
-  //                     adjustmentValue {
-  //                       ... on SellingPlanPricingPolicyPercentageValue { percentage }
-  //                       ... on MoneyV2 { amount currencyCode }
-  //                     }
-  //                     computedPrice { amount currencyCode }
-  //                   }
-  //                 }
-  //               }
-  //             }
-  //           }
-  //         }
-  //       }
-  //     }
-  //   }
-  // `);
-  
   const contractsRes = await admin.graphql(`
     query {
       subscriptionContracts(first: 50, query: "status:active") {
@@ -517,7 +477,6 @@ async function processShop(admin) {
     );
 
     const sellingPlanId = contract.lines.edges[0]?.node?.sellingPlanId;
-    // const basePriceAmount = contract.lines.edges[0]?.node?.pricingPolicy?.basePrice?.amount ?? null;
     const firstLineNode = contract.lines.edges[0]?.node;
     const liveVariantPrice = await fetchVariantPrice(
       admin,

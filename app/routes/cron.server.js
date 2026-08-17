@@ -5,7 +5,7 @@ export function startBillingCycleCron() {
     return;
   }
   globalThis.__billingCronStarted = true;
-  cron.schedule("*/15 * * * *", async () => {
+  cron.schedule("*/5 * * * *", async () => {
     console.log("[cron] Running process-billing-cycles...");
     console.log("process.env https://drinking-patient-persistent-acquisition.trycloudflare.com")
     try {
@@ -27,5 +27,5 @@ export function startBillingCycleCron() {
     }
   });
 
-  console.log("[cron] Billing cycle scheduler started (every 15 min).");
+  console.log("[cron] Billing cycle scheduler started (every 5 min).");
 }

@@ -87,6 +87,7 @@ export default function SubscriptionDetail() {
     country: "",
     phone: "",
   });
+  
   const [toastActive, setToastActive] = useState(false);
   const toggleToast = () => setToastActive((active) => !active);
   const customerId = contract?.customer?.id?.split("/").pop();
@@ -219,9 +220,6 @@ export default function SubscriptionDetail() {
   if (!editDate) {
     return;
   }
-
-  // Original cycle ka time-of-day (browser/local timezone me) nikal lo,
-  // taaki sirf date badle, time wahi rahe jo pehle set tha
   const originalDate = new Date(cycle.billingAttemptExpectedDate);
   const hours = String(originalDate.getHours()).padStart(2, "0");
   const minutes = String(originalDate.getMinutes()).padStart(2, "0");
@@ -515,18 +513,6 @@ export default function SubscriptionDetail() {
                 {contract?.customer?.firstName} {contract?.customer?.lastName}
               </span>
             </p>
-            {/* <span
-            style={{ display: "inline-flex", alignItems: "center"}}
-          >
-            <span
-              onClick={handleCopyEmail}
-              style={{ cursor: "pointer", display: "inline-flex" }}
-              title="Copy email"
-            >
-              <Icon source={ClipboardIcon} tone="base" />
-            </span>
-            {contract?.customer?.defaultEmailAddress?.emailAddress}
-          </span> */}
             <span
               style={{
                 display: "inline-flex",
