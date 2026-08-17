@@ -8,7 +8,11 @@ import {
   Toast,
   Frame,
 } from "@shopify/polaris";
-import { ClipboardIcon } from "@shopify/polaris-icons";
+import {
+  ClipboardIcon,
+  DiscountIcon,
+  DeleteIcon,
+} from "@shopify/polaris-icons";
 import { Outlet } from "react-router";
 import React, { useEffect, useState, useRef } from "react";
 import { currencySymbol } from "../utils/formatMoney.js";
@@ -62,7 +66,7 @@ export default function SubscriptionDetail() {
   //   "cycle",
   //   pastSkippedCycles,
   // );
- 
+
   const [localLines, setLocalLines] = useState(contract?.lines?.edges || []);
   const [showInternalNotes, setShowInternalNotes] = useState(false);
   const [Internalnotes, setInternalNotes] = useState(internalNotes || "");
@@ -87,7 +91,7 @@ export default function SubscriptionDetail() {
     country: "",
     phone: "",
   });
-   const [showDiscountModal, setShowDiscountModal] = useState(false);
+  const [showDiscountModal, setShowDiscountModal] = useState(false);
   const [discountForm, setDiscountForm] = useState({
     name: "",
     adjustmentType: "PERCENTAGE",
@@ -223,32 +227,31 @@ export default function SubscriptionDetail() {
     fetcher.submit({ type: "cancel" }, { method: "post" });
   };
 
- 
   const handleReschedule = (cycle) => {
-  if (!editDate) {
-    return;
-  }
-  const originalDate = new Date(cycle.billingAttemptExpectedDate);
-  const hours = String(originalDate.getHours()).padStart(2, "0");
-  const minutes = String(originalDate.getMinutes()).padStart(2, "0");
+    if (!editDate) {
+      return;
+    }
+    const originalDate = new Date(cycle.billingAttemptExpectedDate);
+    const hours = String(originalDate.getHours()).padStart(2, "0");
+    const minutes = String(originalDate.getMinutes()).padStart(2, "0");
 
-  // Naya date + purana time combine karke local time se UTC ISO banao
-  const newDateTimeISO = new Date(
-    `${editDate}T${hours}:${minutes}:00`,
-  ).toISOString();
+    // Naya date + purana time combine karke local time se UTC ISO banao
+    const newDateTimeISO = new Date(
+      `${editDate}T${hours}:${minutes}:00`,
+    ).toISOString();
 
-  fetcher.submit(
-    {
-      type: "reschedule",
-      cycleIndex: cycle.cycleIndex,
-      newDate: newDateTimeISO,          
-      originalDate: cycle.billingAttemptExpectedDate,
-    },
-    { method: "post" },
-  );
-  setEditingCycleIndex(null);
-  setEditDate("");
-};
+    fetcher.submit(
+      {
+        type: "reschedule",
+        cycleIndex: cycle.cycleIndex,
+        newDate: newDateTimeISO,
+        originalDate: cycle.billingAttemptExpectedDate,
+      },
+      { method: "post" },
+    );
+    setEditingCycleIndex(null);
+    setEditDate("");
+  };
   const handleRemoveBaseLine = ({ productId, variantId }) => {
     const confirmed = confirm(
       "Remove this product from the upcoming order? It won't be applied to the next order.",
@@ -309,7 +312,7 @@ export default function SubscriptionDetail() {
   const manualDiscounts = preview?.allExtraSettings?.manualDiscounts || [];
 
   const handleAddDiscount = () => {
-       const allVariantIds = (preview?.nextOrder?.lineItems || [])
+    const allVariantIds = (preview?.nextOrder?.lineItems || [])
       .map((li) => li?.variantId)
       .filter(Boolean);
 
@@ -351,7 +354,6 @@ export default function SubscriptionDetail() {
       { method: "post" },
     );
   };
-
 
   const pastEntries = [
     ...(pastOrders || []).map((order) => ({
@@ -822,7 +824,6 @@ export default function SubscriptionDetail() {
                   justifyContent: "space-between",
                   alignItems: "center",
                 }}
-                
               >
                 <p>
                   <b>{`Delivery: Every ${contract?.deliveryPolicy?.intervalCount} ${contract?.deliveryPolicy?.interval} `}</b>
@@ -877,7 +878,66 @@ export default function SubscriptionDetail() {
                     {li.productId && <p>Product ID: {li.productId}</p>}
                     {li.variantId && <p>Variant ID: {li.variantId}</p>}
 
-                    <p>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <span>Qty: {li.quantity}</span>
+                      {li.originalPricePerUnit?.amount !==
+                        li.pricePerUnit?.amount && (
+                        <span
+                          style={{
+                            textDecoration: "line-through",
+                            color: "#8a8a8a",
+                          }}
+                        >
+                          {currencySymbol(
+                            li.originalPricePerUnit?.currencyCode,
+                          )}
+                          {li.originalPricePerUnit?.amount}
+                        </span>
+                      )}
+                      <span>
+                        {currencySymbol(li.pricePerUnit?.currencyCode)}
+                        {li.pricePerUnit?.amount} x {li.quantity}
+                      </span>
+                      <span>
+                        {currencySymbol(li.itemTotal?.currencyCode)}
+                        {li.itemTotal?.amount}
+                      </span>
+                    </div>
+
+                    {contract?.status !== "CANCELLED" && li.discountLabel && (
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "6px",
+                          marginTop: "4px",
+                        }}
+                      >
+                        <Icon source={DiscountIcon} tone="subdued" />
+                        <span style={{ fontSize: "13px", color: "#6b6b6b" }}>
+                          {li.discountLabel}
+                        </span>
+                        <span
+                          onClick={() =>
+                            li.manualDiscountId
+                              ? handleRemoveManualDiscount(li.manualDiscountId)
+                              : handleRemoveLineDiscount(li)
+                          }
+                          style={{ cursor: "pointer", display: "inline-flex" }}
+                          title="Remove discount"
+                        >
+                          <Icon source={DeleteIcon} tone="critical" />
+                        </span>
+                      </div>
+                    )}
+                    {/* <p>
                       Qty: {li.quantity} • {li.pricePerUnit?.amount}{" "}
                       {li.pricePerUnit?.currencyCode} × {li.quantity} ={" "}
                       {li.itemTotal?.amount} {li.itemTotal?.currencyCode}
@@ -929,7 +989,7 @@ export default function SubscriptionDetail() {
                           Remove discount
                         </Button>
                       </p>
-                    )}
+                    )} */}
 
                     {li.automationCycleIndex != null &&
                     li.automationActionIndex != null &&
@@ -986,49 +1046,16 @@ export default function SubscriptionDetail() {
               ))}
             </Card>
           )}
-           {contract?.status !== "CANCELLED" && (
+          {contract?.status !== "CANCELLED" && (
             <Card>
               <b>Discounts</b>
-              {manualDiscounts.length === 0 ? (
-                <p>No discount applied</p>
-              ) : (
-                manualDiscounts.map((d) => (
-                  <div
-                    key={d.id}
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginTop: "8px",
-                    }}
-                  >
-                    <p>
-                      {d.name || "Discount"} —{" "}
-                      {d.adjustmentType === "PERCENTAGE"
-                        ? `${d.adjustmentValue}%`
-                        : `${currencySymbol(
-                            preview?.nextOrder?.calculatedOrderTotal
-                              ?.currencyCode,
-                          )}${d.adjustmentValue}`}{" "}
-                      {d.appliesToAll ? "(all line items)" : "(single line)"}
-                      {d.cycleLimit != null &&
-                        ` • Limited to ${d.cycleLimit} cycle(s)`}
-                    </p>
-                    <Button
-                      plain
-                      onClick={() => handleRemoveManualDiscount(d.id)}
-                      loading={isThisActionPending("remove_manual_discount", {
-                        discountId: d.id,
-                      })}
-                      disabled={isThisActionPending("remove_manual_discount", {
-                        discountId: d.id,
-                      })}
-                    >
-                      Remove
-                    </Button>
-                  </div>
-                ))
-              )}
+              <p>
+                {manualDiscounts.length === 0
+                  ? "No discount applied"
+                  : `${manualDiscounts.length} discount${
+                      manualDiscounts.length > 1 ? "s" : ""
+                    } applied`}
+              </p>
               <Button onClick={() => setShowDiscountModal(true)}>
                 Add a discount
               </Button>
@@ -1484,8 +1511,9 @@ export default function SubscriptionDetail() {
                       {(preview?.nextOrder?.lineItems || []).map((li) => (
                         <option key={li.variantId} value={li.variantId}>
                           {li.title}
-                          {li.variantTitle ? ` - ${li.variantTitle}` : ""}{" "}
-                          (Qty: {li.quantity})
+                          {li.variantTitle
+                            ? ` - ${li.variantTitle}`
+                            : ""} (Qty: {li.quantity})
                         </option>
                       ))}
                     </select>
