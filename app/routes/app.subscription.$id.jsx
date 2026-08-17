@@ -550,171 +550,57 @@ export async function action({ request, params }) {
       return { success: true, status: payload.contract.status };
     }
     if (type === "resume") {
-  const res = await admin.graphql(
-    `
-  mutation ActivateSubscriptionContract($contractId: ID!) {
-    subscriptionContractActivate(
-      subscriptionContractId: $contractId
-    ) {
-      contract {
-        id
-        status
-        nextBillingDate
-      }
-      userErrors {
-        field
-        message
-        code
-      }
-    }
-  }
-  `,
-    { variables: { contractId } },
-  );
-
-  const data = await res.json();
-  const payload = data?.data?.subscriptionContractActivate;
-
-  if (!payload || payload.userErrors?.length) {
-    console.error("Resume failed", payload?.userErrors);
-    return {
-      success: false,
-      error:
-        payload?.userErrors?.map((e) => e.message).join(", ") ||
-        "Resume failed",
-    };
-  }
-
-  let autoSkippedCycles = [];
-  try {
-    const now = new Date();
-    const rangeStart = new Date();
-    rangeStart.setFullYear(rangeStart.getFullYear() - 3);
-
-    let overdueCyclesRaw = [];
-    let cursor = null;
-    let hasNextPage = true;
-
-    while (hasNextPage) {
-      const cyclesRes = await admin.graphql(
-        `
-        query getOverdueCycles(
-          $contractId: ID!
-          $startDate: DateTime!
-          $endDate: DateTime!
-          $after: String
-        ) {
-          subscriptionBillingCycles(
-            contractId: $contractId
-            first: 50
-            after: $after
-            billingCyclesDateRangeSelector: {
-              startDate: $startDate
-              endDate: $endDate
-            }
-          ) {
-            edges {
-              cursor
-              node {
-                cycleIndex
-                billingAttemptExpectedDate
-                status
-                skipped
+          const res = await admin.graphql(
+            `
+            mutation ActivateSubscriptionContract($contractId: ID!) {
+              subscriptionContractActivate(subscriptionContractId: $contractId) {
+                contract {
+                  id
+                  status
+                  nextBillingDate
+                }
+                userErrors {
+                  field
+                  message
+                  code
+                }
               }
             }
-            pageInfo { hasNextPage }
-          }
-        }
-        `,
-        {
-          variables: {
-            contractId,
-            startDate: rangeStart.toISOString(),
-            endDate: now.toISOString(),
-            after: cursor,
-          },
-        },
-      );
-      const cyclesData = await cyclesRes.json();
-
-      if (cyclesData.errors) {
-        console.error("[resume] getOverdueCycles GraphQL errors:", JSON.stringify(cyclesData.errors));
-        break;
-      }
-
-      const conn = cyclesData?.data?.subscriptionBillingCycles;
-      const edges = conn?.edges || [];
-      overdueCyclesRaw.push(...edges.map((e) => e.node));
-
-      hasNextPage = !!conn?.pageInfo?.hasNextPage && edges.length > 0;
-      cursor = edges.length > 0 ? edges[edges.length - 1].cursor : null;
-    }
-
-    const overdueCycles = overdueCyclesRaw.filter(
-      (c) =>
-        !c.skipped &&
-        c.status !== "BILLED" &&
-        c.billingAttemptExpectedDate &&
-        new Date(c.billingAttemptExpectedDate) < now,
-    );
-
-    for (const c of overdueCycles) {
-      try {
-        const skipRes = await admin.graphql(
-          `
-          mutation SkipOverdueCycle(
-            $billingCycleInput: SubscriptionBillingCycleInput!
-          ) {
-            subscriptionBillingCycleSkip(
-              billingCycleInput: $billingCycleInput
-            ) {
-              billingCycle {
-                cycleIndex
-                skipped
-              }
-              userErrors { field message code }
-            }
-          }
-          `,
-          {
-            variables: {
-              billingCycleInput: {
-                contractId,
-                selector: { index: c.cycleIndex },
-              },
-            },
-          },
-        );
-        const skipData = await skipRes.json();
-        const skipPayload = skipData?.data?.subscriptionBillingCycleSkip;
-        if (skipPayload?.userErrors?.length) {
-          console.warn(
-            `[resume] skip failed for overdue cycle ${c.cycleIndex}:`,
-            skipPayload.userErrors,
+            `,
+            { variables: { contractId } },
           );
-        } else {
-          autoSkippedCycles.push(c.cycleIndex);
-        }
-      } catch (err) {
-        console.warn(
-          `[resume] skip errored for overdue cycle ${c.cycleIndex}:`,
-          err,
-        );
-      }
-    }
-  } catch (err) {
-    console.warn(
-      `[resume] failed to fetch/skip overdue cycles for ${contractId}:`,
-      err,
-    );
-  }
 
-  return {
-    success: true,
-    status: payload.contract.status,
-    autoSkippedCycles,
-  };
-}
+          const data = await res.json();
+          const payload = data?.data?.subscriptionContractActivate;
+
+          if (!payload || payload.userErrors?.length) {
+            console.error("Resume failed", payload?.userErrors);
+            return {
+              success: false,
+              error:
+                payload?.userErrors?.map((e) => e.message).join(", ") ||
+                "Resume failed",
+            };
+          }
+
+          try {
+            await fetch(`${API}/api/subscription`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "x-api-key": SECRET_KEY },
+              body: JSON.stringify({
+                shop: session.shop,
+                subscriptionId,
+                contractId,
+                actionType: "resumed",
+                resumedAt: new Date().toISOString(),
+              }),
+            });
+          } catch (err) {
+            console.error("Failed to record resume metadata:", err);
+          }
+
+          return { success: true, status: payload.contract.status };
+        }
     if (type === "skip") {
       const cycleIndex = parseInt(formData.get("cycleIndex"), 10);
 
