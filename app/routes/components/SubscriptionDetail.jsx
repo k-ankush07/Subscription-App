@@ -309,6 +309,10 @@ export default function SubscriptionDetail() {
   const manualDiscounts = preview?.allExtraSettings?.manualDiscounts || [];
 
   const handleAddDiscount = () => {
+       const allVariantIds = (preview?.nextOrder?.lineItems || [])
+      .map((li) => li?.variantId)
+      .filter(Boolean);
+
     fetcher.submit(
       {
         type: "add_discount",
@@ -319,6 +323,7 @@ export default function SubscriptionDetail() {
         adjustmentValue: discountForm.adjustmentValue,
         appliesToAll: discountForm.appliesToAll ? "true" : "false",
         variantId: discountForm.appliesToAll ? "" : discountForm.variantId,
+        variantIds: discountForm.appliesToAll ? allVariantIds.join(",") : "",
         cycleLimit: discountForm.cycleLimit,
       },
       { method: "post" },
@@ -883,7 +888,12 @@ export default function SubscriptionDetail() {
                         {li.discountLabel}{" "}
                         <Button
                           plain
-                          onClick={() => handleRemoveLineDiscount(li)}
+                           onClick={() =>
+                            li.manualDiscountId
+                              ? handleRemoveManualDiscount(li.manualDiscountId)
+                              : handleRemoveLineDiscount(li)
+                          }
+                          // onClick={() => handleRemoveLineDiscount(li)}
                           loading={isThisActionPending("remove_line_discount", {
                             isBaseLine: li.isBaseLine ? "true" : "false",
                             discountPhase: li.discountPhase || "",
@@ -1471,16 +1481,11 @@ export default function SubscriptionDetail() {
                       }
                     >
                       <option value="">Select a line item</option>
-                      {lines?.map((edge) => (
-                        <option
-                          key={edge.node.variantId}
-                          value={edge.node.variantId}
-                        >
-                          {edge.node.title}
-                          {edge.node.variantTitle
-                            ? ` - ${edge.node.variantTitle}`
-                            : ""}{" "}
-                          (Qty: {edge.node.quantity})
+                      {(preview?.nextOrder?.lineItems || []).map((li) => (
+                        <option key={li.variantId} value={li.variantId}>
+                          {li.title}
+                          {li.variantTitle ? ` - ${li.variantTitle}` : ""}{" "}
+                          (Qty: {li.quantity})
                         </option>
                       ))}
                     </select>

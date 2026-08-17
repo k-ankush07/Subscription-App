@@ -425,7 +425,7 @@ function collectActionsForCycle(settings, cycleIndex, pricingPolicy = null ,base
     actions.push(resolveDiscountForCycle(settings, pricingPolicy, cycleIndex));
   }
   actions.push(resolveShippingDiscountForCycle(settings, cycleIndex));
-// Manual discounts added from "Add a discount" UI
+ 
   if (Array.isArray(settings.manualDiscounts)) {
     for (const md of settings.manualDiscounts) {
       const start = Number(md.startCycleIndex) || 0;
@@ -434,20 +434,29 @@ function collectActionsForCycle(settings, cycleIndex, pricingPolicy = null ,base
       const started = cycleIndex >= start;
 
       if (!started || !withinLimit) continue;
+      const targetVariantIds =
+        Array.isArray(md.variantIds) && md.variantIds.length > 0
+          ? md.variantIds
+          : md.variantId
+            ? [md.variantId]
+            : [];
 
-      if (md.appliesToAll || !md.variantId) {
+      if (targetVariantIds.length > 0) {
+        for (const vId of targetVariantIds) {
+          actions.push({
+            type: "VARIANT_DISCOUNT_CHANGE",
+            sourceVariantId: vId,
+            adjustmentType: md.adjustmentType,
+            adjustmentValue: Number(md.adjustmentValue),
+            after: start,
+            __phase: "manual",
+            __manualDiscountId: md.id,
+          });
+        }
+      } else {
+        // Purane (legacy) discounts jinme variant info hi nahi thi — old global behaviour
         actions.push({
           type: "DISCOUNT_CHANGE",
-          adjustmentType: md.adjustmentType,
-          adjustmentValue: Number(md.adjustmentValue),
-          after: start,
-          __phase: "manual",
-          __manualDiscountId: md.id,
-        });
-      } else {
-        actions.push({
-          type: "VARIANT_DISCOUNT_CHANGE",
-          sourceVariantId: md.variantId,
           adjustmentType: md.adjustmentType,
           adjustmentValue: Number(md.adjustmentValue),
           after: start,
@@ -1658,7 +1667,7 @@ function addBaseLineRemoval(settings, cycleIndex, productId, variantId) {
 }
 function addManualDiscount(
   settings,
-  { name, adjustmentType, adjustmentValue, appliesToAll, variantId, cycleLimit, startCycleIndex = 0 },
+  { name, adjustmentType, adjustmentValue, appliesToAll, variantId, variantIds, cycleLimit, startCycleIndex = 0 },
 ) {
   const clonedSettings = settings ? JSON.parse(JSON.stringify(settings)) : {};
   if (!Array.isArray(clonedSettings.manualDiscounts)) {
@@ -1674,6 +1683,10 @@ function addManualDiscount(
     adjustmentValue: Number(adjustmentValue) || 0,
     appliesToAll: !!appliesToAll,
     variantId: appliesToAll ? null : (variantId || null),
+    // appliesToAll ke case me subscription ki SAARI current line variant IDs yaha store hoti hain
+    variantIds: appliesToAll
+      ? (Array.isArray(variantIds) ? variantIds.filter(Boolean) : [])
+      : (variantId ? [variantId] : []),
     cycleLimit: cycleLimit != null && cycleLimit !== "" ? Number(cycleLimit) : null,
     startCycleIndex: Number(startCycleIndex) || 0,
   });
@@ -2099,10 +2112,6 @@ if (isSwapTarget && swapAction.variantId) {
         if (m) return m.__phase;
         return showDiscountOnThisLine ? discountAction.__phase : null;
       })(),
-      // discountLabel: (() => {
-      //   const m = variantDiscountActions.find((a) => actionMatchesLine(a, line));
-      //   const src = m || (showDiscountOnThisLine ? discountAction : null);
-      //   if (!src) return null;
       discountLabel: (() => {
   const m = variantDiscountActions.find((a) => actionMatchesLine(a, line));
   const src = m || (showDiscountOnThisLine ? discountAction : null);
@@ -2113,17 +2122,13 @@ if (isSwapTarget && swapAction.variantId) {
         if (type === "PRICE" || type === "FIXED_PRICE" || type === "FIXED_AMOUNT")
           return `Fixed price: ${currencySymbol(pricePerUnit.currencyCode)}${src.adjustmentValue}`;
         return `${currencySymbol(pricePerUnit.currencyCode)}${src.adjustmentValue} off`;
+        
       })(),
-  //     discountPhase: showDiscountOnThisLine ? discountAction.__phase : null,
-  //     discountLabel: showDiscountOnThisLine
-  // ? String(discountAction.adjustmentType).toUpperCase() === "PERCENTAGE"
-  //   ? `${discountAction.adjustmentValue}% off`
-  //   : String(discountAction.adjustmentType).toUpperCase() === "FIXED_PRICE"
-  //     ? `Fixed price: ${currencySymbol(pricePerUnit.currencyCode)}${discountAction.adjustmentValue}`
-  //     : String(discountAction.adjustmentType).toUpperCase() === "FIXED_AMOUNT"
-  //       ? `Fixed price: ${currencySymbol(pricePerUnit.currencyCode)}${discountAction.adjustmentValue}`
-  //       : `${currencySymbol(pricePerUnit.currencyCode)}${discountAction.adjustmentValue} off`
-  // : null,
+      manualDiscountId: (() => {
+        const m = variantDiscountActions.find((a) => actionMatchesLine(a, line));
+        const src = m || (showDiscountOnThisLine ? discountAction : null);
+        return src?.__manualDiscountId ?? null;
+      })(),
     });
   }
 

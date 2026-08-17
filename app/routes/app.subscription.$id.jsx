@@ -1248,12 +1248,16 @@ const basePriceAmount = liveVariantPrice ?? firstLine?.pricingPolicy?.basePrice?
       }
     }
     if (type === "add_discount") {
-      const sellingPlanId = formData.get("sellingPlanId") || null;
+       const sellingPlanId = formData.get("sellingPlanId") || null;
       const name = formData.get("name") || "";
       const adjustmentType = formData.get("adjustmentType") || "PERCENTAGE";
       const adjustmentValue = formData.get("adjustmentValue");
       const appliesToAll = formData.get("appliesToAll") === "true";
       const variantId = formData.get("variantId") || null;
+      const variantIdsRaw = formData.get("variantIds") || "";
+      const variantIds = variantIdsRaw
+        ? variantIdsRaw.split(",").filter(Boolean)
+        : [];
       const rawCycleLimit = formData.get("cycleLimit");
       const cycleLimit = rawCycleLimit && rawCycleLimit !== "" ? rawCycleLimit : null;
       const cycleIndexRaw = formData.get("startCycleIndex");
@@ -1261,6 +1265,9 @@ const basePriceAmount = liveVariantPrice ?? firstLine?.pricingPolicy?.basePrice?
 
       if (!appliesToAll && !variantId) {
         return { success: false, error: "Select a line item to target, or apply to all line items" };
+      }
+      if (appliesToAll && variantIds.length === 0) {
+        return { success: false, error: "Could not determine the subscription's current line items" };
       }
       if (adjustmentValue == null || adjustmentValue === "" || Number.isNaN(Number(adjustmentValue))) {
         return { success: false, error: "Enter a valid discount value" };
@@ -1278,6 +1285,7 @@ const basePriceAmount = liveVariantPrice ?? firstLine?.pricingPolicy?.basePrice?
           adjustmentValue,
           appliesToAll,
           variantId,
+          variantIds,
           cycleLimit,
           startCycleIndex,
         });
