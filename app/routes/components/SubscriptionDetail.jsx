@@ -87,7 +87,15 @@ export default function SubscriptionDetail() {
     country: "",
     phone: "",
   });
-  
+   const [showDiscountModal, setShowDiscountModal] = useState(false);
+  const [discountForm, setDiscountForm] = useState({
+    name: "",
+    adjustmentType: "PERCENTAGE",
+    adjustmentValue: "",
+    appliesToAll: true,
+    variantId: "",
+    cycleLimit: "",
+  });
   const [toastActive, setToastActive] = useState(false);
   const toggleToast = () => setToastActive((active) => !active);
   const customerId = contract?.customer?.id?.split("/").pop();
@@ -298,6 +306,47 @@ export default function SubscriptionDetail() {
       { method: "post" },
     );
   };
+  const manualDiscounts = preview?.allExtraSettings?.manualDiscounts || [];
+
+  const handleAddDiscount = () => {
+    fetcher.submit(
+      {
+        type: "add_discount",
+        sellingPlanId: lines?.[0]?.node?.sellingPlanId || "",
+        startCycleIndex: String(preview?.nextOrder?.cycleIndex ?? 0),
+        name: discountForm.name,
+        adjustmentType: discountForm.adjustmentType,
+        adjustmentValue: discountForm.adjustmentValue,
+        appliesToAll: discountForm.appliesToAll ? "true" : "false",
+        variantId: discountForm.appliesToAll ? "" : discountForm.variantId,
+        cycleLimit: discountForm.cycleLimit,
+      },
+      { method: "post" },
+    );
+    setShowDiscountModal(false);
+    setDiscountForm({
+      name: "",
+      adjustmentType: "PERCENTAGE",
+      adjustmentValue: "",
+      appliesToAll: true,
+      variantId: "",
+      cycleLimit: "",
+    });
+  };
+
+  const handleRemoveManualDiscount = (discountId) => {
+    const confirmed = confirm("Remove this discount?");
+    if (!confirmed) return;
+    fetcher.submit(
+      {
+        type: "remove_manual_discount",
+        discountId,
+        sellingPlanId: lines?.[0]?.node?.sellingPlanId || "",
+      },
+      { method: "post" },
+    );
+  };
+
 
   const pastEntries = [
     ...(pastOrders || []).map((order) => ({
@@ -311,6 +360,7 @@ export default function SubscriptionDetail() {
       cycle,
     })),
   ].sort((a, b) => new Date(b.date) - new Date(a.date));
+
   const customerAddresses = contract?.customer?.addresses || [];
   const openAddressForm = () => {
     if (showAddressForm) {
@@ -926,6 +976,54 @@ export default function SubscriptionDetail() {
               ))}
             </Card>
           )}
+           {contract?.status !== "CANCELLED" && (
+            <Card>
+              <b>Discounts</b>
+              {manualDiscounts.length === 0 ? (
+                <p>No discount applied</p>
+              ) : (
+                manualDiscounts.map((d) => (
+                  <div
+                    key={d.id}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginTop: "8px",
+                    }}
+                  >
+                    <p>
+                      {d.name || "Discount"} —{" "}
+                      {d.adjustmentType === "PERCENTAGE"
+                        ? `${d.adjustmentValue}%`
+                        : `${currencySymbol(
+                            preview?.nextOrder?.calculatedOrderTotal
+                              ?.currencyCode,
+                          )}${d.adjustmentValue}`}{" "}
+                      {d.appliesToAll ? "(all line items)" : "(single line)"}
+                      {d.cycleLimit != null &&
+                        ` • Limited to ${d.cycleLimit} cycle(s)`}
+                    </p>
+                    <Button
+                      plain
+                      onClick={() => handleRemoveManualDiscount(d.id)}
+                      loading={isThisActionPending("remove_manual_discount", {
+                        discountId: d.id,
+                      })}
+                      disabled={isThisActionPending("remove_manual_discount", {
+                        discountId: d.id,
+                      })}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                ))
+              )}
+              <Button onClick={() => setShowDiscountModal(true)}>
+                Add a discount
+              </Button>
+            </Card>
+          )}
           <Card>
             <b>Payment Summary</b>
 
@@ -1251,6 +1349,208 @@ export default function SubscriptionDetail() {
               </>
             )}
           </div>
+          {showDiscountModal && (
+            <div
+              style={{
+                position: "fixed",
+                inset: 0,
+                background: "rgba(0,0,0,0.4)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                zIndex: 1000,
+              }}
+            >
+              <div
+                style={{
+                  background: "white",
+                  padding: "20px",
+                  borderRadius: "8px",
+                  width: "400px",
+                  maxWidth: "90vw",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
+                  <b>Add a discount</b>
+                  <span
+                    style={{ cursor: "pointer" }}
+                    onClick={() => setShowDiscountModal(false)}
+                  >
+                    ×
+                  </span>
+                </div>
+
+                <div style={{ marginTop: "12px" }}>
+                  <label>Discount name</label>
+                  <br />
+                  <input
+                    style={{ width: "100%" }}
+                    value={discountForm.name}
+                    onChange={(e) =>
+                      setDiscountForm({
+                        ...discountForm,
+                        name: e.target.value,
+                      })
+                    }
+                    placeholder="Enter discount name"
+                  />
+                </div>
+
+                <div style={{ marginTop: "12px" }}>
+                  <label>Discount type</label>
+                  <br />
+                  <select
+                    style={{ width: "100%" }}
+                    value={discountForm.adjustmentType}
+                    onChange={(e) =>
+                      setDiscountForm({
+                        ...discountForm,
+                        adjustmentType: e.target.value,
+                      })
+                    }
+                  >
+                    <option value="PERCENTAGE">Percentage</option>
+                    <option value="FIXED_AMOUNT">Fixed Amount</option>
+                  </select>
+                </div>
+
+                <div style={{ marginTop: "12px" }}>
+                  <label>
+                    {discountForm.adjustmentType === "PERCENTAGE"
+                      ? "Percentage (%)"
+                      : "Amount"}
+                  </label>
+                  <br />
+                  <input
+                    style={{ width: "100%" }}
+                    type="number"
+                    value={discountForm.adjustmentValue}
+                    onChange={(e) =>
+                      setDiscountForm({
+                        ...discountForm,
+                        adjustmentValue: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+
+                <div style={{ marginTop: "12px" }}>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={discountForm.appliesToAll}
+                      onChange={(e) =>
+                        setDiscountForm({
+                          ...discountForm,
+                          appliesToAll: e.target.checked,
+                        })
+                      }
+                    />{" "}
+                    Applies to all line items
+                  </label>
+                </div>
+
+                {!discountForm.appliesToAll && (
+                  <div style={{ marginTop: "12px" }}>
+                    <label>Target line item</label>
+                    <br />
+                    <select
+                      style={{ width: "100%" }}
+                      value={discountForm.variantId}
+                      onChange={(e) =>
+                        setDiscountForm({
+                          ...discountForm,
+                          variantId: e.target.value,
+                        })
+                      }
+                    >
+                      <option value="">Select a line item</option>
+                      {lines?.map((edge) => (
+                        <option
+                          key={edge.node.variantId}
+                          value={edge.node.variantId}
+                        >
+                          {edge.node.title}
+                          {edge.node.variantTitle
+                            ? ` - ${edge.node.variantTitle}`
+                            : ""}{" "}
+                          (Qty: {edge.node.quantity})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <div style={{ marginTop: "12px" }}>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={discountForm.cycleLimit !== ""}
+                      onChange={(e) =>
+                        setDiscountForm({
+                          ...discountForm,
+                          cycleLimit: e.target.checked ? "1" : "",
+                        })
+                      }
+                    />{" "}
+                    Limit the discount to a certain amount of cycles
+                  </label>
+                  {discountForm.cycleLimit !== "" && (
+                    <div style={{ marginTop: "8px" }}>
+                      <label>Recurring cycle limit (day)</label>
+                      <br />
+                      <input
+                        style={{ width: "100%" }}
+                        type="number"
+                        min="1"
+                        value={discountForm.cycleLimit}
+                        onChange={(e) =>
+                          setDiscountForm({
+                            ...discountForm,
+                            cycleLimit: e.target.value,
+                          })
+                        }
+                      />
+                      <p style={{ fontSize: "12px", color: "gray" }}>
+                        Number of billing cycles this discount will apply to
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "flex-end",
+                    gap: "8px",
+                    marginTop: "16px",
+                  }}
+                >
+                  <Button onClick={() => setShowDiscountModal(false)}>
+                    Cancel
+                  </Button>
+                  <Button
+                    primary
+                    disabled={
+                      !discountForm.adjustmentValue ||
+                      (!discountForm.appliesToAll && !discountForm.variantId) ||
+                      isThisActionPending("add_discount")
+                    }
+                    loading={isThisActionPending("add_discount")}
+                    onClick={handleAddDiscount}
+                  >
+                    Apply discount
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
         </Page>
       </Frame>
     </>

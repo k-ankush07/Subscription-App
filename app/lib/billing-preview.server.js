@@ -425,7 +425,38 @@ function collectActionsForCycle(settings, cycleIndex, pricingPolicy = null ,base
     actions.push(resolveDiscountForCycle(settings, pricingPolicy, cycleIndex));
   }
   actions.push(resolveShippingDiscountForCycle(settings, cycleIndex));
+// Manual discounts added from "Add a discount" UI
+  if (Array.isArray(settings.manualDiscounts)) {
+    for (const md of settings.manualDiscounts) {
+      const start = Number(md.startCycleIndex) || 0;
+      const withinLimit =
+        md.cycleLimit == null || cycleIndex < start + Number(md.cycleLimit);
+      const started = cycleIndex >= start;
 
+      if (!started || !withinLimit) continue;
+
+      if (md.appliesToAll || !md.variantId) {
+        actions.push({
+          type: "DISCOUNT_CHANGE",
+          adjustmentType: md.adjustmentType,
+          adjustmentValue: Number(md.adjustmentValue),
+          after: start,
+          __phase: "manual",
+          __manualDiscountId: md.id,
+        });
+      } else {
+        actions.push({
+          type: "VARIANT_DISCOUNT_CHANGE",
+          sourceVariantId: md.variantId,
+          adjustmentType: md.adjustmentType,
+          adjustmentValue: Number(md.adjustmentValue),
+          after: start,
+          __phase: "manual",
+          __manualDiscountId: md.id,
+        });
+      }
+    }
+  }
   if (
     settings.changeQuantityAfterOrders &&
     cycleIndex >= Number(settings.quantityAfterOrders)
@@ -1623,6 +1654,41 @@ function addBaseLineRemoval(settings, cycleIndex, productId, variantId) {
     ],
   });
 
+  return clonedSettings;
+}
+function addManualDiscount(
+  settings,
+  { name, adjustmentType, adjustmentValue, appliesToAll, variantId, cycleLimit, startCycleIndex = 0 },
+) {
+  const clonedSettings = settings ? JSON.parse(JSON.stringify(settings)) : {};
+  if (!Array.isArray(clonedSettings.manualDiscounts)) {
+    clonedSettings.manualDiscounts = [];
+  }
+
+  const id = `md_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+  clonedSettings.manualDiscounts.push({
+    id,
+    name: name || "",
+    adjustmentType: adjustmentType === "FIXED_AMOUNT" ? "FIXED_AMOUNT" : "PERCENTAGE",
+    adjustmentValue: Number(adjustmentValue) || 0,
+    appliesToAll: !!appliesToAll,
+    variantId: appliesToAll ? null : (variantId || null),
+    cycleLimit: cycleLimit != null && cycleLimit !== "" ? Number(cycleLimit) : null,
+    startCycleIndex: Number(startCycleIndex) || 0,
+  });
+
+  return clonedSettings;
+}
+
+function removeManualDiscount(settings, discountId) {
+  if (!settings || !Array.isArray(settings.manualDiscounts)) {
+    throw new Error("removeManualDiscount: no manualDiscounts configured");
+  }
+  const clonedSettings = JSON.parse(JSON.stringify(settings));
+  clonedSettings.manualDiscounts = clonedSettings.manualDiscounts.filter(
+    (d) => d.id !== discountId,
+  );
   return clonedSettings;
 }
 async function getEffectiveSettingsForContract(
@@ -2910,5 +2976,7 @@ export {
   setAutomationVariantPrice,
   updateContractLinePrice,
   setBaseLineFixedPrice,
-  setLineFixedPrice
+  setLineFixedPrice,
+   addManualDiscount,
+  removeManualDiscount,
 };

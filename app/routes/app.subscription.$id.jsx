@@ -14,6 +14,8 @@ import {
   clearAnyOpenDraft,       
   updateContractAddress,
   fetchVariantPrice,
+    addManualDiscount,
+  removeManualDiscount,
 } from "../lib/billing-preview.server";
 const API = import.meta.env.VITE_API_URL;
 const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
@@ -73,9 +75,6 @@ async function fetchAllBillingCycles(admin, contractId, startDate, endDate,maxCy
       edges.length > 0 &&
       cycles.length < maxCycles;
     cursor = edges.length > 0 ? edges[edges.length - 1].cursor : null;
-
-    // hasNextPage = !!conn?.pageInfo?.hasNextPage && edges.length > 0;
-    // cursor = edges.length > 0 ? edges[edges.length - 1].cursor : null;
   }
 
   return cycles;
@@ -433,7 +432,9 @@ export async function action({ request, params }) {
     type === "remove_base_line" ||
     type === "remove_all_discounts" ||   
     type === "remove_line_discount"  ||
-    type === "update_address"
+    type === "update_address" ||
+       type === "add_discount" ||
+    type === "remove_manual_discount"
   ) {
     if (type === "pause") {
       try {
@@ -1243,6 +1244,84 @@ const basePriceAmount = liveVariantPrice ?? firstLine?.pricingPolicy?.basePrice?
         return result;
       } catch (err) {
         console.error("Update address failed:", err);
+        return { success: false, error: String(err?.message || err) };
+      }
+    }
+    if (type === "add_discount") {
+      const sellingPlanId = formData.get("sellingPlanId") || null;
+      const name = formData.get("name") || "";
+      const adjustmentType = formData.get("adjustmentType") || "PERCENTAGE";
+      const adjustmentValue = formData.get("adjustmentValue");
+      const appliesToAll = formData.get("appliesToAll") === "true";
+      const variantId = formData.get("variantId") || null;
+      const rawCycleLimit = formData.get("cycleLimit");
+      const cycleLimit = rawCycleLimit && rawCycleLimit !== "" ? rawCycleLimit : null;
+      const cycleIndexRaw = formData.get("startCycleIndex");
+      const startCycleIndex = cycleIndexRaw != null && cycleIndexRaw !== "" ? cycleIndexRaw : 0;
+
+      if (!appliesToAll && !variantId) {
+        return { success: false, error: "Select a line item to target, or apply to all line items" };
+      }
+      if (adjustmentValue == null || adjustmentValue === "" || Number.isNaN(Number(adjustmentValue))) {
+        return { success: false, error: "Enter a valid discount value" };
+      }
+
+      try {
+        const currentSettings = await getEffectiveSettingsForContract(
+          admin,
+          contractId,
+          sellingPlanId,
+        );
+        const updatedSettings = addManualDiscount(currentSettings, {
+          name,
+          adjustmentType,
+          adjustmentValue,
+          appliesToAll,
+          variantId,
+          cycleLimit,
+          startCycleIndex,
+        });
+        const { snapshotted } = await snapshotContractSettings(
+          admin,
+          contractId,
+          updatedSettings,
+        );
+        if (!snapshotted) {
+          return { success: false, error: "Failed to save discount" };
+        }
+        return { success: true };
+      } catch (err) {
+        console.error("Add discount failed:", err);
+        return { success: false, error: String(err?.message || err) };
+      }
+    }
+    if (type === "remove_manual_discount") {
+      const discountId = formData.get("discountId");
+      const sellingPlanId = formData.get("sellingPlanId") || null;
+      if (!discountId) {
+        return { success: false, error: "Invalid discount reference" };
+      }
+      try {
+        const currentSettings = await getEffectiveSettingsForContract(
+          admin,
+          contractId,
+          sellingPlanId,
+        );
+        if (!currentSettings) {
+          return { success: false, error: "No automation settings found for this subscription" };
+        }
+        const updatedSettings = removeManualDiscount(currentSettings, discountId);
+        const { snapshotted } = await snapshotContractSettings(
+          admin,
+          contractId,
+          updatedSettings,
+        );
+        if (!snapshotted) {
+          return { success: false, error: "Failed to save updated settings" };
+        }
+        return { success: true };
+      } catch (err) {
+        console.error("Remove manual discount failed:", err);
         return { success: false, error: String(err?.message || err) };
       }
     }
