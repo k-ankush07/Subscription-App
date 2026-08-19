@@ -367,10 +367,18 @@ export async function action({ request, params }) {
   //     Number.isNaN(automationCycleIndex) ||
   //     Number.isNaN(automationActionIndex)
   //   ) {
-  //     return { success: false, error: "Invalid automation item reference" };
+  //     return {
+  //       success: false,
+  //       error: "Invalid automation item reference",
+  //       type: "update_automation_price",
+  //     };
   //   }
   //   if (price == null || price === "" || Number.isNaN(Number(price))) {
-  //     return { success: false, error: "Invalid price" };
+  //     return {
+  //       success: false,
+  //       error: "Invalid price",
+  //       type: "update_automation_price",
+  //     };
   //   }
 
   //   try {
@@ -383,6 +391,7 @@ export async function action({ request, params }) {
   //       return {
   //         success: false,
   //         error: "No automation settings found for this subscription",
+  //         type: "update_automation_price",
   //       };
   //     }
   //     const updatedSettings = setAutomationVariantPrice(
@@ -400,16 +409,28 @@ export async function action({ request, params }) {
   //       return {
   //         success: false,
   //         error: "Failed to save updated automation settings",
+  //         type: "update_automation_price",
   //       };
   //     }
-  //     return { success: true, isAutomationChange: true };
+  //     return {
+  //       success: true,
+  //       isAutomationChange: true,
+  //       type: "update_automation_price",
+  //       automationCycleIndex,
+  //       automationActionIndex,
+  //       price,
+  //     };
   //   } catch (err) {
   //     console.error("[edit update_automation_price] failed:", err);
-  //     return { success: false, error: String(err?.message || err) };
+  //     return {
+  //       success: false,
+  //       error: String(err?.message || err),
+  //       type: "update_automation_price",
+  //     };
   //   }
   // }
 
-  if (type === "update_automation_price") {
+    if (type === "update_automation_price") {
     const automationCycleIndex = parseInt(
       formData.get("automationCycleIndex"),
       10,
@@ -418,6 +439,7 @@ export async function action({ request, params }) {
       formData.get("automationActionIndex"),
       10,
     );
+    const variantId = formData.get("variantId") || null;
     const price = formData.get("price");
     const sellingPlanId = formData.get("sellingPlanId") || null;
 
@@ -456,6 +478,7 @@ export async function action({ request, params }) {
         currentSettings,
         automationCycleIndex,
         automationActionIndex,
+        variantId,
         price,
       );
       const { snapshotted } = await snapshotContractSettings(
@@ -476,6 +499,7 @@ export async function action({ request, params }) {
         type: "update_automation_price",
         automationCycleIndex,
         automationActionIndex,
+        variantId,
         price,
       };
     } catch (err) {
@@ -656,47 +680,6 @@ export default function EditPage() {
   const handleBack = () => navigate(`/app/subscription/${id}`);
 
 
-  // useEffect(() => {
-  //   if (fetcher.state !== "idle" || fetcher.data == null) return;
-
-  //   const submittedType = fetcher.formData?.get("type");
-  //   const isPriceEditSubmit =
-  //     submittedType === "update_automation_price" ||
-  //     submittedType === "update_line_price";
-
-  //   if (fetcher.data.success) {
-  //     if (submittedType === "update_line_price") {
-  //       const updatedLineId = fetcher.formData?.get("lineId");
-  //       const updatedPrice = fetcher.formData?.get("price");
-  //       setLines((prev) =>
-  //         prev.map((l) =>
-  //           l.id === updatedLineId
-  //             ? {
-  //                 ...l,
-  //                 displayPrice: Number(updatedPrice) || 0,
-  //                 originalPrice: null,   
-  //                 discountLabel: null,   
-  //               }
-  //             : l,
-  //         ),
-  //       );
-  //     }
-
-  //     if (isPriceEditSubmit) {
-  //       setPriceEditTarget(null);
-  //       setPriceEditValue("");
-  //       setPriceEditError("");
-  //     }
-  //     if (submittedType === "update_automation_quantity") {
-  //       setAutomationQtyDrafts({});
-  //     }
-  //     if (!fetcher.data.isAutomationChange) {
-  //       handleBack();
-  //     }
-  //   } else if (isPriceEditSubmit) {
-  //     setPriceEditError(fetcher.data.error || "Failed to update price");
-  //   }
-  // }, [fetcher.state, fetcher.data]);
  useEffect(() => {
   if (fetcher.state !== "idle" || fetcher.data == null) return;
 
@@ -844,9 +827,10 @@ export default function EditPage() {
       setPriceEditValue(String(item.price ?? "0"));
     } else if (kind === "automation") {
       setPriceEditTarget({
-        kind,
+          kind,
         automationCycleIndex: item.automationCycleIndex,
         automationActionIndex: item.automationActionIndex,
+        variantId: item.variantId,
         title: item.title,
         discountLabel: item.discountLabel,
       });
@@ -893,12 +877,13 @@ export default function EditPage() {
       return; 
     }
 
-    if (priceEditTarget.kind === "automation") {
+     if (priceEditTarget.kind === "automation") {
       fetcher.submit(
         {
           type: "update_automation_price",
           automationCycleIndex: priceEditTarget.automationCycleIndex,
           automationActionIndex: priceEditTarget.automationActionIndex,
+          variantId: priceEditTarget.variantId || "",
           price: priceEditValue,
           sellingPlanId,
         },
@@ -991,11 +976,7 @@ export default function EditPage() {
       const price = Number(li.priceBeforeManualDiscounts?.amount ?? li.pricePerUnit?.amount) || 0;
       return sum + qty * price;
     }, 0);
-    // automationLines.reduce((sum, li) => {
-    //   const qty = Number(getAutomationQty(li)) || 0;
-    //   const price = Number(li.pricePerUnit?.amount) || 0;
-    //   return sum + qty * price;
-    // }, 0);
+
 
   const total = subtotal + (Number(deliveryPrice) || 0);
 
