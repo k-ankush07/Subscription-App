@@ -1646,12 +1646,33 @@ export async function loader({ request, params }) {
   const allLineEdges = await fetchAllLines(admin, contractId);
   contract.lines = { edges: allLineEdges };
 
-  const [allOrderEdges, allCycles, preview] = await Promise.all([
+    const pastStartDate = contract?.createdAt
+    ? new Date(contract.createdAt).toISOString()
+    : startDate.toISOString();
+
+  const [allOrderEdges, futureCycles, pastCycles, preview] = await Promise.all([
     fetchAllOrders(admin, contractId),
-    fetchAllBillingCycles(admin, contractId, startDate, endDate, 60),
+    fetchAllBillingCycles(admin, contractId, startDate.toISOString(), endDate, 60),
+    fetchAllBillingCycles(admin, contractId, pastStartDate, startDate.toISOString(), 60),
     getContractPreview(admin, contractId, contract),
   ]);
   contract.orders = { edges: allOrderEdges };
+
+  // Past aur future cycles ko merge karo, cycleIndex se dedupe
+  const cycleMap = new Map();
+  [...pastCycles, ...futureCycles].forEach((c) => {
+    if (c && typeof c.cycleIndex === "number") {
+      cycleMap.set(c.cycleIndex, c);
+    }
+  });
+  const allCycles = Array.from(cycleMap.values());
+
+  // const [allOrderEdges, allCycles, preview] = await Promise.all([
+  //   fetchAllOrders(admin, contractId),
+  //   fetchAllBillingCycles(admin, contractId, startDate, endDate, 60),
+  //   getContractPreview(admin, contractId, contract),
+  // ]);
+  // contract.orders = { edges: allOrderEdges };
 
   const maxCycles = contract?.billingPolicy?.maxCycles ?? null;
   const now = new Date();
