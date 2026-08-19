@@ -2073,14 +2073,14 @@ function SubscriptionDetail({
                     />
                   </s-stack>
 
-                  <s-text-field
+                  {/* <s-text-field
                     label="Phone"
                     type="tel"
                     value={addressForm.phone}
                     onInput={(e) =>
                       setAddressForm({ ...addressForm, phone: e.target.value })
                     }
-                  />
+                  /> */}
                 </s-stack>
 
                 <s-button
