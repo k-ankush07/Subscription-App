@@ -1044,7 +1044,15 @@ export default function SubscriptionDetail() {
                     />
                   )}
                   <div style={{ flex: 1 }}>
-                    <p>{li.title}</p>
+                    {/* <p>{li.title}</p> */}
+                    <p>
+                      <b>{li.title}</b>
+                      {li.variantTitle && (
+                        <span style={{ marginLeft: "6px" }}>
+                          | {li.variantTitle}
+                        </span>
+                      )}
+                    </p>
 
                     {li.productId && <p>Product ID: {li.productId}</p>}
                     {li.variantId && <p>Variant ID: {li.variantId}</p>}

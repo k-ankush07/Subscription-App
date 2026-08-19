@@ -1145,7 +1145,6 @@ export default function EditPage() {
         quantity: Number(l.quantity) || 1,
       }));
 
-    // NEW — automationLines (jaise ADD_PRODUCT ki extra variant lines) ki quantity bhi Save par hi jaaye
     const automationLineQuantityUpdates = automationLines
       .filter(
         (li) =>
@@ -1315,7 +1314,6 @@ export default function EditPage() {
                   <BlockStack gap="050">
                     <InlineStack gap="100" blockAlign="center">
                       <Text fontWeight="medium">{line.title}</Text>
-                      <Badge tone="success">New</Badge>
                     </InlineStack>
                     {line.variantTitle && <Badge>{line.variantTitle}</Badge>}
                   </BlockStack>

@@ -131,7 +131,7 @@ function normalizeAutomationAction(action, afterOrders) {
       }
     }
 
-        const variantPrices =
+    const variantPrices =
       action.variantPrices && typeof action.variantPrices === "object"
         ? action.variantPrices
         : {};
@@ -247,7 +247,6 @@ function normalizeAutomationAction(action, afterOrders) {
 
   //   return results;
   // }
-
 
   if (action.type === "remove") {
     const variantId =
@@ -1019,8 +1018,8 @@ async function applyActionsToCycle(
       // ── QUANTITY_CHANGE ──
       if (action.type === "QUANTITY_CHANGE") {
         if (action.__default) {
-    continue;
-  }
+          continue;
+        }
         const targetLine = resolveLineForAction(draftLines, action);
         if (!targetLine) {
           console.warn(
@@ -1088,19 +1087,31 @@ async function applyActionsToCycle(
         const basePriceForThisSwap =
           ownVariantPrice != null ? ownVariantPrice : effectiveBasePrice;
 
+        // let recalculatedPrice = null;
+        // if (action.discountEnabled && basePriceForThisSwap != null) {
+        //   recalculatedPrice = applyCustomDiscountAction(basePriceForThisSwap, {
+        //     adjustmentType: action.discountType,
+        //     adjustmentValue: action.discountValue,
+        //   }).toFixed(2);
+        // }
         let recalculatedPrice = null;
         if (action.discountEnabled && basePriceForThisSwap != null) {
           recalculatedPrice = applyCustomDiscountAction(basePriceForThisSwap, {
             adjustmentType: action.discountType,
             adjustmentValue: action.discountValue,
           }).toFixed(2);
-        }
-        if (!hasCustomDiscountChange && basePriceForThisSwap != null) {
+        } else if (!hasCustomDiscountChange && basePriceForThisSwap != null) {
           recalculatedPrice = applyDiscountTierToPrice(
             basePriceForThisSwap,
             discountTierForCycle,
           ).toFixed(2);
         }
+        // if (!hasCustomDiscountChange && basePriceForThisSwap != null) {
+        //   recalculatedPrice = applyDiscountTierToPrice(
+        //     basePriceForThisSwap,
+        //     discountTierForCycle,
+        //   ).toFixed(2);
+        // }
         const activeManualForSwap = getActiveManualDiscountsForLine(
           extraSettings,
           cycleIndex,
@@ -1467,49 +1478,51 @@ async function applyActionsToCycle(
         if (errors?.length)
           throw new Error(`ADD_PRODUCT failed: ${errors[0].message}`);
       }
-        if (lineId && !removedLineIds.has(lineId)) {
-      const baseLineVariantId = draftLines[0]?.variantId;
-      const hasBaseLinePriceAction = orderedActions.some(
-        (a) =>
-          a.type === "DISCOUNT_CHANGE" ||
-          a.type === "VARIANT_SWAP" ||
-          (a.type === "VARIANT_DISCOUNT_CHANGE" &&
-            a.sourceVariantId === baseLineVariantId),
-      );
-      if (!hasBaseLinePriceAction) {
-        const activeManualForUntouchedBase = getActiveManualDiscountsForLine(
-          extraSettings,
-          cycleIndex,
-          baseLineVariantId,
+      if (lineId && !removedLineIds.has(lineId)) {
+        const baseLineVariantId = draftLines[0]?.variantId;
+        const hasBaseLinePriceAction = orderedActions.some(
+          (a) =>
+            a.type === "DISCOUNT_CHANGE" ||
+            a.type === "VARIANT_SWAP" ||
+            (a.type === "VARIANT_DISCOUNT_CHANGE" &&
+              a.sourceVariantId === baseLineVariantId),
         );
-        if (activeManualForUntouchedBase.length > 0) {
-          const finalPrice = applyManualDiscountsToPrice(
-            effectiveBasePrice,
-            activeManualForUntouchedBase,
-          ).toFixed(2);
+        if (!hasBaseLinePriceAction) {
+          const activeManualForUntouchedBase = getActiveManualDiscountsForLine(
+            extraSettings,
+            cycleIndex,
+            baseLineVariantId,
+          );
+          if (activeManualForUntouchedBase.length > 0) {
+            const finalPrice = applyManualDiscountsToPrice(
+              effectiveBasePrice,
+              activeManualForUntouchedBase,
+            ).toFixed(2);
 
-          const res = await admin.graphql(
-            `
+            const res = await admin.graphql(
+              `
             mutation updateLinePriceManualOnly($draftId: ID!, $lineId: ID!, $price: Decimal!) {
               subscriptionDraftLineUpdate(draftId: $draftId, lineId: $lineId, input: { currentPrice: $price }) {
                 userErrors { field message }
               }
             }
             `,
-            { variables: { draftId, lineId, price: finalPrice } },
-          );
-          const data = await res.json();
-          if (data.errors)
-            throw new Error(
-              `Manual discount apply failed (GraphQL): ${data.errors[0]?.message}`,
+              { variables: { draftId, lineId, price: finalPrice } },
             );
-          const errors = data.data?.subscriptionDraftLineUpdate?.userErrors;
-          if (errors?.length)
-            throw new Error(`Manual discount apply failed: ${errors[0].message}`);
+            const data = await res.json();
+            if (data.errors)
+              throw new Error(
+                `Manual discount apply failed (GraphQL): ${data.errors[0]?.message}`,
+              );
+            const errors = data.data?.subscriptionDraftLineUpdate?.userErrors;
+            if (errors?.length)
+              throw new Error(
+                `Manual discount apply failed: ${errors[0].message}`,
+              );
+          }
         }
       }
     }
-  }
   } catch (err) {
     try {
       await clearBillingCycleEdit(admin, contractId, cycleIndex, cycleDate); // CHANGED — forward cycleDate
@@ -1716,7 +1729,10 @@ function updateAutomationVariantQuantity(
   const qty = Math.max(1, Number(quantity) || 1);
 
   if (action.type === "swap" && variantId) {
-    if (!action.variantQuantities || typeof action.variantQuantities !== "object") {
+    if (
+      !action.variantQuantities ||
+      typeof action.variantQuantities !== "object"
+    ) {
       action.variantQuantities = {};
     }
     action.variantQuantities[variantId] = qty;
@@ -2277,11 +2293,11 @@ async function getContractPreview(
       !quantityAction.__default &&
       actionMatchesLine(quantityAction, line);
 
-   const finalQty = qtyApplies
-  ? Number(quantityAction.value)
-  : isSwapTarget
-    ? Number(swapAction.quantity) || 1  
-    : Number(line.quantity) || 1;
+    const finalQty = qtyApplies
+      ? Number(quantityAction.value)
+      : isSwapTarget
+        ? Number(swapAction.quantity) || 1
+        : Number(line.quantity) || 1;
 
     const itemTotal = {
       amount: (Number(pricePerUnit.amount) * finalQty).toFixed(2),
