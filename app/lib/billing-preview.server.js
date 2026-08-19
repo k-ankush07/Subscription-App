@@ -131,9 +131,13 @@ function normalizeAutomationAction(action, afterOrders) {
       }
     }
 
-    const variantPrices =
+        const variantPrices =
       action.variantPrices && typeof action.variantPrices === "object"
         ? action.variantPrices
+        : {};
+    const variantQuantities =
+      action.variantQuantities && typeof action.variantQuantities === "object"
+        ? action.variantQuantities
         : {};
     const priceOverrideFor = (variantId) => {
       if (variantId && variantPrices[variantId] != null) {
@@ -146,6 +150,10 @@ function normalizeAutomationAction(action, afterOrders) {
       }
       return null;
     };
+    const quantityFor = (variantId) =>
+      variantId && variantQuantities[variantId] != null
+        ? Number(variantQuantities[variantId]) || 1
+        : Number(action.quantity) || 1;
 
     if (flatVariants.length === 0) {
       return [
@@ -167,13 +175,14 @@ function normalizeAutomationAction(action, afterOrders) {
       variantId: flatVariants[0].variantId,
       dests: allDests,
       after: afterOrders,
+      quantity: quantityFor(flatVariants[0].variantId),
       ...(priceOverrideFor(flatVariants[0].variantId) ?? {}),
     });
     for (let i = 1; i < flatVariants.length; i++) {
       results.push({
         type: "ADD_PRODUCT",
         variantId: flatVariants[i].variantId,
-        quantity: action.quantity ?? 1,
+        quantity: quantityFor(flatVariants[i].variantId),
         sourceProductId: action.sourceProductId,
         destProductId: flatVariants[i].dest?.id ?? null,
         productName: flatVariants[i].dest?.name ?? null,
@@ -185,15 +194,21 @@ function normalizeAutomationAction(action, afterOrders) {
     return results;
   }
 
-  // if (action.type === "swap") {
-  //   const allDests = Array.isArray(action.dests) ? action.dests : [];
-  //   const flatVariants = [];
-  //   for (const dest of allDests) {
-  //     const variantIds = Array.isArray(dest?.variantIds) ? dest.variantIds : [];
-  //     for (const variantId of variantIds) {
-  //       if (variantId) flatVariants.push({ dest, variantId });
+  //   const variantPrices =
+  //     action.variantPrices && typeof action.variantPrices === "object"
+  //       ? action.variantPrices
+  //       : {};
+  //   const priceOverrideFor = (variantId) => {
+  //     if (variantId && variantPrices[variantId] != null) {
+  //       return {
+  //         discountEnabled: true,
+  //         discountType: "fixed_amount",
+  //         discountValue: String(variantPrices[variantId]),
+  //         __manualPriceOverride: true,
+  //       };
   //     }
-  //   }
+  //     return null;
+  //   };
 
   //   if (flatVariants.length === 0) {
   //     return [
@@ -215,6 +230,7 @@ function normalizeAutomationAction(action, afterOrders) {
   //     variantId: flatVariants[0].variantId,
   //     dests: allDests,
   //     after: afterOrders,
+  //     ...(priceOverrideFor(flatVariants[0].variantId) ?? {}),
   //   });
   //   for (let i = 1; i < flatVariants.length; i++) {
   //     results.push({
@@ -225,11 +241,13 @@ function normalizeAutomationAction(action, afterOrders) {
   //       destProductId: flatVariants[i].dest?.id ?? null,
   //       productName: flatVariants[i].dest?.name ?? null,
   //       after: afterOrders,
+  //       ...(priceOverrideFor(flatVariants[i].variantId) ?? {}),
   //     });
   //   }
 
   //   return results;
   // }
+
 
   if (action.type === "remove") {
     const variantId =
@@ -1000,6 +1018,9 @@ async function applyActionsToCycle(
     for (const action of orderedActions) {
       // ── QUANTITY_CHANGE ──
       if (action.type === "QUANTITY_CHANGE") {
+        if (action.__default) {
+    continue;
+  }
         const targetLine = resolveLineForAction(draftLines, action);
         if (!targetLine) {
           console.warn(
@@ -1638,10 +1659,39 @@ function removeAutomationVariant(
 
   return clonedSettings;
 }
+// function updateAutomationVariantQuantity(
+//   settings,
+//   automationCycleIndex,
+//   automationActionIndex,
+//   quantity,
+// ) {
+//   if (!settings || !Array.isArray(settings.automationCycles)) {
+//     throw new Error(
+//       "updateAutomationVariantQuantity: no automationCycles configured",
+//     );
+//   }
+//   const clonedSettings = JSON.parse(JSON.stringify(settings));
+//   const entry = clonedSettings.automationCycles[automationCycleIndex];
+//   if (!entry || !Array.isArray(entry.actions)) {
+//     throw new Error(
+//       "updateAutomationVariantQuantity: automation cycle entry not found",
+//     );
+//   }
+//   const action = entry.actions[automationActionIndex];
+//   if (!action) {
+//     throw new Error(
+//       "updateAutomationVariantQuantity: target action not found (stale index) — please refresh and retry",
+//     );
+//   }
+
+//   action.quantity = Math.max(1, Number(quantity) || 1);
+//   return clonedSettings;
+// }
 function updateAutomationVariantQuantity(
   settings,
   automationCycleIndex,
   automationActionIndex,
+  variantId,
   quantity,
 ) {
   if (!settings || !Array.isArray(settings.automationCycles)) {
@@ -1663,36 +1713,19 @@ function updateAutomationVariantQuantity(
     );
   }
 
-  action.quantity = Math.max(1, Number(quantity) || 1);
+  const qty = Math.max(1, Number(quantity) || 1);
+
+  if (action.type === "swap" && variantId) {
+    if (!action.variantQuantities || typeof action.variantQuantities !== "object") {
+      action.variantQuantities = {};
+    }
+    action.variantQuantities[variantId] = qty;
+  } else {
+    action.quantity = qty;
+  }
+
   return clonedSettings;
 }
-// function setAutomationVariantPrice(
-//   settings,
-//   automationCycleIndex,
-//   automationActionIndex,
-//   price,
-// ) {
-//   if (!settings || !Array.isArray(settings.automationCycles)) {
-//     throw new Error("setAutomationVariantPrice: no automationCycles configured");
-//   }
-//   const clonedSettings = JSON.parse(JSON.stringify(settings));
-//   const entry = clonedSettings.automationCycles[automationCycleIndex];
-//   if (!entry || !Array.isArray(entry.actions)) {
-//     throw new Error("setAutomationVariantPrice: automation cycle entry not found");
-//   }
-//   const action = entry.actions[automationActionIndex];
-//   if (!action) {
-//     throw new Error(
-//       "setAutomationVariantPrice: target action not found (stale index) — please refresh and retry",
-//     );
-//   }
-//   action.discountEnabled = true;
-//   action.discountType = "fixed_amount";
-//   action.discountValue = String(Math.max(0, Number(price) || 0));
-//    action.__manualPriceOverride = true;
-
-//   return clonedSettings;
-// }
 
 function setAutomationVariantPrice(
   settings,

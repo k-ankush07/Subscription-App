@@ -36,7 +36,7 @@ import {
   snapshotContractSettings,
   addBaseLineRemoval,
   setBaseLineFixedPrice,
-   setLineFixedPrice,
+  setLineFixedPrice,
 } from "../lib/billing-preview.server";
 
 export async function loader({ params, request }) {
@@ -147,8 +147,7 @@ export async function action({ request, params }) {
   const contractId = `gid://shopify/SubscriptionContract/${subscriptionId}`;
 
   const type = formData.get("type");
-
-  if (type === "save_draft") {
+    if (type === "save_draft") {
     try {
       const payload = JSON.parse(formData.get("payload"));
 
@@ -217,6 +216,42 @@ export async function action({ request, params }) {
           return {
             success: false,
             error: "Failed to schedule removal of last product",
+          };
+        }
+      }
+
+      // NEW — pendingSwap lines ki quantity automation settings me save karo
+      const automationQuantityUpdates = payload.automationQuantityUpdates || [];
+      if (automationQuantityUpdates.length > 0) {
+        let currentAutomationSettings = await getEffectiveSettingsForContract(
+          admin,
+          contractId,
+          null,
+        );
+        if (!currentAutomationSettings) {
+          return {
+            success: false,
+            error: "No automation settings found for this subscription",
+          };
+        }
+        for (const upd of automationQuantityUpdates) {
+          currentAutomationSettings = updateAutomationVariantQuantity(
+            currentAutomationSettings,
+            upd.automationCycleIndex,
+            upd.automationActionIndex,
+            upd.variantId || null,
+            upd.quantity,
+          );
+        }
+        const { snapshotted } = await snapshotContractSettings(
+          admin,
+          contractId,
+          currentAutomationSettings,
+        );
+        if (!snapshotted) {
+          return {
+            success: false,
+            error: "Failed to save updated quantities",
           };
         }
       }
@@ -296,6 +331,60 @@ export async function action({ request, params }) {
     }
   }
 
+  // if (type === "update_automation_quantity") {
+  //   const automationCycleIndex = parseInt(
+  //     formData.get("automationCycleIndex"),
+  //     10,
+  //   );
+  //   const automationActionIndex = parseInt(
+  //     formData.get("automationActionIndex"),
+  //     10,
+  //   );
+  //   const quantity = formData.get("quantity");
+  //   const sellingPlanId = formData.get("sellingPlanId") || null;
+
+  //   if (
+  //     Number.isNaN(automationCycleIndex) ||
+  //     Number.isNaN(automationActionIndex)
+  //   ) {
+  //     return { success: false, error: "Invalid automation item reference" };
+  //   }
+
+  //   try {
+  //     const currentSettings = await getEffectiveSettingsForContract(
+  //       admin,
+  //       contractId,
+  //       sellingPlanId,
+  //     );
+  //     if (!currentSettings) {
+  //       return {
+  //         success: false,
+  //         error: "No automation settings found for this subscription",
+  //       };
+  //     }
+  //     const updatedSettings = updateAutomationVariantQuantity(
+  //       currentSettings,
+  //       automationCycleIndex,
+  //       automationActionIndex,
+  //       quantity,
+  //     );
+  //     const { snapshotted } = await snapshotContractSettings(
+  //       admin,
+  //       contractId,
+  //       updatedSettings,
+  //     );
+  //     if (!snapshotted) {
+  //       return {
+  //         success: false,
+  //         error: "Failed to save updated automation settings",
+  //       };
+  //     }
+  //     return { success: true, isAutomationChange: true };
+  //   } catch (err) {
+  //     console.error("[edit update_automation_quantity] failed:", err);
+  //     return { success: false, error: String(err?.message || err) };
+  //   }
+  // }
   if (type === "update_automation_quantity") {
     const automationCycleIndex = parseInt(
       formData.get("automationCycleIndex"),
@@ -305,6 +394,7 @@ export async function action({ request, params }) {
       formData.get("automationActionIndex"),
       10,
     );
+    const variantId = formData.get("variantId") || null;
     const quantity = formData.get("quantity");
     const sellingPlanId = formData.get("sellingPlanId") || null;
 
@@ -331,6 +421,7 @@ export async function action({ request, params }) {
         currentSettings,
         automationCycleIndex,
         automationActionIndex,
+        variantId,
         quantity,
       );
       const { snapshotted } = await snapshotContractSettings(
@@ -344,95 +435,22 @@ export async function action({ request, params }) {
           error: "Failed to save updated automation settings",
         };
       }
-      return { success: true, isAutomationChange: true };
+      return {
+        success: true,
+        isAutomationChange: true,
+        type: "update_automation_quantity",
+        automationCycleIndex,
+        automationActionIndex,
+        variantId,
+        quantity,
+      };
     } catch (err) {
       console.error("[edit update_automation_quantity] failed:", err);
       return { success: false, error: String(err?.message || err) };
     }
   }
 
-  
-
-  // if (type === "update_automation_price") {
-  //   const automationCycleIndex = parseInt(
-  //     formData.get("automationCycleIndex"),
-  //     10,
-  //   );
-  //   const automationActionIndex = parseInt(
-  //     formData.get("automationActionIndex"),
-  //     10,
-  //   );
-  //   const price = formData.get("price");
-  //   const sellingPlanId = formData.get("sellingPlanId") || null;
-
-  //   if (
-  //     Number.isNaN(automationCycleIndex) ||
-  //     Number.isNaN(automationActionIndex)
-  //   ) {
-  //     return {
-  //       success: false,
-  //       error: "Invalid automation item reference",
-  //       type: "update_automation_price",
-  //     };
-  //   }
-  //   if (price == null || price === "" || Number.isNaN(Number(price))) {
-  //     return {
-  //       success: false,
-  //       error: "Invalid price",
-  //       type: "update_automation_price",
-  //     };
-  //   }
-
-  //   try {
-  //     const currentSettings = await getEffectiveSettingsForContract(
-  //       admin,
-  //       contractId,
-  //       sellingPlanId,
-  //     );
-  //     if (!currentSettings) {
-  //       return {
-  //         success: false,
-  //         error: "No automation settings found for this subscription",
-  //         type: "update_automation_price",
-  //       };
-  //     }
-  //     const updatedSettings = setAutomationVariantPrice(
-  //       currentSettings,
-  //       automationCycleIndex,
-  //       automationActionIndex,
-  //       price,
-  //     );
-  //     const { snapshotted } = await snapshotContractSettings(
-  //       admin,
-  //       contractId,
-  //       updatedSettings,
-  //     );
-  //     if (!snapshotted) {
-  //       return {
-  //         success: false,
-  //         error: "Failed to save updated automation settings",
-  //         type: "update_automation_price",
-  //       };
-  //     }
-  //     return {
-  //       success: true,
-  //       isAutomationChange: true,
-  //       type: "update_automation_price",
-  //       automationCycleIndex,
-  //       automationActionIndex,
-  //       price,
-  //     };
-  //   } catch (err) {
-  //     console.error("[edit update_automation_price] failed:", err);
-  //     return {
-  //       success: false,
-  //       error: String(err?.message || err),
-  //       type: "update_automation_price",
-  //     };
-  //   }
-  // }
-
-    if (type === "update_automation_price") {
+  if (type === "update_automation_price") {
     const automationCycleIndex = parseInt(
       formData.get("automationCycleIndex"),
       10,
@@ -514,85 +532,118 @@ export async function action({ request, params }) {
     }
   }
 
-if (type === "update_line_price") {
-  const lineId = formData.get("lineId");
-  const variantId = formData.get("variantId");   // NEW
-  const price = formData.get("price");
+  if (type === "update_line_price") {
+    const lineId = formData.get("lineId");
+    const variantId = formData.get("variantId"); // NEW
+    const price = formData.get("price");
 
-  if (!lineId) {
-    return { success: false, error: "Invalid line reference", type: "update_line_price" };
-  }
-  if (price == null || price === "" || Number.isNaN(Number(price))) {
-    return { success: false, error: "Invalid price", type: "update_line_price" };
-  }
-
-  try {
-    const result = await updateContractLinePrice(admin, contractId, { lineId, price });
-    if (!result.success) {
-      return { success: false, error: result.error, type: "update_line_price" };
-    }
-
-    const currentSettings = await getEffectiveSettingsForContract(admin, contractId, null);
-    const updatedSettings = variantId
-      ? setLineFixedPrice(currentSettings, variantId, price)   // CHANGED
-      : setBaseLineFixedPrice(currentSettings, price);          // fallback agar variantId na mile
-    const { snapshotted } = await snapshotContractSettings(admin, contractId, updatedSettings);
-    if (!snapshotted) {
+    if (!lineId) {
       return {
         success: false,
-        error: "Price updated but failed to save it for future orders",
+        error: "Invalid line reference",
+        type: "update_line_price",
+      };
+    }
+    if (price == null || price === "" || Number.isNaN(Number(price))) {
+      return {
+        success: false,
+        error: "Invalid price",
         type: "update_line_price",
       };
     }
 
-    return { success: true, isAutomationChange: true, type: "update_line_price", lineId, price };
-  } catch (err) {
-    console.error("[edit update_line_price] failed:", err);
-    return { success: false, error: String(err?.message || err), type: "update_line_price" };
+    try {
+      const result = await updateContractLinePrice(admin, contractId, {
+        lineId,
+        price,
+      });
+      if (!result.success) {
+        return {
+          success: false,
+          error: result.error,
+          type: "update_line_price",
+        };
+      }
+
+      const currentSettings = await getEffectiveSettingsForContract(
+        admin,
+        contractId,
+        null,
+      );
+      const updatedSettings = variantId
+        ? setLineFixedPrice(currentSettings, variantId, price) // CHANGED
+        : setBaseLineFixedPrice(currentSettings, price); // fallback agar variantId na mile
+      const { snapshotted } = await snapshotContractSettings(
+        admin,
+        contractId,
+        updatedSettings,
+      );
+      if (!snapshotted) {
+        return {
+          success: false,
+          error: "Price updated but failed to save it for future orders",
+          type: "update_line_price",
+        };
+      }
+
+      return {
+        success: true,
+        isAutomationChange: true,
+        type: "update_line_price",
+        lineId,
+        price,
+      };
+    } catch (err) {
+      console.error("[edit update_line_price] failed:", err);
+      return {
+        success: false,
+        error: String(err?.message || err),
+        type: "update_line_price",
+      };
+    }
   }
-}
-// if (type === "update_line_price") {
-//   const lineId = formData.get("lineId");
-  
-//   const price = formData.get("price");
+  // if (type === "update_line_price") {
+  //   const lineId = formData.get("lineId");
 
-//   if (!lineId) {
-//     return { success: false, error: "Invalid line reference", type: "update_line_price" };
-//   }
-//   if (price == null || price === "" || Number.isNaN(Number(price))) {
-//     return { success: false, error: "Invalid price", type: "update_line_price" };
-//   }
+  //   const price = formData.get("price");
 
-//   try {
-//     const result = await updateContractLinePrice(admin, contractId, { lineId, price });
-//     if (!result.success) {
-//       return { success: false, error: result.error, type: "update_line_price" };
-//     }
+  //   if (!lineId) {
+  //     return { success: false, error: "Invalid line reference", type: "update_line_price" };
+  //   }
+  //   if (price == null || price === "" || Number.isNaN(Number(price))) {
+  //     return { success: false, error: "Invalid price", type: "update_line_price" };
+  //   }
 
-//     const currentSettings = await getEffectiveSettingsForContract(admin, contractId, null);
-//     const updatedSettings = setBaseLineFixedPrice(currentSettings, price);
-//     const { snapshotted } = await snapshotContractSettings(admin, contractId, updatedSettings);
-//     if (!snapshotted) {
-//       return {
-//         success: false,
-//         error: "Price updated but failed to save it for future orders",
-//         type: "update_line_price",
-//       };
-//     }
+  //   try {
+  //     const result = await updateContractLinePrice(admin, contractId, { lineId, price });
+  //     if (!result.success) {
+  //       return { success: false, error: result.error, type: "update_line_price" };
+  //     }
 
-//     // NEW — client ko bhej do taaki formData pe depend na karna pade (idle hote hi wo undefined ho jata hai)
-//     return {
-//       success: true,
-//       isAutomationChange: true,
-//       type: "update_line_price",
-//       lineId,
-//       price,
-//     };
-//   } catch (err) {
-//     console.error("[edit update_line_price] failed:", err);
-//     return { success: false, error: String(err?.message || err), type: "update_line_price" };
-//   }
-// }
+  //     const currentSettings = await getEffectiveSettingsForContract(admin, contractId, null);
+  //     const updatedSettings = setBaseLineFixedPrice(currentSettings, price);
+  //     const { snapshotted } = await snapshotContractSettings(admin, contractId, updatedSettings);
+  //     if (!snapshotted) {
+  //       return {
+  //         success: false,
+  //         error: "Price updated but failed to save it for future orders",
+  //         type: "update_line_price",
+  //       };
+  //     }
+
+  //     // NEW — client ko bhej do taaki formData pe depend na karna pade (idle hote hi wo undefined ho jata hai)
+  //     return {
+  //       success: true,
+  //       isAutomationChange: true,
+  //       type: "update_line_price",
+  //       lineId,
+  //       price,
+  //     };
+  //   } catch (err) {
+  //     console.error("[edit update_line_price] failed:", err);
+  //     return { success: false, error: String(err?.message || err), type: "update_line_price" };
+  //   }
+  // }
 
   return { success: false, error: "Unknown action type" };
 }
@@ -611,75 +662,47 @@ export default function EditPage() {
   const fetcher = useFetcher();
   const { id } = useParams();
 
-//  const [lines, setLines] = useState(() => {
-//   const committed = initialLines.filter(
-//     (l) =>
-//       !removedVariantIds.includes(l.variantId) &&
-//       !removedProductIds.includes(l.productId),
-//   );
+  const [lines, setLines] = useState(() => {
+    const committed = initialLines.filter(
+      (l) =>
+        !removedVariantIds.includes(l.variantId) &&
+        !removedProductIds.includes(l.productId),
+    );
 
-//   const baseLinePreviews = previewLineItems.filter((pi) => pi.isBaseLine);
+    const baseLinePreviews = previewLineItems.filter((pi) => pi.isBaseLine);
 
-//   return committed.map((l, idx) => {
-//     const previewMatch = baseLinePreviews[idx] ?? null;
+    return committed.map((l, idx) => {
+      const previewMatch = baseLinePreviews[idx] ?? null;
 
-  
-//     const resolvedPrice =
-//       Number(previewMatch?.priceBeforeManualDiscounts?.amount) ||
-//       Number(previewMatch?.pricePerUnit?.amount) ||
-//       Number(l.currentPrice?.amount) ||
-//       0;
+      const resolvedPrice =
+        Number(previewMatch?.priceBeforeManualDiscounts?.amount) ||
+        Number(previewMatch?.pricePerUnit?.amount) ||
+        Number(l.currentPrice?.amount) ||
+        0;
+      const isPendingSwap =
+        !!previewMatch && previewMatch.variantId !== l.variantId;
 
-//     return {
-//       ...l, // id/variantId/productId untouched rehta hai — save isi se hota hai
-//       quantity: String(Number(l.quantity) || 1),
-//       displayTitle: previewMatch?.title ?? l.title,
-//       displayVariantTitle: previewMatch?.variantTitle ?? l.variantTitle,
-//       displayImageUrl: previewMatch?.imageUrl ?? l.variantImage?.url ?? "",
-//       displayPrice: resolvedPrice,
-//       originalPrice: previewMatch?.originalPricePerUnit?.amount ?? null,
-//       discountLabel: previewMatch?.discountLabel ?? null,
-//       pendingSwap: !!previewMatch && previewMatch.variantId !== l.variantId,
-//     };
-//   });
-// });
- const [lines, setLines] = useState(() => {
-  const committed = initialLines.filter(
-    (l) =>
-      !removedVariantIds.includes(l.variantId) &&
-      !removedProductIds.includes(l.productId),
-  );
-
-  const baseLinePreviews = previewLineItems.filter((pi) => pi.isBaseLine);
-
-  return committed.map((l, idx) => {
-    const previewMatch = baseLinePreviews[idx] ?? null;
-
-    const resolvedPrice =
-      Number(previewMatch?.priceBeforeManualDiscounts?.amount) ||
-      Number(previewMatch?.pricePerUnit?.amount) ||
-      Number(l.currentPrice?.amount) ||
-      0;
-
-    return {
-      ...l, // id/variantId/productId untouched rehta hai — save isi se hota hai
-      quantity: String(Number(l.quantity) || 1),
-      displayTitle: previewMatch?.title ?? l.title,
-      displayVariantTitle: previewMatch?.variantTitle ?? l.variantTitle,
-      displayImageUrl: previewMatch?.imageUrl ?? l.variantImage?.url ?? "",
-      displayPrice: resolvedPrice,
-      originalPrice: previewMatch?.originalPricePerUnit?.amount ?? null,
-      discountLabel: previewMatch?.discountLabel ?? null,
-      pendingSwap: !!previewMatch && previewMatch.variantId !== l.variantId,
-      // NEW — swap ho chuka target variantId + automation reference
-      previewVariantId: previewMatch?.variantId ?? l.variantId,
-      automationCycleIndex: previewMatch?.automationCycleIndex ?? null,
-      automationActionIndex: previewMatch?.automationActionIndex ?? null,
-    };
+      return {
+        ...l,
+        quantity: isPendingSwap
+          ? String(Number(previewMatch?.quantity) || 1)
+          : String(Number(l.quantity) || 1),
+        displayTitle: previewMatch?.title ?? l.title,
+        displayVariantTitle: previewMatch?.variantTitle ?? l.variantTitle,
+        displayImageUrl: previewMatch?.imageUrl ?? l.variantImage?.url ?? "",
+        displayPrice: resolvedPrice,
+        originalPrice: previewMatch?.originalPricePerUnit?.amount ?? null,
+        discountLabel: previewMatch?.discountLabel ?? null,
+        pendingSwap: !!previewMatch && previewMatch.variantId !== l.variantId,
+        // NEW — swap ho chuka target variantId + automation reference
+        previewVariantId: previewMatch?.variantId ?? l.variantId,
+        automationCycleIndex: previewMatch?.automationCycleIndex ?? null,
+        automationActionIndex: previewMatch?.automationActionIndex ?? null,
+      };
+    });
   });
-});  
 
-const [removedLines, setRemovedLines] = useState([]);
+  const [removedLines, setRemovedLines] = useState([]);
   const [newLines, setNewLines] = useState([]);
 
   const automationLines = previewLineItems.filter(
@@ -713,133 +736,126 @@ const [removedLines, setRemovedLines] = useState([]);
 
   const handleBack = () => navigate(`/app/subscription/${id}`);
 
+  useEffect(() => {
+    if (fetcher.state !== "idle" || fetcher.data == null) return;
 
-  // useEffect(() => {
-  //   if (fetcher.state !== "idle" || fetcher.data == null) return;
+    const data = fetcher.data;
+    const submittedType = data.type; // CHANGED — ab response se, formData se nahi (idle hote hi formData undefined ho jata hai)
 
-  //   const submittedType = fetcher.formData?.get("type");
-  //   const isPriceEditSubmit =
-  //     submittedType === "update_automation_price" ||
-  //     submittedType === "update_line_price";
+    const isPriceEditSubmit =
+      submittedType === "update_automation_price" ||
+      submittedType === "update_line_price";
 
-  //   if (fetcher.data.success) {
-  //     if (submittedType === "update_line_price") {
-  //       const updatedLineId = fetcher.formData?.get("lineId");
-  //       const updatedPrice = fetcher.formData?.get("price");
-  //       setLines((prev) =>
-  //         prev.map((l) =>
-  //           l.id === updatedLineId
-  //             ? {
-  //                 ...l,
-  //                 displayPrice: Number(updatedPrice) || 0,
-  //                 originalPrice: null,   
-  //                 discountLabel: null,   
-  //               }
-  //             : l,
-  //         ),
-  //       );
-  //     }
+    if (data.success) {
+      if (submittedType === "update_line_price") {
+        setLines((prev) =>
+          prev.map((l) =>
+            l.id === data.lineId
+              ? {
+                  ...l,
+                  displayPrice: Number(data.price) || 0,
+                  originalPrice: null,
+                  discountLabel: null,
+                }
+              : l,
+          ),
+        );
+      }
 
-  //     if (isPriceEditSubmit) {
-  //       setPriceEditTarget(null);
-  //       setPriceEditValue("");
-  //       setPriceEditError("");
-  //     }
-  //     if (submittedType === "update_automation_quantity") {
-  //       setAutomationQtyDrafts({});
-  //     }
-  //     if (!fetcher.data.isAutomationChange) {
-  //       handleBack();
-  //     }
-  //   } else if (isPriceEditSubmit) {
-  //     setPriceEditError(fetcher.data.error || "Failed to update price");
-  //   }
-  // }, [fetcher.state, fetcher.data]);
- useEffect(() => {
-  if (fetcher.state !== "idle" || fetcher.data == null) return;
+      // NEW — pendingSwap committed line ka price bhi "update_automation_price"
+      // route se aata hai, isliye usi automationCycleIndex/ActionIndex/variantId
+      // se matching line dhoondh kar local price patch kar do.
+      if (submittedType === "update_automation_price") {
+        setLines((prev) =>
+          prev.map((l) =>
+            l.automationCycleIndex === data.automationCycleIndex &&
+            l.automationActionIndex === data.automationActionIndex &&
+            l.previewVariantId === data.variantId
+              ? {
+                  ...l,
+                  displayPrice: Number(data.price) || 0,
+                  originalPrice: null,
+                  discountLabel: null,
+                }
+              : l,
+          ),
+        );
+      }
+      // if (submittedType === "update_line_price") {
+      //   setLines((prev) =>
+      //     prev.map((l) =>
+      //       l.id === data.lineId
+      //         ? {
+      //             ...l,
+      //             displayPrice: Number(data.price) || 0,
+      //             originalPrice: null,
+      //             discountLabel: null,
+      //           }
+      //         : l,
+      //     ),
+      //   );
+      // }
 
-  const data = fetcher.data;
-  const submittedType = data.type; // CHANGED — ab response se, formData se nahi (idle hote hi formData undefined ho jata hai)
+      if (isPriceEditSubmit) {
+        setPriceEditTarget(null);
+        setPriceEditValue("");
+        setPriceEditError("");
+      }
+      // if (submittedType === "update_automation_quantity") {
+      //   setAutomationQtyDrafts({});
+      // }
+      if (submittedType === "update_automation_quantity") {
+        setAutomationQtyDrafts({});
 
-  const isPriceEditSubmit =
-    submittedType === "update_automation_price" ||
-    submittedType === "update_line_price";
+        // NEW — response se hi variantId bhi match karo (formData idle hote hi undefined ho jata hai)
+        const submittedCycleIdx = data.automationCycleIndex;
+        const submittedActionIdx = data.automationActionIndex;
+        const submittedVariantId = data.variantId;
+        const submittedQty = data.quantity;
 
-  if (data.success) {
-
-     if (submittedType === "update_line_price") {
-      setLines((prev) =>
-        prev.map((l) =>
-          l.id === data.lineId
-            ? {
-                ...l,
-                displayPrice: Number(data.price) || 0,
-                originalPrice: null,
-                discountLabel: null,
-              }
-            : l,
-        ),
-      );
+        if (submittedCycleIdx != null && submittedActionIdx != null) {
+          setLines((prev) =>
+            prev.map((l) =>
+              l.pendingSwap &&
+              l.automationCycleIndex === submittedCycleIdx &&
+              l.automationActionIndex === submittedActionIdx &&
+              l.previewVariantId === submittedVariantId
+                ? { ...l, quantity: submittedQty }
+                : l,
+            ),
+          );
+        }
+      }
+      if (!data.isAutomationChange) {
+        handleBack();
+      }
+    } else if (isPriceEditSubmit) {
+      setPriceEditError(data.error || "Failed to update price");
     }
+  }, [fetcher.state, fetcher.data]);
 
-    // NEW — pendingSwap committed line ka price bhi "update_automation_price"
-    // route se aata hai, isliye usi automationCycleIndex/ActionIndex/variantId
-    // se matching line dhoondh kar local price patch kar do.
-    if (submittedType === "update_automation_price") {
-      setLines((prev) =>
-        prev.map((l) =>
-          l.automationCycleIndex === data.automationCycleIndex &&
-          l.automationActionIndex === data.automationActionIndex &&
-          l.previewVariantId === data.variantId
-            ? {
-                ...l,
-                displayPrice: Number(data.price) || 0,
-                originalPrice: null,
-                discountLabel: null,
-              }
-            : l,
-        ),
-      );
-    }
-    // if (submittedType === "update_line_price") {
-    //   setLines((prev) =>
-    //     prev.map((l) =>
-    //       l.id === data.lineId
-    //         ? {
-    //             ...l,
-    //             displayPrice: Number(data.price) || 0,
-    //             originalPrice: null,
-    //             discountLabel: null,
-    //           }
-    //         : l,
-    //     ),
-    //   );
-    // }
-
-    if (isPriceEditSubmit) {
-      setPriceEditTarget(null);
-      setPriceEditValue("");
-      setPriceEditError("");
-    }
-    if (submittedType === "update_automation_quantity") {
-      setAutomationQtyDrafts({});
-    }
-    if (!data.isAutomationChange) {
-      handleBack();
-    }
-  } else if (isPriceEditSubmit) {
-    setPriceEditError(data.error || "Failed to update price");
-  }
-}, [fetcher.state, fetcher.data]);
- 
- 
- 
   const handleQuantityChange = (lineId, value) => {
     setLines((prev) =>
       prev.map((l) => (l.id === lineId ? { ...l, quantity: value } : l)),
     );
   };
+  //   const handleQuantityBlur = (line) => {
+  //   if (!line.pendingSwap) return; // normal line — Save button se hi update hoga
 
+  //   const qty = Math.max(1, Number(line.quantity) || 1);
+
+  //   fetcher.submit(
+  //     {
+  //       type: "update_automation_quantity",
+  //       automationCycleIndex: line.automationCycleIndex,
+  //       automationActionIndex: line.automationActionIndex,
+  //       variantId: line.previewVariantId || "",
+  //       quantity: String(qty),
+  //       sellingPlanId,
+  //     },
+  //     { method: "post" },
+  //   );
+  // };
   const handleNewLineQuantityChange = (tempId, value) => {
     setNewLines((prev) =>
       prev.map((l) => (l.tempId === tempId ? { ...l, quantity: value } : l)),
@@ -864,9 +880,7 @@ const [removedLines, setRemovedLines] = useState([]);
   };
 
   const handleRemoveAutomationLine = (li) => {
-    const confirmed = confirm(
-      `"${li.title}"`,
-    );
+    const confirmed = confirm(`"${li.title}"`);
     if (!confirmed) return;
 
     fetcher.submit(
@@ -894,30 +908,7 @@ const [removedLines, setRemovedLines] = useState([]);
     setAutomationQtyDrafts((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handleAutomationQtyBlur = (li) => {
-    const value = getAutomationQty(li);
-    const qty = Math.max(1, Number(value) || 1);
-    if (qty === Number(li.quantity)) return;
 
-    fetcher.submit(
-      {
-        type: "update_automation_quantity",
-        automationCycleIndex: li.automationCycleIndex,
-        automationActionIndex: li.automationActionIndex,
-        quantity: String(qty),
-        sellingPlanId,
-      },
-      { method: "post" },
-    );
-  };
-
-  const isAutomationQtyPending = (li) =>
-    fetcher.state !== "idle" &&
-    fetcher.formData?.get("type") === "update_automation_quantity" &&
-    fetcher.formData?.get("automationCycleIndex") ===
-      String(li.automationCycleIndex) &&
-    fetcher.formData?.get("automationActionIndex") ===
-      String(li.automationActionIndex);
 
   const isAutomationRemovePending = (li) =>
     fetcher.state !== "idle" &&
@@ -967,7 +958,12 @@ const [removedLines, setRemovedLines] = useState([]);
         setPriceEditValue(String(item.displayPrice ?? "0"));
         return;
       }
-      setPriceEditTarget({ kind, lineId: item.id, variantId: item.variantId, title: item.displayTitle });
+      setPriceEditTarget({
+        kind,
+        lineId: item.id,
+        variantId: item.variantId,
+        title: item.displayTitle,
+      });
       setPriceEditValue(String(item.displayPrice ?? "0"));
     } else if (kind === "new") {
       setPriceEditTarget({ kind, tempId: item.tempId, title: item.title });
@@ -982,12 +978,16 @@ const [removedLines, setRemovedLines] = useState([]);
         discountLabel: item.discountLabel,
       });
       setPriceEditValue(
-        String(item.priceBeforeManualDiscounts?.amount ?? item.pricePerUnit?.amount ?? "0"),
+        String(
+          item.priceBeforeManualDiscounts?.amount ??
+            item.pricePerUnit?.amount ??
+            "0",
+        ),
       );
     }
   };
   const closePriceEditor = () => {
-    if (isPriceUpdatePending) return; 
+    if (isPriceUpdatePending) return;
     setPriceEditTarget(null);
     setPriceEditValue("");
     setPriceEditError("");
@@ -1015,16 +1015,16 @@ const [removedLines, setRemovedLines] = useState([]);
         {
           type: "update_line_price",
           lineId: priceEditTarget.lineId,
-           variantId: priceEditTarget.variantId,
+          variantId: priceEditTarget.variantId,
           price: priceEditValue,
         },
         { method: "post" },
       );
-      return; 
+      return;
     }
 
     if (priceEditTarget.kind === "automation") {
-       fetcher.submit(
+      fetcher.submit(
         {
           type: "update_automation_price",
           automationCycleIndex: priceEditTarget.automationCycleIndex,
@@ -1035,7 +1035,7 @@ const [removedLines, setRemovedLines] = useState([]);
         },
         { method: "post" },
       );
-      return;  
+      return;
     }
   };
 
@@ -1117,36 +1117,80 @@ const [removedLines, setRemovedLines] = useState([]);
       const price = Number(l.price) || 0;
       return sum + qty * price;
     }, 0) +
-     automationLines.reduce((sum, li) => {
+    automationLines.reduce((sum, li) => {
       const qty = Number(getAutomationQty(li)) || 0;
-      const price = Number(li.priceBeforeManualDiscounts?.amount ?? li.pricePerUnit?.amount) || 0;
+      const price =
+        Number(
+          li.priceBeforeManualDiscounts?.amount ?? li.pricePerUnit?.amount,
+        ) || 0;
       return sum + qty * price;
     }, 0);
-    // automationLines.reduce((sum, li) => {
-    //   const qty = Number(getAutomationQty(li)) || 0;
-    //   const price = Number(li.pricePerUnit?.amount) || 0;
-    //   return sum + qty * price;
-    // }, 0);
+
 
   const total = subtotal + (Number(deliveryPrice) || 0);
 
-  const handleSave = () => {
+   const handleSave = () => {
+    const pendingSwapQuantityUpdates = lines
+      .filter(
+        (l) =>
+          l.pendingSwap &&
+          l.automationCycleIndex != null &&
+          l.automationActionIndex != null &&
+          Number(l.quantity) > 0,
+      )
+      .map((l) => ({
+        automationCycleIndex: l.automationCycleIndex,
+        automationActionIndex: l.automationActionIndex,
+        variantId: l.previewVariantId || "",
+        quantity: Number(l.quantity) || 1,
+      }));
+
+    // NEW — automationLines (jaise ADD_PRODUCT ki extra variant lines) ki quantity bhi Save par hi jaaye
+    const automationLineQuantityUpdates = automationLines
+      .filter(
+        (li) =>
+          li.automationCycleIndex != null &&
+          li.automationActionIndex != null,
+      )
+      .map((li) => {
+        const qty = Math.max(1, Number(getAutomationQty(li)) || 1);
+        return {
+          automationCycleIndex: li.automationCycleIndex,
+          automationActionIndex: li.automationActionIndex,
+          variantId: li.variantId || "",
+          quantity: qty,
+        };
+      })
+      .filter((upd, idx) => {
+        // sirf wahi bhejo jo actually badli hain
+        const original = automationLines[idx];
+        return Number(original.quantity) !== upd.quantity;
+      });
+
+    const automationQuantityUpdates = [
+      ...pendingSwapQuantityUpdates,
+      ...automationLineQuantityUpdates,
+    ];
+
     fetcher.submit(
       {
         type: "save_draft",
         payload: JSON.stringify({
-          lines: lines.map((l) => ({
-            lineId: l.id,
-            variantId: l.variantId,
-            quantity: l.quantity,
-          })),
+          lines: lines
+            .filter((l) => !l.pendingSwap)   // pendingSwap lines ki real-line quantity change mat karo, automation route se already handle ho gaya
+            .map((l) => ({
+              lineId: l.id,
+              variantId: l.variantId,
+              quantity: l.quantity,
+            })),
           removedLines,
-          nextOrderCycleIndex: previewNextOrderCycleIndex, 
+          nextOrderCycleIndex: previewNextOrderCycleIndex,
           newLines: newLines.map((l) => ({
             variantId: l.variantId,
             quantity: l.quantity,
             price: l.price,
           })),
+          automationQuantityUpdates,
           deliveryCount,
           deliveryInterval,
           deliveryPrice,
@@ -1155,16 +1199,11 @@ const [removedLines, setRemovedLines] = useState([]);
       { method: "post" },
     );
   };
-
   return (
     <Page
       title="Edit subscription"
       backAction={{ onAction: handleBack }}
-      titleMetadata={
-         (
-          <Badge>{contract?.status.toLowerCase()}</Badge>
-        ) 
-      }
+      titleMetadata={<Badge>{contract?.status.toLowerCase()}</Badge>}
       subtitle={id}
     >
       <BlockStack gap="400">
@@ -1197,17 +1236,19 @@ const [removedLines, setRemovedLines] = useState([]);
                 >
                   <InlineStack gap="300" blockAlign="center">
                     <Thumbnail
-  source={line.displayImageUrl || ""}
-  alt={line.displayTitle}
-  size="small"
-/>
-<BlockStack gap="050">
-  <Text fontWeight="medium">{line.displayTitle}</Text>
-  {line.displayVariantTitle && <Badge>{line.displayVariantTitle}</Badge>}
-  {line.discountLabel && (
-    <Badge tone="success">{line.discountLabel}</Badge>
-  )}
-</BlockStack>
+                      source={line.displayImageUrl || ""}
+                      alt={line.displayTitle}
+                      size="small"
+                    />
+                    <BlockStack gap="050">
+                      <Text fontWeight="medium">{line.displayTitle}</Text>
+                      {line.displayVariantTitle && (
+                        <Badge>{line.displayVariantTitle}</Badge>
+                      )}
+                      {line.discountLabel && (
+                        <Badge tone="success">{line.discountLabel}</Badge>
+                      )}
+                    </BlockStack>
                   </InlineStack>
 
                   <InlineStack gap="300" blockAlign="center">
@@ -1248,7 +1289,9 @@ const [removedLines, setRemovedLines] = useState([]);
                         variant="tertiary"
                         tone="critical"
                         accessibilityLabel="Remove product"
-                        onClick={() => handleRemoveLine(line.id, line.displayTitle)}
+                        onClick={() =>
+                          handleRemoveLine(line.id, line.displayTitle)
+                        }
                       />
                     )}
                   </InlineStack>
@@ -1335,7 +1378,7 @@ const [removedLines, setRemovedLines] = useState([]);
                     </InlineStack>
 
                     <InlineStack gap="300" blockAlign="center">
-                      <div style={{ width: "80px" }}>
+                                           <div style={{ width: "80px" }}>
                         <TextField
                           label="Qty"
                           labelHidden
@@ -1345,8 +1388,6 @@ const [removedLines, setRemovedLines] = useState([]);
                           onChange={(value) =>
                             handleAutomationQtyInputChange(li, value)
                           }
-                          onBlur={() => handleAutomationQtyBlur(li)}
-                          loading={isAutomationQtyPending(li)}
                         />
                       </div>
 
@@ -1355,8 +1396,9 @@ const [removedLines, setRemovedLines] = useState([]);
                         onClick={() => openPriceEditor("automation", li)}
                       >
                         {/* {currencyCode} {li.pricePerUnit?.amount} */}
-                          {currencyCode}{" "}
-                        {li.priceBeforeManualDiscounts?.amount ?? li.pricePerUnit?.amount}
+                        {currencyCode}{" "}
+                        {li.priceBeforeManualDiscounts?.amount ??
+                          li.pricePerUnit?.amount}
                       </Button>
 
                       {totalVisibleLineCount > 1 && ( // NEW guard added
@@ -1388,14 +1430,14 @@ const [removedLines, setRemovedLines] = useState([]);
             </Text>
 
             <Select
-  label="Billing type"
-  options={[
-    { label: "Pay as you go", value: "PAYASYOUGO" },
-    // { label: "Pre-paid", value: "PREPAID" },
-  ]}
-  value={billingType}
-  onChange={setBillingType}
-/>
+              label="Billing type"
+              options={[
+                { label: "Pay as you go", value: "PAYASYOUGO" },
+                // { label: "Pre-paid", value: "PREPAID" },
+              ]}
+              value={billingType}
+              onChange={setBillingType}
+            />
 
             <InlineStack gap="300" wrap={false}>
               <div style={{ flex: 1 }}>
