@@ -37,6 +37,7 @@ import {
   addBaseLineRemoval,
   setBaseLineFixedPrice,
   setLineFixedPrice,
+  
 } from "../lib/billing-preview.server";
 
 export async function loader({ params, request }) {
@@ -1454,6 +1455,7 @@ export default function EditPage() {
                     { label: "days", value: "DAY" },
                     { label: "weeks", value: "WEEK" },
                     { label: "months", value: "MONTH" },
+                    { label: "years", value: "YEAR" },
                   ]}
                   value={deliveryInterval}
                   onChange={setDeliveryInterval}

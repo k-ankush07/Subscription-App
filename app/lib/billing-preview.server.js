@@ -1106,12 +1106,7 @@ async function applyActionsToCycle(
             discountTierForCycle,
           ).toFixed(2);
         }
-        // if (!hasCustomDiscountChange && basePriceForThisSwap != null) {
-        //   recalculatedPrice = applyDiscountTierToPrice(
-        //     basePriceForThisSwap,
-        //     discountTierForCycle,
-        //   ).toFixed(2);
-        // }
+
         const activeManualForSwap = getActiveManualDiscountsForLine(
           extraSettings,
           cycleIndex,
