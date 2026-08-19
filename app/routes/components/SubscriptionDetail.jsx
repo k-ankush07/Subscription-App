@@ -399,8 +399,6 @@ export default function SubscriptionDetail() {
       return;
     }
 
-    // Original cycle ka time-of-day (browser/local timezone me) nikal lo,
-    // taaki sirf date badle, time wahi rahe jo pehle set tha
     const originalDate = new Date(cycle.billingAttemptExpectedDate);
     const hours = String(originalDate.getHours()).padStart(2, "0");
     const minutes = String(originalDate.getMinutes()).padStart(2, "0");
@@ -1000,6 +998,7 @@ export default function SubscriptionDetail() {
                   <b>{`Delivery: Every ${contract?.deliveryPolicy?.intervalCount} ${contract?.deliveryPolicy?.interval} `}</b>
                   <b>{`Billing: every ${contract?.billingPolicy?.intervalCount} ${contract?.billingPolicy?.interval}`}</b>
                 </p>
+                
                 <Button
                   onClick={() => navigate(`/app/subscription/${id}/edit`)}
                 >
@@ -1288,7 +1287,7 @@ export default function SubscriptionDetail() {
                         alignItems: "center",
                       }}
                     >
-                      {!cycle.skipped &&
+                      { contract?.status === "ACTIVE" && !cycle.skipped &&
                         (editingCycleIndex === cycle.cycleIndex ? (
                           <div
                             style={{
