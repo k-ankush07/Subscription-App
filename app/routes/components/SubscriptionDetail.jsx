@@ -234,14 +234,14 @@ export default function SubscriptionDetail() {
     pastSkippedCycles,
     pastOrders,
   } = useLoaderData();
-  console.log(
-    // "preview",
-    // preview,
-    "contract",
-    contract,
-    // "cycle",
-    // pastSkippedCycles,
-  );
+  // console.log(
+  //   // "preview",
+  //   // preview,
+  //   "contract",
+  //   contract,
+  //   // "cycle",
+  //   // pastSkippedCycles,
+  // );
 
   const [localLines, setLocalLines] = useState(contract?.lines?.edges || []);
   const [showInternalNotes, setShowInternalNotes] = useState(false);
