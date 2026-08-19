@@ -147,7 +147,7 @@ export async function action({ request, params }) {
   const contractId = `gid://shopify/SubscriptionContract/${subscriptionId}`;
 
   const type = formData.get("type");
-    if (type === "save_draft") {
+  if (type === "save_draft") {
     try {
       const payload = JSON.parse(formData.get("payload"));
 
@@ -908,8 +908,6 @@ export default function EditPage() {
     setAutomationQtyDrafts((prev) => ({ ...prev, [key]: value }));
   };
 
-
-
   const isAutomationRemovePending = (li) =>
     fetcher.state !== "idle" &&
     fetcher.formData?.get("type") === "remove_automation_item" &&
@@ -1126,10 +1124,10 @@ export default function EditPage() {
       return sum + qty * price;
     }, 0);
 
-
   const total = subtotal + (Number(deliveryPrice) || 0);
-
-   const handleSave = () => {
+  const isDeliveryCountInvalid =
+    deliveryInterval === "DAY" && Number(deliveryCount) < 7;
+  const handleSave = () => {
     const pendingSwapQuantityUpdates = lines
       .filter(
         (l) =>
@@ -1148,8 +1146,7 @@ export default function EditPage() {
     const automationLineQuantityUpdates = automationLines
       .filter(
         (li) =>
-          li.automationCycleIndex != null &&
-          li.automationActionIndex != null,
+          li.automationCycleIndex != null && li.automationActionIndex != null,
       )
       .map((li) => {
         const qty = Math.max(1, Number(getAutomationQty(li)) || 1);
@@ -1176,7 +1173,7 @@ export default function EditPage() {
         type: "save_draft",
         payload: JSON.stringify({
           lines: lines
-            .filter((l) => !l.pendingSwap)   // pendingSwap lines ki real-line quantity change mat karo, automation route se already handle ho gaya
+            .filter((l) => !l.pendingSwap) // pendingSwap lines ki real-line quantity change mat karo, automation route se already handle ho gaya
             .map((l) => ({
               lineId: l.id,
               variantId: l.variantId,
@@ -1376,7 +1373,7 @@ export default function EditPage() {
                     </InlineStack>
 
                     <InlineStack gap="300" blockAlign="center">
-                                           <div style={{ width: "80px" }}>
+                      <div style={{ width: "80px" }}>
                         <TextField
                           label="Qty"
                           labelHidden
@@ -1442,9 +1439,14 @@ export default function EditPage() {
                 <TextField
                   label="Delivery frequency"
                   type="number"
-                  min={1}
+                  min={deliveryInterval === "DAY" ? 7 : 1}
                   value={deliveryCount}
                   onChange={setDeliveryCount}
+                  error={
+                    isDeliveryCountInvalid
+                      ? "Minimum 7 days required for daily delivery"
+                      : undefined
+                  }
                 />
               </div>
               <div style={{ flex: 1 }}>

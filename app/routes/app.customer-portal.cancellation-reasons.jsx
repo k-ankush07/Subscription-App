@@ -431,7 +431,6 @@ export async function loader({ request }) {
       const data = await res.json();
 
       items = data.data || [];
-      console.log("vdfdf",items)
       pageInfo = data.pageInfo || {
         hasNextPage: false,
         endCursor: null,
