@@ -115,82 +115,6 @@ async function snapshotContractSettings(
   }
   return { snapshotted: true };
 }
-// function normalizeAutomationAction(action, afterOrders) {
-//   if (action.type === "swap") {
-//     const allDests = Array.isArray(action.dests) ? action.dests : [];
-//     const flatVariants = [];
-//     for (const dest of allDests) {
-//       const variantIds = Array.isArray(dest?.variantIds) ? dest.variantIds : [];
-//       for (const variantId of variantIds) {
-//         if (variantId) flatVariants.push({ dest, variantId });
-//       }
-//     }
-
-//     if (flatVariants.length === 0) {
-//       return [
-//         {
-//           ...action,
-//           type: "VARIANT_SWAP",
-//           variantId: null,
-//           dests: allDests,
-//           after: afterOrders,
-//         },
-//       ];
-//     }
-
-//     const results = [];
-//     // Pehla variant  existing line ko swap karega
-//     results.push({
-//       ...action,
-//       type: "VARIANT_SWAP",
-//       variantId: flatVariants[0].variantId,
-//       dests: allDests,
-//       after: afterOrders,
-//     });
-//     for (let i = 1; i < flatVariants.length; i++) {
-//       results.push({
-//         type: "ADD_PRODUCT",
-//         variantId: flatVariants[i].variantId,
-//         quantity: action.quantity ?? 1,
-//         sourceProductId: action.sourceProductId,
-//         destProductId: flatVariants[i].dest?.id ?? null,
-//         productName: flatVariants[i].dest?.name ?? null,
-//         after: afterOrders,
-//       });
-//     }
-
-//     return results;
-//   }
-
-//   if (action.type === "remove") {
-//     const variantId =
-//       action.sourceVariantId || (action.isVariant ? action.variantId : null);
-//     const productId = action.sourceProductId || action.productId || null;
-
-//     return [
-//       {
-//         ...action,
-//         type: variantId ? "REMOVE_VARIANT" : "REMOVE_PRODUCT",
-//         sourceProductId: productId ?? action.sourceProductId,
-//         sourceVariantId: variantId ?? action.sourceVariantId,
-//         after: afterOrders,
-//       },
-//     ];
-//   }
-
-//   if (action.type === "add") {
-//     return [
-//       {
-//         ...action,
-//         type: "ADD_PRODUCT",
-//         after: afterOrders,
-//       },
-//     ];
-//   }
-
-//   return [{ ...action, after: afterOrders }];
-// }
-
 function normalizeAutomationAction(action, afterOrders) {
   if (action.type === "swap") {
     const allDests = Array.isArray(action.dests) ? action.dests : [];
@@ -201,22 +125,6 @@ function normalizeAutomationAction(action, afterOrders) {
         if (variantId) flatVariants.push({ dest, variantId });
       }
     }
-
-    const variantPrices =
-      action.variantPrices && typeof action.variantPrices === "object"
-        ? action.variantPrices
-        : {};
-    const priceOverrideFor = (variantId) => {
-      if (variantId && variantPrices[variantId] != null) {
-        return {
-          discountEnabled: true,
-          discountType: "fixed_amount",
-          discountValue: String(variantPrices[variantId]),
-          __manualPriceOverride: true,
-        };
-      }
-      return null;
-    };
 
     if (flatVariants.length === 0) {
       return [
@@ -238,7 +146,6 @@ function normalizeAutomationAction(action, afterOrders) {
       variantId: flatVariants[0].variantId,
       dests: allDests,
       after: afterOrders,
-      ...(priceOverrideFor(flatVariants[0].variantId) ?? {}),
     });
     for (let i = 1; i < flatVariants.length; i++) {
       results.push({
@@ -249,13 +156,41 @@ function normalizeAutomationAction(action, afterOrders) {
         destProductId: flatVariants[i].dest?.id ?? null,
         productName: flatVariants[i].dest?.name ?? null,
         after: afterOrders,
-        ...(priceOverrideFor(flatVariants[i].variantId) ?? {}),
       });
     }
 
     return results;
   }
+
+  if (action.type === "remove") {
+    const variantId =
+      action.sourceVariantId || (action.isVariant ? action.variantId : null);
+    const productId = action.sourceProductId || action.productId || null;
+
+    return [
+      {
+        ...action,
+        type: variantId ? "REMOVE_VARIANT" : "REMOVE_PRODUCT",
+        sourceProductId: productId ?? action.sourceProductId,
+        sourceVariantId: variantId ?? action.sourceVariantId,
+        after: afterOrders,
+      },
+    ];
+  }
+
+  if (action.type === "add") {
+    return [
+      {
+        ...action,
+        type: "ADD_PRODUCT",
+        after: afterOrders,
+      },
+    ];
+  }
+
+  return [{ ...action, after: afterOrders }];
 }
+
 const ACTION_ORDER = [
   "QUANTITY_CHANGE",
   "MINIMUM_QUANTITY",
@@ -1552,38 +1487,10 @@ function updateAutomationVariantQuantity(
   action.quantity = Math.max(1, Number(quantity) || 1);
   return clonedSettings;
 }
-// function setAutomationVariantPrice(
-//   settings,
-//   automationCycleIndex,
-//   automationActionIndex,
-//   price,
-// ) {
-//   if (!settings || !Array.isArray(settings.automationCycles)) {
-//     throw new Error("setAutomationVariantPrice: no automationCycles configured");
-//   }
-//   const clonedSettings = JSON.parse(JSON.stringify(settings));
-//   const entry = clonedSettings.automationCycles[automationCycleIndex];
-//   if (!entry || !Array.isArray(entry.actions)) {
-//     throw new Error("setAutomationVariantPrice: automation cycle entry not found");
-//   }
-//   const action = entry.actions[automationActionIndex];
-//   if (!action) {
-//     throw new Error(
-//       "setAutomationVariantPrice: target action not found (stale index) — please refresh and retry",
-//     );
-//   }
-//   action.discountEnabled = true;
-//   action.discountType = "fixed_amount";
-//   action.discountValue = String(Math.max(0, Number(price) || 0));
-//    action.__manualPriceOverride = true;
-
-//   return clonedSettings;
-// }
 function setAutomationVariantPrice(
   settings,
   automationCycleIndex,
   automationActionIndex,
-  variantId,
   price,
 ) {
   if (!settings || !Array.isArray(settings.automationCycles)) {
@@ -1600,20 +1507,10 @@ function setAutomationVariantPrice(
       "setAutomationVariantPrice: target action not found (stale index) — please refresh and retry",
     );
   }
-
-  if (action.type === "swap" && variantId) {
-    // multi-variant swap — sirf is variant ka price set karo, baaki untouched
-    if (!action.variantPrices || typeof action.variantPrices !== "object") {
-      action.variantPrices = {};
-    }
-    action.variantPrices[variantId] = Math.max(0, Number(price) || 0);
-  } else {
-    // single-variant action (remove/add) — purana global behaviour
-    action.discountEnabled = true;
-    action.discountType = "fixed_amount";
-    action.discountValue = String(Math.max(0, Number(price) || 0));
-    action.__manualPriceOverride = true;
-  }
+  action.discountEnabled = true;
+  action.discountType = "fixed_amount";
+  action.discountValue = String(Math.max(0, Number(price) || 0));
+   action.__manualPriceOverride = true;
 
   return clonedSettings;
 }
