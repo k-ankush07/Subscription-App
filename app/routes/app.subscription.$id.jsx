@@ -487,8 +487,8 @@ export async function action({ request, params }) {
          shop: session.shop,
         subscriptionId,
         contractId,
-        actionType: "paused",
         actionBy: "merchant",
+        actionReason: "",
         actionAt: new Date().toISOString(),
       }),
     });
@@ -545,6 +545,7 @@ export async function action({ request, params }) {
         subscriptionId,
         contractId,
         cancelledBy: "merchant",
+        actionReason: "",
         cancelledAt: new Date().toISOString(),
       }),
     });
@@ -712,6 +713,22 @@ export async function action({ request, params }) {
       err,
     );
   }
+  try {
+  await fetch(`${API}/api/subscription`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-api-key": SECRET_KEY },
+    body: JSON.stringify({
+      shop: session.shop,
+      subscriptionId,
+      contractId,
+      actionBy: "merchant",
+      actionReason: "",
+      actionAt: new Date().toISOString(),
+    }),
+  });
+} catch (err) {
+  console.error("Failed to record resume source:", err);
+}
 
   return {
     success: true,
