@@ -156,38 +156,98 @@ function Extension() {
     customerIdRef.current = customerId;
     return customerId;
   }, []);
+const [resolvingDeepLink, setResolvingDeepLink] = useState(false);
 
-  useEffect(() => {
-    function syncFromEntry(entry) {
-      const id = parseSubscriptionIdFromUrl(entry?.url);
-      if (!id) {
-        setSelectedSub(null);
-        return;
-      }
+const fetchSubscriptionById = useCallback(
+  async (id) => {
+    try {
+      const customerId = await getCustomerId();
+      const token = await shopify.sessionToken.get();
+      const params = new URLSearchParams({ customerId });
+      const res = await fetch(
+        `${API_BASE}/api/subscriptions/${id}?${params.toString()}`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.subscription || data || null;
+    } catch (err) {
+      console.error("Failed to fetch subscription by id", err);
+      return null;
+    }
+  },
+  [getCustomerId],
+);
+  // useEffect(() => {
+  //   function syncFromEntry(entry) {
+  //     const id = parseSubscriptionIdFromUrl(entry?.url);
+  //     if (!id) {
+  //       setSelectedSub(null);
+  //       return;
+  //     }
 
-      const found = subscriptions.find((s) => getNumericId(s.id) === id);
-      if (found) {
-        setSelectedSub(found);
-        return;
-      }
+  //     const found = subscriptions.find((s) => getNumericId(s.id) === id);
+  //     if (found) {
+  //       setSelectedSub(found);
+  //       return;
+  //     }
 
-      const stateSub = entry.getState?.();
-      if (stateSub) {
-        setSelectedSub(stateSub);
-      }
+  //     const stateSub = entry.getState?.();
+  //     if (stateSub) {
+  //       setSelectedSub(stateSub);
+  //     }
+  //   }
+
+  //   syncFromEntry(shopify.navigation.currentEntry);
+
+  //   function onChange() {
+  //     syncFromEntry(shopify.navigation.currentEntry);
+  //   }
+
+  //   shopify.navigation.addEventListener("currententrychange", onChange);
+  //   return () =>
+  //     shopify.navigation.removeEventListener("currententrychange", onChange);
+  // }, [subscriptions]);
+useEffect(() => {
+  async function syncFromEntry(entry) {
+    const id = parseSubscriptionIdFromUrl(entry?.url);
+    if (!id) {
+      setSelectedSub(null);
+      return;
     }
 
+    const found = subscriptions.find((s) => getNumericId(s.id) === id);
+    if (found) {
+      setSelectedSub(found);
+      return;
+    }
+
+    const stateSub = entry.getState?.();
+    if (stateSub) {
+      setSelectedSub(stateSub);
+      return;
+    }
+
+    if (!loading) {
+      setResolvingDeepLink(true);
+      const fetched = await fetchSubscriptionById(id);
+      setResolvingDeepLink(false);
+      if (fetched) {
+        setSelectedSub(fetched);
+      }
+    }
+  }
+
+  syncFromEntry(shopify.navigation.currentEntry);
+
+  function onChange() {
     syncFromEntry(shopify.navigation.currentEntry);
+  }
 
-    function onChange() {
-      syncFromEntry(shopify.navigation.currentEntry);
-    }
-
-    shopify.navigation.addEventListener("currententrychange", onChange);
-    return () =>
-      shopify.navigation.removeEventListener("currententrychange", onChange);
-  }, [subscriptions]);
-
+  shopify.navigation.addEventListener("currententrychange", onChange);
+  return () =>
+    shopify.navigation.removeEventListener("currententrychange", onChange);
+}, [subscriptions, loading, fetchSubscriptionById]);
   const fetchPage = useCallback(
     async ({
       afterCursor = null,
@@ -312,6 +372,17 @@ function Extension() {
       </s-page>
     );
   }
+  if (resolvingDeepLink) {
+  return (
+    <s-page heading="Subscriptions">
+      <s-section>
+        <s-stack direction="block" gap="base">
+          <SkeletonCard />
+        </s-stack>
+      </s-section>
+    </s-page>
+  );
+}
 
   if (selectedSub) {
     return (
