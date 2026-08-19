@@ -1130,6 +1130,7 @@ const basePriceAmount = liveVariantPrice ?? firstLine?.pricingPolicy?.basePrice?
           pricingPolicy,
           null,
           deliveryPriceAmount,
+          extraSettings,
         );
         skippedActions = result?.skippedActions || [];
       }

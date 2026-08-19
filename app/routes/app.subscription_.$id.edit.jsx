@@ -351,6 +351,8 @@ export async function action({ request, params }) {
     }
   }
 
+  
+
   // if (type === "update_automation_price") {
   //   const automationCycleIndex = parseInt(
   //     formData.get("automationCycleIndex"),
@@ -367,10 +369,18 @@ export async function action({ request, params }) {
   //     Number.isNaN(automationCycleIndex) ||
   //     Number.isNaN(automationActionIndex)
   //   ) {
-  //     return { success: false, error: "Invalid automation item reference" };
+  //     return {
+  //       success: false,
+  //       error: "Invalid automation item reference",
+  //       type: "update_automation_price",
+  //     };
   //   }
   //   if (price == null || price === "" || Number.isNaN(Number(price))) {
-  //     return { success: false, error: "Invalid price" };
+  //     return {
+  //       success: false,
+  //       error: "Invalid price",
+  //       type: "update_automation_price",
+  //     };
   //   }
 
   //   try {
@@ -383,6 +393,7 @@ export async function action({ request, params }) {
   //       return {
   //         success: false,
   //         error: "No automation settings found for this subscription",
+  //         type: "update_automation_price",
   //       };
   //     }
   //     const updatedSettings = setAutomationVariantPrice(
@@ -400,16 +411,28 @@ export async function action({ request, params }) {
   //       return {
   //         success: false,
   //         error: "Failed to save updated automation settings",
+  //         type: "update_automation_price",
   //       };
   //     }
-  //     return { success: true, isAutomationChange: true };
+  //     return {
+  //       success: true,
+  //       isAutomationChange: true,
+  //       type: "update_automation_price",
+  //       automationCycleIndex,
+  //       automationActionIndex,
+  //       price,
+  //     };
   //   } catch (err) {
   //     console.error("[edit update_automation_price] failed:", err);
-  //     return { success: false, error: String(err?.message || err) };
+  //     return {
+  //       success: false,
+  //       error: String(err?.message || err),
+  //       type: "update_automation_price",
+  //     };
   //   }
   // }
 
-  if (type === "update_automation_price") {
+    if (type === "update_automation_price") {
     const automationCycleIndex = parseInt(
       formData.get("automationCycleIndex"),
       10,
@@ -418,6 +441,7 @@ export async function action({ request, params }) {
       formData.get("automationActionIndex"),
       10,
     );
+    const variantId = formData.get("variantId") || null;
     const price = formData.get("price");
     const sellingPlanId = formData.get("sellingPlanId") || null;
 
@@ -456,6 +480,7 @@ export async function action({ request, params }) {
         currentSettings,
         automationCycleIndex,
         automationActionIndex,
+        variantId,
         price,
       );
       const { snapshotted } = await snapshotContractSettings(
@@ -476,6 +501,7 @@ export async function action({ request, params }) {
         type: "update_automation_price",
         automationCycleIndex,
         automationActionIndex,
+        variantId,
         price,
       };
     } catch (err) {
@@ -585,6 +611,38 @@ export default function EditPage() {
   const fetcher = useFetcher();
   const { id } = useParams();
 
+//  const [lines, setLines] = useState(() => {
+//   const committed = initialLines.filter(
+//     (l) =>
+//       !removedVariantIds.includes(l.variantId) &&
+//       !removedProductIds.includes(l.productId),
+//   );
+
+//   const baseLinePreviews = previewLineItems.filter((pi) => pi.isBaseLine);
+
+//   return committed.map((l, idx) => {
+//     const previewMatch = baseLinePreviews[idx] ?? null;
+
+  
+//     const resolvedPrice =
+//       Number(previewMatch?.priceBeforeManualDiscounts?.amount) ||
+//       Number(previewMatch?.pricePerUnit?.amount) ||
+//       Number(l.currentPrice?.amount) ||
+//       0;
+
+//     return {
+//       ...l, // id/variantId/productId untouched rehta hai — save isi se hota hai
+//       quantity: String(Number(l.quantity) || 1),
+//       displayTitle: previewMatch?.title ?? l.title,
+//       displayVariantTitle: previewMatch?.variantTitle ?? l.variantTitle,
+//       displayImageUrl: previewMatch?.imageUrl ?? l.variantImage?.url ?? "",
+//       displayPrice: resolvedPrice,
+//       originalPrice: previewMatch?.originalPricePerUnit?.amount ?? null,
+//       discountLabel: previewMatch?.discountLabel ?? null,
+//       pendingSwap: !!previewMatch && previewMatch.variantId !== l.variantId,
+//     };
+//   });
+// });
  const [lines, setLines] = useState(() => {
   const committed = initialLines.filter(
     (l) =>
@@ -596,11 +654,6 @@ export default function EditPage() {
 
   return committed.map((l, idx) => {
     const previewMatch = baseLinePreviews[idx] ?? null;
-
-    // const resolvedPrice =
-    //   Number(previewMatch?.pricePerUnit?.amount) ||
-    //   Number(l.currentPrice?.amount) ||
-    //   0;
 
     const resolvedPrice =
       Number(previewMatch?.priceBeforeManualDiscounts?.amount) ||
@@ -618,10 +671,15 @@ export default function EditPage() {
       originalPrice: previewMatch?.originalPricePerUnit?.amount ?? null,
       discountLabel: previewMatch?.discountLabel ?? null,
       pendingSwap: !!previewMatch && previewMatch.variantId !== l.variantId,
+      // NEW — swap ho chuka target variantId + automation reference
+      previewVariantId: previewMatch?.variantId ?? l.variantId,
+      automationCycleIndex: previewMatch?.automationCycleIndex ?? null,
+      automationActionIndex: previewMatch?.automationActionIndex ?? null,
     };
   });
-});
-  const [removedLines, setRemovedLines] = useState([]);
+});  
+
+const [removedLines, setRemovedLines] = useState([]);
   const [newLines, setNewLines] = useState([]);
 
   const automationLines = previewLineItems.filter(
@@ -708,7 +766,8 @@ export default function EditPage() {
     submittedType === "update_line_price";
 
   if (data.success) {
-    if (submittedType === "update_line_price") {
+
+     if (submittedType === "update_line_price") {
       setLines((prev) =>
         prev.map((l) =>
           l.id === data.lineId
@@ -722,6 +781,40 @@ export default function EditPage() {
         ),
       );
     }
+
+    // NEW — pendingSwap committed line ka price bhi "update_automation_price"
+    // route se aata hai, isliye usi automationCycleIndex/ActionIndex/variantId
+    // se matching line dhoondh kar local price patch kar do.
+    if (submittedType === "update_automation_price") {
+      setLines((prev) =>
+        prev.map((l) =>
+          l.automationCycleIndex === data.automationCycleIndex &&
+          l.automationActionIndex === data.automationActionIndex &&
+          l.previewVariantId === data.variantId
+            ? {
+                ...l,
+                displayPrice: Number(data.price) || 0,
+                originalPrice: null,
+                discountLabel: null,
+              }
+            : l,
+        ),
+      );
+    }
+    // if (submittedType === "update_line_price") {
+    //   setLines((prev) =>
+    //     prev.map((l) =>
+    //       l.id === data.lineId
+    //         ? {
+    //             ...l,
+    //             displayPrice: Number(data.price) || 0,
+    //             originalPrice: null,
+    //             discountLabel: null,
+    //           }
+    //         : l,
+    //     ),
+    //   );
+    // }
 
     if (isPriceEditSubmit) {
       setPriceEditTarget(null);
@@ -834,10 +927,47 @@ export default function EditPage() {
     fetcher.formData?.get("automationActionIndex") ===
       String(li.automationActionIndex);
 
+  // const openPriceEditor = (kind, item) => {
+  //   setPriceEditError("");
+  //   if (kind === "committed") {
+  //     setPriceEditTarget({ kind, lineId: item.id,variantId: item.variantId, title: item.displayTitle  });
+  //     setPriceEditValue(String(item.displayPrice ?? "0"));
+  //   } else if (kind === "new") {
+  //     setPriceEditTarget({ kind, tempId: item.tempId, title: item.title });
+  //     setPriceEditValue(String(item.price ?? "0"));
+  //   } else if (kind === "automation") {
+  //     setPriceEditTarget({
+  //       kind,
+  //       automationCycleIndex: item.automationCycleIndex,
+  //       automationActionIndex: item.automationActionIndex,
+  //       title: item.title,
+  //       discountLabel: item.discountLabel,
+  //     });
+  //     setPriceEditValue(
+  //       String(item.priceBeforeManualDiscounts?.amount ?? item.pricePerUnit?.amount ?? "0"),
+  //     );
+  //   }
+  // };
   const openPriceEditor = (kind, item) => {
     setPriceEditError("");
     if (kind === "committed") {
-      setPriceEditTarget({ kind, lineId: item.id,variantId: item.variantId, title: item.displayTitle  });
+      if (
+        item.pendingSwap &&
+        item.automationCycleIndex != null &&
+        item.automationActionIndex != null
+      ) {
+        setPriceEditTarget({
+          kind: "automation",
+          automationCycleIndex: item.automationCycleIndex,
+          automationActionIndex: item.automationActionIndex,
+          variantId: item.previewVariantId,
+          title: item.displayTitle,
+          discountLabel: item.discountLabel,
+        });
+        setPriceEditValue(String(item.displayPrice ?? "0"));
+        return;
+      }
+      setPriceEditTarget({ kind, lineId: item.id, variantId: item.variantId, title: item.displayTitle });
       setPriceEditValue(String(item.displayPrice ?? "0"));
     } else if (kind === "new") {
       setPriceEditTarget({ kind, tempId: item.tempId, title: item.title });
@@ -847,6 +977,7 @@ export default function EditPage() {
         kind,
         automationCycleIndex: item.automationCycleIndex,
         automationActionIndex: item.automationActionIndex,
+        variantId: item.variantId,
         title: item.title,
         discountLabel: item.discountLabel,
       });
@@ -855,7 +986,6 @@ export default function EditPage() {
       );
     }
   };
-
   const closePriceEditor = () => {
     if (isPriceUpdatePending) return; 
     setPriceEditTarget(null);
@@ -894,17 +1024,18 @@ export default function EditPage() {
     }
 
     if (priceEditTarget.kind === "automation") {
-      fetcher.submit(
+       fetcher.submit(
         {
           type: "update_automation_price",
           automationCycleIndex: priceEditTarget.automationCycleIndex,
           automationActionIndex: priceEditTarget.automationActionIndex,
+          variantId: priceEditTarget.variantId || "",
           price: priceEditValue,
           sellingPlanId,
         },
         { method: "post" },
       );
-      return; 
+      return;  
     }
   };
 
@@ -1073,9 +1204,6 @@ export default function EditPage() {
 <BlockStack gap="050">
   <Text fontWeight="medium">{line.displayTitle}</Text>
   {line.displayVariantTitle && <Badge>{line.displayVariantTitle}</Badge>}
-  {line.pendingSwap && (
-    <Badge tone="info">Will switch on next order</Badge>
-  )}
   {line.discountLabel && (
     <Badge tone="success">{line.discountLabel}</Badge>
   )}
