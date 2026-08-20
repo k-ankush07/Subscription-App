@@ -1,12 +1,12 @@
 import React from "react";
-import { Page, Card } from "@shopify/polaris";
-import { CreateWidgets } from "./components/CreateWidgets"
- 
+import CreateWidget from "./components/CreateWidget";
+import { Page } from "@shopify/polaris";
+
 function WidgetCreate() {
   return (
-    <div>
-      <CreateWidgets />
-    </div>
+    <Page >
+      <CreateWidget />
+    </Page>
   );
 }
 
