@@ -1,5 +1,6 @@
 import { authenticate, unauthenticated } from "../shopify.server";
 import { sendMail } from "../lib/mailer.server";
+import { clearAnyOpenDraft } from "../lib/billing-preview.server";
 import { buildCancelEmail } from "../lib/email-templates/subscription-emails.server";
 import {
   getContractEmailData,
@@ -52,7 +53,14 @@ const cancelReason = body.reason || "";
     } catch (fetchErr) {
       console.error("[cancel] pre-fetch for email failed:", fetchErr.message);
     }
-
+try {
+  await clearAnyOpenDraft(admin, subscriptionContractId);
+} catch (err) {
+  console.warn(
+    `[cancel] clearAnyOpenDraft failed for ${subscriptionContractId}:`,
+    err,
+  );
+}
     const res = await admin.graphql(
       `#graphql
       mutation CancelSubscriptionContract($subscriptionContractId: ID!) {

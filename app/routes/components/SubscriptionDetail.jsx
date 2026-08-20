@@ -20,7 +20,8 @@ import {
   useRevalidator,
 } from "react-router";
 
-import {formateDate} from "../utils/formatDate.js"
+import { formatDate } from "../utils/formatDate.js";
+
 function AddDiscountModal({
   open,
   onClose,
@@ -37,7 +38,17 @@ function AddDiscountModal({
   const [cycleLimit, setCycleLimit] = useState("1");
 
   const canSubmit = value && (appliesToAll || targetVariantId);
-
+  useEffect(() => {
+    if (open) {
+      setName("");
+      setType("PERCENTAGE");
+      setValue("");
+      setAppliesToAll(true);
+      setTargetVariantId("");
+      setLimitCycles(false);
+      setCycleLimit("1");
+    }
+  }, [open]);
   const handleApply = () => {
     onSubmit({
       name,
@@ -251,6 +262,7 @@ export default function SubscriptionDetail() {
   const [CustomerNotes, setCustomerNotes] = useState(customerNotes || "");
   const [editingCycleIndex, setEditingCycleIndex] = useState(null);
   const [editDate, setEditDate] = useState("");
+  const [rescheduleError, setRescheduleError] = useState("");
   const [visibleCyclesCount, setVisibleCyclesCount] = useState(5);
   const [visiblePastCount, setVisiblePastCount] = useState(5);
   const [showAddressForm, setShowAddressForm] = useState(false);
@@ -277,6 +289,36 @@ export default function SubscriptionDetail() {
   const revalidator = useRevalidator();
   const lastSubmittedTypeRef = useRef(null);
   const [showAddDiscountModal, setShowAddDiscountModal] = useState(false);
+
+  // useEffect(() => {
+  //   if (fetcher.state === "idle" && fetcher.data != null) {
+  //     revalidator.revalidate();
+
+  //     if (lastSubmittedTypeRef.current === "update_address") {
+  //       if (fetcher.data?.success) {
+  //         setShowAddressForm(false);
+  //         setAddressError("");
+  //       } else {
+  //         setAddressError(
+  //           fetcher.data?.error || "Address update failed, please try again.",
+  //         );
+  //       }
+  //     }
+  //     if (lastSubmittedTypeRef.current === "reschedule") {
+  //       if (fetcher.data?.success) {
+  //         setEditingCycleIndex(null);
+  //         setEditDate("");
+  //       }
+  //     }
+  //     if (lastSubmittedTypeRef.current === "add_manual_discount") {
+  //     if (fetcher.data?.success) {
+  //       setShowAddDiscountModal(false);
+  //     }
+  //   }
+
+  //     lastSubmittedTypeRef.current = null;
+  //   }
+  // }, [fetcher.state, fetcher.data]);
   useEffect(() => {
     if (fetcher.state === "idle" && fetcher.data != null) {
       revalidator.revalidate();
@@ -289,6 +331,23 @@ export default function SubscriptionDetail() {
           setAddressError(
             fetcher.data?.error || "Address update failed, please try again.",
           );
+        }
+      }
+      if (lastSubmittedTypeRef.current === "reschedule") {
+        if (fetcher.data?.success) {
+          setEditingCycleIndex(null);
+          setEditDate("");
+          setRescheduleError(""); // 👈 success pe error clear
+        } else {
+          setRescheduleError(
+            // 👈 NAYA — failure pe error set
+            fetcher.data?.error || "Reschedule failed, please try again.",
+          );
+        }
+      }
+      if (lastSubmittedTypeRef.current === "add_manual_discount") {
+        if (fetcher.data?.success) {
+          setShowAddDiscountModal(false);
         }
       }
 
@@ -334,7 +393,7 @@ export default function SubscriptionDetail() {
     const msUntilDue = new Date(nextCycleDate).getTime() - Date.now();
     const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
     if (msUntilDue > TWENTY_FOUR_HOURS_MS) {
-      chargeDisabledReason = `Can only charge within 24 hours of the billing date (${formateDate(
+      chargeDisabledReason = `Can only charge within 24 hours of the billing date (${formatDate(
         nextCycleDate,
       )}).`;
     }
@@ -404,11 +463,11 @@ export default function SubscriptionDetail() {
     const hours = String(originalDate.getHours()).padStart(2, "0");
     const minutes = String(originalDate.getMinutes()).padStart(2, "0");
 
-    // Naya date + purana time combine karke local time se UTC ISO banao
     const newDateTimeISO = new Date(
       `${editDate}T${hours}:${minutes}:00`,
     ).toISOString();
 
+    lastSubmittedTypeRef.current = "reschedule"; // 👈 track karo
     fetcher.submit(
       {
         type: "reschedule",
@@ -418,9 +477,33 @@ export default function SubscriptionDetail() {
       },
       { method: "post" },
     );
-    setEditingCycleIndex(null);
-    setEditDate("");
   };
+  // const handleReschedule = (cycle) => {
+  //   if (!editDate) {
+  //     return;
+  //   }
+
+  //   const originalDate = new Date(cycle.billingAttemptExpectedDate);
+  //   const hours = String(originalDate.getHours()).padStart(2, "0");
+  //   const minutes = String(originalDate.getMinutes()).padStart(2, "0");
+
+  //   // Naya date + purana time combine karke local time se UTC ISO banao
+  //   const newDateTimeISO = new Date(
+  //     `${editDate}T${hours}:${minutes}:00`,
+  //   ).toISOString();
+
+  //   fetcher.submit(
+  //     {
+  //       type: "reschedule",
+  //       cycleIndex: cycle.cycleIndex,
+  //       newDate: newDateTimeISO,
+  //       originalDate: cycle.billingAttemptExpectedDate,
+  //     },
+  //     { method: "post" },
+  //   );
+  //   setEditingCycleIndex(null);
+  //   setEditDate("");
+  // };
   const handleRemoveBaseLine = ({ productId, variantId }) => {
     const confirmed = confirm(
       "Remove this product from the upcoming order? It won't be applied to the next order.",
@@ -484,7 +567,25 @@ export default function SubscriptionDetail() {
       { method: "post" },
     );
   };
+  // const handleAddManualDiscount = (payload) => {
+  //   fetcher.submit(
+  //     {
+  //       type: "add_manual_discount",
+  //       name: payload.name,
+  //       adjustmentType: payload.adjustmentType,
+  //       adjustmentValue: payload.adjustmentValue,
+  //       appliesToAll: payload.appliesToAll ? "true" : "false",
+  //       variantId: payload.variantId || "",
+  //       cycleLimit: payload.cycleLimit || "",
+  //       cycleIndex: preview?.nextOrder?.cycleIndex ?? 0,
+  //       sellingPlanId: lines?.[0]?.node?.sellingPlanId || "",
+  //     },
+  //     { method: "post" },
+  //   );
+  //   setShowAddDiscountModal(false);
+  // };
   const handleAddManualDiscount = (payload) => {
+    lastSubmittedTypeRef.current = "add_manual_discount"; // 👈 NAYA
     fetcher.submit(
       {
         type: "add_manual_discount",
@@ -499,9 +600,7 @@ export default function SubscriptionDetail() {
       },
       { method: "post" },
     );
-    setShowAddDiscountModal(false);
   };
-
   const handleRemoveManualDiscount = (discountId) => {
     const confirmed = confirm("Remove this discount?");
     if (!confirmed) return;
@@ -620,8 +719,8 @@ export default function SubscriptionDetail() {
             ></Banner>
           )}
           <div>
-            <b>{preview?.status}</b>, <b>{formateDate(contract?.createdAt)}</b>{" "}
-            , <b>{contract?.originOrder?.name}</b>
+            <b>{preview?.status}</b>, <b>{formatDate(contract?.createdAt)}</b> ,{" "}
+            <b>{contract?.originOrder?.name}</b>
           </div>
 
           {contract?.status === "ACTIVE" ? (
@@ -681,7 +780,7 @@ export default function SubscriptionDetail() {
               <b>Next Order</b>
               <p>
                 {nextCycleDate
-                  ? formateDate(nextCycleDate)
+                  ? formatDate(nextCycleDate)
                   : "No upcoming billing cycle"}
               </p>
               {(contract?.billingPolicy?.minCycles != null ||
@@ -1208,6 +1307,7 @@ export default function SubscriptionDetail() {
             onSubmit={handleAddManualDiscount}
             isSubmitting={isThisActionPending("add_manual_discount")}
           />
+
           <Card>
             <b>Payment Summary</b>
 
@@ -1277,7 +1377,7 @@ export default function SubscriptionDetail() {
                     }}
                   >
                     <p>
-                      {formateDate(cycle.billingAttemptExpectedDate)}{" "}
+                      {formatDate(cycle.billingAttemptExpectedDate)}{" "}
                       {cycle.skipped && <span>(Skipped)</span>}
                     </p>
 
@@ -1318,12 +1418,6 @@ export default function SubscriptionDetail() {
                               }
                               onChange={(e) => setEditDate(e.target.value)}
                             />
-                            {/* <input
-                              type="date"
-                              value={editDate}
-                              min={new Date().toISOString().split("T")[0]}
-                              onChange={(e) => setEditDate(e.target.value)}
-                            /> */}
                             <Button
                               onClick={() => handleReschedule(cycle)}
                               loading={isThisActionPending("reschedule", {
@@ -1347,16 +1441,91 @@ export default function SubscriptionDetail() {
                               onClick={() => {
                                 setEditingCycleIndex(null);
                                 setEditDate("");
+                                setRescheduleError("");
                               }}
                             >
                               Cancel
                             </Button>
+                            {!isPending && rescheduleError && (
+                              <p
+                                style={{
+                                  
+                                  fontSize: "12px",
+                                  width: "100%",
+                                }}
+                              >
+                                {rescheduleError}
+                              </p>
+                            )}
                           </div>
                         ) : (
+                          // <div
+                          //   style={{
+                          //     display: "flex",
+                          //     gap: "12px",
+                          //     alignItems: "center",
+                          //     flexWrap: "wrap",
+                          //   }}
+                          // >
+                          //   <input
+                          //     type="date"
+                          //     value={editDate}
+                          //     min={
+                          //       cycle.cycleStartAt
+                          //         ? new Date(cycle.cycleStartAt)
+                          //             .toISOString()
+                          //             .split("T")[0]
+                          //         : new Date().toISOString().split("T")[0]
+                          //     }
+                          //     max={
+                          //       cycle.cycleEndAt
+                          //         ? new Date(cycle.cycleEndAt)
+                          //             .toISOString()
+                          //             .split("T")[0]
+                          //         : undefined
+                          //     }
+                          //     onChange={(e) => setEditDate(e.target.value)}
+                          //   />
+                          //   {/* <input
+                          //     type="date"
+                          //     value={editDate}
+                          //     min={new Date().toISOString().split("T")[0]}
+                          //     onChange={(e) => setEditDate(e.target.value)}
+                          //   /> */}
+                          //   <Button
+                          //     onClick={() => handleReschedule(cycle)}
+                          //     loading={isThisActionPending("reschedule", {
+                          //       cycleIndex: cycle.cycleIndex,
+                          //     })}
+                          //     disabled={isThisActionPending("reschedule", {
+                          //       cycleIndex: cycle.cycleIndex,
+                          //     })}
+                          //   >
+                          //     {isThisActionPending("reschedule", {
+                          //       cycleIndex: cycle.cycleIndex,
+                          //     })
+                          //       ? "Saving…"
+                          //       : "Save"}
+                          //   </Button>
+                          //   <Button
+                          //     plain
+                          //     disabled={isThisActionPending("reschedule", {
+                          //       cycleIndex: cycle.cycleIndex,
+                          //     })}
+                          //     onClick={() => {
+                          //       setEditingCycleIndex(null);
+                          //       setEditDate("");
+                          //       setRescheduleError("");
+                          //     }}
+                          //   >
+                          //     Cancel
+                          //   </Button>
+                          // </div>
                           <Button
                             onClick={() => {
                               setEditingCycleIndex(cycle.cycleIndex);
                               setEditDate("");
+                              setRescheduleError("");
                             }}
                           >
                             Edit
@@ -1449,7 +1618,7 @@ export default function SubscriptionDetail() {
                       <>
                         <p>
                           {entry.order.name} —{" "}
-                          {formateDate(entry.order.processedAt)}{" "}
+                          {formatDate(entry.order.processedAt)}{" "}
                           {entry.order.cancelledAt && <span>(Cancelled)</span>}
                         </p>
 
@@ -1466,7 +1635,7 @@ export default function SubscriptionDetail() {
                     ) : (
                       <>
                         <p>
-                          {formateDate(entry.cycle.billingAttemptExpectedDate)}{" "}
+                          {formatDate(entry.cycle.billingAttemptExpectedDate)}{" "}
                           <span>(Skipped)</span>
                         </p>
                         <span style={{ color: "gray" }}>—</span>

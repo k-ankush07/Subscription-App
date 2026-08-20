@@ -1086,26 +1086,27 @@ async function applyActionsToCycle(
         const ownVariantPrice = batchedVariantData[action.variantId]?.price;
         const basePriceForThisSwap =
           ownVariantPrice != null ? ownVariantPrice : effectiveBasePrice;
-
-        // let recalculatedPrice = null;
-        // if (action.discountEnabled && basePriceForThisSwap != null) {
-        //   recalculatedPrice = applyCustomDiscountAction(basePriceForThisSwap, {
-        //     adjustmentType: action.discountType,
-        //     adjustmentValue: action.discountValue,
-        //   }).toFixed(2);
-        // }
         let recalculatedPrice = null;
         if (action.discountEnabled && basePriceForThisSwap != null) {
           recalculatedPrice = applyCustomDiscountAction(basePriceForThisSwap, {
             adjustmentType: action.discountType,
             adjustmentValue: action.discountValue,
           }).toFixed(2);
-        } else if (!hasCustomDiscountChange && basePriceForThisSwap != null) {
-          recalculatedPrice = applyDiscountTierToPrice(
-            basePriceForThisSwap,
-            discountTierForCycle,
-          ).toFixed(2);
+        } else if (basePriceForThisSwap != null) {
+          recalculatedPrice = Number(basePriceForThisSwap).toFixed(2);
         }
+        // let recalculatedPrice = null;
+        // if (action.discountEnabled && basePriceForThisSwap != null) {
+        //   recalculatedPrice = applyCustomDiscountAction(basePriceForThisSwap, {
+        //     adjustmentType: action.discountType,
+        //     adjustmentValue: action.discountValue,
+        //   }).toFixed(2);
+        // } else if (!hasCustomDiscountChange && basePriceForThisSwap != null) {
+        //   recalculatedPrice = applyDiscountTierToPrice(
+        //     basePriceForThisSwap,
+        //     discountTierForCycle,
+        //   ).toFixed(2);
+        // }
 
         const activeManualForSwap = getActiveManualDiscountsForLine(
           extraSettings,
