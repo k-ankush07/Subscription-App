@@ -3,7 +3,6 @@ import { authenticate } from "../shopify.server";
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { useLoaderData, useNavigate, useFetcher } from "react-router";
 import { DuplicateIcon, DeleteIcon, SearchIcon } from "@shopify/polaris-icons";
-import { TitleBar } from "@shopify/app-bridge-react";
 import { PaginationBar } from "./components/PaginationBar";
 
 const API = import.meta.env.VITE_API_URL;
@@ -303,13 +302,8 @@ function Plans() {
   const fetcher = useFetcher();
   const bulkFetcher = useFetcher();
 
-  // searchInput: TextField ka live value — har keystroke pe turant update,
-  // taaki typing me koi lag na ho.
   const [searchInput, setSearchInput] = useState("");
 
-  // searchQuery: debounced value — filter/useMemo isi pe depend karta hai,
-  // taaki har character pe list re-filter na ho, sirf typing rukne
-  // (400ms) ke baad ek hi baar ho.
   const [searchQuery, setSearchQuery] = useState("");
   const debounceRef = useRef(null);
 
