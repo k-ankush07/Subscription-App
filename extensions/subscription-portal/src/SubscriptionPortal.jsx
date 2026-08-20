@@ -3,7 +3,8 @@ import { render } from "preact";
 import { useState, useEffect, useCallback, useRef } from "preact/hooks";
 import { COUNTRIES } from "../../../app/routes/utils/countries";
 
-const API_BASE = "https://society-disposal-contractors-welcome.trycloudflare.com";
+const API_BASE =
+  "https://dependence-rid-galaxy-frederick.trycloudflare.com";
 const PAGE_SIZE = 7;
 const CANCEL_REASONS = [
   "Too expensive",
@@ -156,28 +157,28 @@ function Extension() {
     customerIdRef.current = customerId;
     return customerId;
   }, []);
-const [resolvingDeepLink, setResolvingDeepLink] = useState(false);
+  const [resolvingDeepLink, setResolvingDeepLink] = useState(false);
 
-const fetchSubscriptionById = useCallback(
-  async (id) => {
-    try {
-      const customerId = await getCustomerId();
-      const token = await shopify.sessionToken.get();
-      const params = new URLSearchParams({ customerId });
-      const res = await fetch(
-        `${API_BASE}/api/subscriptions/${id}?${params.toString()}`,
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
-      if (!res.ok) return null;
-      const data = await res.json();
-      return data.subscription || data || null;
-    } catch (err) {
-      console.error("Failed to fetch subscription by id", err);
-      return null;
-    }
-  },
-  [getCustomerId],
-);
+  const fetchSubscriptionById = useCallback(
+    async (id) => {
+      try {
+        const customerId = await getCustomerId();
+        const token = await shopify.sessionToken.get();
+        const params = new URLSearchParams({ customerId });
+        const res = await fetch(
+          `${API_BASE}/api/subscriptions/${id}?${params.toString()}`,
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+        if (!res.ok) return null;
+        const data = await res.json();
+        return data.subscription || data || null;
+      } catch (err) {
+        console.error("Failed to fetch subscription by id", err);
+        return null;
+      }
+    },
+    [getCustomerId],
+  );
   // useEffect(() => {
   //   function syncFromEntry(entry) {
   //     const id = parseSubscriptionIdFromUrl(entry?.url);
@@ -208,46 +209,46 @@ const fetchSubscriptionById = useCallback(
   //   return () =>
   //     shopify.navigation.removeEventListener("currententrychange", onChange);
   // }, [subscriptions]);
-useEffect(() => {
-  async function syncFromEntry(entry) {
-    const id = parseSubscriptionIdFromUrl(entry?.url);
-    if (!id) {
-      setSelectedSub(null);
-      return;
-    }
+  useEffect(() => {
+    async function syncFromEntry(entry) {
+      const id = parseSubscriptionIdFromUrl(entry?.url);
+      if (!id) {
+        setSelectedSub(null);
+        return;
+      }
 
-    const found = subscriptions.find((s) => getNumericId(s.id) === id);
-    if (found) {
-      setSelectedSub(found);
-      return;
-    }
+      const found = subscriptions.find((s) => getNumericId(s.id) === id);
+      if (found) {
+        setSelectedSub(found);
+        return;
+      }
 
-    const stateSub = entry.getState?.();
-    if (stateSub) {
-      setSelectedSub(stateSub);
-      return;
-    }
+      const stateSub = entry.getState?.();
+      if (stateSub) {
+        setSelectedSub(stateSub);
+        return;
+      }
 
-    if (!loading) {
-      setResolvingDeepLink(true);
-      const fetched = await fetchSubscriptionById(id);
-      setResolvingDeepLink(false);
-      if (fetched) {
-        setSelectedSub(fetched);
+      if (!loading) {
+        setResolvingDeepLink(true);
+        const fetched = await fetchSubscriptionById(id);
+        setResolvingDeepLink(false);
+        if (fetched) {
+          setSelectedSub(fetched);
+        }
       }
     }
-  }
 
-  syncFromEntry(shopify.navigation.currentEntry);
-
-  function onChange() {
     syncFromEntry(shopify.navigation.currentEntry);
-  }
 
-  shopify.navigation.addEventListener("currententrychange", onChange);
-  return () =>
-    shopify.navigation.removeEventListener("currententrychange", onChange);
-}, [subscriptions, loading, fetchSubscriptionById]);
+    function onChange() {
+      syncFromEntry(shopify.navigation.currentEntry);
+    }
+
+    shopify.navigation.addEventListener("currententrychange", onChange);
+    return () =>
+      shopify.navigation.removeEventListener("currententrychange", onChange);
+  }, [subscriptions, loading, fetchSubscriptionById]);
   const fetchPage = useCallback(
     async ({
       afterCursor = null,
@@ -373,16 +374,16 @@ useEffect(() => {
     );
   }
   if (resolvingDeepLink) {
-  return (
-    <s-page heading="Subscriptions">
-      <s-section>
-        <s-stack direction="block" gap="base">
-          <SkeletonCard />
-        </s-stack>
-      </s-section>
-    </s-page>
-  );
-}
+    return (
+      <s-page heading="Subscriptions">
+        <s-section>
+          <s-stack direction="block" gap="base">
+            <SkeletonCard />
+          </s-stack>
+        </s-section>
+      </s-page>
+    );
+  }
 
   if (selectedSub) {
     return (
@@ -1817,241 +1818,222 @@ function SubscriptionDetail({
             </s-modal>
           </s-box> */}
           {status !== "CANCELLED" && (
-  <s-box border="base" borderRadius="base" padding="base">
-    <s-stack direction="block" gap="base">
-      <s-stack direction="block" gap="tight">
-        <s-text fontWeight="bold">Upcoming order</s-text>
+            <s-box border="base" borderRadius="base" padding="base">
+              <s-stack direction="block" gap="base">
+                <s-stack direction="block" gap="tight">
+                  <s-text fontWeight="bold">Upcoming order</s-text>
 
-        {nextBillingDate ? (
-          <s-text tone="subdued">
-            {formatShort(toDateOnlyString(nextBillingDate))}
-          </s-text>
-        ) : (
-          <s-text tone="subdued">-</s-text>
-        )}
-      </s-stack>
+                  {nextBillingDate ? (
+                    <s-text tone="subdued">
+                      {formatShort(toDateOnlyString(nextBillingDate))}
+                    </s-text>
+                  ) : (
+                    <s-text tone="subdued">-</s-text>
+                  )}
+                </s-stack>
 
-      <s-stack direction="inline" gap="tight">
-        <s-button
-          variant="secondary"
-          command="--show"
-          commandFor={rescheduleModalId}
-          disabled={!nextActionable || loadingCycleIndex != null}
-          onClick={() => openRescheduleModal(nextActionable)}
-        >
-          Reschedule
-        </s-button>
-
-        {canModifySubscription && (
-          <s-button
-            variant="secondary"
-            disabled={!nextActionable || loadingCycleIndex != null}
-            onClick={() =>
-              nextActionable &&
-              handleSkip(sub.id, nextActionable.cycleIndex)
-            }
-          >
-            {loadingAction === "skip" &&
-            loadingCycleIndex === nextActionable?.cycleIndex ? (
-              <s-spinner size="small" />
-            ) : (
-              "Skip"
-            )}
-          </s-button>
-        )}
-      </s-stack>
-
-      {maxSkipReached && (
-        <s-text tone="subdued">
-          The maximum number of orders have been skipped
-        </s-text>
-      )}
-
-      {!canModifySubscription && minCycles != null && (
-        <s-box border="base" borderRadius="base" padding="base">
-          <s-text tone="subdued">
-            You can't yet cancel, pause, or skip this subscription, as
-            you haven't yet reached the required number of payments.
-          </s-text>
-
-          <s-text tone="subdued">
-            Required number of payments: {minCycles}
-          </s-text>
-        </s-box>
-      )}
-
-      {visibleCycles.length > 0 && (
-        <s-link
-          command="--show"
-          commandFor={modalId}
-          onClick={() => {
-            setRescheduleCycle(null);
-            setRescheduleError(null);
-          }}
-        >
-          Show upcoming orders
-        </s-link>
-      )}
-
-      {maxSkipReached && (
-        <s-text tone="subdued">
-          The maximum number of orders have been skipped
-        </s-text>
-      )}
-    </s-stack>
-
-    <s-modal
-      id={modalId}
-      ref={upcomingModalRef}
-      heading={
-        isRescheduleViewInUpcomingModal
-          ? "Reschedule order"
-          : "Upcoming orders"
-      }
-    >
-      {isRescheduleViewInUpcomingModal ? (
-        <>
-          <s-stack direction="block" gap="base">
-            {rescheduleError && (
-              <s-text tone="critical">{rescheduleError}</s-text>
-            )}
-
-            <s-date-picker
-              selected={rescheduleDate}
-              onChange={(e) => setRescheduleDate(e.target.value)}
-            />
-          </s-stack>
-
-          <s-button
-            slot="primary-action"
-            variant="primary"
-            disabled={rescheduleSaving || !rescheduleDate}
-            onClick={handleSaveReschedule}
-          >
-            {rescheduleSaving ? (
-              <s-spinner size="small" />
-            ) : (
-              "Save"
-            )}
-          </s-button>
-
-          <s-button
-            slot="secondary-actions"
-            disabled={rescheduleSaving}
-            onClick={backToUpcomingList}
-          >
-            Back
-          </s-button>
-        </>
-      ) : (
-        <>
-          <s-stack direction="block" gap="base">
-            {visibleCycles.map((cycle) => {
-              const isThisLoading =
-                loadingCycleIndex === cycle.cycleIndex;
-
-              const isAnyLoading =
-                loadingCycleIndex != null;
-
-              return (
-                <s-stack
-                  key={cycle.cycleIndex}
-                  direction="inline"
-                  gap="base"
-                  alignItems="center"
-                  justifyContent="space-between"
-                >
-                  <s-stack
-                    direction="inline"
-                    gap="tight"
-                    alignItems="center"
+                <s-stack direction="inline" gap="tight">
+                  <s-button
+                    variant="secondary"
+                    command="--show"
+                    commandFor={rescheduleModalId}
+                    disabled={!nextActionable || loadingCycleIndex != null}
+                    onClick={() => openRescheduleModal(nextActionable)}
                   >
-                    <s-text>
-                      {formatShortWithYear(
-                        toDateOnlyString(
-                          cycle.billingAttemptExpectedDate,
-                        ),
+                    Reschedule
+                  </s-button>
+
+                  {canModifySubscription && (
+                    <s-button
+                      variant="secondary"
+                      disabled={!nextActionable || loadingCycleIndex != null}
+                      onClick={() =>
+                        nextActionable &&
+                        handleSkip(sub.id, nextActionable.cycleIndex)
+                      }
+                    >
+                      {loadingAction === "skip" &&
+                      loadingCycleIndex === nextActionable?.cycleIndex ? (
+                        <s-spinner size="small" />
+                      ) : (
+                        "Skip"
                       )}
+                    </s-button>
+                  )}
+                </s-stack>
+
+                {maxSkipReached && (
+                  <s-text tone="subdued">
+                    The maximum number of orders have been skipped
+                  </s-text>
+                )}
+
+                {!canModifySubscription && minCycles != null && (
+                  <s-box border="base" borderRadius="base" padding="base">
+                    <s-text tone="subdued">
+                      You can't yet cancel, pause, or skip this subscription, as
+                      you haven't yet reached the required number of payments.
                     </s-text>
 
-                    {cycle.skipped && (
-                      <s-badge tone="warning">
-                        Skipped
-                      </s-badge>
-                    )}
-                  </s-stack>
+                    <s-text tone="subdued">
+                      Required number of payments: {minCycles}
+                    </s-text>
+                  </s-box>
+                )}
 
-                  {!cycle.skipped &&
-                    (isAnyLoading ? (
-                      <s-text tone="subdued">
-                        Reschedule
-                      </s-text>
-                    ) : (
-                      <s-link
-                        onClick={() =>
-                          openRescheduleInsideUpcomingModal({
-                            ...cycle,
-                            __fromUpcomingModal: true,
-                          })
-                        }
-                      >
-                        Reschedule
-                      </s-link>
-                    ))}
+                {visibleCycles.length > 0 && (
+                  <s-link
+                    command="--show"
+                    commandFor={modalId}
+                    onClick={() => {
+                      setRescheduleCycle(null);
+                      setRescheduleError(null);
+                    }}
+                  >
+                    Show upcoming orders
+                  </s-link>
+                )}
 
-                  {canModifySubscription &&
-                    (isThisLoading ? (
-                      <s-spinner size="small" />
-                    ) : cycle.skipped ? (
-                      isAnyLoading ? (
-                        <s-text tone="subdued">
-                          Unskip
-                        </s-text>
-                      ) : (
-                        <s-link
-                          onClick={() =>
-                            handleUnskip(
-                              sub.id,
-                              cycle.cycleIndex,
-                            )
-                          }
-                        >
-                          Unskip
-                        </s-link>
-                      )
-                    ) : isAnyLoading ? (
-                      <s-text tone="subdued">
-                        Skip
-                      </s-text>
-                    ) : (
-                      <s-link
-                        onClick={() =>
-                          handleSkip(
-                            sub.id,
-                            cycle.cycleIndex,
-                          )
-                        }
-                      >
-                        Skip
-                      </s-link>
-                    ))}
-                </s-stack>
-              );
-            })}
-          </s-stack>
+                {maxSkipReached && (
+                  <s-text tone="subdued">
+                    The maximum number of orders have been skipped
+                  </s-text>
+                )}
+              </s-stack>
 
-          <s-button
-            variant="primary"
-            slot="primary-action"
-            onClick={closeUpcomingModal}
-          >
-            Close
-          </s-button>
-        </>
-      )}
-    </s-modal>
-  </s-box>
-)}
+              <s-modal
+                id={modalId}
+                ref={upcomingModalRef}
+                heading={
+                  isRescheduleViewInUpcomingModal
+                    ? "Reschedule order"
+                    : "Upcoming orders"
+                }
+              >
+                {isRescheduleViewInUpcomingModal ? (
+                  <>
+                    <s-stack direction="block" gap="base">
+                      {rescheduleError && (
+                        <s-text tone="critical">{rescheduleError}</s-text>
+                      )}
+
+                      <s-date-picker
+                        selected={rescheduleDate}
+                        onChange={(e) => setRescheduleDate(e.target.value)}
+                      />
+                    </s-stack>
+
+                    <s-button
+                      slot="primary-action"
+                      variant="primary"
+                      disabled={rescheduleSaving || !rescheduleDate}
+                      onClick={handleSaveReschedule}
+                    >
+                      {rescheduleSaving ? <s-spinner size="small" /> : "Save"}
+                    </s-button>
+
+                    <s-button
+                      slot="secondary-actions"
+                      disabled={rescheduleSaving}
+                      onClick={backToUpcomingList}
+                    >
+                      Back
+                    </s-button>
+                  </>
+                ) : (
+                  <>
+                    <s-stack direction="block" gap="base">
+                      {visibleCycles.map((cycle) => {
+                        const isThisLoading =
+                          loadingCycleIndex === cycle.cycleIndex;
+
+                        const isAnyLoading = loadingCycleIndex != null;
+
+                        return (
+                          <s-stack
+                            key={cycle.cycleIndex}
+                            direction="inline"
+                            gap="base"
+                            alignItems="center"
+                            justifyContent="space-between"
+                          >
+                            <s-stack
+                              direction="inline"
+                              gap="tight"
+                              alignItems="center"
+                            >
+                              <s-text>
+                                {formatShortWithYear(
+                                  toDateOnlyString(
+                                    cycle.billingAttemptExpectedDate,
+                                  ),
+                                )}
+                              </s-text>
+
+                              {cycle.skipped && (
+                                <s-badge tone="warning">Skipped</s-badge>
+                              )}
+                            </s-stack>
+
+                            {!cycle.skipped &&
+                              (isAnyLoading ? (
+                                <s-text tone="subdued">Reschedule</s-text>
+                              ) : (
+                                <s-link
+                                  onClick={() =>
+                                    openRescheduleInsideUpcomingModal({
+                                      ...cycle,
+                                      __fromUpcomingModal: true,
+                                    })
+                                  }
+                                >
+                                  Reschedule
+                                </s-link>
+                              ))}
+
+                            {canModifySubscription &&
+                              (isThisLoading ? (
+                                <s-spinner size="small" />
+                              ) : cycle.skipped ? (
+                                isAnyLoading ? (
+                                  <s-text tone="subdued">Unskip</s-text>
+                                ) : (
+                                  <s-link
+                                    onClick={() =>
+                                      handleUnskip(sub.id, cycle.cycleIndex)
+                                    }
+                                  >
+                                    Unskip
+                                  </s-link>
+                                )
+                              ) : isAnyLoading ? (
+                                <s-text tone="subdued">Skip</s-text>
+                              ) : (
+                                <s-link
+                                  onClick={() =>
+                                    handleSkip(sub.id, cycle.cycleIndex)
+                                  }
+                                >
+                                  Skip
+                                </s-link>
+                              ))}
+                          </s-stack>
+                        );
+                      })}
+                    </s-stack>
+
+                    <s-button
+                      variant="primary"
+                      slot="primary-action"
+                      onClick={closeUpcomingModal}
+                    >
+                      Close
+                    </s-button>
+                  </>
+                )}
+              </s-modal>
+            </s-box>
+          )}
           {status !== "CANCELLED" && (
             <s-box border="base" borderRadius="base" padding="base">
               <s-stack direction="block" gap="tight">
