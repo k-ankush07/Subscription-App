@@ -1,14 +1,14 @@
 import { Badge, Card, Page, Button } from "@shopify/polaris";
 import { PlusCircleIcon } from "@shopify/polaris-icons";
 import React from "react";
-import { useNavigate } from "react-router";
+import {Outlet, useNavigate } from "react-router";
 
 function Widgets() {
 
   const navigate = useNavigate()
   const createWidgets=()=>
   {
- navigate("/app/create/widgets")
+ navigate("/app/widgets/create")
     
   }
   return (
@@ -32,7 +32,7 @@ function Widgets() {
             Widgets
           </h2>
 
-          <Button variant="primary" icon={PlusCircleIcon} onClick={{createWidgets}}>
+          <Button variant="primary" icon={PlusCircleIcon} onClick={createWidgets}>
             Create widget
           </Button>
         </div>
@@ -69,7 +69,7 @@ function Widgets() {
             </tr>
           </tbody>
         </table>
-      </Card>
+      </Card> 
     </Page>
   );
 }

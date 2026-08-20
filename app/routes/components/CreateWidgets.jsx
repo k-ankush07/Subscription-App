@@ -1,11 +1,11 @@
 import React from 'react'
-import Widgets from './app.widgets'
 
 function CreateWidgets() {
   return (
-   <div>
-    <Widgets/>
-   </div>
+    <Card>
+      <h1>Widget editor</h1>
+
+    </Card>
   )
 }
 
