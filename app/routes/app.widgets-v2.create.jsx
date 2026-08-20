@@ -1,4 +1,17 @@
-import { Page, Select } from "@shopify/polaris";
+import {
+  Page,
+  Select,
+  Card,
+  Box,
+  BlockStack,
+  InlineStack,
+  Text,
+  RadioButton,
+  Badge,
+  Button,
+  Divider,
+  Checkbox,
+} from "@shopify/polaris";
 import React, { useMemo, useState } from "react";
 import { useLoaderData } from "react-router";
 import { authenticate } from "../shopify.server";
@@ -11,7 +24,9 @@ export const loader = async ({ request }) => {
   const shop = session.shop;
 
   const plansResponse = await fetch(`${API}/plans/getAllPlans?shop=${shop}`, {
-    headers: { "x-api-key": SECRET_KEY },
+    headers: {
+      "x-api-key": SECRET_KEY,
+    },
   });
 
   const plansData = await plansResponse.json();
@@ -25,7 +40,6 @@ const purchaseCards = [
   {
     id: "card-1",
     variant: "simple",
-    headerLabel: "PURCHASE OPTIONS", 
     price: "Rs. 895.00",
     subPrice: "Rs. 805.50",
     discountLabel: "10% off",
@@ -54,135 +68,15 @@ const purchaseCards = [
   },
 ];
 
-const styles = {
-  wrapper: {
-    display: "flex",
-    gap: 10,
-    alignItems: "flex-start",
-    flexWrap: "wrap",
-    background: "#f1f1f1",
-    padding: 24,
-  },
-
-  card: {
-    background: "#fff",
-    borderRadius: 8,
-    padding: 20,
-    width: 340,
-    boxSizing: "border-box",
-    fontFamily: "sans-serif",
-  },
-
-  headerWithLines: {
-    display: "flex",
-    alignItems: "center",
-    gap: 10,
-    marginBottom: 16,
-  },
-
-  headerLine: {
-    flex: 1,
-    height: 1,
-    background: "#ddd",
-  },
-
-  headerText: {
-    fontWeight: 700,
-    fontSize: 13,
-    letterSpacing: 1,
-    color: "#333",
-    whiteSpace: "nowrap",
-  },
-
-  optionBoxUnselected: {
-    border: "2px solid #d0d0d0",
-    borderRadius: 8,
-    padding: "14px 16px",
-    marginBottom: 12,
-    cursor: "pointer",
-  },
-
-  optionBoxSelected: {
-    border: "2px solid #111",
-    borderRadius: 8,
-    padding: "14px 16px",
-    marginBottom: 12,
-    cursor: "pointer",
-  },
-
-  radioOuter: (checked) => ({
-    width: 20,
-    height: 20,
-    borderRadius: "50%",
-    border: `2px solid ${checked ? "#111" : "#999"}`,
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  }),
-
-  radioInner: {
-    width: 10,
-    height: 10,
-    borderRadius: "50%",
-    background: "#111",
-  },
-
-  badge: {
-    background: "#eee",
-    color: "#333",
-    fontSize: 12,
-    fontWeight: 600,
-    borderRadius: 12,
-    padding: "2px 10px",
-    marginLeft: 8,
-  },
-
-  checkCircle: {
-    width: 18,
-    height: 18,
-    borderRadius: "50%",
-    background: "#111",
-    color: "#fff",
-    fontSize: 11,
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  },
-
-  chooseBtn: {
-    width: "100%",
-    background: "#111",
-    color: "#fff",
-    border: "none",
-    borderRadius: 6,
-    padding: "12px 0",
-    fontWeight: 600,
-    fontSize: 14,
-    cursor: "pointer",
-    marginTop: 12,
-  },
-
-  infoRow: {
-    display: "flex",
-    alignItems: "center",
-    gap: 6,
-    color: "#555",
-    fontSize: 13,
-    marginTop: 4,
-  },
-};
-
 function Widgets2() {
   const { plans } = useLoaderData();
 
-
   const planOptions = useMemo(
-    () => plans.map((p) => ({
-      label: p.planName,
-      value: p.planId,
-    })),
+    () =>
+      plans.map((p) => ({
+        label: p.planName,
+        value: p.planId,
+      })),
     [plans],
   );
 
@@ -192,15 +86,15 @@ function Widgets2() {
 
   const [selectedMap, setSelectedMap] = useState(
     purchaseCards.reduce(
-      (acc, c) => ({
+      (acc, card) => ({
         ...acc,
-        [c.id]: "subscribe",
+        [card.id]: "subscribe",
       }),
       {},
     ),
   );
 
-  const select = (id, value) => {
+  const selectPurchase = (id, value) => {
     setSelectedMap((prev) => ({
       ...prev,
       [id]: value,
@@ -209,469 +103,423 @@ function Widgets2() {
 
   return (
     <Page title="Choose a template">
-      <div
-        style={{
-          display: "flex",
-        }}
-      >
-        <div style={{ minWidth: "260px" }}>
-          <h1>Previewing plan</h1>
+      <BlockStack gap="500">
 
-          <Select
-            label=""
-            labelHidden
-            options={planOptions}
-            value={selectedPlanId}
-            onChange={setSelectedPlanId}
-          />
-        </div>
-      </div>
+        {/* PLAN SELECT */}
+        <Card>
+          <Box padding="400">
+            <BlockStack gap="300">
+              <Text variant="headingMd" as="h2">
+                Previewing plan
+              </Text>
 
-      <div style={styles.wrapper}>
-        {purchaseCards.map((data) => {
-          const selected = selectedMap[data.id];
+              <Select
+                label="Plan"
+                options={planOptions}
+                value={selectedPlanId}
+                onChange={setSelectedPlanId}
+              />
+            </BlockStack>
+          </Box>
+        </Card>
 
-          if (data.variant === "simple") {
-            return (
-              <div key={data.id} style={styles.card}>
-                {/* Header with lines on both sides - only if a label exists */}
-                {data.headerLabel && (
-                  <div style={styles.headerWithLines}>
-                    <span style={styles.headerLine} />
-                    <span style={styles.headerText}>
-                      {data.headerLabel}
-                    </span>
-                    <span style={styles.headerLine} />
-                  </div>
-                )}
+        {/* PURCHASE CARDS */}
+        <InlineStack gap="400" align="start" wrap>
 
-                <div
-                  style={
-                    selected === "onetime"
-                      ? styles.optionBoxSelected
-                      : styles.optionBoxUnselected
-                  }
-                  onClick={() => select(data.id, "onetime")}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 12,
-                      }}
-                    >
-                      <span
-                        style={styles.radioOuter(selected === "onetime")}
+          {purchaseCards.map((data) => {
+            const selected = selectedMap[data.id];
+
+            {/* SIMPLE */}
+            if (data.variant === "simple") {
+              return (
+                <Box key={data.id} width="340px">
+                  <Card>
+                    <BlockStack gap="400">
+
+                      <InlineStack
+                        gap="300"
+                        align="center"
+                        blockAlign="center"
                       >
-                        {selected === "onetime" && (
-                          <span style={styles.radioInner} />
-                        )}
-                      </span>
+                        <Box width="100%">
+                          <Divider />
+                        </Box>
 
-                      <span
-                        style={{
-                          fontWeight: 700,
-                          fontSize: 16,
-                        }}
-                      >
-                        One time purchase
-                      </span>
-                    </div>
-
-                    <span style={{ fontWeight: 600 }}>
-                      {data.price}
-                    </span>
-                  </div>
-                </div>
-
-                <div
-                  style={
-                    selected === "subscribe"
-                      ? styles.optionBoxSelected
-                      : styles.optionBoxUnselected
-                  }
-                  onClick={() => select(data.id, "subscribe")}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 12,
-                      marginBottom: 10,
-                    }}
-                  >
-                    <span
-                      style={styles.radioOuter(selected === "subscribe")}
-                    >
-                      {selected === "subscribe" && (
-                        <span style={styles.radioInner} />
-                      )}
-                    </span>
-
-                    <span
-                      style={{
-                        fontWeight: 700,
-                        fontSize: 16,
-                      }}
-                    >
-                      Subscribe & save
-                    </span>
-
-                    <span style={styles.badge}>
-                      {data.discountLabel}
-                    </span>
-                  </div>
-
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      paddingLeft: 32,
-                    }}
-                  >
-                    <span style={{ color: "#555" }}>
-                      Deliver every {data.deliverEvery}
-                    </span>
-
-                    <span style={{ fontWeight: 700 }}>
-                      {data.subPrice}
-                    </span>
-                  </div>
-                </div>
-
-                {selected !== "onetime" && (
-                  <div style={styles.infoRow}>
-                    Subscription details
-                  </div>
-                )}
-
-                <button style={styles.chooseBtn}>
-                  Choose
-                </button>
-              </div>
-            );
-          }
-
-          if (data.variant === "detailed") {
-            return (
-              <div key={data.id} style={styles.card}>
-                {/* One Time */}
-                <div
-                  style={
-                    selected === "onetime"
-                      ? styles.optionBoxSelected
-                      : styles.optionBoxUnselected
-                  }
-                  onClick={() => select(data.id, "onetime")}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 12,
-                      }}
-                    >
-                      <span
-                        style={styles.radioOuter(selected === "onetime")}
-                      >
-                        {selected === "onetime" && (
-                          <span style={styles.radioInner} />
-                        )}
-                      </span>
-
-                      <span
-                        style={{
-                          fontWeight: 700,
-                          fontSize: 16,
-                        }}
-                      >
-                        One time purchase
-                      </span>
-                    </div>
-
-                    <span style={{ fontWeight: 600 }}>
-                      {data.price}
-                    </span>
-                  </div>
-                </div>
-                <div
-                  style={{
-                    background: "#e8e8e8",
-                    textAlign: "center",
-                    fontWeight: 600,
-                    fontSize: 13,
-                    padding: "8px 0",
-                    borderRadius: "8px 8px 0 0",
-                    border: `2px solid ${
-                      selected === "subscribe"
-                        ? "#a8a8a8"
-                        : "#d0d0d0"
-                    }`,
-                    borderBottom: "none",
-                  }}
-                >
-                  {data.bannerLabel}
-                </div>
-
-                <div
-                  style={{
-                    border: `2px solid ${
-                      selected === "subscribe"
-                        ? "#a8a8a8"
-                        : "#d0d0d0"
-                    }`,
-                    borderRadius: "0 0 8px 8px",
-                    padding: 16,
-                    marginBottom: 12,
-                    cursor: "pointer",
-                  }}
-                  onClick={() => select(data.id, "subscribe")}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "flex-start",
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 12,
-                      }}
-                    >
-                      <span
-                        style={styles.radioOuter(
-                          selected === "subscribe",
-                        )}
-                      >
-                        {selected === "subscribe" && (
-                          <span style={styles.radioInner} />
-                        )}
-                      </span>
-
-                      <span
-                        style={{
-                          fontWeight: 700,
-                          fontSize: 16,
-                        }}
-                      >
-                        Subscribe & save
-                      </span>
-                    </div>
-
-                    <div style={{ textAlign: "right" }}>
-                      <div
-                        style={{
-                          background: "#eee",
-                          fontWeight: 700,
-                          padding: "4px 10px",
-                          borderRadius: 4,
-                        }}
-                      >
-                        {data.subPrice}
-                      </div>
-
-                      <div
-                        style={{
-                          color: "#999",
-                          textDecoration: "line-through",
-                          fontSize: 13,
-                          marginTop: 2,
-                        }}
-                      >
-                        {data.price}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div
-                    style={{
-                      fontWeight: 700,
-                      marginTop: 16,
-                      marginBottom: 10,
-                    }}
-                  >
-                    How subscriptions work:
-                  </div>
-
-                  {data.benefits.map((benefit, index) => {
-                    const isLast = index === data.benefits.length - 1;
-
-                    return (
-                      <div
-                        key={index}
-                        style={{
-                          display: "flex",
-                          alignItems: "flex-start",
-                          justifyContent: isLast
-                            ? "space-between"
-                            : "flex-start",
-                          gap: 10,
-                          marginBottom: 10,
-                        }}
-                      >
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "flex-start",
-                            gap: 10,
-                          }}
+                        <Text
+                          variant="headingSm"
+                          as="h3"
+                          fontWeight="bold"
                         >
-                          <span style={styles.checkCircle}>
-                            ✓
-                          </span>
+                          PURCHASE OPTIONS
+                        </Text>
 
-                          <span>{benefit}</span>
-                        </div>
+                        <Box width="100%">
+                          <Divider />
+                        </Box>
+                      </InlineStack>
 
-                        {isLast && (
-                          <span
-                            style={{
-                              color: "#333",
-                              fontSize: 14,
-                              textAlign: "right",
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            Deliver every:
-                            <br />
-                            {data.deliverEvery}
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {selected !== "onetime" && (
-                  <div style={styles.infoRow}>
-                    Subscription details
-                  </div>
-                )}
-
-                <button style={styles.chooseBtn}>
-                  Choose
-                </button>
-              </div>
-            );
-          }
-          const checked = selected === "subscribe";
-
-          return (
-            <div
-              key={data.id}
-              style={{
-                ...styles.card,
-                width: 300,
-              }}
-            >
-              <div
-                style={{
-                  border: "2px dashed #bbb",
-                  borderRadius: 8,
-                  padding: 16,
-                  marginBottom: 12,
-                  cursor: "pointer",
-                }}
-                onClick={() =>
-                  select(
-                    data.id,
-                    checked ? "none" : "subscribe",
-                  )
-                }
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "flex-start",
-                    gap: 12,
-                  }}
-                >
-                  <span
-                    style={{
-                      width: 20,
-                      height: 20,
-                      borderRadius: 4,
-                      background: checked ? "#111" : "#fff",
-                      border: checked
-                        ? "none"
-                        : "2px solid #999",
-                      color: "#fff",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: 13,
-                      flexShrink: 0,
-                      marginTop: 2,
-                    }}
-                  >
-                    {checked && "✓"}
-                  </span>
-
-                  <div>
-                    <div
-                      style={{
-                        fontWeight: 700,
-                        fontSize: 16,
-                      }}
-                    >
-                      Subscribe & save{" "}
-
-                      <span
-                        style={{
-                          color: "#999",
-                          textDecoration: "line-through",
-                          fontWeight: 400,
-                          fontSize: 14,
-                        }}
+                      {/* ONE TIME */}
+                      <Box
+                        borderWidth="025"
+                        borderColor={
+                          selected === "onetime"
+                            ? "border-strong"
+                            : "border"
+                        }
+                        borderRadius="300"
+                        padding="400"
                       >
-                        {data.price}
-                      </span>{" "}
+                        <InlineStack
+                          align="space-between"
+                          blockAlign="center"
+                        >
+                          <RadioButton
+                            label="One time purchase"
+                            checked={selected === "onetime"}
+                            id={`${data.id}-onetime`}
+                            name={data.id}
+                            onChange={() =>
+                              selectPurchase(data.id, "onetime")
+                            }
+                          />
 
-                      <span style={{ fontWeight: 700 }}>
-                        {data.subPrice}
-                      </span>
-                    </div>
+                          <Text fontWeight="bold">
+                            {data.price}
+                          </Text>
+                        </InlineStack>
+                      </Box>
 
-                    <div
-                      style={{
-                        color: "#555",
-                        marginTop: 6,
-                      }}
+                      {/* SUBSCRIBE */}
+                      <Box
+                        borderWidth="025"
+                        borderColor={
+                          selected === "subscribe"
+                            ? "border-strong"
+                            : "border"
+                        }
+                        borderRadius="300"
+                        padding="400"
+                      >
+                        <BlockStack gap="300">
+                          <InlineStack
+                            align="space-between"
+                            blockAlign="center"
+                          >
+                            <RadioButton
+                              label="Subscribe & save"
+                              checked={selected === "subscribe"}
+                              id={`${data.id}-subscribe`}
+                              name={data.id}
+                              onChange={() =>
+                                selectPurchase(
+                                  data.id,
+                                  "subscribe",
+                                )
+                              }
+                            />
+
+                            <Badge>
+                              {data.discountLabel}
+                            </Badge>
+                          </InlineStack>
+
+                          <InlineStack align="space-between">
+                            <Text tone="subdued">
+                              Deliver every {data.deliverEvery}
+                            </Text>
+
+                            <Text fontWeight="bold">
+                              {data.subPrice}
+                            </Text>
+                          </InlineStack>
+                        </BlockStack>
+                      </Box>
+
+                      <Button variant="primary" fullWidth>
+                        Choose
+                      </Button>
+                    </BlockStack>
+                  </Card>
+                </Box>
+              );
+            }
+
+            {/* DETAILED */}
+            if (data.variant === "detailed") {
+              return (
+                <Box key={data.id} width="340px">
+                  <Card padding="0">
+
+                    {/* ONE TIME */}
+                    <Box padding="400">
+                      <Box
+                        borderWidth="025"
+                        borderColor={
+                          selected === "onetime"
+                            ? "border-strong"
+                            : "border"
+                        }
+                        borderRadius="300"
+                        padding="400"
+                      >
+                        <InlineStack
+                          align="space-between"
+                          blockAlign="center"
+                        >
+                          <RadioButton
+                            label="One time purchase"
+                            checked={selected === "onetime"}
+                            id={`${data.id}-onetime`}
+                            name={data.id}
+                            onChange={() =>
+                              selectPurchase(data.id, "onetime")
+                            }
+                          />
+
+                          <Text fontWeight="bold">
+                            {data.price}
+                          </Text>
+                        </InlineStack>
+                      </Box>
+                    </Box>
+
+                    {/* SAVE BANNER */}
+                    <Box
+                      background="bg-surface-secondary"
+                      padding="300"
                     >
-                      Deliver every: {data.deliverEvery}
-                    </div>
-                  </div>
-                </div>
-              </div>
+                      <InlineStack align="center">
+                        <Text
+                          variant="bodySm"
+                          fontWeight="semibold"
+                        >
+                          {data.bannerLabel}
+                        </Text>
+                      </InlineStack>
+                    </Box>
 
-              <div style={styles.infoRow}>
-                Subscription details
-              </div>
+                    {/* SUBSCRIBE */}
+                    <Box padding="400">
+                      <Box
+                        borderWidth="025"
+                        borderColor={
+                          selected === "subscribe"
+                            ? "border-strong"
+                            : "border"
+                        }
+                        borderRadius="300"
+                        padding="400"
+                      >
+                        <BlockStack gap="500">
 
-              <button style={styles.chooseBtn}>
-                Choose
-              </button>
-            </div>
-          );
-        })}
-      </div>
+                          {/* TITLE + PRICE */}
+                          <InlineStack
+                            align="space-between"
+                            blockAlign="start"
+                          >
+                            <RadioButton
+                              label="Subscribe & save"
+                              checked={selected === "subscribe"}
+                              id={`${data.id}-subscribe`}
+                              name={data.id}
+                              onChange={() =>
+                                selectPurchase(
+                                  data.id,
+                                  "subscribe",
+                                )
+                              }
+                            />
+
+                            <BlockStack gap="100">
+                              <Box
+                                background="bg-surface-secondary"
+                                padding="200"
+                                borderRadius="200"
+                              >
+                                <Text
+                                  fontWeight="bold"
+                                  alignment="end"
+                                >
+                                  {data.subPrice}
+                                </Text>
+                              </Box>
+
+                              <Text
+                                tone="subdued"
+                                alignment="end"
+                                textDecorationLine="line-through"
+                              >
+                                {data.price}
+                              </Text>
+                            </BlockStack>
+                          </InlineStack>
+
+                          {/* HOW SUBSCRIPTIONS WORK */}
+                          <BlockStack gap="300">
+                            <Text
+                              variant="headingSm"
+                              as="h3"
+                              fontWeight="bold"
+                            >
+                              How subscriptions work:
+                            </Text>
+
+                            {data.benefits.map((benefit, index) => (
+                              <InlineStack
+                                key={index}
+                                gap="300"
+                                blockAlign="start"
+                              >
+                                <Box
+                                  background="bg-fill-inverse"
+                                  borderRadius="full"
+                                  padding="100"
+                                >
+                                  <Text
+                                    as="span"
+                                    tone="text-inverse"
+                                  >
+                                    ✓
+                                  </Text>
+                                </Box>
+
+                                <Box width="100%">
+                                  <Text>{benefit}</Text>
+                                </Box>
+                              </InlineStack>
+                            ))}
+                          </BlockStack>
+
+                          <Divider />
+
+                          {/* DELIVERY */}
+                          <BlockStack gap="200">
+                            <Text
+                              variant="bodySm"
+                              fontWeight="semibold"
+                            >
+                              Deliver every:
+                            </Text>
+
+                            <Select
+                              label="Delivery frequency"
+                              labelHidden
+                              options={[
+                                {
+                                  label: "Every month",
+                                  value: "month",
+                                },
+                                {
+                                  label: "Every 2 months",
+                                  value: "2-months",
+                                },
+                                {
+                                  label: "Every 3 months",
+                                  value: "3-months",
+                                },
+                              ]}
+                              value={data.deliverEvery}
+                              onChange={(value) => {
+                                console.log(
+                                  "delivery:",
+                                  value,
+                                );
+                              }}
+                            />
+                          </BlockStack>
+                        </BlockStack>
+                      </Box>
+
+                      <Box paddingBlockStart="300">
+                        <Text tone="subdued">
+                          Subscription details
+                        </Text>
+                      </Box>
+
+                      <Box paddingBlockStart="400">
+                        <Button
+                          variant="primary"
+                          fullWidth
+                        >
+                          Choose
+                        </Button>
+                      </Box>
+                    </Box>
+                  </Card>
+                </Box>
+              );
+            }
+
+            {/* COMPACT */}
+            const checked = selected === "subscribe";
+
+            return (
+              <Box key={data.id} width="300px">
+                <Card>
+                  <BlockStack gap="400">
+
+                    <Box
+                      borderWidth="025"
+                      borderColor="border"
+                      borderRadius="300"
+                      padding="400"
+                    >
+                      <InlineStack
+                        gap="300"
+                        blockAlign="start"
+                      >
+                        <Checkbox
+                          checked={checked}
+                          onChange={() =>
+                            selectPurchase(
+                              data.id,
+                              checked
+                                ? "none"
+                                : "subscribe",
+                            )
+                          }
+                        />
+
+                        <BlockStack gap="200">
+                          <InlineStack gap="200">
+                            <Text fontWeight="bold">
+                              Subscribe & save
+                            </Text>
+
+                            <Text
+                              tone="subdued"
+                              textDecorationLine="line-through"
+                            >
+                              {data.price}
+                            </Text>
+
+                            <Text fontWeight="bold">
+                              {data.subPrice}
+                            </Text>
+                          </InlineStack>
+
+                          <Text tone="subdued">
+                            Deliver every:{" "}
+                            {data.deliverEvery}
+                          </Text>
+                        </BlockStack>
+                      </InlineStack>
+                    </Box>
+
+                    <Text tone="subdued">
+                      Subscription details
+                    </Text>
+
+                    <Button variant="primary" fullWidth>
+                      Choose
+                    </Button>
+                  </BlockStack>
+                </Card>
+              </Box>
+            );
+          })}
+        </InlineStack>
+      </BlockStack>
     </Page>
   );
 }
