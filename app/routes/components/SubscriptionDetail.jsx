@@ -20,6 +20,7 @@ import {
   useRevalidator,
 } from "react-router";
 
+import {formateDate} from "../utils/formatDate.js"
 function AddDiscountModal({
   open,
   onClose,
@@ -212,16 +213,16 @@ function getCardImage(brand) {
   return brandMap[brand?.toLowerCase()] || brandMap["bogus"];
 }
 
-function formateDate(date) {
-  if (!date) return "—";
-  const d = new Date(date);
-  if (isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
-}
+// function formateDate(date) {
+//   if (!date) return "—";
+//   const d = new Date(date);
+//   if (isNaN(d.getTime())) return "—";
+//   return d.toLocaleDateString("en-US", {
+//     month: "long",
+//     day: "numeric",
+//     year: "numeric",
+//   });
+// }
 
 export default function SubscriptionDetail() {
   const {
