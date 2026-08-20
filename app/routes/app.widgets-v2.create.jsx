@@ -1,8 +1,25 @@
-import { Page, TextField, Select, Tooltip, Spinner } from "@shopify/polaris";
-import React, { useState, useEffect, useMemo } from "react";
+import { Page, Select, Button, Thumbnail, InlineStack, Text } from "@shopify/polaris";
+import React, { useMemo, useState } from "react";
+import { useLoaderData } from "react-router";
+import { useAppBridge } from "@shopify/app-bridge-react";
+import { authenticate } from "../shopify.server";
 
 const API = import.meta.env.VITE_API_URL;
 const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
+
+export const loader = async ({ request }) => {
+  const { session } = await authenticate.admin(request);
+  const shop = session.shop;
+
+  const plansResponse = await fetch(`${API}/plans/getAllPlans?shop=${shop}`, {
+    headers: { "x-api-key": SECRET_KEY },
+  });
+  const plansData = await plansResponse.json();
+
+  return Response.json({
+    plans: plansData.success ? plansData.data : [],
+  });
+};
 
 const purchaseCards = [
   {
@@ -123,208 +140,84 @@ const styles = {
     color: "#555",
     fontSize: 13,
     marginTop: 4,
-    cursor: "default",
-  },
-  productField: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    border: "1px solid #c9cccf",
-    borderRadius: 8,
-    padding: "10px 12px",
-    cursor: "pointer",
-    background: "#fff",
   },
 };
 
-// Ported from the storefront widget script (doc 3) — same text logic,
-// so the admin preview matches exactly what shows on the storefront.
-function buildSubscriptionDetailsText(matchedPlan) {
-  if (!matchedPlan) return "";
-
-  const DeliveryCount = matchedPlan.intervalCount;
-  const DeliveryInterval = matchedPlan.interval;
-
-  let discountText = "";
-  let afterOrderSubscription = "";
-
-  if (matchedPlan.giveSubscriptionDiscount) {
-    const { discountType, discountValue } = matchedPlan;
-    if (discountType === "PERCENTAGE") {
-      discountText = ` | Discount: ${discountValue}%.`;
-    } else if (discountType === "PRICE") {
-      discountText = ` | Fixed Price: ₹${discountValue}.`;
-    } else if (discountType === "FIXED_AMOUNT") {
-      discountText = ` | Discount: ₹${discountValue} off.`;
-    }
-
-    if (matchedPlan.changeDiscountAfterOrders) {
-      const { afterDiscountType, afterDiscountValue, afterOrders } = matchedPlan;
-      if (afterDiscountType === "PERCENTAGE") {
-        afterOrderSubscription = ` After ${afterOrders} Orders Discount will change to ${afterDiscountValue}%.`;
-      } else if (afterDiscountType === "PRICE") {
-        afterOrderSubscription = ` After ${afterOrders} Orders price will be fixed at ₹${afterDiscountValue}.`;
-      } else if (afterDiscountType === "FIXED_AMOUNT") {
-        afterOrderSubscription = ` After ${afterOrders} Orders price will be reduce from original price ₹${afterDiscountValue}.`;
-      }
-    }
-  }
-
-  let BothCombine = "";
-  const MinCycle = matchedPlan.minCycles;
-  const MaxCycle = matchedPlan.maxCycles;
-  if (MinCycle !== null || MaxCycle !== null) {
-    if (MinCycle && MaxCycle) {
-      BothCombine = ` You will be able to cancel your subscription after ${MinCycle} Orders. Subscription will cancel automatically after ${MaxCycle} Orders.`;
-    } else if (MinCycle) {
-      BothCombine = ` You can cancel Subscription after ${MinCycle} Orders.`;
-    } else if (MaxCycle) {
-      BothCombine = ` Subscription will cancel automatically after ${MaxCycle} Orders.`;
-    }
-  }
-
-  let ShippingDiscount = "";
-  if (matchedPlan.giveShippingDiscount) {
-    const { shippingDiscountType, shippingDiscountValue, shippingAfterOrders } = matchedPlan;
-    if (shippingDiscountType === "PERCENTAGE") {
-      ShippingDiscount = ` Delivery price will be reduced by ${shippingDiscountValue}% after ${shippingAfterOrders} Orders.`;
-    } else if (shippingDiscountType === "PRICE") {
-      ShippingDiscount = ` Delivery price will be fixed at ₹${shippingDiscountValue} after ${shippingAfterOrders} Orders.`;
-    } else if (shippingDiscountType === "FIXED_AMOUNT") {
-      ShippingDiscount = ` Delivery price will be reduced by ₹${shippingDiscountValue} after ${shippingAfterOrders} Orders.`;
-    }
-  }
-
-  let QuantityChange = "";
-  if (matchedPlan.changeQuantityAfterOrders) {
-    const { quantityAfterOrdersValue, quantityAfterOrders } = matchedPlan;
-    QuantityChange = ` Quantity will change ${quantityAfterOrdersValue} after ${quantityAfterOrders} Orders.`;
-  }
-
-  return `Deliver every ${DeliveryCount} ${DeliveryInterval}.${discountText}${afterOrderSubscription}${BothCombine}${ShippingDiscount}${QuantityChange}`;
-}
-
 function Widgets2() {
+  const { plans } = useLoaderData();
+  const shopify = useAppBridge();
+
+  // ---- Plan dropdown ----
+  const planOptions = useMemo(
+    () => plans.map((p) => ({ label: p.planName, value: p.planId })),
+    [plans],
+  );
+  const [selectedPlanId, setSelectedPlanId] = useState(
+    planOptions[0]?.value || "",
+  );
+
+  // ---- Product via Resource Picker ----
+  const [selectedProduct, setSelectedProduct] = useState(null);
+
+  const openProductPicker = async () => {
+    const selected = await shopify.resourcePicker({
+      type: "product",
+      multiple: false,
+    });
+
+    if (selected && selected.length > 0) {
+      const product = selected[0];
+      setSelectedProduct({
+        id: product.id,
+        title: product.title,
+        image: product.images?.[0]?.originalSrc || null,
+      });
+    }
+  };
+
   const [selectedMap, setSelectedMap] = useState(
     purchaseCards.reduce((acc, c) => ({ ...acc, [c.id]: "subscribe" }), {}),
   );
 
-  const [plans, setPlans] = useState([]);
-  const [plansLoading, setPlansLoading] = useState(true);
-  const [previewingPlanId, setPreviewingPlanId] = useState("");
-
-  const [previewingProduct, setPreviewingProduct] = useState(null);
-  const [productPickerLoading, setProductPickerLoading] = useState(false);
-
   const select = (id, value) =>
     setSelectedMap((prev) => ({ ...prev, [id]: value }));
-
-  // Fetch plan list for the "Previewing plan" dropdown.
-  useEffect(() => {
-    const shop = window.Shopify?.shop;
-    async function fetchPlans() {
-      try {
-        const res = await fetch(`${API}/plans/getAllPlans?shop=${shop}`, {
-          headers: { "x-api-key": SECRET_KEY },
-        });
-        const data = await res.json();
-        const list = data.success ? data.data : [];
-        setPlans(list);
-        if (list.length > 0) setPreviewingPlanId(list[0].planId);
-      } catch (err) {
-        console.error("Failed to fetch plans:", err);
-      } finally {
-        setPlansLoading(false);
-      }
-    }
-    fetchPlans();
-  }, []);
-
-  const selectedPlanGroup = useMemo(
-    () => plans.find((p) => p.planId === previewingPlanId) || null,
-    [plans, previewingPlanId],
-  );
-
-  // Preview uses the first selling plan tier of the selected group.
-  const matchedSellingPlan = selectedPlanGroup?.sellingPlans?.[0] || null;
-
-  const subscriptionDetailsText = useMemo(
-    () => buildSubscriptionDetailsText(matchedSellingPlan),
-    [matchedSellingPlan],
-  );
-
-  const planOptions = plans.map((p) => ({
-    label: p.planName,
-    value: p.planId,
-  }));
-
-  // Opens the native Shopify "Add product" resource picker.
-  async function openProductPicker() {
-    if (!window.shopify?.resourcePicker) {
-      console.error("App Bridge resourcePicker is not available");
-      return;
-    }
-    try {
-      setProductPickerLoading(true);
-      const selected = await window.shopify.resourcePicker({
-        type: "product",
-        multiple: false,
-        action: "select",
-      });
-      if (selected && selected.length > 0) {
-        setPreviewingProduct(selected[0]);
-      }
-    } catch (err) {
-      // user cancelled the picker or an error occurred
-      console.error("resourcePicker error:", err);
-    } finally {
-      setProductPickerLoading(false);
-    }
-  }
 
   return (
     <Page title="Choose a template">
       <div style={{ display: "flex", justifyContent: "center", gap: "20px" }}>
-        <div>
+        <div style={{ minWidth: "260px" }}>
           <h1>Previewing plan</h1>
-          {plansLoading ? (
-            <Spinner size="small" />
-          ) : (
-            <Select
-              label=""
-              labelHidden
-              options={planOptions}
-              value={previewingPlanId}
-              onChange={(value) => setPreviewingPlanId(value)}
-              placeholder="Select a plan"
-            />
-          )}
+          <Select
+            label=""
+            labelHidden
+            options={planOptions}
+            value={selectedPlanId}
+            onChange={setSelectedPlanId}
+            placeholder="Select a plan"
+          />
         </div>
 
-        <div>
+        <div style={{ minWidth: "260px" }}>
           <h1>Previewing product:</h1>
-          <div style={styles.productField} onClick={openProductPicker}>
-            <span>
-              {productPickerLoading
-                ? "Loading..."
-                : previewingProduct?.title || "Select a product"}
-            </span>
-            <span>⌄</span>
-          </div>
+          {selectedProduct ? (
+            <InlineStack gap="200" blockAlign="center">
+              <Thumbnail
+                source={selectedProduct.image || ""}
+                alt={selectedProduct.title}
+                size="small"
+              />
+              <Text as="span">{selectedProduct.title}</Text>
+              <Button onClick={openProductPicker}>Change</Button>
+            </InlineStack>
+          ) : (
+            <Button onClick={openProductPicker}>Select a product</Button>
+          )}
         </div>
       </div>
 
       <div style={styles.wrapper}>
         {purchaseCards.map((data) => {
           const selected = selectedMap[data.id];
-
-          const detailsTooltip = subscriptionDetailsText ? (
-            <Tooltip content={subscriptionDetailsText} dismissOnMouseOut>
-              <div style={styles.infoRow}>ⓘ Subscription details</div>
-            </Tooltip>
-          ) : (
-            <div style={styles.infoRow}>ⓘ Subscription details</div>
-          );
 
           if (data.variant === "simple") {
             return (
@@ -358,9 +251,13 @@ function Widgets2() {
                       alignItems: "center",
                     }}
                   >
-                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <div
+                      style={{ display: "flex", alignItems: "center", gap: 12 }}
+                    >
                       <span style={styles.radioOuter(selected === "onetime")}>
-                        {selected === "onetime" && <span style={styles.radioInner} />}
+                        {selected === "onetime" && (
+                          <span style={styles.radioInner} />
+                        )}
                       </span>
                       <span style={{ fontWeight: 700, fontSize: 16 }}>
                         One time purchase
@@ -387,7 +284,9 @@ function Widgets2() {
                     }}
                   >
                     <span style={styles.radioOuter(selected === "subscribe")}>
-                      {selected === "subscribe" && <span style={styles.radioInner} />}
+                      {selected === "subscribe" && (
+                        <span style={styles.radioInner} />
+                      )}
                     </span>
                     <span style={{ fontWeight: 700, fontSize: 16 }}>
                       Subscribe & save
@@ -408,7 +307,9 @@ function Widgets2() {
                   </div>
                 </div>
 
-                {selected !== "onetime" && detailsTooltip}
+                {selected !== "onetime" && (
+                  <div style={styles.infoRow}>Subscription details</div>
+                )}
                 <button style={styles.chooseBtn}>Choose</button>
               </div>
             );
@@ -432,9 +333,13 @@ function Widgets2() {
                       alignItems: "center",
                     }}
                   >
-                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <div
+                      style={{ display: "flex", alignItems: "center", gap: 12 }}
+                    >
                       <span style={styles.radioOuter(selected === "onetime")}>
-                        {selected === "onetime" && <span style={styles.radioInner} />}
+                        {selected === "onetime" && (
+                          <span style={styles.radioInner} />
+                        )}
                       </span>
                       <span style={{ fontWeight: 700, fontSize: 16 }}>
                         One time purchase
@@ -476,9 +381,13 @@ function Widgets2() {
                       alignItems: "flex-start",
                     }}
                   >
-                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <div
+                      style={{ display: "flex", alignItems: "center", gap: 12 }}
+                    >
                       <span style={styles.radioOuter(selected === "subscribe")}>
-                        {selected === "subscribe" && <span style={styles.radioInner} />}
+                        {selected === "subscribe" && (
+                          <span style={styles.radioInner} />
+                        )}
                       </span>
                       <span style={{ fontWeight: 700, fontSize: 16 }}>
                         Subscribe & save
@@ -508,7 +417,9 @@ function Widgets2() {
                     </div>
                   </div>
 
-                  <div style={{ fontWeight: 700, marginTop: 16, marginBottom: 10 }}>
+                  <div
+                    style={{ fontWeight: 700, marginTop: 16, marginBottom: 10 }}
+                  >
                     How subscriptions work:
                   </div>
                   {data.benefits.map((b, i) => (
@@ -539,7 +450,9 @@ function Widgets2() {
                   </div>
                 </div>
 
-                {selected !== "onetime" && detailsTooltip}
+                {selected !== "onetime" && (
+                  <div style={styles.infoRow}>Subscription details</div>
+                )}
                 <button style={styles.chooseBtn}>Choose</button>
               </div>
             );
@@ -558,7 +471,9 @@ function Widgets2() {
                 }}
                 onClick={() => select(data.id, checked ? "none" : "subscribe")}
               >
-                <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+                <div
+                  style={{ display: "flex", alignItems: "flex-start", gap: 12 }}
+                >
                   <span
                     style={{
                       width: 20,
@@ -598,7 +513,7 @@ function Widgets2() {
                   </div>
                 </div>
               </div>
-              {detailsTooltip}
+              <div style={styles.infoRow}>Subscription details</div>
               <button style={styles.chooseBtn}>Choose</button>
             </div>
           );
