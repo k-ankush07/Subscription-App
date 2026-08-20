@@ -1,8 +1,17 @@
+import { Card, Page } from '@shopify/polaris'
 import React from 'react'
 
 function widgets() {
   return (
-    <div>app.widgets</div>
+    <Page
+    title='Widgets'
+      primaryAction={{ content: "Create widget" }}
+    >
+      <Card>
+
+      </Card>
+
+    </Page>
   )
 }
 
