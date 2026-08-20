@@ -1,8 +1,8 @@
 import { authenticate } from "../shopify.server";
 import SubscriptionDetail from "./components/SubscriptionDetail";
 import {
-  collectActionsForCycle,        
-  applyActionsToCycle,         
+  collectActionsForCycle,
+  applyActionsToCycle,
   getContractSettingsSnapshot,
   snapshotContractSettings,
   getContractPreview,
@@ -11,16 +11,22 @@ import {
   addBaseLineRemoval,
   removeAllDiscounts,
   removeLineDiscount,
-  clearAnyOpenDraft,       
+  clearAnyOpenDraft,
   updateContractAddress,
   fetchVariantPrice,
-  addManualDiscount,       
+  addManualDiscount,
   removeManualDiscount,
 } from "../lib/billing-preview.server";
 const API = import.meta.env.VITE_API_URL;
 const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
 
-async function fetchAllBillingCycles(admin, contractId, startDate, endDate,maxCycles = 60) {
+async function fetchAllBillingCycles(
+  admin,
+  contractId,
+  startDate,
+  endDate,
+  maxCycles = 60,
+) {
   let cycles = [];
   let cursor = null;
   let hasNextPage = true;
@@ -62,7 +68,10 @@ async function fetchAllBillingCycles(admin, contractId, startDate, endDate,maxCy
     const data = await res.json();
 
     if (data.errors) {
-      console.error("[fetchAllBillingCycles] GraphQL errors:", JSON.stringify(data.errors));
+      console.error(
+        "[fetchAllBillingCycles] GraphQL errors:",
+        JSON.stringify(data.errors),
+      );
       break;
     }
 
@@ -70,7 +79,7 @@ async function fetchAllBillingCycles(admin, contractId, startDate, endDate,maxCy
     const edges = conn?.edges || [];
     cycles.push(...edges.map((e) => e.node));
 
-      hasNextPage =
+    hasNextPage =
       !!conn?.pageInfo?.hasNextPage &&
       edges.length > 0 &&
       cycles.length < maxCycles;
@@ -131,7 +140,10 @@ async function fetchAllLines(admin, contractId) {
     const data = await res.json();
 
     if (data.errors) {
-      console.error("[fetchAllLines] GraphQL errors:", JSON.stringify(data.errors));
+      console.error(
+        "[fetchAllLines] GraphQL errors:",
+        JSON.stringify(data.errors),
+      );
       break;
     }
 
@@ -140,7 +152,8 @@ async function fetchAllLines(admin, contractId) {
     edges.push(...pageEdges);
 
     hasNextPage = !!conn?.pageInfo?.hasNextPage && pageEdges.length > 0;
-    cursor = pageEdges.length > 0 ? pageEdges[pageEdges.length - 1].cursor : null;
+    cursor =
+      pageEdges.length > 0 ? pageEdges[pageEdges.length - 1].cursor : null;
   }
 
   return edges;
@@ -185,7 +198,10 @@ async function fetchAllOrders(admin, contractId) {
     const data = await res.json();
 
     if (data.errors) {
-      console.error("[fetchAllOrders] GraphQL errors:", JSON.stringify(data.errors));
+      console.error(
+        "[fetchAllOrders] GraphQL errors:",
+        JSON.stringify(data.errors),
+      );
       break;
     }
 
@@ -194,23 +210,24 @@ async function fetchAllOrders(admin, contractId) {
     edges.push(...pageEdges);
 
     hasNextPage = !!conn?.pageInfo?.hasNextPage && pageEdges.length > 0;
-    cursor = pageEdges.length > 0 ? pageEdges[pageEdges.length - 1].cursor : null;
+    cursor =
+      pageEdges.length > 0 ? pageEdges[pageEdges.length - 1].cursor : null;
   }
 
   return edges;
 }
 export async function loader({ request, params }) {
-  const { admin,session } = await authenticate.admin(request);
+  const { admin, session } = await authenticate.admin(request);
 
   const subscriptionId = params.id;
   const contractId = `gid://shopify/SubscriptionContract/${subscriptionId}`;
 
   const startDate = new Date();
   const endDateObj = new Date();
-  endDateObj.setMonth(endDateObj.getMonth() +4 );
+  endDateObj.setMonth(endDateObj.getMonth() + 4);
   const endDate = endDateObj.toISOString();
 
-const graphqlResponse = await admin.graphql(
+  const graphqlResponse = await admin.graphql(
     `
     query SubscriptionContractWithUpcoming(
       $contractId: ID!
@@ -299,7 +316,7 @@ const graphqlResponse = await admin.graphql(
     throw new Response("Subscription contract not found", { status: 404 });
   }
 
-const contract = data.data.subscriptionContract;
+  const contract = data.data.subscriptionContract;
 
   // lines pehle chahiye kyunki preview isi par depend karta hai
   const allLineEdges = await fetchAllLines(admin, contractId);
@@ -308,7 +325,7 @@ const contract = data.data.subscriptionContract;
   // Ye teeno ek dusre se independent hain — ek saath (parallel) chalao
   const [allOrderEdges, allCycles, preview] = await Promise.all([
     fetchAllOrders(admin, contractId),
-    fetchAllBillingCycles(admin, contractId, startDate, endDate,60),
+    fetchAllBillingCycles(admin, contractId, startDate, endDate, 60),
     getContractPreview(admin, contractId, contract),
   ]);
   contract.orders = { edges: allOrderEdges };
@@ -344,7 +361,7 @@ const contract = data.data.subscriptionContract;
       "x-api-key": SECRET_KEY,
     },
     body: JSON.stringify({
-       shop: session.shop,
+      shop: session.shop,
       subscriptionId,
       contractId,
       contract,
@@ -373,7 +390,16 @@ const contract = data.data.subscriptionContract;
     console.error("Backend fetch notes failed:", err);
   }
 
-  return { contract, upcomingCycles,   pastSkippedCycles, pastOrders, internalNotes, customerNotes, preview ,shop: session.shop, };
+  return {
+    contract,
+    upcomingCycles,
+    pastSkippedCycles,
+    pastOrders,
+    internalNotes,
+    customerNotes,
+    preview,
+    shop: session.shop,
+  };
 }
 
 const RESCHEDULE_MUTATION = `
@@ -421,7 +447,7 @@ export async function action({ request, params }) {
   const notes = formData.get("notes");
   const subscriptionId = params.id;
   const contractId = `gid://shopify/SubscriptionContract/${subscriptionId}`;
-  const { admin , session} = await authenticate.admin(request);
+  const { admin, session } = await authenticate.admin(request);
 
   if (
     type === "pause" ||
@@ -433,18 +459,21 @@ export async function action({ request, params }) {
     type === "charge_now" ||
     type === "remove_automation_item" ||
     type === "remove_base_line" ||
-    type === "remove_all_discounts" ||   
-    type === "remove_line_discount"  ||
+    type === "remove_all_discounts" ||
+    type === "remove_line_discount" ||
     type === "update_address" ||
-    type === "add_manual_discount" ||     
-    type === "remove_manual_discount" 
+    type === "add_manual_discount" ||
+    type === "remove_manual_discount"
   ) {
     if (type === "pause") {
       try {
-    await clearAnyOpenDraft(admin, contractId);
-  } catch (err) {
-    console.warn(`[pause] clearAnyOpenDraft failed for ${contractId}:`, err);
-  }
+        await clearAnyOpenDraft(admin, contractId);
+      } catch (err) {
+        console.warn(
+          `[pause] clearAnyOpenDraft failed for ${contractId}:`,
+          err,
+        );
+      }
       const res = await admin.graphql(
         `
         mutation PauseSubscriptionContract($contractId: ID!) {
@@ -480,29 +509,35 @@ export async function action({ request, params }) {
       }
 
       try {
-    await fetch(`${API}/api/subscription`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-api-key": SECRET_KEY },
-      body: JSON.stringify({
-         shop: session.shop,
-        subscriptionId,
-        contractId,
-        actionBy: "merchant",
-        actionReason: "",
-        actionAt: new Date().toISOString(),
-      }),
-    });
-  } catch (err) {
-    console.error("Failed to record pause source:", err);
-  }
+        await fetch(`${API}/api/subscription`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": SECRET_KEY,
+          },
+          body: JSON.stringify({
+            shop: session.shop,
+            subscriptionId,
+            contractId,
+            actionBy: "merchant",
+            actionReason: "",
+            actionAt: new Date().toISOString(),
+          }),
+        });
+      } catch (err) {
+        console.error("Failed to record pause source:", err);
+      }
       return { success: true, status: payload.contract.status };
     }
     if (type === "cancel") {
       try {
-    await clearAnyOpenDraft(admin, contractId);
-  } catch (err) {
-    console.warn(`[cancel] clearAnyOpenDraft failed for ${contractId}:`, err);
-  }
+        await clearAnyOpenDraft(admin, contractId);
+      } catch (err) {
+        console.warn(
+          `[cancel] clearAnyOpenDraft failed for ${contractId}:`,
+          err,
+        );
+      }
       const res = await admin.graphql(
         `
         mutation CancelSubscriptionContract($contractId: ID!) {
@@ -536,226 +571,88 @@ export async function action({ request, params }) {
             "Cancel failed",
         };
       }
- try {
-    await fetch(`${API}/api/subscription`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-api-key": SECRET_KEY },
-      body: JSON.stringify({
-         shop: session.shop,
-        subscriptionId,
-        contractId,
-        cancelledBy: "merchant",
-        actionReason: "",
-        cancelledAt: new Date().toISOString(),
-      }),
-    });
-  } catch (err) {
-    console.error("Failed to record cancel source:", err);
-  }
+      try {
+        await fetch(`${API}/api/subscription`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": SECRET_KEY,
+          },
+          body: JSON.stringify({
+            shop: session.shop,
+            subscriptionId,
+            contractId,
+            cancelledBy: "merchant",
+            actionReason: "",
+            cancelledAt: new Date().toISOString(),
+          }),
+        });
+      } catch (err) {
+        console.error("Failed to record cancel source:", err);
+      }
       return { success: true, status: payload.contract.status };
     }
     if (type === "resume") {
-  const res = await admin.graphql(
-    `
-    mutation ActivateSubscriptionContract($contractId: ID!) {
-      subscriptionContractActivate(
-        subscriptionContractId: $contractId
-      ) {
-        contract {
-          id
-          status
-          nextBillingDate
-        }
-        userErrors {
-          field
-          message
-          code
-        }
-      }
-    }
-    `,
-    { variables: { contractId } },
-  );
-
-  const data = await res.json();
-  const payload = data?.data?.subscriptionContractActivate;
-
-  if (!payload || payload.userErrors?.length) {
-    console.error("Resume failed", payload?.userErrors);
-    return {
-      success: false,
-      error:
-        payload?.userErrors?.map((e) => e.message).join(", ") ||
-        "Resume failed",
-    };
-  }
-
-  //  NEW: Resume ke turant baad, pehla unbilled & unskipped future cycle charge karo
-  try {
-    const now = new Date();
-    const startDate = now.toISOString();
-    const endDate = new Date(
-      now.getTime() + 30 * 24 * 60 * 60 * 1000,
-    ).toISOString();
-
-    const cyclesRes = await admin.graphql(
-      `
-      query NextUnskippedCycle(
-        $contractId: ID!
-        $startDate: DateTime!
-        $endDate: DateTime!
-      ) {
-        subscriptionBillingCycles(
-          first: 10
-          contractId: $contractId
-          billingCyclesDateRangeSelector: { startDate: $startDate, endDate: $endDate }
-        ) {
-          edges {
-            node {
-              cycleIndex
-              billingAttemptExpectedDate
-              status
-              skipped
-            }
-          }
-        }
-      }
-      `,
-      {
-        variables: { contractId, startDate, endDate },
-      },
-    );
-    const cyclesData = await cyclesRes.json();
-    const nodes =
-      cyclesData.data?.subscriptionBillingCycles?.edges?.map(
-        (e) => e.node,
-      ) || [];
-
-    const upcoming = nodes
-      .filter((c) => !c.skipped && c.status !== "BILLED")
-      .sort(
-        (a, b) =>
-          new Date(a.billingAttemptExpectedDate) -
-          new Date(b.billingAttemptExpectedDate),
-      );
-
-    const firstCycle = upcoming[0] || null;
-
-    if (firstCycle) {
-      const chargeRes = await admin.graphql(
+      const res = await admin.graphql(
         `
-        mutation ChargeSubscriptionCycleNowFromUI($contractId: ID!, $index: Int!) {
-          subscriptionBillingCycleCharge(
+        mutation ActivateSubscriptionContract($contractId: ID!) {
+          subscriptionContractActivate(
             subscriptionContractId: $contractId
-            billingCycleSelector: { index: $index }
           ) {
-            subscriptionBillingAttempt {
+            contract {
               id
-              ready
-              errorMessage
-              order { id name }
+              status
+              nextBillingDate
             }
-            userErrors { field message code }
+            userErrors {
+              field
+              message
+              code
+            }
           }
         }
         `,
-        { variables: { contractId, index: firstCycle.cycleIndex } },
+        { variables: { contractId } },
       );
-      const chargeData = await chargeRes.json();
-      const chargePayload =
-        chargeData.data?.subscriptionBillingCycleCharge;
 
-      if (chargePayload?.userErrors?.length) {
-        console.error(
-          "[resume] auto-charge next cycle failed",
-          chargePayload.userErrors,
-        );
+      const data = await res.json();
+      const payload = data?.data?.subscriptionContractActivate;
+
+      if (!payload || payload.userErrors?.length) {
+        console.error("Resume failed", payload?.userErrors);
+        return {
+          success: false,
+          error:
+            payload?.userErrors?.map((e) => e.message).join(", ") ||
+            "Resume failed",
+        };
       }
+
+      try {
+        await fetch(`${API}/api/subscription`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": SECRET_KEY,
+          },
+          body: JSON.stringify({
+            shop: session.shop,
+            subscriptionId,
+            contractId,
+            actionBy: "merchant",
+            actionReason: "",
+            actionAt: new Date().toISOString(),
+          }),
+        });
+      } catch (err) {
+        console.error("Failed to record resume source:", err);
+      }
+
+      return {
+        success: true,
+        status: payload.contract.status,
+      };
     }
-  } catch (err) {
-    console.error("[resume] failed to auto-charge next cycle:", err);
-  }
-
-  try {
-    await fetch(`${API}/api/subscription`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-api-key": SECRET_KEY },
-      body: JSON.stringify({
-        shop: session.shop,
-        subscriptionId,
-        contractId,
-        actionBy: "merchant",
-        actionReason: "",
-        actionAt: new Date().toISOString(),
-      }),
-    });
-  } catch (err) {
-    console.error("Failed to record resume source:", err);
-  }
-
-  return {
-    success: true,
-    status: payload.contract.status,
-  };
-}
-    // if (type === "resume") {
-    //   const res = await admin.graphql(
-    //     `
-    //     mutation ActivateSubscriptionContract($contractId: ID!) {
-    //       subscriptionContractActivate(
-    //         subscriptionContractId: $contractId
-    //       ) {
-    //         contract {
-    //           id
-    //           status
-    //           nextBillingDate
-    //         }
-    //         userErrors {
-    //           field
-    //           message
-    //           code
-    //         }
-    //       }
-    //     }
-    //     `,
-    //     { variables: { contractId } },
-    //   );
-
-    //   const data = await res.json();
-    //   const payload = data?.data?.subscriptionContractActivate;
-
-    //   if (!payload || payload.userErrors?.length) {
-    //     console.error("Resume failed", payload?.userErrors);
-    //     return {
-    //       success: false,
-    //       error:
-    //         payload?.userErrors?.map((e) => e.message).join(", ") ||
-    //         "Resume failed",
-    //     };
-    //   }
-
-    //   try {
-    //     await fetch(`${API}/api/subscription`, {
-    //       method: "POST",
-    //       headers: { "Content-Type": "application/json", "x-api-key": SECRET_KEY },
-    //       body: JSON.stringify({
-    //         shop: session.shop,
-    //         subscriptionId,
-    //         contractId,
-    //         actionBy: "merchant",
-    //         actionReason: "",
-    //         actionAt: new Date().toISOString(),
-    //       }),
-    //     });
-    //   } catch (err) {
-    //     console.error("Failed to record resume source:", err);
-    //   }
-
-    //   return {
-    //     success: true,
-    //     status: payload.contract.status,
-    //   };
-    // }
     if (type === "skip") {
       const cycleIndex = parseInt(formData.get("cycleIndex"), 10);
 
@@ -882,30 +779,134 @@ export async function action({ request, params }) {
         unskippedCycleIndex: payload.billingCycle.cycleIndex,
       };
     }
-    if (type === "reschedule") {
+       if (type === "reschedule") {
       const cycleIndex = parseInt(formData.get("cycleIndex"), 10);
       const newDate = formData.get("newDate");
       const originalDate = formData.get("originalDate");
 
-      if (Number.isNaN(cycleIndex) || !newDate) {
-        return { success: false, error: "Invalid cycle index or date" };
+      if (!newDate || !originalDate) {
+        return { success: false, error: "Invalid date reference" };
       }
 
       const isoDate = new Date(newDate).toISOString();
-      const payload = await rescheduleSingleCycle(
-        admin,
-        contractId,
-        cycleIndex,
-        isoDate,
-      );
 
-      if (!payload || payload.userErrors?.length) {
-        console.error("Reschedule failed", payload?.userErrors);
+      const fmt = (d) =>
+        new Date(d).toLocaleDateString("en-US", {
+          month: "long",
+          day: "numeric",
+          year: "numeric",
+        });
+
+      let cycleWindow = null;
+      try {
+        const windowRes = await admin.graphql(
+          `
+          query getCycleWindowByDate($contractId: ID!, $date: DateTime!) {
+            subscriptionBillingCycle(
+              billingCycleInput: { contractId: $contractId, selector: { date: $date } }
+            ) {
+              cycleIndex
+              cycleStartAt
+              cycleEndAt
+              billingAttemptExpectedDate
+              status
+              skipped
+            }
+          }
+          `,
+          { variables: { contractId, date: originalDate } },
+        );
+        const windowData = await windowRes.json();
+        if (windowData.errors) {
+          console.error(
+            "[reschedule] getCycleWindowByDate GraphQL errors:",
+            JSON.stringify(windowData.errors),
+          );
+        }
+        cycleWindow = windowData.data?.subscriptionBillingCycle || null;
+      } catch (err) {
+        console.error("[reschedule] getCycleWindowByDate failed:", err);
+      }
+
+      if (!cycleWindow) {
         return {
           success: false,
           error:
-            payload?.userErrors?.map((e) => e.message).join(", ") ||
-            "Reschedule failed",
+            "Could not locate this billing cycle (it may have shifted due to an earlier action). Please refresh the page and try again.",
+        };
+      }
+
+      if (
+        cycleWindow.cycleStartAt &&
+        new Date(isoDate) < new Date(cycleWindow.cycleStartAt)
+      ) {
+        return {
+          success: false,
+          error: `Selected date ${fmt(
+            newDate,
+          )} is before this cycle's allowed range. Earliest allowed date is ${fmt(
+            cycleWindow.cycleStartAt,
+          )}.`,
+        };
+      }
+
+      if (
+        cycleWindow.cycleEndAt &&
+        new Date(isoDate) > new Date(cycleWindow.cycleEndAt)
+      ) {
+        return {
+          success: false,
+          error: `Selected date ${fmt(
+            newDate,
+          )} is after this cycle's allowed range. Latest allowed date is ${fmt(
+            cycleWindow.cycleEndAt,
+          )}.`,
+        };
+      }
+
+
+      const res = await admin.graphql(RESCHEDULE_MUTATION, {
+        variables: {
+          billingCycleInput: {
+            contractId,
+            selector: { date: originalDate },
+          },
+          input: {
+            billingDate: isoDate,
+            reason: "MERCHANT_INITIATED",
+          },
+        },
+      });
+      const data = await res.json();
+      const payload = data?.data?.subscriptionBillingCycleScheduleEdit;
+
+      if (data.errors) {
+        console.error(
+          "[reschedule] mutation GraphQL errors:",
+          JSON.stringify(data.errors),
+        );
+      }
+
+      if (!payload || payload.userErrors?.length) {
+        console.error("Reschedule failed", payload?.userErrors);
+
+        const rawMessage = payload?.userErrors
+          ?.map((e) => e.message)
+          .join(", ");
+
+        const isOutOfBounds = payload?.userErrors?.some(
+          (e) => e.code === "OUT_OF_BOUNDS",
+        );
+        const friendlyMessage =
+          isOutOfBounds && cycleWindow.cycleStartAt && cycleWindow.cycleEndAt
+            ? `This cycle only allows dates between ${fmt(
+                cycleWindow.cycleStartAt,
+              )} and ${fmt(cycleWindow.cycleEndAt)}.`
+            : null;
+
+        return {
+          success: false,
+          error: friendlyMessage || rawMessage || "Reschedule failed",
         };
       }
 
@@ -915,6 +916,39 @@ export async function action({ request, params }) {
         newDate: payload.billingCycle.billingAttemptExpectedDate,
       };
     }
+    // if (type === "reschedule") {
+    //   const cycleIndex = parseInt(formData.get("cycleIndex"), 10);
+    //   const newDate = formData.get("newDate");
+    //   const originalDate = formData.get("originalDate");
+
+    //   if (Number.isNaN(cycleIndex) || !newDate) {
+    //     return { success: false, error: "Invalid cycle index or date" };
+    //   }
+
+    //   const isoDate = new Date(newDate).toISOString();
+    //   const payload = await rescheduleSingleCycle(
+    //     admin,
+    //     contractId,
+    //     cycleIndex,
+    //     isoDate,
+    //   );
+
+    //   if (!payload || payload.userErrors?.length) {
+    //     console.error("Reschedule failed", payload?.userErrors);
+    //     return {
+    //       success: false,
+    //       error:
+    //         payload?.userErrors?.map((e) => e.message).join(", ") ||
+    //         "Reschedule failed",
+    //     };
+    //   }
+
+    //   return {
+    //     success: true,
+    //     rescheduledCycleIndex: payload.billingCycle.cycleIndex,
+    //     newDate: payload.billingCycle.billingAttemptExpectedDate,
+    //   };
+    // }
     if (type === "remove_automation_item") {
       const automationCycleIndex = parseInt(
         formData.get("automationCycleIndex"),
@@ -1009,37 +1043,37 @@ export async function action({ request, params }) {
       }
     }
     if (type === "remove_all_discounts") {
-  const sellingPlanId = formData.get("sellingPlanId") || null;
-  try {
-    const currentSettings = await getEffectiveSettingsForContract(
-      admin,
-      contractId,
-      sellingPlanId,
-    );
-    if (!currentSettings) {
-      return {
-        success: false,
-        error: "No automation settings found for this subscription",
-      };
+      const sellingPlanId = formData.get("sellingPlanId") || null;
+      try {
+        const currentSettings = await getEffectiveSettingsForContract(
+          admin,
+          contractId,
+          sellingPlanId,
+        );
+        if (!currentSettings) {
+          return {
+            success: false,
+            error: "No automation settings found for this subscription",
+          };
+        }
+        const updatedSettings = removeAllDiscounts(currentSettings);
+        const { snapshotted } = await snapshotContractSettings(
+          admin,
+          contractId,
+          updatedSettings,
+        );
+        if (!snapshotted) {
+          return {
+            success: false,
+            error: "Failed to save updated automation settings",
+          };
+        }
+        return { success: true };
+      } catch (err) {
+        console.error("Remove all discounts failed:", err);
+        return { success: false, error: String(err?.message || err) };
+      }
     }
-    const updatedSettings = removeAllDiscounts(currentSettings);
-    const { snapshotted } = await snapshotContractSettings(
-      admin,
-      contractId,
-      updatedSettings,
-    );
-    if (!snapshotted) {
-      return {
-        success: false,
-        error: "Failed to save updated automation settings",
-      };
-    }
-    return { success: true };
-  } catch (err) {
-    console.error("Remove all discounts failed:", err);
-    return { success: false, error: String(err?.message || err) };
-  }
-    } 
     if (type === "remove_line_discount") {
       const isBaseLine = formData.get("isBaseLine") === "true";
       const discountPhase = formData.get("discountPhase") || null;
@@ -1051,7 +1085,11 @@ export async function action({ request, params }) {
         rawActionIndex !== "" ? parseInt(rawActionIndex, 10) : null;
       const sellingPlanId = formData.get("sellingPlanId") || null;
 
-      if (!isBaseLine && (Number.isNaN(automationCycleIndex) || Number.isNaN(automationActionIndex))) {
+      if (
+        !isBaseLine &&
+        (Number.isNaN(automationCycleIndex) ||
+          Number.isNaN(automationActionIndex))
+      ) {
         return { success: false, error: "Invalid discount reference" };
       }
 
@@ -1091,21 +1129,30 @@ export async function action({ request, params }) {
         return { success: false, error: String(err?.message || err) };
       }
     }
-   if (type === "charge_now") {
-    const cycleIndex = parseInt(formData.get("cycleIndex"), 10);
+    if (type === "charge_now") {
+      const cycleIndex = parseInt(formData.get("cycleIndex"), 10);
 
-    if (Number.isNaN(cycleIndex)) {
-      return { success: false, error: "Invalid billing cycle index" };
-    }
+      if (Number.isNaN(cycleIndex)) {
+        return { success: false, error: "Invalid billing cycle index" };
+      }
 
-    try {
+      try {
+        await clearAnyOpenDraft(admin, contractId, {
+          fromIndex: 0,
+          toIndex: cycleIndex - 1,
+        }).catch(
+          (err) =>
+            console.warn(
+              `[charge_now] pre-apply clearAnyOpenDraft failed for ${contractId}:`,
+              err,
+            ),
 
-      await clearAnyOpenDraft(admin, contractId).catch((err) =>
-        console.warn(`[charge_now] pre-apply clearAnyOpenDraft failed for ${contractId}:`, err),
-      );
+          // await clearAnyOpenDraft(admin, contractId).catch((err) =>
+          //   console.warn(`[charge_now] pre-apply clearAnyOpenDraft failed for ${contractId}:`, err),
+        );
 
-      const contractRes = await admin.graphql(
-        `
+        const contractRes = await admin.graphql(
+          `
         query getContractLineForCharge($contractId: ID!) {
           subscriptionContract(id: $contractId) {
             deliveryPrice { amount currencyCode }
@@ -1133,47 +1180,61 @@ export async function action({ request, params }) {
           }
         }
         `,
-        { variables: { contractId } },
-      );
-      const contractData = await contractRes.json();
-      if (contractData.errors) {
-        console.error("[charge_now] getContractLineForCharge GraphQL errors:", JSON.stringify(contractData.errors));
-      }
+          { variables: { contractId } },
+        );
+        const contractData = await contractRes.json();
+        if (contractData.errors) {
+          console.error(
+            "[charge_now] getContractLineForCharge GraphQL errors:",
+            JSON.stringify(contractData.errors),
+          );
+        }
 
-      const firstLine =
-        contractData.data?.subscriptionContract?.lines?.edges?.[0]?.node;
-      const liveVariantPrice = await fetchVariantPrice(admin, firstLine?.variantId);
-const basePriceAmount = liveVariantPrice ?? firstLine?.pricingPolicy?.basePrice?.amount ?? null;
-      const pricingPolicy = firstLine?.pricingPolicy ?? null;
-      const deliveryPriceAmount =
-        contractData.data?.subscriptionContract?.deliveryPrice?.amount ??
-        null;
-      const extraSettings = await getContractSettingsSnapshot(
-        admin,
-        contractId,
-      );
-      const actionsForThisCycle = extraSettings
-        ? collectActionsForCycle(extraSettings, cycleIndex, pricingPolicy, firstLine?.variantId)
-        : [];
-
-      let skippedActions = [];
-      if (actionsForThisCycle.length > 0) {
-        const result = await applyActionsToCycle(
+        const firstLine =
+          contractData.data?.subscriptionContract?.lines?.edges?.[0]?.node;
+        const liveVariantPrice = await fetchVariantPrice(
+          admin,
+          firstLine?.variantId,
+        );
+        const basePriceAmount =
+          liveVariantPrice ??
+          firstLine?.pricingPolicy?.basePrice?.amount ??
+          null;
+        const pricingPolicy = firstLine?.pricingPolicy ?? null;
+        const deliveryPriceAmount =
+          contractData.data?.subscriptionContract?.deliveryPrice?.amount ??
+          null;
+        const extraSettings = await getContractSettingsSnapshot(
           admin,
           contractId,
-          cycleIndex,
-          actionsForThisCycle,
-          basePriceAmount,
-          pricingPolicy,
-          null,
-          deliveryPriceAmount,
-          extraSettings,
         );
-        skippedActions = result?.skippedActions || [];
-      }
+        const actionsForThisCycle = extraSettings
+          ? collectActionsForCycle(
+              extraSettings,
+              cycleIndex,
+              pricingPolicy,
+              firstLine?.variantId,
+            )
+          : [];
 
-      const chargeRes = await admin.graphql(
-        `
+        let skippedActions = [];
+        if (actionsForThisCycle.length > 0) {
+          const result = await applyActionsToCycle(
+            admin,
+            contractId,
+            cycleIndex,
+            actionsForThisCycle,
+            basePriceAmount,
+            pricingPolicy,
+            null,
+            deliveryPriceAmount,
+            extraSettings,
+          );
+          skippedActions = result?.skippedActions || [];
+        }
+
+        const chargeRes = await admin.graphql(
+          `
         mutation ChargeSubscriptionCycleNow($contractId: ID!, $index: Int!) {
           subscriptionBillingCycleCharge(
             subscriptionContractId: $contractId
@@ -1189,39 +1250,40 @@ const basePriceAmount = liveVariantPrice ?? firstLine?.pricingPolicy?.basePrice?
           }
         }
         `,
-        { variables: { contractId, index: cycleIndex } },
-      );
+          { variables: { contractId, index: cycleIndex } },
+        );
 
-      const chargeData = await chargeRes.json();
-      const chargePayload = chargeData.data?.subscriptionBillingCycleCharge;
+        const chargeData = await chargeRes.json();
+        const chargePayload = chargeData.data?.subscriptionBillingCycleCharge;
 
-      if (!chargePayload || chargePayload.userErrors?.length) {
-        console.error("Charge now failed", chargePayload?.userErrors);
-        return {
-          success: false,
-          error:
-            chargePayload?.userErrors?.map((e) => e.message).join(", ") ||
-            "Charge failed",
-        };
-      }
+        if (!chargePayload || chargePayload.userErrors?.length) {
+          console.error("Charge now failed", chargePayload?.userErrors);
+          return {
+            success: false,
+            error:
+              chargePayload?.userErrors?.map((e) => e.message).join(", ") ||
+              "Charge failed",
+          };
+        }
 
-      const attempt = chargePayload.subscriptionBillingAttempt;
-      const maxCycles = Number(
-        contractData.data?.subscriptionContract?.billingPolicy?.maxCycles ?? NaN,
-      );
-      const numericCycleIndex = Number(cycleIndex);
+        const attempt = chargePayload.subscriptionBillingAttempt;
+        const maxCycles = Number(
+          contractData.data?.subscriptionContract?.billingPolicy?.maxCycles ??
+            NaN,
+        );
+        const numericCycleIndex = Number(cycleIndex);
 
-      console.log(
-        `[charge_now] auto-cancel check: cycleIndex=${numericCycleIndex}, maxCycles=${maxCycles}, condition=${
-          !Number.isNaN(maxCycles) && numericCycleIndex >= maxCycles - 1
-        }`,
-      );
+        console.log(
+          `[charge_now] auto-cancel check: cycleIndex=${numericCycleIndex}, maxCycles=${maxCycles}, condition=${
+            !Number.isNaN(maxCycles) && numericCycleIndex >= maxCycles - 1
+          }`,
+        );
 
-      let autoCancelled = false;
-      let autoCancelError = null;
+        let autoCancelled = false;
+        let autoCancelError = null;
 
-      if (!Number.isNaN(maxCycles) && numericCycleIndex >= maxCycles - 1) {
-        const CANCEL_MUTATION = `
+        if (!Number.isNaN(maxCycles) && numericCycleIndex >= maxCycles - 1) {
+          const CANCEL_MUTATION = `
           mutation CancelSubscriptionContract($contractId: ID!) {
             subscriptionContractCancel(subscriptionContractId: $contractId) {
               contract { id status }
@@ -1230,100 +1292,110 @@ const basePriceAmount = liveVariantPrice ?? firstLine?.pricingPolicy?.basePrice?
           }
         `;
 
-        const isOpenEditError = (payload) =>
-          payload?.userErrors?.some((e) =>
-            /billing cycle contract edit|incomplete billing attempts/i.test(e.message || ""),
-          );
+          const isOpenEditError = (payload) =>
+            payload?.userErrors?.some((e) =>
+              /billing cycle contract edit|incomplete billing attempts/i.test(
+                e.message || "",
+              ),
+            );
 
-        const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+          const sleep = (ms) =>
+            new Promise((resolve) => setTimeout(resolve, ms));
 
-        try {
-          let cancelPayload = null;
-          const WAIT_STEPS_MS = [2000, 4000, 6000];
+          try {
+            let cancelPayload = null;
+            const WAIT_STEPS_MS = [2000, 4000, 6000];
 
-          for (let attempt = 0; attempt <= WAIT_STEPS_MS.length; attempt++) {
-            if (attempt > 0) {
-              const waitMs = WAIT_STEPS_MS[attempt - 1];
+            for (let attempt = 0; attempt <= WAIT_STEPS_MS.length; attempt++) {
+              if (attempt > 0) {
+                const waitMs = WAIT_STEPS_MS[attempt - 1];
+                console.log(
+                  `[charge_now] cancel attempt ${attempt + 1}/${WAIT_STEPS_MS.length + 1} — waiting ${waitMs}ms for billing attempt to settle`,
+                );
+                await sleep(waitMs);
+              }
+
+              const clearResults = await clearAnyOpenDraft(admin, contractId, {
+                fromIndex: 0,
+                toIndex: numericCycleIndex + 3,
+              });
+              const clearedCount = clearResults.filter((r) => r.cleared).length;
               console.log(
-                `[charge_now] cancel attempt ${attempt + 1}/${WAIT_STEPS_MS.length + 1} — waiting ${waitMs}ms for billing attempt to settle`,
+                `[charge_now] pre-cancel clear (attempt ${attempt + 1}): ${clearedCount} cleared, ${
+                  clearResults.length - clearedCount
+                } failed`,
               );
-              await sleep(waitMs);
+
+              const cancelRes = await admin.graphql(CANCEL_MUTATION, {
+                variables: { contractId },
+              });
+              const cancelData = await cancelRes.json();
+              cancelPayload = cancelData.data?.subscriptionContractCancel;
+
+              if (cancelData.errors) {
+                console.error(
+                  "[charge_now] auto-cancel GraphQL errors:",
+                  JSON.stringify(cancelData.errors),
+                );
+              }
+
+              if (!isOpenEditError(cancelPayload)) {
+                break;
+              }
+
+              console.warn(
+                `[charge_now] cancel attempt ${attempt + 1} blocked by open/incomplete billing cycle edit`,
+              );
             }
 
-            const clearResults = await clearAnyOpenDraft(admin, contractId, {
-              fromIndex: 0,
-              toIndex: numericCycleIndex + 3,
-            });
-            const clearedCount = clearResults.filter((r) => r.cleared).length;
-            console.log(
-              `[charge_now] pre-cancel clear (attempt ${attempt + 1}): ${clearedCount} cleared, ${
-                clearResults.length - clearedCount
-              } failed`,
-            );
-
-            const cancelRes = await admin.graphql(CANCEL_MUTATION, {
-              variables: { contractId },
-            });
-            const cancelData = await cancelRes.json();
-            cancelPayload = cancelData.data?.subscriptionContractCancel;
-
-            if (cancelData.errors) {
-              console.error("[charge_now] auto-cancel GraphQL errors:", JSON.stringify(cancelData.errors));
+            if (cancelPayload?.userErrors?.length) {
+              console.error(
+                "[charge_now] auto-cancel failed after retries:",
+                JSON.stringify(cancelPayload.userErrors),
+              );
+              autoCancelError = cancelPayload.userErrors
+                .map((e) => e.message)
+                .join(", ");
+              if (isOpenEditError(cancelPayload)) {
+                autoCancelError +=
+                  " (billing attempt hadn't settled in time — the scheduled cron job will retry cancellation automatically)";
+              }
+            } else if (cancelPayload?.contract) {
+              autoCancelled = true;
+              console.log(
+                `[charge_now] auto-cancel SUCCESS — new status: ${cancelPayload.contract.status}`,
+              );
+            } else {
+              console.warn(
+                "[charge_now] auto-cancel: no payload returned, unknown state",
+              );
+              autoCancelError = "No cancel payload returned from Shopify";
             }
-
-            if (!isOpenEditError(cancelPayload)) {
-              break;
-            }
-
-            console.warn(
-              `[charge_now] cancel attempt ${attempt + 1} blocked by open/incomplete billing cycle edit`,
-            );
+          } catch (err) {
+            console.error("[charge_now] auto-cancel errored:", err);
+            autoCancelError = String(err?.message || err);
           }
-
-          if (cancelPayload?.userErrors?.length) {
-            console.error(
-              "[charge_now] auto-cancel failed after retries:",
-              JSON.stringify(cancelPayload.userErrors),
-            );
-            autoCancelError = cancelPayload.userErrors
-              .map((e) => e.message)
-              .join(", ");
-            if (isOpenEditError(cancelPayload)) {
-              autoCancelError +=
-                " (billing attempt hadn't settled in time — the scheduled cron job will retry cancellation automatically)";
-            }
-          } else if (cancelPayload?.contract) {
-            autoCancelled = true;
-            console.log(`[charge_now] auto-cancel SUCCESS — new status: ${cancelPayload.contract.status}`);
-          } else {
-            console.warn("[charge_now] auto-cancel: no payload returned, unknown state");
-            autoCancelError = "No cancel payload returned from Shopify";
-          }
-        } catch (err) {
-          console.error("[charge_now] auto-cancel errored:", err);
-          autoCancelError = String(err?.message || err);
         }
-      }
 
-      return {
-        success: true,
-        chargedCycleIndex: cycleIndex,
-        billingAttemptId: attempt?.id || null,
-        orderId: attempt?.order?.id || null,
-        orderName: attempt?.order?.name || null,
-        ready: attempt?.ready ?? null,
-        errorMessage: attempt?.errorMessage || null,
-        appliedActions: actionsForThisCycle.map((a) => a.type),
-        skippedActions,
-        autoCancelled,
-        autoCancelError,
-      };
-    } catch (err) {
-      console.error("[charge_now] failed:", err);
-      return { success: false, error: String(err?.message || err) };
+        return {
+          success: true,
+          chargedCycleIndex: cycleIndex,
+          billingAttemptId: attempt?.id || null,
+          orderId: attempt?.order?.id || null,
+          orderName: attempt?.order?.name || null,
+          ready: attempt?.ready ?? null,
+          errorMessage: attempt?.errorMessage || null,
+          appliedActions: actionsForThisCycle.map((a) => a.type),
+          skippedActions,
+          autoCancelled,
+          autoCancelError,
+        };
+      } catch (err) {
+        console.error("[charge_now] failed:", err);
+        return { success: false, error: String(err?.message || err) };
+      }
     }
-   }
-   if (type === "update_address") {
+    if (type === "update_address") {
       const mode = formData.get("mode");
 
       const buildAddressInput = (a) => ({
@@ -1387,7 +1459,11 @@ const basePriceAmount = liveVariantPrice ?? firstLine?.pricingPolicy?.basePrice?
             phone: formData.get("phone"),
           });
 
-          if (!addressInput.address1 || !addressInput.city || !addressInput.country) {
+          if (
+            !addressInput.address1 ||
+            !addressInput.city ||
+            !addressInput.country
+          ) {
             return {
               success: false,
               error: "Address line 1, city aur country zaroori hain",
@@ -1395,7 +1471,11 @@ const basePriceAmount = liveVariantPrice ?? firstLine?.pricingPolicy?.basePrice?
           }
         }
 
-        const result = await updateContractAddress(admin, contractId, addressInput);
+        const result = await updateContractAddress(
+          admin,
+          contractId,
+          addressInput,
+        );
         return result;
       } catch (err) {
         console.error("Update address failed:", err);
@@ -1415,14 +1495,23 @@ const basePriceAmount = liveVariantPrice ?? firstLine?.pricingPolicy?.basePrice?
 
       try {
         const currentSettings = await getEffectiveSettingsForContract(
-          admin, contractId, sellingPlanId,
+          admin,
+          contractId,
+          sellingPlanId,
         );
         const updatedSettings = addManualDiscount(currentSettings, {
-          name, adjustmentType, adjustmentValue, appliesToAll, variantId,
-          cycleLimit, startCycleIndex: cycleIndex,
+          name,
+          adjustmentType,
+          adjustmentValue,
+          appliesToAll,
+          variantId,
+          cycleLimit,
+          startCycleIndex: cycleIndex,
         });
         const { snapshotted } = await snapshotContractSettings(
-          admin, contractId, updatedSettings,
+          admin,
+          contractId,
+          updatedSettings,
         );
         if (!snapshotted) {
           return { success: false, error: "Failed to save discount" };
@@ -1438,11 +1527,18 @@ const basePriceAmount = liveVariantPrice ?? firstLine?.pricingPolicy?.basePrice?
       const sellingPlanId = formData.get("sellingPlanId") || null;
       try {
         const currentSettings = await getEffectiveSettingsForContract(
-          admin, contractId, sellingPlanId,
+          admin,
+          contractId,
+          sellingPlanId,
         );
-        const updatedSettings = removeManualDiscount(currentSettings, discountId);
+        const updatedSettings = removeManualDiscount(
+          currentSettings,
+          discountId,
+        );
         const { snapshotted } = await snapshotContractSettings(
-          admin, contractId, updatedSettings,
+          admin,
+          contractId,
+          updatedSettings,
         );
         if (!snapshotted) {
           return { success: false, error: "Failed to remove discount" };
@@ -1456,7 +1552,7 @@ const basePriceAmount = liveVariantPrice ?? firstLine?.pricingPolicy?.basePrice?
   }
 
   const payload = {
-     shop: session.shop,
+    shop: session.shop,
     subscriptionId,
     contractId,
     ...(type === "internal"

@@ -998,7 +998,7 @@ export default function SubscriptionDetail() {
                   <b>{`Delivery: Every ${contract?.deliveryPolicy?.intervalCount} ${contract?.deliveryPolicy?.interval} `}</b>
                   <b>{`Billing: every ${contract?.billingPolicy?.intervalCount} ${contract?.billingPolicy?.interval}`}</b>
                 </p>
-                
+
                 <Button
                   onClick={() => navigate(`/app/subscription/${id}/edit`)}
                 >
@@ -1287,7 +1287,8 @@ export default function SubscriptionDetail() {
                         alignItems: "center",
                       }}
                     >
-                      { contract?.status === "ACTIVE" && !cycle.skipped &&
+                      {contract?.status === "ACTIVE" &&
+                        !cycle.skipped &&
                         (editingCycleIndex === cycle.cycleIndex ? (
                           <div
                             style={{
@@ -1300,9 +1301,28 @@ export default function SubscriptionDetail() {
                             <input
                               type="date"
                               value={editDate}
-                              min={new Date().toISOString().split("T")[0]}
+                              min={
+                                cycle.cycleStartAt
+                                  ? new Date(cycle.cycleStartAt)
+                                      .toISOString()
+                                      .split("T")[0]
+                                  : new Date().toISOString().split("T")[0]
+                              }
+                              max={
+                                cycle.cycleEndAt
+                                  ? new Date(cycle.cycleEndAt)
+                                      .toISOString()
+                                      .split("T")[0]
+                                  : undefined
+                              }
                               onChange={(e) => setEditDate(e.target.value)}
                             />
+                            {/* <input
+                              type="date"
+                              value={editDate}
+                              min={new Date().toISOString().split("T")[0]}
+                              onChange={(e) => setEditDate(e.target.value)}
+                            /> */}
                             <Button
                               onClick={() => handleReschedule(cycle)}
                               loading={isThisActionPending("reschedule", {
@@ -1341,7 +1361,6 @@ export default function SubscriptionDetail() {
                             Edit
                           </Button>
                         ))}
-{/* fdfdfesf */}
                       {contract?.status === "ACTIVE" && !cycle.skipped && (
                         <Button
                           plain
