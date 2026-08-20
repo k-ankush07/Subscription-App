@@ -1,13 +1,16 @@
-import { Badge, Card, Page } from '@shopify/polaris'
+import { Badge, Card, Page, Button, Icon } from "@shopify/polaris";
+import { PlusCircleIcon } from "@shopify/polaris-icons";
 import React from 'react'
 
 function widgets() {
   return (
     <Page
-    title='Widgets'
-      primaryAction={{ content: "Create widget" }}
+    
+      primaryAction={{ content: "Create widget" ,icon: PlusCircleIcon,}}
     >
-      <Card>
+      <Card
+      title='Widgets'
+      >
         <table border="1" style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
@@ -18,8 +21,9 @@ function widgets() {
               <th> Card badge </th>
               <th> Actions </th>
             </tr>
-            <tbody>
-              <tr>
+          </thead>
+          <tbody >
+              <tr style={{textAlign:"center"}}>
                 <td>Widgets <Badge tone='attention'>Default</Badge></td>
                 <td>0</td>
                 <td>-</td>
@@ -28,8 +32,6 @@ function widgets() {
                 <td>...</td>
               </tr>
             </tbody>
-
-          </thead>
         </table>
       </Card>
 
