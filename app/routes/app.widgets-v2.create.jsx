@@ -21,45 +21,59 @@ export const loader = async ({ request }) => {
   });
 };
 
+// When a plan has multiple delivery frequencies, list them here.
+// Each frequency has its own discount + price. If a card only has
+// ONE frequency, this array will just have a single entry and the
+// UI automatically falls back to the old single-row / static-label look.
+const frequencyOptions = [
+  {
+    value: "1w",
+    label: "week",
+    discountLabel: "10% off",
+    subPrice: "Rs. 535.50",
+  },
+  {
+    value: "5w",
+    label: "5 weeks",
+    discountLabel: "70% off",
+    subPrice: "Rs. 178.50",
+  },
+];
+
 const purchaseCards = [
   {
     id: "card-1",
     variant: "simple",
-    headerLabel: "PURCHASE OPTIONS", 
-    price: "Rs. 895.00",
-    subPrice: "Rs. 805.50",
-    discountLabel: "10% off",
-    deliverEvery: "month",
+    headerLabel: "PURCHASE OPTIONS",
+    price: "Rs. 595.00",
+    frequencyOptions,
   },
   {
     id: "card-2",
     variant: "detailed",
-    price: "Rs. 895.00",
-    subPrice: "Rs. 805.50",
-    bannerLabel: "Save 10% on every delivery",
-    deliverEvery: "month",
+    price: "Rs. 595.00",
     benefits: [
       "10% of all recurring orders",
       "Lowest price option",
       "Easily swap & skip deliveries",
       "Cancel quickly anytime",
     ],
+    frequencyOptions,
   },
   {
     id: "card-3",
     variant: "compact",
-    price: "Rs. 895.00",
-    subPrice: "Rs. 805.50",
-    deliverEvery: "month",
+    price: "Rs. 595.00",
+    frequencyOptions,
   },
 ];
 
 const styles = {
   wrapper: {
     display: "flex",
-    gap: 10,
-    alignItems: "flex-start",
-    flexWrap: "wrap",
+    gap: 20,
+    alignItems: "stretch",
+    flexWrap: "nowrap",
     background: "#f1f1f1",
     padding: 24,
   },
@@ -67,10 +81,13 @@ const styles = {
   card: {
     background: "#fff",
     borderRadius: 8,
-    padding: 20,
-    width: 340,
+    padding: 24,
+    flex: 1,
+    minWidth: 0,
     boxSizing: "border-box",
     fontFamily: "sans-serif",
+    display: "flex",
+    flexDirection: "column",
   },
 
   headerWithLines: {
@@ -88,8 +105,9 @@ const styles = {
 
   headerText: {
     fontWeight: "bold",
-    fontSize: 14,
+    fontSize: 15,
     color: "#100e0e",
+    whiteSpace: "nowrap",
   },
 
   optionBoxUnselected: {
@@ -170,17 +188,27 @@ const styles = {
     fontSize: 13,
     marginTop: 4,
   },
+
+  freqSelect: {
+    border: "1px solid #ccc",
+    borderRadius: 6,
+    padding: "6px 10px",
+    fontSize: 14,
+    fontFamily: "sans-serif",
+    background: "#fff",
+    cursor: "pointer",
+  },
 };
 
 function Widgets2() {
   const { plans } = useLoaderData();
 
-
   const planOptions = useMemo(
-    () => plans.map((p) => ({
-      label: p.planName,
-      value: p.planId,
-    })),
+    () =>
+      plans.map((p) => ({
+        label: p.planName,
+        value: p.planId,
+      })),
     [plans],
   );
 
@@ -198,12 +226,35 @@ function Widgets2() {
     ),
   );
 
+  const [frequencyMap, setFrequencyMap] = useState(
+    purchaseCards.reduce(
+      (acc, c) => ({
+        ...acc,
+        [c.id]: c.frequencyOptions?.[0]?.value || null,
+      }),
+      {},
+    ),
+  );
+
   const select = (id, value) => {
     setSelectedMap((prev) => ({
       ...prev,
       [id]: value,
     }));
   };
+
+  const selectFrequency = (id, value) => {
+    setFrequencyMap((prev) => ({
+      ...prev,
+      [id]: value,
+    }));
+    // picking a frequency implies the subscribe option is chosen
+    select(id, "subscribe");
+  };
+
+  const getFrequency = (data, id) =>
+    data.frequencyOptions?.find((f) => f.value === frequencyMap[id]) ||
+    data.frequencyOptions?.[0];
 
   return (
     <Page title="Choose a template">
@@ -228,6 +279,9 @@ function Widgets2() {
       <div style={styles.wrapper}>
         {purchaseCards.map((data) => {
           const selected = selectedMap[data.id];
+          const checked = selected === "subscribe";
+          const freq = getFrequency(data, data.id);
+          const hasMultipleFrequencies = (data.frequencyOptions || []).length > 1;
 
           if (data.variant === "simple") {
             return (
@@ -235,9 +289,7 @@ function Widgets2() {
                 {data.headerLabel && (
                   <div style={styles.headerWithLines}>
                     <span style={styles.headerLine} />
-                    <span style={styles.headerText}>
-                      {data.headerLabel}
-                    </span>
+                    <span style={styles.headerText}>{data.headerLabel}</span>
                     <span style={styles.headerLine} />
                   </div>
                 )}
@@ -264,9 +316,7 @@ function Widgets2() {
                         gap: 12,
                       }}
                     >
-                      <span
-                        style={styles.radioOuter(selected === "onetime")}
-                      >
+                      <span style={styles.radioOuter(selected === "onetime")}>
                         {selected === "onetime" && (
                           <span style={styles.radioInner} />
                         )}
@@ -275,16 +325,14 @@ function Widgets2() {
                       <span
                         style={{
                           fontWeight: 700,
-                          fontSize: 16,
+                          fontSize: 18,
                         }}
                       >
                         One time purchase
                       </span>
                     </div>
 
-                    <span style={{ fontWeight: 600 }}>
-                      {data.price}
-                    </span>
+                    <span style={{ fontWeight: 600 }}>{data.price}</span>
                   </div>
                 </div>
 
@@ -294,64 +342,107 @@ function Widgets2() {
                       ? styles.optionBoxSelected
                       : styles.optionBoxUnselected
                   }
-                  onClick={() => select(data.id, "subscribe")}
                 >
                   <div
                     style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 12,
-                      marginBottom: 10,
+                      fontWeight: 700,
+                      fontSize: 18,
+                      marginBottom: hasMultipleFrequencies ? 12 : 0,
                     }}
                   >
-                    <span
-                      style={styles.radioOuter(selected === "subscribe")}
-                    >
-                      {selected === "subscribe" && (
-                        <span style={styles.radioInner} />
-                      )}
-                    </span>
+                    Subscribe & save
+                  </div>
 
-                    <span
+                  {hasMultipleFrequencies ? (
+                    data.frequencyOptions.map((f, index) => {
+                      const isSelected =
+                        selected === "subscribe" &&
+                        frequencyMap[data.id] === f.value;
+                      const isLast =
+                        index === data.frequencyOptions.length - 1;
+
+                      return (
+                        <div
+                          key={f.value}
+                          onClick={() => selectFrequency(data.id, f.value)}
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            cursor: "pointer",
+                            marginBottom: isLast ? 0 : 10,
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 12,
+                            }}
+                          >
+                            <span style={styles.radioOuter(isSelected)}>
+                              {isSelected && (
+                                <span style={styles.radioInner} />
+                              )}
+                            </span>
+
+                            <span>Deliver every {f.label}</span>
+
+                            <span style={styles.badge}>
+                              {f.discountLabel}
+                            </span>
+                          </div>
+
+                          <span style={{ fontWeight: 700 }}>
+                            {f.subPrice}
+                          </span>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div
                       style={{
-                        fontWeight: 700,
-                        fontSize: 16,
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        cursor: "pointer",
                       }}
+                      onClick={() => select(data.id, "subscribe")}
                     >
-                      Subscribe & save
-                    </span>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 12,
+                        }}
+                      >
+                        <span
+                          style={styles.radioOuter(selected === "subscribe")}
+                        >
+                          {selected === "subscribe" && (
+                            <span style={styles.radioInner} />
+                          )}
+                        </span>
 
-                    <span style={styles.badge}>
-                      {data.discountLabel}
-                    </span>
-                  </div>
+                        <span>Deliver every {freq?.label}</span>
 
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      paddingLeft: 32,
-                    }}
-                  >
-                    <span style={{ color: "#555" }}>
-                      Deliver every {data.deliverEvery}
-                    </span>
+                        <span style={styles.badge}>{freq?.discountLabel}</span>
+                      </div>
 
-                    <span style={{ fontWeight: 700 }}>
-                      {data.subPrice}
-                    </span>
-                  </div>
+                      <span style={{ fontWeight: 700 }}>{freq?.subPrice}</span>
+                    </div>
+                  )}
                 </div>
 
-                {selected !== "onetime" && (
-                  <div style={styles.infoRow}>
-                    Subscription details
-                  </div>
+                {checked && (
+                  <div style={styles.infoRow}>Subscription details</div>
                 )}
 
-                 <Button variant="primary" fullWidth>
-                        Choose
-                      </Button>
+                <div style={{ marginTop: "auto" }}>
+                  <Button variant="primary" fullWidth>
+                    Choose
+                  </Button>
+                </div>
               </div>
             );
           }
@@ -381,9 +472,7 @@ function Widgets2() {
                         gap: 12,
                       }}
                     >
-                      <span
-                        style={styles.radioOuter(selected === "onetime")}
-                      >
+                      <span style={styles.radioOuter(selected === "onetime")}>
                         {selected === "onetime" && (
                           <span style={styles.radioInner} />
                         )}
@@ -392,16 +481,14 @@ function Widgets2() {
                       <span
                         style={{
                           fontWeight: 700,
-                          fontSize: 16,
+                          fontSize: 18,
                         }}
                       >
                         One time purchase
                       </span>
                     </div>
 
-                    <span style={{ fontWeight: 600 }}>
-                      {data.price}
-                    </span>
+                    <span style={{ fontWeight: 600 }}>{data.price}</span>
                   </div>
                 </div>
                 <div
@@ -414,15 +501,13 @@ function Widgets2() {
                     borderRadius: "8px 8px 0 0",
                   }}
                 >
-                  {data.bannerLabel}
+                  Save {freq?.discountLabel} on every delivery
                 </div>
 
                 <div
                   style={{
                     border: `2px solid ${
-                      selected === "subscribe"
-                        ? "#111"
-                        : "#d0d0d0"
+                      selected === "subscribe" ? "#111" : "#d0d0d0"
                     }`,
                     borderRadius: "  0 0 8px 8px",
                     padding: 16,
@@ -445,11 +530,7 @@ function Widgets2() {
                         gap: 12,
                       }}
                     >
-                      <span
-                        style={styles.radioOuter(
-                          selected === "subscribe",
-                        )}
-                      >
+                      <span style={styles.radioOuter(selected === "subscribe")}>
                         {selected === "subscribe" && (
                           <span style={styles.radioInner} />
                         )}
@@ -458,7 +539,7 @@ function Widgets2() {
                       <span
                         style={{
                           fontWeight: 700,
-                          fontSize: 16,
+                          fontSize: 18,
                         }}
                       >
                         Subscribe & save
@@ -474,7 +555,7 @@ function Widgets2() {
                           borderRadius: 4,
                         }}
                       >
-                        {data.subPrice}
+                        {freq?.subPrice}
                       </div>
 
                       <div
@@ -523,26 +604,51 @@ function Widgets2() {
                             gap: 10,
                           }}
                         >
-                          <span style={styles.checkCircle}>
-                            ✓
-                          </span>
+                          <span style={styles.checkCircle}>✓</span>
 
                           <span>{benefit}</span>
                         </div>
 
                         {isLast && (
-                          <span
+                          <div
                             style={{
-                              color: "#333",
-                              fontSize: 14,
-                              textAlign: "right",
-                              whiteSpace: "nowrap",
+                              display: "flex",
+                              flexDirection: "column",
+                              alignItems: "flex-end",
+                              gap: 6,
                             }}
+                            onClick={(e) => e.stopPropagation()}
                           >
-                            Deliver every:
-                            <br />
-                            {data.deliverEvery}
-                          </span>
+                            <span
+                              style={{
+                                color: "#333",
+                                fontSize: 14,
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              Deliver every:
+                            </span>
+
+                            {hasMultipleFrequencies ? (
+                              <select
+                                style={styles.freqSelect}
+                                value={frequencyMap[data.id]}
+                                onChange={(e) =>
+                                  selectFrequency(data.id, e.target.value)
+                                }
+                              >
+                                {data.frequencyOptions.map((f) => (
+                                  <option key={f.value} value={f.value}>
+                                    {f.label}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              <span style={{ whiteSpace: "nowrap" }}>
+                                {freq?.label}
+                              </span>
+                            )}
+                          </div>
                         )}
                       </div>
                     );
@@ -550,27 +656,20 @@ function Widgets2() {
                 </div>
 
                 {selected !== "onetime" && (
-                  <div style={styles.infoRow}>
-                    Subscription details
-                  </div>
+                  <div style={styles.infoRow}>Subscription details</div>
                 )}
 
-                 <Button variant="primary" fullWidth>
-                        Choose
-                      </Button>
+                <div style={{ marginTop: "auto" }}>
+                  <Button variant="primary" fullWidth>
+                    Choose
+                  </Button>
+                </div>
               </div>
             );
           }
-          const checked = selected === "subscribe";
 
           return (
-            <div
-              key={data.id}
-              style={{
-                ...styles.card,
-                width: 300,
-              }}
-            >
+            <div key={data.id} style={styles.card}>
               <div
                 style={{
                   border: "2px dashed #bbb",
@@ -579,12 +678,7 @@ function Widgets2() {
                   marginBottom: 12,
                   cursor: "pointer",
                 }}
-                onClick={() =>
-                  select(
-                    data.id,
-                    checked ? "none" : "subscribe",
-                  )
-                }
+                onClick={() => select(data.id, checked ? "none" : "subscribe")}
               >
                 <div
                   style={{
@@ -599,9 +693,7 @@ function Widgets2() {
                       height: 20,
                       borderRadius: 4,
                       background: checked ? "#111" : "#fff",
-                      border: checked
-                        ? "none"
-                        : "2px solid #999",
+                      border: checked ? "none" : "2px solid #999",
                       color: "#fff",
                       display: "inline-flex",
                       alignItems: "center",
@@ -618,11 +710,10 @@ function Widgets2() {
                     <div
                       style={{
                         fontWeight: 700,
-                        fontSize: 16,
+                        fontSize: 18,
                       }}
                     >
                       Subscribe & save{" "}
-
                       <span
                         style={{
                           color: "#999",
@@ -633,31 +724,52 @@ function Widgets2() {
                       >
                         {data.price}
                       </span>{" "}
-
-                      <span style={{ fontWeight: 700 }}>
-                        {data.subPrice}
-                      </span>
+                      <span style={{ fontWeight: 700 }}>{freq?.subPrice}</span>
                     </div>
 
                     <div
                       style={{
                         color: "#555",
                         marginTop: 6,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
                       }}
+                      onClick={(e) => e.stopPropagation()}
                     >
-                      Deliver every: {data.deliverEvery}
+                      <span>Deliver every:</span>
+
+                      {hasMultipleFrequencies ? (
+                        <select
+                          style={styles.freqSelect}
+                          value={frequencyMap[data.id]}
+                          onChange={(e) =>
+                            selectFrequency(data.id, e.target.value)
+                          }
+                        >
+                          {data.frequencyOptions.map((f) => (
+                            <option key={f.value} value={f.value}>
+                              {f.label}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span>{freq?.label}</span>
+                      )}
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div style={styles.infoRow}>
-                Subscription details
-              </div>
+              {checked && (
+                <div style={styles.infoRow}>Subscription details</div>
+              )}
 
-               <Button variant="primary" fullWidth>
-                        Choose
-                      </Button>
+              <div style={{ marginTop: "auto" }}>
+                <Button variant="primary" fullWidth>
+                  Choose
+                </Button>
+              </div>
             </div>
           );
         })}
