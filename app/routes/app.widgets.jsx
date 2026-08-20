@@ -8,7 +8,7 @@ function Widgets() {
   const navigate = useNavigate()
   const createWidgets=()=>
   {
- navigate("/app/widgets/create")
+ navigate("/app/widgets-v2/create")
     
   }
   return (
