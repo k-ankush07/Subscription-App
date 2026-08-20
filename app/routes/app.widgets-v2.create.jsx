@@ -1,7 +1,6 @@
-import { Page, Select, Button, Thumbnail, InlineStack, Text } from "@shopify/polaris";
+import { Page, Select } from "@shopify/polaris";
 import React, { useMemo, useState } from "react";
 import { useLoaderData } from "react-router";
-import { useAppBridge } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 
 const API = import.meta.env.VITE_API_URL;
@@ -14,6 +13,7 @@ export const loader = async ({ request }) => {
   const plansResponse = await fetch(`${API}/plans/getAllPlans?shop=${shop}`, {
     headers: { "x-api-key": SECRET_KEY },
   });
+
   const plansData = await plansResponse.json();
 
   return Response.json({
@@ -25,6 +25,7 @@ const purchaseCards = [
   {
     id: "card-1",
     variant: "simple",
+    headerLabel: "PURCHASE OPTIONS", 
     price: "Rs. 895.00",
     subPrice: "Rs. 805.50",
     discountLabel: "10% off",
@@ -62,6 +63,7 @@ const styles = {
     background: "#f1f1f1",
     padding: 24,
   },
+
   card: {
     background: "#fff",
     borderRadius: 8,
@@ -70,6 +72,28 @@ const styles = {
     boxSizing: "border-box",
     fontFamily: "sans-serif",
   },
+
+  headerWithLines: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 16,
+  },
+
+  headerLine: {
+    flex: 1,
+    height: 1,
+    background: "#ddd",
+  },
+
+  headerText: {
+    fontWeight: 700,
+    fontSize: 13,
+    letterSpacing: 1,
+    color: "#333",
+    whiteSpace: "nowrap",
+  },
+
   optionBoxUnselected: {
     border: "2px solid #d0d0d0",
     borderRadius: 8,
@@ -77,6 +101,7 @@ const styles = {
     marginBottom: 12,
     cursor: "pointer",
   },
+
   optionBoxSelected: {
     border: "2px solid #111",
     borderRadius: 8,
@@ -84,6 +109,7 @@ const styles = {
     marginBottom: 12,
     cursor: "pointer",
   },
+
   radioOuter: (checked) => ({
     width: 20,
     height: 20,
@@ -94,12 +120,14 @@ const styles = {
     justifyContent: "center",
     flexShrink: 0,
   }),
+
   radioInner: {
     width: 10,
     height: 10,
     borderRadius: "50%",
     background: "#111",
   },
+
   badge: {
     background: "#eee",
     color: "#333",
@@ -109,6 +137,7 @@ const styles = {
     padding: "2px 10px",
     marginLeft: 8,
   },
+
   checkCircle: {
     width: 18,
     height: 18,
@@ -121,6 +150,7 @@ const styles = {
     justifyContent: "center",
     flexShrink: 0,
   },
+
   chooseBtn: {
     width: "100%",
     background: "#111",
@@ -133,6 +163,7 @@ const styles = {
     cursor: "pointer",
     marginTop: 12,
   },
+
   infoRow: {
     display: "flex",
     alignItems: "center",
@@ -145,73 +176,54 @@ const styles = {
 
 function Widgets2() {
   const { plans } = useLoaderData();
-  const shopify = useAppBridge();
 
-  // ---- Plan dropdown ----
+
   const planOptions = useMemo(
-    () => plans.map((p) => ({ label: p.planName, value: p.planId })),
+    () => plans.map((p) => ({
+      label: p.planName,
+      value: p.planId,
+    })),
     [plans],
   );
+
   const [selectedPlanId, setSelectedPlanId] = useState(
     planOptions[0]?.value || "",
   );
 
-  // ---- Product via Resource Picker ----
-  const [selectedProduct, setSelectedProduct] = useState(null);
-
-  const openProductPicker = async () => {
-    const selected = await shopify.resourcePicker({
-      type: "product",
-      multiple: false,
-    });
-
-    if (selected && selected.length > 0) {
-      const product = selected[0];
-      setSelectedProduct({
-        id: product.id,
-        title: product.title,
-        image: product.images?.[0]?.originalSrc || null,
-      });
-    }
-  };
-
   const [selectedMap, setSelectedMap] = useState(
-    purchaseCards.reduce((acc, c) => ({ ...acc, [c.id]: "subscribe" }), {}),
+    purchaseCards.reduce(
+      (acc, c) => ({
+        ...acc,
+        [c.id]: "subscribe",
+      }),
+      {},
+    ),
   );
 
-  const select = (id, value) =>
-    setSelectedMap((prev) => ({ ...prev, [id]: value }));
+  const select = (id, value) => {
+    setSelectedMap((prev) => ({
+      ...prev,
+      [id]: value,
+    }));
+  };
 
   return (
     <Page title="Choose a template">
-      <div style={{ display: "flex", justifyContent: "center", gap: "20px" }}>
+      <div
+        style={{
+          display: "flex",
+        }}
+      >
         <div style={{ minWidth: "260px" }}>
           <h1>Previewing plan</h1>
+
           <Select
             label=""
             labelHidden
             options={planOptions}
             value={selectedPlanId}
             onChange={setSelectedPlanId}
-            placeholder="Select a plan"
           />
-        </div>
-
-        <div style={{ minWidth: "260px" }}>
-          <h1>Previewing product:</h1>
-          {selectedProduct ? (
-            <InlineStack gap="200" blockAlign="center">
-              <Thumbnail
-                source={selectedProduct.image || ""}
-                alt={selectedProduct.title}
-                size="small"
-              />
-              <Text as="span">{selectedProduct.title}</Text>
-              <Button onClick={openProductPicker}>Change</Button>
-            </InlineStack>
-          ) : (
-            <Button onClick={openProductPicker}>Select a product</Button>
-          )}
         </div>
       </div>
 
@@ -222,19 +234,16 @@ function Widgets2() {
           if (data.variant === "simple") {
             return (
               <div key={data.id} style={styles.card}>
-                <div
-                  style={{
-                    textAlign: "center",
-                    fontWeight: 700,
-                    fontSize: 13,
-                    letterSpacing: 1,
-                    marginBottom: 16,
-                    borderBottom: "1px solid #ddd",
-                    paddingBottom: 10,
-                  }}
-                >
-                  PURCHASE OPTIONS
-                </div>
+                {/* Header with lines on both sides - only if a label exists */}
+                {data.headerLabel && (
+                  <div style={styles.headerWithLines}>
+                    <span style={styles.headerLine} />
+                    <span style={styles.headerText}>
+                      {data.headerLabel}
+                    </span>
+                    <span style={styles.headerLine} />
+                  </div>
+                )}
 
                 <div
                   style={
@@ -252,18 +261,33 @@ function Widgets2() {
                     }}
                   >
                     <div
-                      style={{ display: "flex", alignItems: "center", gap: 12 }}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 12,
+                      }}
                     >
-                      <span style={styles.radioOuter(selected === "onetime")}>
+                      <span
+                        style={styles.radioOuter(selected === "onetime")}
+                      >
                         {selected === "onetime" && (
                           <span style={styles.radioInner} />
                         )}
                       </span>
-                      <span style={{ fontWeight: 700, fontSize: 16 }}>
+
+                      <span
+                        style={{
+                          fontWeight: 700,
+                          fontSize: 16,
+                        }}
+                      >
                         One time purchase
                       </span>
                     </div>
-                    <span style={{ fontWeight: 600 }}>{data.price}</span>
+
+                    <span style={{ fontWeight: 600 }}>
+                      {data.price}
+                    </span>
                   </div>
                 </div>
 
@@ -283,16 +307,28 @@ function Widgets2() {
                       marginBottom: 10,
                     }}
                   >
-                    <span style={styles.radioOuter(selected === "subscribe")}>
+                    <span
+                      style={styles.radioOuter(selected === "subscribe")}
+                    >
                       {selected === "subscribe" && (
                         <span style={styles.radioInner} />
                       )}
                     </span>
-                    <span style={{ fontWeight: 700, fontSize: 16 }}>
+
+                    <span
+                      style={{
+                        fontWeight: 700,
+                        fontSize: 16,
+                      }}
+                    >
                       Subscribe & save
                     </span>
-                    <span style={styles.badge}>{data.discountLabel}</span>
+
+                    <span style={styles.badge}>
+                      {data.discountLabel}
+                    </span>
                   </div>
+
                   <div
                     style={{
                       display: "flex",
@@ -303,14 +339,22 @@ function Widgets2() {
                     <span style={{ color: "#555" }}>
                       Deliver every {data.deliverEvery}
                     </span>
-                    <span style={{ fontWeight: 700 }}>{data.subPrice}</span>
+
+                    <span style={{ fontWeight: 700 }}>
+                      {data.subPrice}
+                    </span>
                   </div>
                 </div>
 
                 {selected !== "onetime" && (
-                  <div style={styles.infoRow}>Subscription details</div>
+                  <div style={styles.infoRow}>
+                    Subscription details
+                  </div>
                 )}
-                <button style={styles.chooseBtn}>Choose</button>
+
+                <button style={styles.chooseBtn}>
+                  Choose
+                </button>
               </div>
             );
           }
@@ -318,6 +362,7 @@ function Widgets2() {
           if (data.variant === "detailed") {
             return (
               <div key={data.id} style={styles.card}>
+                {/* One Time */}
                 <div
                   style={
                     selected === "onetime"
@@ -334,21 +379,35 @@ function Widgets2() {
                     }}
                   >
                     <div
-                      style={{ display: "flex", alignItems: "center", gap: 12 }}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 12,
+                      }}
                     >
-                      <span style={styles.radioOuter(selected === "onetime")}>
+                      <span
+                        style={styles.radioOuter(selected === "onetime")}
+                      >
                         {selected === "onetime" && (
                           <span style={styles.radioInner} />
                         )}
                       </span>
-                      <span style={{ fontWeight: 700, fontSize: 16 }}>
+
+                      <span
+                        style={{
+                          fontWeight: 700,
+                          fontSize: 16,
+                        }}
+                      >
                         One time purchase
                       </span>
                     </div>
-                    <span style={{ fontWeight: 600 }}>{data.price}</span>
+
+                    <span style={{ fontWeight: 600 }}>
+                      {data.price}
+                    </span>
                   </div>
                 </div>
-
                 <div
                   style={{
                     background: "#e8e8e8",
@@ -357,7 +416,11 @@ function Widgets2() {
                     fontSize: 13,
                     padding: "8px 0",
                     borderRadius: "8px 8px 0 0",
-                    border: `2px solid ${selected === "subscribe" ? "#111" : "#d0d0d0"}`,
+                    border: `2px solid ${
+                      selected === "subscribe"
+                        ? "#a8a8a8"
+                        : "#d0d0d0"
+                    }`,
                     borderBottom: "none",
                   }}
                 >
@@ -366,7 +429,11 @@ function Widgets2() {
 
                 <div
                   style={{
-                    border: `2px solid ${selected === "subscribe" ? "#111" : "#d0d0d0"}`,
+                    border: `2px solid ${
+                      selected === "subscribe"
+                        ? "#a8a8a8"
+                        : "#d0d0d0"
+                    }`,
                     borderRadius: "0 0 8px 8px",
                     padding: 16,
                     marginBottom: 12,
@@ -382,17 +449,32 @@ function Widgets2() {
                     }}
                   >
                     <div
-                      style={{ display: "flex", alignItems: "center", gap: 12 }}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 12,
+                      }}
                     >
-                      <span style={styles.radioOuter(selected === "subscribe")}>
+                      <span
+                        style={styles.radioOuter(
+                          selected === "subscribe",
+                        )}
+                      >
                         {selected === "subscribe" && (
                           <span style={styles.radioInner} />
                         )}
                       </span>
-                      <span style={{ fontWeight: 700, fontSize: 16 }}>
+
+                      <span
+                        style={{
+                          fontWeight: 700,
+                          fontSize: 16,
+                        }}
+                      >
                         Subscribe & save
                       </span>
                     </div>
+
                     <div style={{ textAlign: "right" }}>
                       <div
                         style={{
@@ -404,6 +486,7 @@ function Widgets2() {
                       >
                         {data.subPrice}
                       </div>
+
                       <div
                         style={{
                           color: "#999",
@@ -418,49 +501,86 @@ function Widgets2() {
                   </div>
 
                   <div
-                    style={{ fontWeight: 700, marginTop: 16, marginBottom: 10 }}
+                    style={{
+                      fontWeight: 700,
+                      marginTop: 16,
+                      marginBottom: 10,
+                    }}
                   >
                     How subscriptions work:
                   </div>
-                  {data.benefits.map((b, i) => (
-                    <div
-                      key={i}
-                      style={{
-                        display: "flex",
-                        alignItems: "flex-start",
-                        gap: 10,
-                        marginBottom: 10,
-                      }}
-                    >
-                      <span style={styles.checkCircle}>✓</span>
-                      <span>{b}</span>
-                    </div>
-                  ))}
-                  <div
-                    style={{
-                      textAlign: "right",
-                      color: "#333",
-                      fontSize: 14,
-                      marginTop: 8,
-                    }}
-                  >
-                    Deliver every:
-                    <br />
-                    {data.deliverEvery}
-                  </div>
+
+                  {data.benefits.map((benefit, index) => {
+                    const isLast = index === data.benefits.length - 1;
+
+                    return (
+                      <div
+                        key={index}
+                        style={{
+                          display: "flex",
+                          alignItems: "flex-start",
+                          justifyContent: isLast
+                            ? "space-between"
+                            : "flex-start",
+                          gap: 10,
+                          marginBottom: 10,
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "flex-start",
+                            gap: 10,
+                          }}
+                        >
+                          <span style={styles.checkCircle}>
+                            ✓
+                          </span>
+
+                          <span>{benefit}</span>
+                        </div>
+
+                        {isLast && (
+                          <span
+                            style={{
+                              color: "#333",
+                              fontSize: 14,
+                              textAlign: "right",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            Deliver every:
+                            <br />
+                            {data.deliverEvery}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
 
                 {selected !== "onetime" && (
-                  <div style={styles.infoRow}>Subscription details</div>
+                  <div style={styles.infoRow}>
+                    Subscription details
+                  </div>
                 )}
-                <button style={styles.chooseBtn}>Choose</button>
+
+                <button style={styles.chooseBtn}>
+                  Choose
+                </button>
               </div>
             );
           }
-
           const checked = selected === "subscribe";
+
           return (
-            <div key={data.id} style={{ ...styles.card, width: 300 }}>
+            <div
+              key={data.id}
+              style={{
+                ...styles.card,
+                width: 300,
+              }}
+            >
               <div
                 style={{
                   border: "2px dashed #bbb",
@@ -469,10 +589,19 @@ function Widgets2() {
                   marginBottom: 12,
                   cursor: "pointer",
                 }}
-                onClick={() => select(data.id, checked ? "none" : "subscribe")}
+                onClick={() =>
+                  select(
+                    data.id,
+                    checked ? "none" : "subscribe",
+                  )
+                }
               >
                 <div
-                  style={{ display: "flex", alignItems: "flex-start", gap: 12 }}
+                  style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: 12,
+                  }}
                 >
                   <span
                     style={{
@@ -480,7 +609,9 @@ function Widgets2() {
                       height: 20,
                       borderRadius: 4,
                       background: checked ? "#111" : "#fff",
-                      border: checked ? "none" : "2px solid #999",
+                      border: checked
+                        ? "none"
+                        : "2px solid #999",
                       color: "#fff",
                       display: "inline-flex",
                       alignItems: "center",
@@ -492,9 +623,16 @@ function Widgets2() {
                   >
                     {checked && "✓"}
                   </span>
+
                   <div>
-                    <div style={{ fontWeight: 700, fontSize: 16 }}>
+                    <div
+                      style={{
+                        fontWeight: 700,
+                        fontSize: 16,
+                      }}
+                    >
                       Subscribe & save{" "}
+
                       <span
                         style={{
                           color: "#999",
@@ -505,16 +643,31 @@ function Widgets2() {
                       >
                         {data.price}
                       </span>{" "}
-                      <span style={{ fontWeight: 700 }}>{data.subPrice}</span>
+
+                      <span style={{ fontWeight: 700 }}>
+                        {data.subPrice}
+                      </span>
                     </div>
-                    <div style={{ color: "#555", marginTop: 6 }}>
+
+                    <div
+                      style={{
+                        color: "#555",
+                        marginTop: 6,
+                      }}
+                    >
                       Deliver every: {data.deliverEvery}
                     </div>
                   </div>
                 </div>
               </div>
-              <div style={styles.infoRow}>Subscription details</div>
-              <button style={styles.chooseBtn}>Choose</button>
+
+              <div style={styles.infoRow}>
+                Subscription details
+              </div>
+
+              <button style={styles.chooseBtn}>
+                Choose
+              </button>
             </div>
           );
         })}
