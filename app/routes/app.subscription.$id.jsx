@@ -555,63 +555,207 @@ export async function action({ request, params }) {
       return { success: true, status: payload.contract.status };
     }
     if (type === "resume") {
-      const res = await admin.graphql(
-        `
-        mutation ActivateSubscriptionContract($contractId: ID!) {
-          subscriptionContractActivate(
-            subscriptionContractId: $contractId
-          ) {
-            contract {
-              id
+  const res = await admin.graphql(
+    `
+    mutation ActivateSubscriptionContract($contractId: ID!) {
+      subscriptionContractActivate(
+        subscriptionContractId: $contractId
+      ) {
+        contract {
+          id
+          status
+          nextBillingDate
+        }
+        userErrors {
+          field
+          message
+          code
+        }
+      }
+    }
+    `,
+    { variables: { contractId } },
+  );
+
+  const data = await res.json();
+  const payload = data?.data?.subscriptionContractActivate;
+
+  if (!payload || payload.userErrors?.length) {
+    console.error("Resume failed", payload?.userErrors);
+    return {
+      success: false,
+      error:
+        payload?.userErrors?.map((e) => e.message).join(", ") ||
+        "Resume failed",
+    };
+  }
+
+  //  NEW: Resume ke turant baad, pehla unbilled & unskipped future cycle charge karo
+  try {
+    const now = new Date();
+    const startDate = now.toISOString();
+    const endDate = new Date(
+      now.getTime() + 30 * 24 * 60 * 60 * 1000,
+    ).toISOString();
+
+    const cyclesRes = await admin.graphql(
+      `
+      query NextUnskippedCycle(
+        $contractId: ID!
+        $startDate: DateTime!
+        $endDate: DateTime!
+      ) {
+        subscriptionBillingCycles(
+          first: 10
+          contractId: $contractId
+          billingCyclesDateRangeSelector: { startDate: $startDate, endDate: $endDate }
+        ) {
+          edges {
+            node {
+              cycleIndex
+              billingAttemptExpectedDate
               status
-              nextBillingDate
-            }
-            userErrors {
-              field
-              message
-              code
+              skipped
             }
           }
         }
-        `,
-        { variables: { contractId } },
+      }
+      `,
+      {
+        variables: { contractId, startDate, endDate },
+      },
+    );
+    const cyclesData = await cyclesRes.json();
+    const nodes =
+      cyclesData.data?.subscriptionBillingCycles?.edges?.map(
+        (e) => e.node,
+      ) || [];
+
+    const upcoming = nodes
+      .filter((c) => !c.skipped && c.status !== "BILLED")
+      .sort(
+        (a, b) =>
+          new Date(a.billingAttemptExpectedDate) -
+          new Date(b.billingAttemptExpectedDate),
       );
 
-      const data = await res.json();
-      const payload = data?.data?.subscriptionContractActivate;
+    const firstCycle = upcoming[0] || null;
 
-      if (!payload || payload.userErrors?.length) {
-        console.error("Resume failed", payload?.userErrors);
-        return {
-          success: false,
-          error:
-            payload?.userErrors?.map((e) => e.message).join(", ") ||
-            "Resume failed",
-        };
+    if (firstCycle) {
+      const chargeRes = await admin.graphql(
+        `
+        mutation ChargeSubscriptionCycleNowFromUI($contractId: ID!, $index: Int!) {
+          subscriptionBillingCycleCharge(
+            subscriptionContractId: $contractId
+            billingCycleSelector: { index: $index }
+          ) {
+            subscriptionBillingAttempt {
+              id
+              ready
+              errorMessage
+              order { id name }
+            }
+            userErrors { field message code }
+          }
+        }
+        `,
+        { variables: { contractId, index: firstCycle.cycleIndex } },
+      );
+      const chargeData = await chargeRes.json();
+      const chargePayload =
+        chargeData.data?.subscriptionBillingCycleCharge;
+
+      if (chargePayload?.userErrors?.length) {
+        console.error(
+          "[resume] auto-charge next cycle failed",
+          chargePayload.userErrors,
+        );
       }
-
-      try {
-        await fetch(`${API}/api/subscription`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "x-api-key": SECRET_KEY },
-          body: JSON.stringify({
-            shop: session.shop,
-            subscriptionId,
-            contractId,
-            actionBy: "merchant",
-            actionReason: "",
-            actionAt: new Date().toISOString(),
-          }),
-        });
-      } catch (err) {
-        console.error("Failed to record resume source:", err);
-      }
-
-      return {
-        success: true,
-        status: payload.contract.status,
-      };
     }
+  } catch (err) {
+    console.error("[resume] failed to auto-charge next cycle:", err);
+  }
+
+  try {
+    await fetch(`${API}/api/subscription`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": SECRET_KEY },
+      body: JSON.stringify({
+        shop: session.shop,
+        subscriptionId,
+        contractId,
+        actionBy: "merchant",
+        actionReason: "",
+        actionAt: new Date().toISOString(),
+      }),
+    });
+  } catch (err) {
+    console.error("Failed to record resume source:", err);
+  }
+
+  return {
+    success: true,
+    status: payload.contract.status,
+  };
+}
+    // if (type === "resume") {
+    //   const res = await admin.graphql(
+    //     `
+    //     mutation ActivateSubscriptionContract($contractId: ID!) {
+    //       subscriptionContractActivate(
+    //         subscriptionContractId: $contractId
+    //       ) {
+    //         contract {
+    //           id
+    //           status
+    //           nextBillingDate
+    //         }
+    //         userErrors {
+    //           field
+    //           message
+    //           code
+    //         }
+    //       }
+    //     }
+    //     `,
+    //     { variables: { contractId } },
+    //   );
+
+    //   const data = await res.json();
+    //   const payload = data?.data?.subscriptionContractActivate;
+
+    //   if (!payload || payload.userErrors?.length) {
+    //     console.error("Resume failed", payload?.userErrors);
+    //     return {
+    //       success: false,
+    //       error:
+    //         payload?.userErrors?.map((e) => e.message).join(", ") ||
+    //         "Resume failed",
+    //     };
+    //   }
+
+    //   try {
+    //     await fetch(`${API}/api/subscription`, {
+    //       method: "POST",
+    //       headers: { "Content-Type": "application/json", "x-api-key": SECRET_KEY },
+    //       body: JSON.stringify({
+    //         shop: session.shop,
+    //         subscriptionId,
+    //         contractId,
+    //         actionBy: "merchant",
+    //         actionReason: "",
+    //         actionAt: new Date().toISOString(),
+    //       }),
+    //     });
+    //   } catch (err) {
+    //     console.error("Failed to record resume source:", err);
+    //   }
+
+    //   return {
+    //     success: true,
+    //     status: payload.contract.status,
+    //   };
+    // }
     if (type === "skip") {
       const cycleIndex = parseInt(formData.get("cycleIndex"), 10);
 

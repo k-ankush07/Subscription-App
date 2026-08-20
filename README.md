@@ -243,9 +243,4 @@ Internationalization:
 dev-lalit.myshopify.com SHOP  DOMAIN this
 gid://shopify/Shop/69853577402 SHOP ID this
 
-isme 49 wala khan gyea 
-
-or jese abhi 49 hai or price 456 hai ab 50% lga to edit page pr 456 ke sath jaye abhi iske sath jari h 
-or yha full ara ful nhi 456 ana chahiye 
-or jese 900 delete kr du to jo 49 wala tha vo v remove hoje 
-or origina price pr manual discount lgye sb fix kr ke do pleae
+me chahta hu ki jese mene pause kra aj 20  august hai mera order 21 ko ana hai or mene 23 august  ko resume kiya to ye contract to pause hai to iske order to create nhi hoga to 21 wale ki date aye gi to use skip kr do or 23 ko kiya resume to agr 22 wala ki date nhi nikli hai to direct 22 wala order create krna ahi brna 23 ka esa chaht ahu me 
