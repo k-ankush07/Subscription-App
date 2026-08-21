@@ -23,9 +23,6 @@ function CreateWidget({ plans = [] }) {
     },
   ];
 
-  // -----------------------------
-  // PLAN OPTIONS
-  // -----------------------------
   const planOptions = useMemo(
     () =>
       plans.map((plan) => ({
@@ -35,19 +32,12 @@ function CreateWidget({ plans = [] }) {
     [plans],
   );
 
-  // -----------------------------
-  // SELECTED PLAN
-  // -----------------------------
   const selectedPlanData = useMemo(() => {
     return (
       plans.find((plan) => plan.planId === selectedPlan) || plans[0] || null
     );
   }, [plans, selectedPlan]);
 
-  // -----------------------------
-  // PRODUCT OPTIONS
-  // Selected plan ke products
-  // -----------------------------
   const productOptions = useMemo(() => {
     if (!selectedPlanData?.products) {
       return [];
@@ -61,19 +51,12 @@ function CreateWidget({ plans = [] }) {
       }));
   }, [selectedPlanData]);
 
-  // -----------------------------
-  // FIRST PLAN AUTO SELECT
-  // -----------------------------
   useEffect(() => {
     if (!selectedPlan && planOptions.length > 0) {
       setSelectedPlan(planOptions[0].value);
     }
   }, [planOptions, selectedPlan]);
 
-  // -----------------------------
-  // PLAN CHANGE
-  // Automatically first product
-  // -----------------------------
   useEffect(() => {
     if (productOptions.length > 0) {
       setSelectedProduct(productOptions[0].value);
@@ -82,16 +65,7 @@ function CreateWidget({ plans = [] }) {
     }
   }, [selectedPlan, productOptions]);
 
-  // -----------------------------
-  // SELECTED PRODUCT
-  // -----------------------------
-  const selectedProductData = useMemo(() => {
-    return (
-      selectedPlanData?.products?.find(
-        (product) => product.id === selectedProduct,
-      ) || selectedPlanData?.products?.[0] || null
-    );
-  }, [selectedPlanData, selectedProduct]);
+  
 
   return (
     <div
@@ -120,31 +94,11 @@ function CreateWidget({ plans = [] }) {
               onChange={setTemplate}
             />
 
-            <h2>Plans assigned</h2>
-
             <Select
               label="Plan"
-              options={planOptions}
-              value={selectedPlan}
-              onChange={setSelectedPlan}
+              value="1 plan select "
             />
 
-            <Select
-              label="Product"
-              options={
-                productOptions.length > 0
-                  ? productOptions
-                  : [
-                      {
-                        label: "No products available",
-                        value: "",
-                      },
-                    ]
-              }
-              value={selectedProduct}
-              onChange={setSelectedProduct}
-              disabled={productOptions.length === 0}
-            />
           </BlockStack>
         </Card>
       </div>
