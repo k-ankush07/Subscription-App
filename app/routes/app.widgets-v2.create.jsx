@@ -1,117 +1,235 @@
+
+
 import { Button, Page, Select } from "@shopify/polaris";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useLoaderData } from "react-router";
+import { useAppBridge } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
+import { currencySymbol } from "./utils/formatMoney.js";
 
 const API = import.meta.env.VITE_API_URL;
 const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
 
 export const loader = async ({ request }) => {
-  const { session } = await authenticate.admin(request);
+  const { session, admin } = await authenticate.admin(request);
   const shop = session.shop;
 
   const plansResponse = await fetch(`${API}/plans/getAllPlans?shop=${shop}`, {
-    headers: { "x-api-key": SECRET_KEY },
+    headers: {
+      "x-api-key": SECRET_KEY,
+    },
   });
 
   const plansData = await plansResponse.json();
 
-  // We keep the FULL plan-group objects here (not just id/name) because the
-  // widget now needs each group's `sellingPlans` array + `products` array to
-  // build the purchase cards on the client.
+  let currencyCode = "USD";
+
+  try {
+    const shopResponse = await admin.graphql(`
+      {
+        shop {
+          currencyCode
+        }
+      }
+    `);
+
+    const shopJson = await shopResponse.json();
+
+    currencyCode = shopJson?.data?.shop?.currencyCode || currencyCode;
+  } catch (err) {
+    console.error("Failed to fetch shop currencyCode:", err);
+  }
+
+  const plans = plansData.success ? plansData.data : [];
+
+  
+  const productIds = [
+    ...new Set(
+      plans.flatMap((plan) =>
+        (plan.products || []).map((product) => product.id).filter(Boolean),
+      ),
+    ),
+  ];
+
+ 
+  const productPrices = {};
+
+  for (const productId of productIds) {
+    try {
+      const productResponse = await admin.graphql(
+        `#graphql
+        query ProductPrice($id: ID!) {
+          product(id: $id) {
+            id
+            title
+
+            featuredImage {
+              url
+            }
+
+            variants(first: 1) {
+              nodes {
+                price
+              }
+            }
+
+            priceRangeV2 {
+              minVariantPrice {
+                amount
+              }
+            }
+          }
+        }`,
+        {
+          variables: {
+            id: productId,
+          },
+        },
+      );
+
+      const productJson = await productResponse.json();
+
+      const product = productJson?.data?.product;
+
+      if (product) {
+        const variantPrice = product?.variants?.nodes?.[0]?.price;
+
+        const minPrice = product?.priceRangeV2?.minVariantPrice?.amount;
+
+        productPrices[product.id] = {
+          price: Number(variantPrice ?? minPrice ?? 0),
+          image: product?.featuredImage?.url || null,
+          title: product?.title || "",
+        };
+      }
+    } catch (error) {
+      console.error("Failed to fetch Shopify product:", productId, error);
+    }
+  }
+
+
+  const updatedPlans = plans.map((plan) => ({
+    ...plan,
+
+    products: (plan.products || []).map((product) => {
+      const shopifyProduct = productPrices[product.id];
+
+      return {
+        ...product,
+
+        price:
+          shopifyProduct?.price ?? product?.price ?? product?.minPrice ?? 0,
+
+        ProductImage: shopifyProduct?.image ?? product?.ProductImage ?? null,
+
+        title: shopifyProduct?.title ?? product?.title ?? "",
+      };
+    }),
+  }));
+
   return Response.json({
-    plans: plansData.success ? plansData.data : [],
+    plans: updatedPlans,
+    currencyCode,
   });
 };
 
-// ---------------------------------------------------------------------------
-// Helpers: turn raw sellingPlan objects (as returned by the API) into the
-// price / label strings the UI needs. This replaces the old hardcoded
-// `purchaseCards[].plans` arrays.
-// ---------------------------------------------------------------------------
-
-const CURRENCY_PREFIX = "Rs. ";
-
-function formatMoney(amount) {
+function formatMoney(amount, currencyCode) {
   const n = Number(amount) || 0;
-  return `${CURRENCY_PREFIX}${n.toFixed(2)}`;
-}
 
-// NOTE / ASSUMPTION: your sample plan-group JSON has a `products` array but
-// didn't show its shape, so I'm reading the base price off
-// `products[0].price`. If your API names that field differently
-// (e.g. `variantPrice`, `amount`, `compareAtPrice`), change this one line.
-function getBasePrice(planGroup) {
-  const product = planGroup?.products?.[0];
-  return Number(product?.price ?? product?.variantPrice ?? product?.amount ?? 0);
+  return `${currencySymbol(currencyCode)}${n.toFixed(2)}`;
 }
 
 function intervalUnit(interval, count) {
-  const unit = String(interval || "").toLowerCase(); // day | week | month | year
+  const unit = String(interval || "").toLowerCase();
+
   return count > 1 ? `${unit}s` : unit;
 }
 
-// "every week" / "every 5 weeks"
 function deliveryPhrase(sp) {
   const count = sp.intervalCount || 1;
   const unit = intervalUnit(sp.interval, count);
+
   return count > 1 ? `every ${count} ${unit}` : `every ${unit}`;
 }
 
-// "week" / "5 weeks" — used by the detailed & compact card variants
 function shortDeliveryLabel(sp) {
   const count = sp.intervalCount || 1;
   const unit = intervalUnit(sp.interval, count);
+
   return count > 1 ? `${count} ${unit}` : unit;
 }
 
-function discountLabelFor(sp) {
-  if (!sp.giveSubscriptionDiscount) return undefined;
-  if (sp.discountType === "PERCENTAGE") return `${sp.discountValue}% off`;
-  if (sp.discountValue) return `${formatMoney(sp.discountValue)} off`;
+function discountLabelFor(sp, currencyCode) {
+  if (!sp.giveSubscriptionDiscount) {
+    return undefined;
+  }
+
+  if (sp.discountType === "PERCENTAGE") {
+    return `${sp.discountValue}% off`;
+  }
+
+  if (sp.discountValue) {
+    return `${formatMoney(sp.discountValue, currencyCode)} off`;
+  }
+
   return undefined;
 }
 
 function computeSellingPlanPrice(basePrice, sp) {
-  if (!sp.giveSubscriptionDiscount) return basePrice;
-  if (sp.discountType === "PERCENTAGE") {
-    return basePrice - (basePrice * sp.discountValue) / 100;
+  if (!sp.giveSubscriptionDiscount) {
+    return basePrice;
   }
-  // Flat/PRICE style discount
-  return Math.max(basePrice - sp.discountValue, 0);
+
+  if (sp.discountType === "PERCENTAGE") {
+    return basePrice - (basePrice * Number(sp.discountValue || 0)) / 100;
+  }
+
+  return Math.max(basePrice - Number(sp.discountValue || 0), 0);
 }
 
-// Normalizes one API sellingPlan into everything every card variant needs.
-function normalizeSellingPlan(sp, basePrice) {
+function normalizeSellingPlan(sp, basePrice, currencyCode) {
   const price = computeSellingPlanPrice(basePrice, sp);
 
   return {
     id: sp.shopifySellingPlanId,
     name: sp.name,
-    label: `Deliver ${deliveryPhrase(sp)}`, // simple variant
-    shortLabel: shortDeliveryLabel(sp), // detailed / compact variant
-    discountLabel: discountLabelFor(sp),
-    price: formatMoney(price),
-    comparePrice: formatMoney(basePrice),
+
+    label: `Deliver ${deliveryPhrase(sp)}`,
+
+    shortLabel: shortDeliveryLabel(sp),
+
+    discountLabel: discountLabelFor(sp, currencyCode),
+
+    price: formatMoney(price, currencyCode),
+
+    comparePrice: formatMoney(basePrice, currencyCode),
+
     raw: sp,
   };
 }
 
-// Static, UI-only info per card (layout, copy that isn't plan-specific).
-// This is the ONLY hardcoded thing left — everything price/plan related now
-// comes from the API.
 const cardShells = [
-  { id: "card-1", variant: "simple", headerLabel: "PURCHASE OPTIONS" },
+  {
+    id: "card-1",
+    variant: "simple",
+    headerLabel: "PURCHASE OPTIONS",
+  },
+
   {
     id: "card-2",
     variant: "detailed",
+
     benefitsTemplate: [
       "Lowest price option",
       "Easily swap & skip deliveries",
       "Cancel quickly anytime",
     ],
   },
-  { id: "card-3", variant: "compact" },
+
+  {
+    id: "card-3",
+    variant: "compact",
+  },
 ];
 
 const styles = {
@@ -208,17 +326,24 @@ const styles = {
     flexShrink: 0,
   },
 
-  chooseBtn: {
-    width: "100%",
-    background: "#111",
-    color: "#fff",
-    border: "none",
-    borderRadius: 6,
-    padding: "12px 0",
-    fontWeight: 600,
-    fontSize: 14,
+  productPickerField: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+    border: "1px solid #c9cccf",
+    borderRadius: 8,
+    padding: "8px 12px",
     cursor: "pointer",
-    marginTop: 12,
+    background: "#fff",
+    minWidth: 220,
+  },
+
+  productPickerText: {
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    fontSize: 14,
   },
 
   infoRow: {
@@ -232,7 +357,9 @@ const styles = {
 };
 
 function Widgets2() {
-  const { plans } = useLoaderData();
+  const { plans, currencyCode } = useLoaderData();
+
+  const shopify = useAppBridge();
 
   const planOptions = useMemo(
     () =>
@@ -247,52 +374,100 @@ function Widgets2() {
     planOptions[0]?.value || "",
   );
 
-  // The full plan-group object (with sellingPlans + products) for whichever
-  // plan is currently being previewed in the "Previewing plan" dropdown.
   const selectedPlanGroup = useMemo(
     () => plans.find((p) => p.planId === selectedPlanId) || plans[0],
     [plans, selectedPlanId],
   );
 
-  const basePrice = useMemo(
-    () => getBasePrice(selectedPlanGroup),
-    [selectedPlanGroup],
-  );
+  const [previewProduct, setPreviewProduct] = useState(null);
 
-  // TEMP DEBUG — remove once basePrice is coming through correctly.
-  // Open the browser console and check what `products[0]` actually looks
-  // like, then update getBasePrice() to read the right field.
+ 
   useEffect(() => {
-    if (selectedPlanGroup) {
-      console.log("selectedPlanGroup.products:", selectedPlanGroup.products);
-      console.log("computed basePrice:", basePrice);
+    const first = selectedPlanGroup?.products?.[0];
+
+    if (!first) {
+      setPreviewProduct(null);
+      return;
     }
-  }, [selectedPlanGroup, basePrice]);
 
-  // Raw API sellingPlans -> normalized { id, label, shortLabel, price, ... }
-  const normalizedPlans = useMemo(() => {
-    if (!selectedPlanGroup?.sellingPlans) return [];
-    return selectedPlanGroup.sellingPlans.map((sp) =>
-      normalizeSellingPlan(sp, basePrice),
+    const price = Number(
+      first?.price ??
+        first?.minPrice ??
+        first?.priceRangeV2?.minVariantPrice?.amount ??
+        0,
     );
-  }, [selectedPlanGroup, basePrice]);
 
-  // purchaseCards is now DERIVED from the API response every time the
-  // previewed plan changes, instead of being a hardcoded constant.
+    setPreviewProduct({
+      id: first.id,
+      title: first.title,
+      image: first.ProductImage,
+      price,
+    });
+  }, [selectedPlanGroup]);
+
+ 
+  const handlePickPreviewProduct = useCallback(async () => {
+    const selected = await shopify.resourcePicker({
+      type: "product",
+      multiple: false,
+      action: "select",
+
+      filter: {
+        variants: false,
+      },
+    });
+
+    if (selected && selected[0]) {
+      const product = selected[0];
+
+      const variant = product.variants?.[0];
+
+      const price = Number(
+        variant?.price ??
+          product.priceRangeV2?.minVariantPrice?.amount ??
+          product.price ??
+          0,
+      );
+
+      setPreviewProduct({
+        id: product.id,
+        title: product.title,
+
+        image: product.images?.[0]?.originalSrc,
+
+        price,
+      });
+    }
+  }, [shopify]);
+
+  const basePrice = Number(previewProduct?.price) || 0;
+
+  const normalizedPlans = useMemo(() => {
+    if (!selectedPlanGroup?.sellingPlans) {
+      return [];
+    }
+
+    return selectedPlanGroup.sellingPlans.map((sp) =>
+      normalizeSellingPlan(sp, basePrice, currencyCode),
+    );
+  }, [selectedPlanGroup, basePrice, currencyCode]);
+
   const purchaseCards = useMemo(() => {
-    const topDiscount = normalizedPlans.find((p) => p.discountLabel);
-
     return cardShells.map((shell) => {
       const base = {
         id: shell.id,
+
         variant: shell.variant,
-        onetimePrice: formatMoney(basePrice),
+
+        onetimePrice: formatMoney(basePrice, currencyCode),
       };
 
       if (shell.variant === "simple") {
         return {
           ...base,
+
           headerLabel: shell.headerLabel,
+
           plans: normalizedPlans.map((p) => ({
             id: p.id,
             label: p.label,
@@ -303,61 +478,59 @@ function Widgets2() {
       }
 
       if (shell.variant === "detailed") {
-        const benefits = [
-          topDiscount
-            ? `${topDiscount.discountLabel} of all recurring orders`
-            : "Discount on all recurring orders",
-          ...shell.benefitsTemplate,
-        ];
-
         return {
           ...base,
-          bannerLabel: topDiscount
-            ? `Save ${topDiscount.discountLabel.replace(" off", "")} on every delivery`
-            : "Subscribe & save on every delivery",
-          benefits,
+
+          benefitsTemplate: shell.benefitsTemplate,
+
           plans: normalizedPlans.map((p) => ({
             id: p.id,
             label: p.shortLabel,
             price: p.price,
             comparePrice: p.comparePrice,
+            discountLabel: p.discountLabel,
           })),
         };
       }
 
-      // compact
       return {
         ...base,
+
         plans: normalizedPlans.map((p) => ({
           id: p.id,
           label: p.shortLabel,
           price: p.price,
           comparePrice: p.comparePrice,
+          discountLabel: p.discountLabel,
         })),
       };
     });
-  }, [normalizedPlans, basePrice]);
+  }, [normalizedPlans, basePrice, currencyCode]);
 
-  // onetime vs subscribe, per card
   const [selectedMap, setSelectedMap] = useState({});
 
-  // which delivery-frequency plan is chosen, per card
   const [selectedPlanMap, setSelectedPlanMap] = useState({});
 
-  // Whenever the previewed plan (or the cards derived from it) changes,
-  // reset each card back to "subscribe" + its first sellingPlan, since the
-  // old selected sellingPlan id almost certainly no longer exists.
   useEffect(() => {
     setSelectedMap(
-      purchaseCards.reduce((acc, c) => ({ ...acc, [c.id]: "subscribe" }), {}),
-    );
-    setSelectedPlanMap(
       purchaseCards.reduce(
-        (acc, c) => ({ ...acc, [c.id]: c.plans?.[0]?.id || null }),
+        (acc, c) => ({
+          ...acc,
+          [c.id]: "subscribe",
+        }),
         {},
       ),
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
+    setSelectedPlanMap(
+      purchaseCards.reduce(
+        (acc, c) => ({
+          ...acc,
+          [c.id]: c.plans?.[0]?.id || null,
+        }),
+        {},
+      ),
+    );
   }, [selectedPlanGroup]);
 
   const select = (id, value) => {
@@ -385,7 +558,11 @@ function Widgets2() {
           display: "flex",
         }}
       >
-        <div style={{ minWidth: "260px" }}>
+        <div
+          style={{
+            minWidth: "260px",
+          }}
+        >
           <h1>Previewing plan</h1>
 
           <Select
@@ -396,21 +573,48 @@ function Widgets2() {
             onChange={setSelectedPlanId}
           />
         </div>
+
+        <div
+          style={{
+            minWidth: "260px",
+            marginLeft: 24,
+          }}
+        >
+          <h1>Previewing product:</h1>
+
+          <div>
+            <div
+              style={styles.productPickerField}
+              onClick={handlePickPreviewProduct}
+            >
+              <span style={styles.productPickerText}>
+                {previewProduct?.title || "Select a product"}
+              </span>
+
+              <span>⌄</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div style={styles.wrapper}>
         {purchaseCards.map((data) => {
           const selected = selectedMap[data.id];
+
           const checked = selected === "subscribe";
+
           const activePlan = getSelectedPlan(data);
 
+        
           if (data.variant === "simple") {
             return (
               <div key={data.id} style={styles.card}>
                 {data.headerLabel && (
                   <div style={styles.headerWithLines}>
                     <span style={styles.headerLine} />
+
                     <span style={styles.headerText}>{data.headerLabel}</span>
+
                     <span style={styles.headerLine} />
                   </div>
                 )}
@@ -453,7 +657,11 @@ function Widgets2() {
                       </span>
                     </div>
 
-                    <span style={{ fontWeight: 600 }}>
+                    <span
+                      style={{
+                        fontWeight: 600,
+                      }}
+                    >
                       {data.onetimePrice}
                     </span>
                   </div>
@@ -493,7 +701,9 @@ function Widgets2() {
                         }}
                         onClick={(e) => {
                           e.stopPropagation();
+
                           select(data.id, "subscribe");
+
                           selectPlan(data.id, plan.id);
                         }}
                       >
@@ -505,9 +715,7 @@ function Widgets2() {
                           }}
                         >
                           <span style={styles.radioOuter(planChecked)}>
-                            {planChecked && (
-                              <span style={styles.radioInner} />
-                            )}
+                            {planChecked && <span style={styles.radioInner} />}
                           </span>
 
                           <span>{plan.label}</span>
@@ -519,7 +727,13 @@ function Widgets2() {
                           )}
                         </div>
 
-                        <span style={{ fontWeight: 700 }}>{plan.price}</span>
+                        <span
+                          style={{
+                            fontWeight: 700,
+                          }}
+                        >
+                          {plan.price}
+                        </span>
                       </div>
                     );
                   })}
@@ -535,8 +749,20 @@ function Widgets2() {
               </div>
             );
           }
-
           if (data.variant === "detailed") {
+            const bannerLabel = activePlan?.discountLabel
+              ? `Save ${activePlan.discountLabel.replace(
+                  " off",
+                  "",
+                )} on every delivery`
+              : "Subscribe & save on every delivery";
+
+            const firstBenefit = activePlan?.discountLabel
+              ? `${activePlan.discountLabel} of all recurring orders`
+              : "Discount on all recurring orders";
+
+            const benefits = [firstBenefit, ...(data.benefitsTemplate || [])];
+
             return (
               <div key={data.id} style={styles.card}>
                 <div
@@ -577,11 +803,16 @@ function Widgets2() {
                       </span>
                     </div>
 
-                    <span style={{ fontWeight: 600 }}>
+                    <span
+                      style={{
+                        fontWeight: 600,
+                      }}
+                    >
                       {data.onetimePrice}
                     </span>
                   </div>
                 </div>
+
                 <div
                   style={{
                     background: "#e8e8e8",
@@ -592,7 +823,7 @@ function Widgets2() {
                     borderRadius: "8px 8px 0 0",
                   }}
                 >
-                  {data.bannerLabel}
+                  {bannerLabel}
                 </div>
 
                 <div
@@ -637,7 +868,11 @@ function Widgets2() {
                       </span>
                     </div>
 
-                    <div style={{ textAlign: "right" }}>
+                    <div
+                      style={{
+                        textAlign: "right",
+                      }}
+                    >
                       <div
                         style={{
                           background: "#eee",
@@ -674,8 +909,8 @@ function Widgets2() {
                     How subscriptions work:
                   </div>
 
-                  {data.benefits.map((benefit, index) => {
-                    const isLast = index === data.benefits.length - 1;
+                  {benefits.map((benefit, index) => {
+                    const isLast = index === benefits.length - 1;
 
                     return (
                       <div
@@ -704,7 +939,9 @@ function Widgets2() {
 
                         {isLast && (
                           <div
-                            style={{ width: 130 }}
+                            style={{
+                              width: 130,
+                            }}
                             onClick={(e) => e.stopPropagation()}
                           >
                             <div
@@ -727,6 +964,7 @@ function Widgets2() {
                               value={selectedPlanMap[data.id]}
                               onChange={(value) => {
                                 select(data.id, "subscribe");
+
                                 selectPlan(data.id, value);
                               }}
                             />
@@ -748,7 +986,6 @@ function Widgets2() {
             );
           }
 
-          // compact variant
           return (
             <div
               key={data.id}
@@ -793,7 +1030,11 @@ function Widgets2() {
                     {checked && "✓"}
                   </span>
 
-                  <div style={{ flex: 1 }}>
+                  <div
+                    style={{
+                      flex: 1,
+                    }}
+                  >
                     <div
                       style={{
                         fontWeight: 700,
@@ -813,7 +1054,11 @@ function Widgets2() {
                           {activePlan.comparePrice}
                         </span>
                       )}{" "}
-                      <span style={{ fontWeight: 700 }}>
+                      <span
+                        style={{
+                          fontWeight: 700,
+                        }}
+                      >
                         {activePlan?.price}
                       </span>
                     </div>
@@ -827,9 +1072,19 @@ function Widgets2() {
                       }}
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <span style={{ color: "#555" }}>Deliver every:</span>
+                      <span
+                        style={{
+                          color: "#555",
+                        }}
+                      >
+                        Deliver every:
+                      </span>
 
-                      <div style={{ width: 110 }}>
+                      <div
+                        style={{
+                          width: 110,
+                        }}
+                      >
                         <Select
                           label=""
                           labelHidden
@@ -840,6 +1095,7 @@ function Widgets2() {
                           value={selectedPlanMap[data.id]}
                           onChange={(value) => {
                             select(data.id, "subscribe");
+
                             selectPlan(data.id, value);
                           }}
                         />
