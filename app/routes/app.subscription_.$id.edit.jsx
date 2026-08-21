@@ -38,7 +38,7 @@ import {
   setBaseLineFixedPrice,
   setLineFixedPrice,
 } from "../lib/billing-preview.server";
-
+import { currencySymbol } from "./utils/formatMoney.js";
 export async function loader({ params, request }) {
   const { admin, session } = await authenticate.admin(request);
 
@@ -122,10 +122,16 @@ export async function loader({ params, request }) {
   const removedProductIds = willApply
     .filter((a) => a.type === "REMOVE_PRODUCT" && a.sourceProductId)
     .map((a) => a.sourceProductId);
-  const currencyCode =
-    contract.deliveryPrice?.currencyCode ||
-    lines[0]?.currentPrice?.currencyCode ||
-    "INR";
+  // const currencyCode =
+  //   contract.deliveryPrice?.currencyCode ||
+  //   lines[0]?.currentPrice?.currencyCode ||
+  //   "INR";
+
+const currencyCode =
+  preview?.allExtraSettings?.currencyCode ||
+  contract.deliveryPrice?.currencyCode ||
+  lines[0]?.currentPrice?.currencyCode ||
+  "USD";
 
   return {
     contract,
@@ -1476,7 +1482,7 @@ export default function EditPage() {
               label="Delivery price"
               type="number"
               min={0}
-              prefix={currencyCode === "INR" ? "₹" : undefined}
+              prefix={currencySymbol(currencyCode)} 
               value={deliveryPrice}
               onChange={setDeliveryPrice}
             />
@@ -1545,7 +1551,7 @@ export default function EditPage() {
               min={0}
               autoComplete="off"
               disabled={isPriceUpdatePending}
-              prefix={currencyCode === "INR" ? "₹" : undefined}
+              prefix={currencySymbol(currencyCode)} 
               value={priceEditValue}
               onChange={setPriceEditValue}
             />

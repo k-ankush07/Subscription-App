@@ -1,6 +1,6 @@
 
 import { authenticate } from "../shopify.server";
-import { snapshotContractSettings } from "../lib/billing-preview.server";
+import { snapshotContractSettings,getShopCurrencyCode  } from "../lib/billing-preview.server";
 
 async function getContractSellingPlanId(admin, contractId) {
   const res = await admin.graphql(
@@ -230,9 +230,11 @@ export const action = async ({ request }) => {
     const groupSnapshotData = await getSellingPlanGroupSnapshotData(admin, sellingPlanId);
 
     if (liveSettings || groupSnapshotData) {
+      const shopCurrencyCode = await getShopCurrencyCode(admin); 
       const combinedSettings = {
         ...(liveSettings || {}), 
         products: groupSnapshotData?.products ?? [],
+        currencyCode: shopCurrencyCode,
       };
 
       const { snapshotted } = await snapshotContractSettings(

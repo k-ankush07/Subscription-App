@@ -78,7 +78,6 @@ async function snapshotContractSettings(
     return { snapshotted: false };
   }
 
-  // products per-contract hai — ab isi key ke andar rakho, shared catalog me nahi bhejna
   const key = contractSnapshotKey(contractId);
   const value = JSON.stringify({
     contractId,
@@ -2149,15 +2148,11 @@ async function getContractPreview(
   );
 
   const currencyCodeFallback =
+  extraSettings?.currencyCode ??  
     firstLine?.pricingPolicy?.basePrice?.currencyCode ??
     firstLine?.currentPrice?.currencyCode ??
     (await getShopCurrencyCode(admin)) ??
     "USD";
-
-  // const currencyCodeFallback =
-  //   firstLine?.pricingPolicy?.basePrice?.currencyCode ??
-  //   firstLine?.currentPrice?.currencyCode ??
-  //   "INR";
 
   const lineItems = [];
 
@@ -3328,4 +3323,5 @@ export {
   removeManualDiscount,
   getActiveManualDiscountsForLine,
   applyManualDiscountsToPrice,
+  getShopCurrencyCode
 };

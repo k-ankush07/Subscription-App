@@ -5,7 +5,7 @@
   async function getData() {
     try {
       const response = await fetch(
-        `https://habitant-startling-cassette.ngrok-free.dev/plans/getAllPlans?shop=${shop}`,
+        `http://localhost:5000/plans/getAllPlans?shop=${shop}`,
         {
           headers: {
             "x-api-key": SECRET_KEY,
