@@ -1,5 +1,3 @@
-
-
 import { Button, Page, Select } from "@shopify/polaris";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useLoaderData, useNavigate } from "react-router";
@@ -42,7 +40,6 @@ export const loader = async ({ request }) => {
 
   const plans = plansData.success ? plansData.data : [];
 
-  
   const productIds = [
     ...new Set(
       plans.flatMap((plan) =>
@@ -51,7 +48,6 @@ export const loader = async ({ request }) => {
     ),
   ];
 
- 
   const productPrices = {};
 
   for (const productId of productIds) {
@@ -106,7 +102,6 @@ export const loader = async ({ request }) => {
       console.error("Failed to fetch Shopify product:", productId, error);
     }
   }
-
 
   const updatedPlans = plans.map((plan) => ({
     ...plan,
@@ -174,7 +169,76 @@ function discountLabelFor(sp, currencyCode) {
 
   return undefined;
 }
+function getSubscriptionDetails(sp) {
+  if (!sp) return "";
 
+  const DeliveryCount = sp.intervalCount;
+  const DeliveryInterval = sp.interval;
+
+  let discountText = "";
+  let afterOrderSubscription = "";
+
+  if (sp.giveSubscriptionDiscount) {
+    if (sp.discountType === "PERCENTAGE") {
+      discountText = `Discount: ${sp.discountValue}%.`;
+    } else if (sp.discountType === "PRICE") {
+      discountText = `Fixed Price: ${sp.discountValue}.`;
+    } else if (sp.discountType === "FIXED_AMOUNT") {
+      discountText = `Discount: ${sp.discountValue} off.`;
+    }
+
+    if (sp.changeDiscountAfterOrders) {
+      if (sp.afterDiscountType === "PERCENTAGE") {
+        afterOrderSubscription = `After ${sp.afterOrders} Orders Discount will change to ${sp.afterDiscountValue}%.`;
+      } else if (sp.afterDiscountType === "PRICE") {
+        afterOrderSubscription = `After ${sp.afterOrders} Orders price will be fixed at ${sp.afterDiscountValue}.`;
+      } else if (sp.afterDiscountType === "FIXED_AMOUNT") {
+        afterOrderSubscription = `After ${sp.afterOrders} Orders price will be reduced from original price ${sp.afterDiscountValue}.`;
+      }
+    }
+  }
+
+  let BothCombine = "";
+
+  if (sp.minCycles !== null || sp.maxCycles !== null) {
+    if (sp.minCycles && sp.maxCycles) {
+      BothCombine = `You will be able to cancel your subscription after ${sp.minCycles} Orders. Subscription will cancel automatically after ${sp.maxCycles} Orders.`;
+    } else if (sp.minCycles) {
+      BothCombine = `You can cancel Subscription after ${sp.minCycles} Orders.`;
+    } else if (sp.maxCycles) {
+      BothCombine = `Subscription will cancel automatically after ${sp.maxCycles} Orders.`;
+    }
+  }
+
+  let ShippingDiscount = "";
+
+  if (sp.giveShippingDiscount) {
+    if (sp.shippingDiscountType === "PERCENTAGE") {
+      ShippingDiscount = `Delivery price will be reduced by ${sp.shippingDiscountValue}% after ${sp.shippingAfterOrders} Orders.`;
+    } else if (sp.shippingDiscountType === "PRICE") {
+      ShippingDiscount = `Delivery price will be fixed at ${sp.shippingDiscountValue} after ${sp.shippingAfterOrders} Orders.`;
+    } else if (sp.shippingDiscountType === "FIXED_AMOUNT") {
+      ShippingDiscount = `Delivery price will be reduced by ${sp.shippingDiscountValue} after ${sp.shippingAfterOrders} Orders.`;
+    }
+  }
+
+  let QuantityChange = "";
+
+  if (sp.changeQuantityAfterOrders) {
+    QuantityChange = `Quantity will change ${sp.quantityAfterOrdersValue} after ${sp.quantityAfterOrders} Orders.`;
+  }
+
+  return [
+    `Delivery: Every ${DeliveryCount} ${DeliveryInterval}.`,
+    discountText,
+    afterOrderSubscription,
+    BothCombine,
+    ShippingDiscount,
+    QuantityChange,
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
 function computeSellingPlanPrice(basePrice, sp) {
   if (!sp.giveSubscriptionDiscount) {
     return basePrice;
@@ -360,7 +424,7 @@ function Widgets2() {
   const { plans, currencyCode } = useLoaderData();
 
   const shopify = useAppBridge();
-  const navigate= useNavigate()
+  const navigate = useNavigate();
   const planOptions = useMemo(
     () =>
       plans.map((p) => ({
@@ -381,7 +445,6 @@ function Widgets2() {
 
   const [previewProduct, setPreviewProduct] = useState(null);
 
- 
   useEffect(() => {
     const first = selectedPlanGroup?.products?.[0];
 
@@ -405,7 +468,6 @@ function Widgets2() {
     });
   }, [selectedPlanGroup]);
 
- 
   const handlePickPreviewProduct = useCallback(async () => {
     const selected = await shopify.resourcePicker({
       type: "product",
@@ -473,6 +535,7 @@ function Widgets2() {
             label: p.label,
             discountLabel: p.discountLabel,
             price: p.price,
+            raw: p.raw,
           })),
         };
       }
@@ -489,6 +552,7 @@ function Widgets2() {
             price: p.price,
             comparePrice: p.comparePrice,
             discountLabel: p.discountLabel,
+             raw: p.raw,
           })),
         };
       }
@@ -502,6 +566,7 @@ function Widgets2() {
           price: p.price,
           comparePrice: p.comparePrice,
           discountLabel: p.discountLabel,
+           raw: p.raw,
         })),
       };
     });
@@ -551,10 +616,10 @@ function Widgets2() {
     data.plans?.find((p) => p.id === selectedPlanMap[data.id]) ||
     data.plans?.[0];
 
-    const handelChooseBtn =()=>
-    {
-      navigate("/app/widgets/create")
-    }
+  const handelChooseBtn = (id) => {
+    console.log("fnsjdfnjs", id);
+    navigate(`/app/widgets/create/${id}`);
+  };
   return (
     <Page title="Choose a template">
       <div
@@ -609,7 +674,6 @@ function Widgets2() {
 
           const activePlan = getSelectedPlan(data);
 
-        
           if (data.variant === "simple") {
             return (
               <div key={data.id} style={styles.card}>
@@ -743,11 +807,31 @@ function Widgets2() {
                   })}
                 </div>
 
-                {checked && (
+                {/* {checked && (
                   <div style={styles.infoRow}>Subscription details</div>
+                )} */}
+                {checked && activePlan?.raw && (
+                  <div
+                    style={{
+                      ...styles.infoRow,
+                      display: "block",
+                      lineHeight: 1.6,
+                      marginBottom: 12,
+                    }}
+                  >
+                    <strong>Subscription details</strong>
+
+                    <div style={{ marginTop: 6 }}>
+                      {getSubscriptionDetails(activePlan.raw)}
+                    </div>
+                  </div>
                 )}
 
-                <Button variant="primary" fullWidth onClick={handelChooseBtn}>
+                <Button
+                  variant="primary"
+                  fullWidth
+                  onClick={() => handelChooseBtn(data.id)}
+                >
                   Choose
                 </Button>
               </div>
@@ -979,11 +1063,31 @@ function Widgets2() {
                   })}
                 </div>
 
-                {selected !== "onetime" && (
+                {/* {selected !== "onetime" && (
                   <div style={styles.infoRow}>Subscription details</div>
+                )} */}
+                {selected !== "onetime" && activePlan?.raw && (
+                  <div
+                    style={{
+                      ...styles.infoRow,
+                      display: "block",
+                      lineHeight: 1.6,
+                      marginBottom: 12,
+                    }}
+                  >
+                    <strong>Subscription details</strong>
+
+                    <div style={{ marginTop: 6 }}>
+                      {getSubscriptionDetails(activePlan.raw)}
+                    </div>
+                  </div>
                 )}
 
-                <Button variant="primary" fullWidth onClick={handelChooseBtn}>
+                <Button
+                  variant="primary"
+                  fullWidth
+                  onClick={() => handelChooseBtn(data.id)}
+                >
                   Choose
                 </Button>
               </div>
@@ -1109,11 +1213,31 @@ function Widgets2() {
                 </div>
               </div>
 
-              {checked && (
+              {/* {checked && (
                 <div style={styles.infoRow}>Subscription details</div>
+              )} */}
+              {checked && activePlan?.raw && (
+                <div
+                  style={{
+                    ...styles.infoRow,
+                    display: "block",
+                    lineHeight: 1.6,
+                    marginBottom: 12,
+                  }}
+                >
+                  <strong>Subscription details</strong>
+
+                  <div style={{ marginTop: 6 }}>
+                    {getSubscriptionDetails(activePlan.raw)}
+                  </div>
+                </div>
               )}
 
-              <Button variant="primary" fullWidth onClick={handelChooseBtn}>
+              <Button
+                variant="primary"
+                fullWidth
+                onClick={() => handelChooseBtn(data.id)}
+              >
                 Choose
               </Button>
             </div>
