@@ -1,6 +1,26 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Card, Select, TextField, BlockStack } from "@shopify/polaris";
 import { useAppBridge } from "@shopify/app-bridge-react";
+
+const styles = {
+  productPickerField: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+    border: "1px solid #c9cccf",
+    borderRadius: 8,
+    padding: "8px 12px",
+    cursor: "pointer",
+    background: "#fff",
+  },
+  productPickerText: {
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    fontSize: 14,
+  },
+};
 
 function CreateWidget({ plans = [] }) {
   const shopify = useAppBridge();
@@ -9,7 +29,6 @@ function CreateWidget({ plans = [] }) {
   const [template, setTemplate] = useState("radio");
 
   const [selectedPlan, setSelectedPlan] = useState("");
-  const [selectedProduct, setSelectedProduct] = useState(null); // { id, title }
 
   const templateOptions = [
     { label: "Radio button", value: "radio" },
@@ -26,28 +45,65 @@ function CreateWidget({ plans = [] }) {
     [plans],
   );
 
+  const selectedPlanData = useMemo(() => {
+    return (
+      plans.find((plan) => plan.planId === selectedPlan) || plans[0] || null
+    );
+  }, [plans, selectedPlan]);
+
   useEffect(() => {
     if (!selectedPlan && planOptions.length > 0) {
       setSelectedPlan(planOptions[0].value);
     }
   }, [planOptions, selectedPlan]);
 
-  const handleProductPick = async () => {
+  // ⬇️ Preview product state (Widgets2.jsx jaisa)
+  const [previewProduct, setPreviewProduct] = useState(null);
+
+  // ⬇️ Plan badalte hi uska pehla product auto-select
+  useEffect(() => {
+    const first = selectedPlanData?.products?.[0];
+
+    if (!first) {
+      setPreviewProduct(null);
+      return;
+    }
+
+    setPreviewProduct({
+      id: first.id,
+      title: first.title || first.name || "Untitled product",
+    });
+  }, [selectedPlanData]);
+
+  // ⬇️ ResourcePicker se poore store me se koi bhi product choose kar sako
+  const handlePickPreviewProduct = useCallback(async () => {
     const selected = await shopify.resourcePicker({
       type: "product",
       multiple: false,
+      action: "select",
+      filter: {
+        variants: false,
+      },
     });
 
-    if (selected && selected.length > 0) {
-      setSelectedProduct({
-        id: selected[0].id,
-        title: selected[0].title,
+    if (selected && selected[0]) {
+      const product = selected[0];
+
+      setPreviewProduct({
+        id: product.id,
+        title: product.title,
       });
     }
-  };
+  }, [shopify]);
 
   return (
-    <div style={{ display: "flex", justifyContent: "space-between", gap: "10px" }}>
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        gap: "10px",
+      }}
+    >
       {/* LEFT SIDE */}
       <div style={{ width: "100%" }}>
         <Card>
@@ -66,6 +122,7 @@ function CreateWidget({ plans = [] }) {
               value={template}
               onChange={setTemplate}
             />
+
           </BlockStack>
         </Card>
       </div>
@@ -75,10 +132,17 @@ function CreateWidget({ plans = [] }) {
         <Card>
           <h2>Preview</h2>
 
-          <div style={{ display: "flex", justifyContent: "space-between", gap: "10px" }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              gap: "10px",
+            }}
+          >
             {/* PLAN */}
             <div style={{ width: "100%" }}>
               <h2>Plan</h2>
+
               <Select
                 label=""
                 labelHidden
@@ -88,19 +152,18 @@ function CreateWidget({ plans = [] }) {
               />
             </div>
 
+            {/* PRODUCT */}
             <div style={{ width: "220px" }}>
               <h2>Product</h2>
 
-              <div onClick={handleProductPick} style={{ cursor: "pointer" }}>
-                <TextField
-                  label=""
-                  labelHidden
-                  value={selectedProduct ? selectedProduct.title : ""}
-                  placeholder="Select product"
-                  readOnly
-                  autoComplete="off"
-                  suffix="▾"
-                />
+              <div
+                style={styles.productPickerField}
+                onClick={handlePickPreviewProduct}
+              >
+                <span style={styles.productPickerText}>
+                  {previewProduct?.title || "Select a product"}
+                </span>
+                <span>⌄</span>
               </div>
             </div>
           </div>

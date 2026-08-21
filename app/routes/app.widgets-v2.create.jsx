@@ -59,10 +59,6 @@ export const loader = async ({ request }) => {
             id
             title
 
-            featuredImage {
-              url
-            }
-
             variants(first: 1) {
               nodes {
                 price
