@@ -617,8 +617,15 @@ function Widgets2() {
     data.plans?.[0];
 
   const handelChooseBtn = (id) => {
-    console.log("fnsjdfnjs", id);
-    navigate(`/app/widgets/create/${id}`);
+    const data = purchaseCards.find((card) => card.id === id);
+
+    navigate(`/app/widgets/create/${id}`, {
+      state: {
+        widget: data,
+        selected: selectedMap[id],
+        activePlan: data ? getSelectedPlan(data) : null,
+      },
+    });
   };
   return (
     <Page title="Choose a template">
@@ -1249,3 +1256,5 @@ function Widgets2() {
 }
 
 export default Widgets2;
+
+
