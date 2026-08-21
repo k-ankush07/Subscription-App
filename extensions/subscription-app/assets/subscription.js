@@ -9,6 +9,7 @@
         {
           headers: {
             "x-api-key": SECRET_KEY,
+            "ngrok-skip-browser-warning": "true",
           },
         },
       );
