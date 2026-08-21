@@ -94,10 +94,10 @@ function CreateWidget({ plans = [] }) {
               onChange={setTemplate}
             />
 
-            <Select
+            {/* <Select
               label="Plan"
               value="1 plan select "
-            />
+            /> */}
 
           </BlockStack>
         </Card>
