@@ -17,7 +17,6 @@ export const loader = async ({ request }) => {
     const plansData = await plansResponse.json();
     const plans = plansData.success ? plansData.data : [];
 
-    // ⬇️ Store ka pehla product fetch karo
     const productRes = await admin.graphql(`
       query {
         products(first: 1) {
@@ -36,7 +35,8 @@ export const loader = async ({ request }) => {
 
     return Response.json({
       plans,
-      defaultProduct: firstProduct, // { id, title }
+      defaultProduct: firstProduct,
+      shop,
     });
   } catch (error) {
     console.error("Failed to fetch data:", error);
@@ -46,13 +46,13 @@ export const loader = async ({ request }) => {
 
 function WidgetCreate() {
   const navigate = useNavigate();
-  const { plans, defaultProduct } = useLoaderData();
+  const { plans, defaultProduct ,shop,} = useLoaderData();
 
   const handelBack = () => navigate("/app/widgets-v2/create");
 
   return (
     <Page title="Widgets Editor" backAction={{ content: "Widgets", onAction: handelBack }}>
-      <CreateWidget plans={plans} defaultProduct={defaultProduct} />
+      <CreateWidget plans={plans} defaultProduct={defaultProduct} shop={shop} />
     </Page>
   );
 }
