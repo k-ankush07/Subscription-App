@@ -1,5 +1,5 @@
 import { Button, Page, Select } from "@shopify/polaris";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useLoaderData } from "react-router";
 import { authenticate } from "../shopify.server";
 
@@ -16,79 +16,102 @@ export const loader = async ({ request }) => {
 
   const plansData = await plansResponse.json();
 
+  // We keep the FULL plan-group objects here (not just id/name) because the
+  // widget now needs each group's `sellingPlans` array + `products` array to
+  // build the purchase cards on the client.
   return Response.json({
     plans: plansData.success ? plansData.data : [],
   });
 };
 
-// NOTE: each card now has a `plans` array instead of a single
-// price/subPrice/deliverEvery — this is what lets one card offer
-// multiple delivery frequencies (e.g. "week" / "5 weeks").
-const purchaseCards = [
-  {
-    id: "card-1",
-    variant: "simple",
-    headerLabel: "PURCHASE OPTIONS",
-    onetimePrice: "Rs. 595.00",
-    plans: [
-      {
-        id: "week",
-        label: "Deliver every week",
-        discountLabel: "10% off",
-        price: "Rs. 535.50",
-      },
-      {
-        id: "5weeks",
-        label: "Deliver every 5 weeks",
-        discountLabel: "70% off",
-        price: "Rs. 178.50",
-      },
-    ],
-  },
+// ---------------------------------------------------------------------------
+// Helpers: turn raw sellingPlan objects (as returned by the API) into the
+// price / label strings the UI needs. This replaces the old hardcoded
+// `purchaseCards[].plans` arrays.
+// ---------------------------------------------------------------------------
+
+const CURRENCY_PREFIX = "Rs. ";
+
+function formatMoney(amount) {
+  const n = Number(amount) || 0;
+  return `${CURRENCY_PREFIX}${n.toFixed(2)}`;
+}
+
+// NOTE / ASSUMPTION: your sample plan-group JSON has a `products` array but
+// didn't show its shape, so I'm reading the base price off
+// `products[0].price`. If your API names that field differently
+// (e.g. `variantPrice`, `amount`, `compareAtPrice`), change this one line.
+function getBasePrice(planGroup) {
+  const product = planGroup?.products?.[0];
+  return Number(product?.price ?? product?.variantPrice ?? product?.amount ?? 0);
+}
+
+function intervalUnit(interval, count) {
+  const unit = String(interval || "").toLowerCase(); // day | week | month | year
+  return count > 1 ? `${unit}s` : unit;
+}
+
+// "every week" / "every 5 weeks"
+function deliveryPhrase(sp) {
+  const count = sp.intervalCount || 1;
+  const unit = intervalUnit(sp.interval, count);
+  return count > 1 ? `every ${count} ${unit}` : `every ${unit}`;
+}
+
+// "week" / "5 weeks" — used by the detailed & compact card variants
+function shortDeliveryLabel(sp) {
+  const count = sp.intervalCount || 1;
+  const unit = intervalUnit(sp.interval, count);
+  return count > 1 ? `${count} ${unit}` : unit;
+}
+
+function discountLabelFor(sp) {
+  if (!sp.giveSubscriptionDiscount) return undefined;
+  if (sp.discountType === "PERCENTAGE") return `${sp.discountValue}% off`;
+  if (sp.discountValue) return `${formatMoney(sp.discountValue)} off`;
+  return undefined;
+}
+
+function computeSellingPlanPrice(basePrice, sp) {
+  if (!sp.giveSubscriptionDiscount) return basePrice;
+  if (sp.discountType === "PERCENTAGE") {
+    return basePrice - (basePrice * sp.discountValue) / 100;
+  }
+  // Flat/PRICE style discount
+  return Math.max(basePrice - sp.discountValue, 0);
+}
+
+// Normalizes one API sellingPlan into everything every card variant needs.
+function normalizeSellingPlan(sp, basePrice) {
+  const price = computeSellingPlanPrice(basePrice, sp);
+
+  return {
+    id: sp.shopifySellingPlanId,
+    name: sp.name,
+    label: `Deliver ${deliveryPhrase(sp)}`, // simple variant
+    shortLabel: shortDeliveryLabel(sp), // detailed / compact variant
+    discountLabel: discountLabelFor(sp),
+    price: formatMoney(price),
+    comparePrice: formatMoney(basePrice),
+    raw: sp,
+  };
+}
+
+// Static, UI-only info per card (layout, copy that isn't plan-specific).
+// This is the ONLY hardcoded thing left — everything price/plan related now
+// comes from the API.
+const cardShells = [
+  { id: "card-1", variant: "simple", headerLabel: "PURCHASE OPTIONS" },
   {
     id: "card-2",
     variant: "detailed",
-    onetimePrice: "Rs. 595.00",
-    bannerLabel: "Save 10% on every delivery",
-    benefits: [
-      "10% of all recurring orders",
+    benefitsTemplate: [
       "Lowest price option",
       "Easily swap & skip deliveries",
       "Cancel quickly anytime",
     ],
-    plans: [
-      {
-        id: "week",
-        label: "week",
-        price: "Rs. 535.50",
-        comparePrice: "Rs. 595.00",
-      },
-      {
-        id: "5weeks",
-        label: "5 weeks",
-        price: "Rs. 178.50",
-        comparePrice: "Rs. 595.00",
-      },
-    ],
   },
-  {
-    id: "card-3",
-    variant: "compact",
-    plans: [
-      {
-        id: "week",
-        label: "week",
-        price: "Rs. 535.50",
-        comparePrice: "Rs. 595.00",
-      },
-      {
-        id: "5weeks",
-        label: "5 weeks",
-        price: "Rs. 178.50",
-        comparePrice: "Rs. 595.00",
-      },
-    ],
-  },
+  { id: "card-3", variant: "compact" },
 ];
 
 const styles = {
@@ -224,27 +247,118 @@ function Widgets2() {
     planOptions[0]?.value || "",
   );
 
-  // onetime vs subscribe, per card
-  const [selectedMap, setSelectedMap] = useState(
-    purchaseCards.reduce(
-      (acc, c) => ({
-        ...acc,
-        [c.id]: "subscribe",
-      }),
-      {},
-    ),
+  // The full plan-group object (with sellingPlans + products) for whichever
+  // plan is currently being previewed in the "Previewing plan" dropdown.
+  const selectedPlanGroup = useMemo(
+    () => plans.find((p) => p.planId === selectedPlanId) || plans[0],
+    [plans, selectedPlanId],
   );
 
-  // which delivery-frequency plan is chosen, per card
-  const [selectedPlanMap, setSelectedPlanMap] = useState(
-    purchaseCards.reduce(
-      (acc, c) => ({
-        ...acc,
-        [c.id]: c.plans?.[0]?.id || null,
-      }),
-      {},
-    ),
+  const basePrice = useMemo(
+    () => getBasePrice(selectedPlanGroup),
+    [selectedPlanGroup],
   );
+
+  // TEMP DEBUG — remove once basePrice is coming through correctly.
+  // Open the browser console and check what `products[0]` actually looks
+  // like, then update getBasePrice() to read the right field.
+  useEffect(() => {
+    if (selectedPlanGroup) {
+      console.log("selectedPlanGroup.products:", selectedPlanGroup.products);
+      console.log("computed basePrice:", basePrice);
+    }
+  }, [selectedPlanGroup, basePrice]);
+
+  // Raw API sellingPlans -> normalized { id, label, shortLabel, price, ... }
+  const normalizedPlans = useMemo(() => {
+    if (!selectedPlanGroup?.sellingPlans) return [];
+    return selectedPlanGroup.sellingPlans.map((sp) =>
+      normalizeSellingPlan(sp, basePrice),
+    );
+  }, [selectedPlanGroup, basePrice]);
+
+  // purchaseCards is now DERIVED from the API response every time the
+  // previewed plan changes, instead of being a hardcoded constant.
+  const purchaseCards = useMemo(() => {
+    const topDiscount = normalizedPlans.find((p) => p.discountLabel);
+
+    return cardShells.map((shell) => {
+      const base = {
+        id: shell.id,
+        variant: shell.variant,
+        onetimePrice: formatMoney(basePrice),
+      };
+
+      if (shell.variant === "simple") {
+        return {
+          ...base,
+          headerLabel: shell.headerLabel,
+          plans: normalizedPlans.map((p) => ({
+            id: p.id,
+            label: p.label,
+            discountLabel: p.discountLabel,
+            price: p.price,
+          })),
+        };
+      }
+
+      if (shell.variant === "detailed") {
+        const benefits = [
+          topDiscount
+            ? `${topDiscount.discountLabel} of all recurring orders`
+            : "Discount on all recurring orders",
+          ...shell.benefitsTemplate,
+        ];
+
+        return {
+          ...base,
+          bannerLabel: topDiscount
+            ? `Save ${topDiscount.discountLabel.replace(" off", "")} on every delivery`
+            : "Subscribe & save on every delivery",
+          benefits,
+          plans: normalizedPlans.map((p) => ({
+            id: p.id,
+            label: p.shortLabel,
+            price: p.price,
+            comparePrice: p.comparePrice,
+          })),
+        };
+      }
+
+      // compact
+      return {
+        ...base,
+        plans: normalizedPlans.map((p) => ({
+          id: p.id,
+          label: p.shortLabel,
+          price: p.price,
+          comparePrice: p.comparePrice,
+        })),
+      };
+    });
+  }, [normalizedPlans, basePrice]);
+
+  // onetime vs subscribe, per card
+  const [selectedMap, setSelectedMap] = useState({});
+
+  // which delivery-frequency plan is chosen, per card
+  const [selectedPlanMap, setSelectedPlanMap] = useState({});
+
+  // Whenever the previewed plan (or the cards derived from it) changes,
+  // reset each card back to "subscribe" + its first sellingPlan, since the
+  // old selected sellingPlan id almost certainly no longer exists.
+  useEffect(() => {
+    setSelectedMap(
+      purchaseCards.reduce((acc, c) => ({ ...acc, [c.id]: "subscribe" }), {}),
+    );
+    setSelectedPlanMap(
+      purchaseCards.reduce(
+        (acc, c) => ({ ...acc, [c.id]: c.plans?.[0]?.id || null }),
+        {},
+      ),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPlanGroup]);
 
   const select = (id, value) => {
     setSelectedMap((prev) => ({

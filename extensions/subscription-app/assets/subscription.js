@@ -1,6 +1,6 @@
 (function () {
   const shop = window.Shopify?.shop;
-  SECRET_KEY = "08466sdmfbf94374nkjsnfdkyry89nfksd388934jkdsf89y389bjkkr32";
+  const SECRET_KEY = "08466sdmfbf94374nkjsnfdkyry89nfksd388934jkdsf89y389bjkkr32";
   let allData = null;
   async function getData() {
     try {
@@ -9,7 +9,6 @@
         {
           headers: {
             "x-api-key": SECRET_KEY,
-            "ngrok-skip-browser-warning": "true",
           },
         },
       );
