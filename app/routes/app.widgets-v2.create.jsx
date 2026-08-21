@@ -2,7 +2,7 @@
 
 import { Button, Page, Select } from "@shopify/polaris";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useLoaderData } from "react-router";
+import { useLoaderData, useNavigate } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 import { currencySymbol } from "./utils/formatMoney.js";
@@ -360,7 +360,7 @@ function Widgets2() {
   const { plans, currencyCode } = useLoaderData();
 
   const shopify = useAppBridge();
-
+  const navigate= useNavigate()
   const planOptions = useMemo(
     () =>
       plans.map((p) => ({
@@ -551,6 +551,10 @@ function Widgets2() {
     data.plans?.find((p) => p.id === selectedPlanMap[data.id]) ||
     data.plans?.[0];
 
+    const handelChooseBtn =()=>
+    {
+      navigate("/app/widgets/create")
+    }
   return (
     <Page title="Choose a template">
       <div
@@ -743,7 +747,7 @@ function Widgets2() {
                   <div style={styles.infoRow}>Subscription details</div>
                 )}
 
-                <Button variant="primary" fullWidth>
+                <Button variant="primary" fullWidth onClick={handelChooseBtn}>
                   Choose
                 </Button>
               </div>
@@ -979,7 +983,7 @@ function Widgets2() {
                   <div style={styles.infoRow}>Subscription details</div>
                 )}
 
-                <Button variant="primary" fullWidth>
+                <Button variant="primary" fullWidth onClick={handelChooseBtn}>
                   Choose
                 </Button>
               </div>
@@ -1109,7 +1113,7 @@ function Widgets2() {
                 <div style={styles.infoRow}>Subscription details</div>
               )}
 
-              <Button variant="primary" fullWidth>
+              <Button variant="primary" fullWidth onClick={handelChooseBtn}>
                 Choose
               </Button>
             </div>
