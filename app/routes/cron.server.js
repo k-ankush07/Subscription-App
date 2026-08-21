@@ -5,11 +5,11 @@ export function startBillingCycleCron() {
     return;
   }
   globalThis.__billingCronStarted = true;
-  cron.schedule("*/1 * * * *", async () => {
+  cron.schedule("*/5 * * * *", async () => {
     console.log("[cron] Running process-billing-cycles...");
-    console.log("process.env https://dependence-rid-galaxy-frederick.trycloudflare.com")
+    console.log("process.env https://pets-scholar-kate-whenever.trycloudflare.com")
     try {
-      const res = await fetch(`https://dependence-rid-galaxy-frederick.trycloudflare.com/api/process-billing-cycles`, {
+      const res = await fetch(`https://pets-scholar-kate-whenever.trycloudflare.com/api/process-billing-cycles`, {
         method: "POST",
         headers: { "x-cron-secret": process.env.CRON_SECRET },
       });
@@ -27,5 +27,5 @@ export function startBillingCycleCron() {
     }
   });
 
-  console.log("[cron] Billing cycle scheduler started (every 1 min).");
+  console.log("[cron] Billing cycle scheduler started (every 5 min).");
 }
