@@ -2,10 +2,10 @@ import React from "react";
 import { Select, Button } from "@shopify/polaris";
 import { cardStyles as styles, getSubscriptionDetails } from "../utils/purchaseCardHelpers";
 
-function RadioDot({ checked }) {
+function RadioDot({ checked, color = "#111" }) {
   return (
-    <span style={styles.radioOuter(checked)}>
-      {checked && <span style={styles.radioInner} />}
+    <span style={{ ...styles.radioOuter(checked), borderColor: checked ? color : undefined }}>
+      {checked && <span style={{ ...styles.radioInner, background: color }} />}
     </span>
   );
 }
@@ -56,8 +56,6 @@ function useCardCustomization(customize) {
   const priceColor = customize?.priceColor || "#111";
   const labelBackgroundColor = customize?.labelBackgroundColor || "#e8e8e8";
   const labelTextColor = customize?.labelTextColor || "#111";
-  const badgeBackgroundColor = customize?.badgeBackgroundColor || "#eee";
-  const badgeTextColor = customize?.badgeTextColor || "#333";
 
   return {
     cornerRadius,
@@ -86,7 +84,10 @@ function useCardCustomization(customize) {
     blockTitleColor,
     labelBackgroundColor,
     labelTextColor,
-    badgeStyle: { ...styles.badge, background: badgeBackgroundColor, color: badgeTextColor },
+    // FIX: badge ab labelBackgroundColor / labelTextColor use karta hai — pehle
+    // badgeBackgroundColor/badgeTextColor use hoti thi jinke liye UI mein koi
+    // color picker hi nahi tha, isliye badge hamesha default grey rehta tha
+    badgeStyle: { ...styles.badge, background: labelBackgroundColor, color: labelTextColor },
     // STEP 16 FIX: select dropdown ke around bordered wrapper, taaki borderColor Select pe bhi dikhe
     selectWrapStyle: {
       border: `1px solid ${borderColor}`,
@@ -95,6 +96,8 @@ function useCardCustomization(customize) {
     },
     // STEP 17 FIX: block title ke dono taraf ki lines bhi borderColor use karengi
     headerLineStyle: { ...styles.headerLine, background: borderColor, flexShrink: 0 },
+    // STEP 20 FIX: radio dot ka checked color bhi borderColor follow karega
+    radioColor: borderColor,
   };
 }
 
@@ -110,6 +113,7 @@ function SimpleCard({ data, selected, activePlan, selectedPlanId, onSelect, onSe
     blockTitleColor,
     badgeStyle,
     headerLineStyle,
+    radioColor,
   } = useCardCustomization(customize);
   const showBlockTitle = customize?.blockTitle?.trim();
 
@@ -141,7 +145,7 @@ function SimpleCard({ data, selected, activePlan, selectedPlanId, onSelect, onSe
         {/* STEP 1 FIX: one-time purchase title row — minWidth:0 + wordBreak so long text wraps instead of overflowing */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, flex: 1 }}>
-            <RadioDot checked={selected === "onetime"} />
+            <RadioDot checked={selected === "onetime"} color={radioColor} />
             <span
               style={{
                 fontWeight: 700,
@@ -185,6 +189,14 @@ function SimpleCard({ data, selected, activePlan, selectedPlanId, onSelect, onSe
             ? customize?.customLabelText?.trim()
             : plan.discountLabel;
 
+          // FIX: displaySellingPlanName ON -> show plan.name (custom selling plan name)
+          // displaySellingPlanName OFF -> show plan.label (auto-generated "Deliver every week" text)
+          // Pehle plan.label hamesha primary text hota tha aur plan.name sirf ek chhoti
+          // secondary line ke roop mein neeche add hoti thi (dono ek saath dikhte the).
+          const displayText = customize?.displaySellingPlanName
+            ? plan.name || plan.label
+            : plan.label;
+
           return (
             <div
               key={plan.id}
@@ -205,27 +217,12 @@ function SimpleCard({ data, selected, activePlan, selectedPlanId, onSelect, onSe
               {/* STEP 3 FIX: plan label row */}
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
-                  <RadioDot checked={planChecked} />
+                  <RadioDot checked={planChecked} color={radioColor} />
                   <span style={{ wordBreak: "break-word", overflowWrap: "break-word" }}>
-                    {plan.label}
+                    {displayText}
                   </span>
                   {badgeText && <span style={badgeStyle}>{badgeText}</span>}
                 </div>
-
-                {customize?.displaySellingPlanName && plan.name && (
-                  <div
-                    style={{
-                      fontSize: 12,
-                      color: "#777",
-                      marginLeft: 32,
-                      marginTop: 2,
-                      wordBreak: "break-word",
-                      overflowWrap: "break-word",
-                    }}
-                  >
-                    {plan.name}
-                  </div>
-                )}
               </div>
 
               <div style={{ textAlign: "right", flexShrink: 0 }}>
@@ -263,6 +260,7 @@ function DetailedCard({ data, selected, activePlan, selectedPlanId, onSelect, on
     labelTextColor,
     badgeStyle,
     selectWrapStyle,
+    radioColor,
   } = useCardCustomization(customize);
 
   const customBadge = customize?.customLabel ? customize?.customLabelText?.trim() : null;
@@ -288,7 +286,7 @@ function DetailedCard({ data, selected, activePlan, selectedPlanId, onSelect, on
         {/* STEP 4 FIX: same one-time purchase title row fix as SimpleCard */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, flex: 1 }}>
-            <RadioDot checked={selected === "onetime"} />
+            <RadioDot checked={selected === "onetime"} color={radioColor} />
             <span
               style={{
                 fontWeight: 700,
@@ -337,7 +335,7 @@ function DetailedCard({ data, selected, activePlan, selectedPlanId, onSelect, on
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, flex: 1 }}>
-            <RadioDot checked={selected === "subscribe"} />
+            <RadioDot checked={selected === "subscribe"} color={radioColor} />
             <span
               style={{
                 fontWeight: 700,
@@ -419,7 +417,7 @@ function DetailedCard({ data, selected, activePlan, selectedPlanId, onSelect, on
 
 function CompactCard({ data, selected, activePlan, selectedPlanId, onSelect, onSelectPlan, onChoose, customize }) {
   const checked = selected === "subscribe";
-  const { cardStyle, cornerRadius, spacing, titleColor, priceColor, badgeStyle, selectWrapStyle } =
+  const { cardStyle, cornerRadius, spacing, titleColor, priceColor, badgeStyle, selectWrapStyle, radioColor } =
     useCardCustomization(customize);
   const customBadge = customize?.customLabel ? customize?.customLabelText?.trim() : null;
 
@@ -427,7 +425,7 @@ function CompactCard({ data, selected, activePlan, selectedPlanId, onSelect, onS
     <div style={{ ...cardStyle, width: 300 }}>
       <div
         style={{
-          border: "2px dashed #bbb",
+           border: `2px dashed ${radioColor}`, 
           borderRadius: cornerRadius,
           padding: spacing,
           marginBottom: 12,
@@ -488,7 +486,7 @@ function CompactCard({ data, selected, activePlan, selectedPlanId, onSelect, onS
               onClick={(e) => e.stopPropagation()}
             >
               <span style={{ color: "#555" }}>Deliver every:</span>
-              <div style={{ minWidth: 130, flexShrink: 0, ...selectWrapStyle }}>
+              <div style={{ minWidth: 130, flexShrink: 0 }}>
                 <Select
                   label=""
                   labelHidden

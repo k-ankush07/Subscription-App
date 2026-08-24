@@ -88,6 +88,10 @@ function CreateWidget({
   selectedCardColor: "#FFFFFF",
   borderColor: "#000000",
   blockTitleColor: "#000000",
+  titleColor: "#000000",
+  priceColor: "#000000",
+  labelBackgroundColor: "#D9D9D9",
+  labelTextColor: "#000000",
 
   });
   const navigate = useNavigate();

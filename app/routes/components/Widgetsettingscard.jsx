@@ -220,6 +220,54 @@ function WidgetSettingsCard({
                       handleCustomizeChange("blockTitleColor", value)
                     }
                   />
+
+                  <ColorField
+                    label="Title"
+                    value={customize.titleColor}
+                    onChange={(value) =>
+                      handleCustomizeChange("titleColor", value)
+                    }
+                  />
+
+                  <ColorField
+                    label="Price"
+                    value={customize.priceColor}
+                    onChange={(value) =>
+                      handleCustomizeChange("priceColor", value)
+                    }
+                  />
+
+                  <ColorField
+                    label="Label background"
+                    value={customize.labelBackgroundColor}
+                    onChange={(value) =>
+                      handleCustomizeChange("labelBackgroundColor", value)
+                    }
+                  />
+
+                  <ColorField
+                    label="Label text"
+                    value={customize.labelTextColor}
+                    onChange={(value) =>
+                      handleCustomizeChange("labelTextColor", value)
+                    }
+                  />
+{/* 
+                  <ColorField
+                    label="Badge background"
+                    value={customize.badgeBackgroundColor}
+                    onChange={(value) =>
+                      handleCustomizeChange("badgeBackgroundColor", value)
+                    }
+                  />
+
+                  <ColorField
+                    label="Badge text"
+                    value={customize.badgeTextColor}
+                    onChange={(value) =>
+                      handleCustomizeChange("badgeTextColor", value)
+                    }
+                  /> */}
                 </div>
               </div>
             </div>
