@@ -258,10 +258,11 @@ function CreateWidget({
 
       console.log("Widget created:", data.widget);
 
+      navigate("/app/widgets")
+      // navigate(`/app/widgets/${newWidgetId}`, {
+      //   state: { widget: data.widget },
+      // });
       
-      navigate(`/app/widgets-v2/${newWidgetId}`, {
-        state: { widget: data.widget },
-      });
     } catch (error) {
       console.error("Save widget error:", error);
       alert(error.message || "Something went wrong");
