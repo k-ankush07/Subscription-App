@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Card, Select, TextField, BlockStack ,Button,} from "@shopify/polaris";
+import { Card, Select, TextField, BlockStack, Button } from "@shopify/polaris";
 import { useAppBridge } from "@shopify/app-bridge-react";
 
 const styles = {
@@ -23,7 +23,7 @@ const styles = {
 };
 const API = import.meta.env.VITE_API_URL;
 const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
-function CreateWidget({ plans = [],shop, }) {
+function CreateWidget({ plans = [], shop }) {
   const shopify = useAppBridge();
 
   const [widgetName, setWidgetName] = useState("Widgets #");
@@ -60,7 +60,6 @@ function CreateWidget({ plans = [],shop, }) {
 
   const [previewProduct, setPreviewProduct] = useState(null);
 
-
   useEffect(() => {
     const first = selectedPlanData?.products?.[0];
 
@@ -74,7 +73,6 @@ function CreateWidget({ plans = [],shop, }) {
       title: first.title || first.name || "Untitled product",
     });
   }, [selectedPlanData]);
-
 
   const handlePickPreviewProduct = useCallback(async () => {
     const selected = await shopify.resourcePicker({
@@ -97,44 +95,44 @@ function CreateWidget({ plans = [],shop, }) {
   }, [shopify]);
 
   const handleSaveWidget = async () => {
-  try {
-    if (!widgetName.trim()) {
-      alert("Widget name required");
-      return;
+    try {
+      if (!widgetName.trim()) {
+        alert("Widget name required");
+        return;
+      }
+
+      if (!shop) {
+        alert("Shop missing");
+        return;
+      }
+
+      const response = await fetch(`${API}/api/widgets`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": SECRET_KEY,
+        },
+        body: JSON.stringify({
+          shop,
+          widgetName,
+          template,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Failed to create widget");
+      }
+
+      console.log("Widget created:", data.widget);
+
+      alert("Widget saved successfully!");
+    } catch (error) {
+      console.error("Save widget error:", error);
+      alert(error.message || "Something went wrong");
     }
-
-    if (!shop) {
-      alert("Shop missing");
-      return;
-    }
-
-    const response = await fetch(`${API}/api/widgets`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": SECRET_KEY,
-      },
-      body: JSON.stringify({
-        shop,
-        widgetName,
-        template,
-      }),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok || !data.success) {
-      throw new Error(data.error || "Failed to create widget");
-    }
-
-    console.log("Widget created:", data.widget);
-
-    alert("Widget saved successfully!");
-  } catch (error) {
-    console.error("Save widget error:", error);
-    alert(error.message || "Something went wrong");
-  }
-};
+  };
   return (
     <div
       style={{
@@ -145,7 +143,6 @@ function CreateWidget({ plans = [],shop, }) {
     >
       {/* LEFT SIDE */}
       <div style={{ width: "100%" }}>
-      
         <Card>
           <BlockStack gap="400">
             <TextField
@@ -162,16 +159,12 @@ function CreateWidget({ plans = [],shop, }) {
               value={template}
               onChange={setTemplate}
             />
-
           </BlockStack>
         </Card>
-        <div style={{paddingTop:"10px"}}>
-            <Button
-      variant="primary"
-      onClick={handleSaveWidget}
-    >
-      Save Widget
-    </Button>
+        <div style={{ paddingTop: "10px" }}>
+          <Button variant="primary" onClick={handleSaveWidget}>
+            Save Widget
+          </Button>
         </div>
       </div>
 
