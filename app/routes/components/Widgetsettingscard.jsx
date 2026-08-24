@@ -134,21 +134,8 @@ function WidgetSettingsCard({
                   <label>Display selling plan name</label>
                 </div>
 
-                <div>
-                  <input
-                    type="checkbox"
-                    checked={customize.customCurrencyFormat}
-                    onChange={(e) =>
-                      handleCustomizeChange(
-                        "customCurrencyFormat",
-                        e.target.checked,
-                      )
-                    }
-                  />
-                  <label>Custom currency format</label>
-                </div>
 
-                {template !== "highlight" && (
+                {/* {template !== "highlight" && (
                   <div>
                     <div>
                       <input
@@ -176,7 +163,7 @@ function WidgetSettingsCard({
                       </div>
                     )}
                   </div>
-                )}
+                )} */}
               </div>
               <div>
                 <b>Style</b>
