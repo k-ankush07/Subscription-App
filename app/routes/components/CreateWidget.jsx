@@ -83,6 +83,17 @@ function CreateWidget({
     customLabel: false,
     cornerRadius: 8,
     spacing: 8,
+      // Colors
+  cardColor: "#FFFFFF",
+  selectedCardColor: "#F6F6F7",
+  borderColor: "#E1E3E5",
+  blockTitleColor: "#202223",
+  titleColor: "#202223",
+  priceColor: "#202223",
+  labelBackgroundColor: "#EDEFF1",
+  labelTextColor: "#202223",
+  badgeBackgroundColor: "#008060",
+  badgeTextColor: "#FFFFFF",
   });
   const navigate = useNavigate();
   useEffect(() => {
