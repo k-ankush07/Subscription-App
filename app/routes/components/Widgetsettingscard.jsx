@@ -148,16 +148,18 @@ function WidgetSettingsCard({
                   <label>Custom currency format</label>
                 </div>
 
-                <div>
-                  <input
-                    type="checkbox"
-                    checked={customize.customLabel}
-                    onChange={(e) =>
-                      handleCustomizeChange("customLabel", e.target.checked)
-                    }
-                  />
-                  <label>Custom label</label>
-                </div>
+                {template !== "highlight" && (
+                  <div>
+                    <input
+                      type="checkbox"
+                      checked={customize.customLabel}
+                      onChange={(e) =>
+                        handleCustomizeChange("customLabel", e.target.checked)
+                      }
+                    />
+                    <label>Custom label</label>
+                  </div>
+                )}
               </div>
               <div>
                 <b>Style</b>

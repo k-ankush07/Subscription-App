@@ -76,7 +76,7 @@ function CreateWidget({
     blockTitle: "Abc",
     oneTimePurchaseTitle: "One time purchase",
     subscriptionTitle: "Save and subscribe",
-    preselectSubscription: false,
+    preselectSubscription: true,
     displayCompareAtPrice: false,
     displaySellingPlanName: false,
     customCurrencyFormat: false,
