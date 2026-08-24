@@ -13,6 +13,8 @@ import {
   buildPurchaseCards,
 } from "../utils/purchaseCardHelpers";
 import { generateWidgetId } from "../utils/generateWidgetId";
+import { useNavigate } from "react-router";
+import WidgetSettingsCard from "./WidgetSettingsCard";
 const styles = {
   wrapper: {
     display: "flex",
@@ -43,11 +45,7 @@ const styles = {
 const API = import.meta.env.VITE_API_URL;
 const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
 
-const TEMPLATE_OPTIONS = [
-  { label: "Radio button", value: "radio" },
-  { label: "Highlight", value: "highlight" },
-  { label: "Checkbox", value: "checkbox" },
-];
+
 
 const TEMPLATE_TO_VARIANT = {
   radio: "simple",
@@ -77,7 +75,7 @@ function CreateWidget({
   );
 
   // Keep in sync if the URL changes from outside (back/forward, or a fresh
-
+  const navigate = useNavigate();
   useEffect(() => {
     setTemplate(VARIANT_TO_TEMPLATE[initialVariant] || "radio");
   }, [initialVariant]);
@@ -234,7 +232,7 @@ function CreateWidget({
         return;
       }
 
-      const newWidgetId = generateWidgetId(); // id khud generate
+      const newWidgetId = generateWidgetId(); 
 
       const response = await fetch(`${API}/api/widgets`, {
         method: "POST",
@@ -260,8 +258,8 @@ function CreateWidget({
 
       console.log("Widget created:", data.widget);
 
-      // ab yahi generated id se redirect
-      navigate(`/app/widgets/${newWidgetId}`, {
+      
+      navigate(`/app/widgets-v2/${newWidgetId}`, {
         state: { widget: data.widget },
       });
     } catch (error) {
@@ -279,26 +277,12 @@ function CreateWidget({
       }}
     >
       {/* LEFT SIDE */}
-      <div style={{ width: "100%" }}>
-        <Card>
-          <BlockStack gap="400">
-            <TextField
-              label="Widget name (internal)"
-              value={widgetName}
-              onChange={setWidgetName}
-              placeholder="For your reference only"
-              autoComplete="off"
-            />
-
-            <Select
-              label="Widget template"
-              options={TEMPLATE_OPTIONS}
-              value={template}
-              onChange={handleTemplateChange}
-            />
-          </BlockStack>
-        </Card>
-      </div>
+     <WidgetSettingsCard
+  widgetName={widgetName}
+  onWidgetNameChange={setWidgetName}
+  template={template}
+  onTemplateChange={handleTemplateChange}
+/>
 
       {/* RIGHT SIDE - PREVIEW */}
       <div style={{ width: "100%" }}>
