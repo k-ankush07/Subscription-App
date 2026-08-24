@@ -45,8 +45,6 @@ const styles = {
 const API = import.meta.env.VITE_API_URL;
 const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
 
-
-
 const TEMPLATE_TO_VARIANT = {
   radio: "simple",
   highlight: "detailed",
@@ -70,14 +68,17 @@ function CreateWidget({
   const shopify = useAppBridge();
 
   const [widgetName, setWidgetName] = useState("Widgets #");
+  const [saving, setSaving] = useState(false);
   const [template, setTemplate] = useState(
     VARIANT_TO_TEMPLATE[initialVariant] || "radio",
   );
-const [customize, setCustomize] = useState({
-  blockTitle: "Abc",
-  oneTimePurchaseTitle: "One time purchase",
-  subscriptionTitle: "Save and subscribe",
-});
+  const [customize, setCustomize] = useState({
+    blockTitle: "Abc",
+    oneTimePurchaseTitle: "One time purchase",
+    subscriptionTitle: "Save and subscribe",
+    cornerRadius:8,
+    spacing:8,
+  });
   const navigate = useNavigate();
   useEffect(() => {
     setTemplate(VARIANT_TO_TEMPLATE[initialVariant] || "radio");
@@ -122,7 +123,7 @@ const [customize, setCustomize] = useState({
     if (initialProductIdRef.current) {
       target =
         products.find((p) => p.id === initialProductIdRef.current) || null;
-      initialProductIdRef.current = null; 
+      initialProductIdRef.current = null;
     }
 
     if (!target) {
@@ -222,7 +223,7 @@ const [customize, setCustomize] = useState({
     cardData?.plans?.[0] ||
     null;
 
-   const handleSaveWidget = async () => {
+  const handleSaveWidget = async () => {
     try {
       if (!widgetName.trim()) {
         alert("Widget name required");
@@ -232,8 +233,8 @@ const [customize, setCustomize] = useState({
         alert("Shop missing");
         return;
       }
-
-      const newWidgetId = generateWidgetId(); 
+      setSaving(true);
+      const newWidgetId = generateWidgetId();
 
       const response = await fetch(`${API}/api/widgets`, {
         method: "POST",
@@ -248,7 +249,7 @@ const [customize, setCustomize] = useState({
           template,
           planId: selectedPlan,
           productId: previewProduct?.id || null,
-            customize,
+          customize,
         }),
       });
 
@@ -260,15 +261,19 @@ const [customize, setCustomize] = useState({
 
       console.log("Widget created:", data.widget);
 
-      navigate("/app/widgets")
+     setTimeout(()=>
+    {
+       navigate("/app/widgets");
+    },2000)
       // navigate(`/app/widgets/${newWidgetId}`, {
       //   state: { widget: data.widget },
       // });
-      
     } catch (error) {
       console.error("Save widget error:", error);
       alert(error.message || "Something went wrong");
-    }
+    }finally {
+    setSaving(false);
+  }
   };
 
   return (
@@ -280,14 +285,14 @@ const [customize, setCustomize] = useState({
       }}
     >
       {/* LEFT SIDE */}
-     <WidgetSettingsCard
-  widgetName={widgetName}
-  onWidgetNameChange={setWidgetName}
-  template={template}
-  onTemplateChange={handleTemplateChange}
-   customize={customize}
-  onCustomizeChange={setCustomize}
-/>
+      <WidgetSettingsCard
+        widgetName={widgetName}
+        onWidgetNameChange={setWidgetName}
+        template={template}
+        onTemplateChange={handleTemplateChange}
+        customize={customize}
+        onCustomizeChange={setCustomize}
+      />
 
       {/* RIGHT SIDE - PREVIEW */}
       <div style={{ width: "100%" }}>
@@ -344,8 +349,9 @@ const [customize, setCustomize] = useState({
                 />
               </div>
 
-              <div style={{ paddingTop: "10px" }}>
-                <Button variant="primary" onClick={handleSaveWidget}>
+              <div style={{ paddingTop: " 10px" }}>
+                <Button variant="primary"   loading={saving}
+  disabled={saving} onClick={handleSaveWidget}>
                   Save Widget
                 </Button>
               </div>
