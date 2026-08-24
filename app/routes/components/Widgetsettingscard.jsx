@@ -91,7 +91,33 @@ function WidgetSettingsCard({
                   autoComplete="off"
                 />
               </div>
-
+              <div>
+                <div>
+                    
+                    <input type="checkbox"  />
+                    <label>Preselect subscription option</label>
+                </div>
+                <div>
+                   
+                    <input type="checkbox"  />
+                     <label>Display compare-at price</label>
+                </div>
+                <div>
+                    
+                    <input type="checkbox"  />
+                    <label>Display selling plan name</label>
+                </div>
+                <div>
+                    
+                    <input type="checkbox"  />
+                    <label>Custom currency format</label>
+                </div>
+                <div>
+                    
+                    <input type="checkbox"  />
+                    <label>Custom label</label>
+                </div>
+              </div>
               <div>
                 <b>Style</b>
                 <div
