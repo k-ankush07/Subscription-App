@@ -135,35 +135,7 @@ function WidgetSettingsCard({
                 </div>
 
 
-                {/* {template !== "highlight" && (
-                  <div>
-                    <div>
-                      <input
-                        type="checkbox"
-                        checked={customize.customLabel}
-                        onChange={(e) =>
-                          handleCustomizeChange("customLabel", e.target.checked)
-                        }
-                      />
-                      <label>Custom label</label>
-                    </div>
-
-                    {customize.customLabel && (
-                      <div style={{ marginTop: 8 }}>
-                        <TextField
-                          label="Custom label text"
-                          labelHidden
-                          placeholder="e.g. Best value"
-                          value={customize.customLabelText || ""}
-                          onChange={(value) =>
-                            handleCustomizeChange("customLabelText", value)
-                          }
-                          autoComplete="off"
-                        />
-                      </div>
-                    )}
-                  </div>
-                )} */}
+               
               </div>
               <div>
                 <b>Style</b>
@@ -246,54 +218,6 @@ function WidgetSettingsCard({
                     value={customize.blockTitleColor}
                     onChange={(value) =>
                       handleCustomizeChange("blockTitleColor", value)
-                    }
-                  />
-
-                  <ColorField
-                    label="Title"
-                    value={customize.titleColor}
-                    onChange={(value) =>
-                      handleCustomizeChange("titleColor", value)
-                    }
-                  />
-
-                  <ColorField
-                    label="Price"
-                    value={customize.priceColor}
-                    onChange={(value) =>
-                      handleCustomizeChange("priceColor", value)
-                    }
-                  />
-
-                  <ColorField
-                    label="Label background"
-                    value={customize.labelBackgroundColor}
-                    onChange={(value) =>
-                      handleCustomizeChange("labelBackgroundColor", value)
-                    }
-                  />
-
-                  <ColorField
-                    label="Label text"
-                    value={customize.labelTextColor}
-                    onChange={(value) =>
-                      handleCustomizeChange("labelTextColor", value)
-                    }
-                  />
-
-                  <ColorField
-                    label="Badge background"
-                    value={customize.badgeBackgroundColor}
-                    onChange={(value) =>
-                      handleCustomizeChange("badgeBackgroundColor", value)
-                    }
-                  />
-
-                  <ColorField
-                    label="Badge text"
-                    value={customize.badgeTextColor}
-                    onChange={(value) =>
-                      handleCustomizeChange("badgeTextColor", value)
                     }
                   />
                 </div>

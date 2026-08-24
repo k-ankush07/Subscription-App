@@ -40,45 +40,88 @@ function ChooseButton({ onChoose }) {
 
 // cornerRadius -> sirf border boxes ke radius par
 // spacing -> border ke andar ka padding (text se border ki dooriyaan)
+// STEP 12 FIX: customize.* color fields ab yahan se actual style values mein convert hote hain,
+// pehle ye kahin bhi use nahi ho rahe the isliye color pickers ka koi effect nahi padta tha
 function useCardCustomization(customize) {
   const cornerRadius = Number(customize?.cornerRadius ?? 8);
   const spacing = Number(customize?.spacing ?? 14);
   const oneTimeLabel = customize?.oneTimePurchaseTitle?.trim() || "One time purchase";
   const subscribeLabel = customize?.subscriptionTitle?.trim() || "Subscribe & save";
 
+  const cardColor = customize?.cardColor || "#fff";
+  const selectedCardColor = customize?.selectedCardColor || cardColor;
+  const borderColor = customize?.borderColor || "#111";
+  const blockTitleColor = customize?.blockTitleColor || "#100e0e";
+  const titleColor = customize?.titleColor || "#111";
+  const priceColor = customize?.priceColor || "#111";
+  const labelBackgroundColor = customize?.labelBackgroundColor || "#e8e8e8";
+  const labelTextColor = customize?.labelTextColor || "#111";
+  const badgeBackgroundColor = customize?.badgeBackgroundColor || "#eee";
+  const badgeTextColor = customize?.badgeTextColor || "#333";
+
   return {
     cornerRadius,
     spacing,
-    // outer white wrapper — cornerRadius YAHAN apply nahi hota
+    // STEP 16 FIX: outer wrapper hamesha white/default rahega, cardColor sirf boxes ke liye hai
     cardStyle: styles.card,
-    // border boxes — yahi cornerRadius + spacing(padding) lete hain
+    // border boxes — yahi cornerRadius + spacing(padding) + colors lete hain
+    // STEP 17 FIX: borderColor sirf SELECTED box pe, unselected apna default border rakhega
     boxSelected: {
       ...styles.optionBoxSelected,
       borderRadius: cornerRadius,
       padding: spacing,
+      background: selectedCardColor,
+      borderColor,
     },
     boxUnselected: {
       ...styles.optionBoxUnselected,
       borderRadius: cornerRadius,
       padding: spacing,
+      background: cardColor,
     },
     oneTimeLabel,
     subscribeLabel,
+    titleColor,
+    priceColor,
+    blockTitleColor,
+    labelBackgroundColor,
+    labelTextColor,
+    badgeStyle: { ...styles.badge, background: badgeBackgroundColor, color: badgeTextColor },
+    // STEP 16 FIX: select dropdown ke around bordered wrapper, taaki borderColor Select pe bhi dikhe
+    selectWrapStyle: {
+      border: `1px solid ${borderColor}`,
+      borderRadius: Math.min(cornerRadius, 8),
+      overflow: "hidden",
+    },
+    // STEP 17 FIX: block title ke dono taraf ki lines bhi borderColor use karengi
+    headerLineStyle: { ...styles.headerLine, background: borderColor, flexShrink: 0 },
   };
 }
 
 function SimpleCard({ data, selected, activePlan, selectedPlanId, onSelect, onSelectPlan, onChoose, customize }) {
-  const { cardStyle, boxSelected, boxUnselected, oneTimeLabel, subscribeLabel } = useCardCustomization(customize);
+  const {
+    cardStyle,
+    boxSelected,
+    boxUnselected,
+    oneTimeLabel,
+    subscribeLabel,
+    titleColor,
+    priceColor,
+    blockTitleColor,
+    badgeStyle,
+    headerLineStyle,
+  } = useCardCustomization(customize);
   const showBlockTitle = customize?.blockTitle?.trim();
 
   return (
     <div style={cardStyle}>
       {showBlockTitle && (
         <div style={{ ...styles.headerWithLines, minWidth: 0 }}>
-          <span style={{ ...styles.headerLine, flexShrink: 0 }} />
+          <span style={headerLineStyle} />
           <span
             style={{
               ...styles.headerText,
+              color: blockTitleColor,
               wordBreak: "break-word",
               overflowWrap: "break-word",
               minWidth: 0,
@@ -87,7 +130,7 @@ function SimpleCard({ data, selected, activePlan, selectedPlanId, onSelect, onSe
           >
             {customize.blockTitle}
           </span>
-          <span style={{ ...styles.headerLine, flexShrink: 0 }} />
+          <span style={headerLineStyle} />
         </div>
       )}
 
@@ -103,6 +146,7 @@ function SimpleCard({ data, selected, activePlan, selectedPlanId, onSelect, onSe
               style={{
                 fontWeight: 700,
                 fontSize: 16,
+                color: titleColor,
                 wordBreak: "break-word",
                 overflowWrap: "break-word",
                 minWidth: 0,
@@ -111,7 +155,7 @@ function SimpleCard({ data, selected, activePlan, selectedPlanId, onSelect, onSe
               {oneTimeLabel}
             </span>
           </div>
-          <span style={{ fontWeight: 600, whiteSpace: "nowrap", flexShrink: 0 }}>
+          <span style={{ fontWeight: 600, color: priceColor, whiteSpace: "nowrap", flexShrink: 0 }}>
             {data.onetimePrice}
           </span>
         </div>
@@ -126,6 +170,7 @@ function SimpleCard({ data, selected, activePlan, selectedPlanId, onSelect, onSe
           style={{
             fontWeight: 700,
             fontSize: 16,
+            color: titleColor,
             marginBottom: 12,
             wordBreak: "break-word",
             overflowWrap: "break-word",
@@ -164,18 +209,27 @@ function SimpleCard({ data, selected, activePlan, selectedPlanId, onSelect, onSe
                   <span style={{ wordBreak: "break-word", overflowWrap: "break-word" }}>
                     {plan.label}
                   </span>
-                  {badgeText && <span style={styles.badge}>{badgeText}</span>}
+                  {badgeText && <span style={badgeStyle}>{badgeText}</span>}
                 </div>
 
                 {customize?.displaySellingPlanName && plan.name && (
-                  <div style={{ fontSize: 12, color: "#777", marginLeft: 32, marginTop: 2 }}>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: "#777",
+                      marginLeft: 32,
+                      marginTop: 2,
+                      wordBreak: "break-word",
+                      overflowWrap: "break-word",
+                    }}
+                  >
                     {plan.name}
                   </div>
                 )}
               </div>
 
               <div style={{ textAlign: "right", flexShrink: 0 }}>
-                <span style={{ fontWeight: 700 }}>{plan.price}</span>
+                <span style={{ fontWeight: 700, color: priceColor }}>{plan.price}</span>
                 {customize?.displayCompareAtPrice && plan.comparePrice && (
                   <div style={{ color: "#999", textDecoration: "line-through", fontSize: 12 }}>
                     {plan.comparePrice}
@@ -195,8 +249,21 @@ function SimpleCard({ data, selected, activePlan, selectedPlanId, onSelect, onSe
 }
 
 function DetailedCard({ data, selected, activePlan, selectedPlanId, onSelect, onSelectPlan, onChoose, customize }) {
-  const { cardStyle, boxSelected, boxUnselected, cornerRadius, spacing, oneTimeLabel, subscribeLabel } =
-    useCardCustomization(customize);
+  const {
+    cardStyle,
+    boxSelected,
+    boxUnselected,
+    cornerRadius,
+    spacing,
+    oneTimeLabel,
+    subscribeLabel,
+    titleColor,
+    priceColor,
+    labelBackgroundColor,
+    labelTextColor,
+    badgeStyle,
+    selectWrapStyle,
+  } = useCardCustomization(customize);
 
   const customBadge = customize?.customLabel ? customize?.customLabelText?.trim() : null;
 
@@ -226,6 +293,7 @@ function DetailedCard({ data, selected, activePlan, selectedPlanId, onSelect, on
               style={{
                 fontWeight: 700,
                 fontSize: 16,
+                color: titleColor,
                 wordBreak: "break-word",
                 overflowWrap: "break-word",
                 minWidth: 0,
@@ -234,15 +302,17 @@ function DetailedCard({ data, selected, activePlan, selectedPlanId, onSelect, on
               {oneTimeLabel}
             </span>
           </div>
-          <span style={{ fontWeight: 600, whiteSpace: "nowrap", flexShrink: 0 }}>
+          <span style={{ fontWeight: 600, color: priceColor, whiteSpace: "nowrap", flexShrink: 0 }}>
             {data.onetimePrice}
           </span>
         </div>
       </div>
 
+      {/* STEP 14 FIX: banner ab labelBackgroundColor / labelTextColor use karta hai */}
       <div
         style={{
-          background: "#e8e8e8",
+          background: labelBackgroundColor,
+          color: labelTextColor,
           textAlign: "center",
           fontWeight: 600,
           fontSize: 13,
@@ -257,11 +327,11 @@ function DetailedCard({ data, selected, activePlan, selectedPlanId, onSelect, on
 
       <div
         style={{
-          border: `2px solid ${selected === "subscribe" ? "#111" : "#d0d0d0"}`,
+          // STEP 19 FIX: pehle yahan hardcoded border tha, koi background nahi — isliye
+          // "Save and subscribe" select hone par bhi Selected card color kabhi nahi dikhta tha
+          ...(selected === "subscribe" ? boxSelected : boxUnselected),
           borderRadius: `0 0 ${cornerRadius}px ${cornerRadius}px`,
-          padding: spacing,
           marginBottom: 12,
-          cursor: "pointer",
         }}
         onClick={() => onSelect("subscribe")}
       >
@@ -272,6 +342,7 @@ function DetailedCard({ data, selected, activePlan, selectedPlanId, onSelect, on
               style={{
                 fontWeight: 700,
                 fontSize: 16,
+                color: titleColor,
                 wordBreak: "break-word",
                 overflowWrap: "break-word",
               }}
@@ -281,7 +352,7 @@ function DetailedCard({ data, selected, activePlan, selectedPlanId, onSelect, on
           </div>
 
           <div style={{ textAlign: "right", flexShrink: 0 }}>
-            <div style={{ background: "#eee", fontWeight: 700, padding: "4px 10px", borderRadius: 4 }}>
+            <div style={{ background: "#eee", fontWeight: 700, color: priceColor, padding: "4px 10px", borderRadius: 4 }}>
               {activePlan?.price}
             </div>
             {customize?.displayCompareAtPrice && activePlan?.comparePrice && (
@@ -315,21 +386,23 @@ function DetailedCard({ data, selected, activePlan, selectedPlanId, onSelect, on
               </div>
 
               {isLast && (
-                <div style={{ width: 130, flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
+                <div style={{ width: 150, flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
                   <div style={{ fontSize: 13, color: "#333", marginBottom: 4 }}>Deliver every:</div>
-                  <Select
-                    label=""
-                    labelHidden
-                    options={data.plans.map((p) => ({ label: p.label, value: p.id }))}
-                    value={selectedPlanId}
-                    onChange={(value) => {
-                      onSelect("subscribe");
-                      onSelectPlan(value);
-                    }}
-                  />
-                  {customize?.displaySellingPlanName && activePlan?.name && (
-                    <div style={{ fontSize: 11, color: "#777", marginTop: 4 }}>{activePlan.name}</div>
-                  )}
+                  <div style={selectWrapStyle}>
+                    <Select
+                      label=""
+                      labelHidden
+                      options={data.plans.map((p) => ({
+                        label: customize?.displaySellingPlanName ? p.name || p.label : p.label,
+                        value: p.id,
+                      }))}
+                      value={selectedPlanId}
+                      onChange={(value) => {
+                        onSelect("subscribe");
+                        onSelectPlan(value);
+                      }}
+                    />
+                  </div>
                 </div>
               )}
             </div>
@@ -346,7 +419,8 @@ function DetailedCard({ data, selected, activePlan, selectedPlanId, onSelect, on
 
 function CompactCard({ data, selected, activePlan, selectedPlanId, onSelect, onSelectPlan, onChoose, customize }) {
   const checked = selected === "subscribe";
-  const { cardStyle, cornerRadius, spacing } = useCardCustomization(customize);
+  const { cardStyle, cornerRadius, spacing, titleColor, priceColor, badgeStyle, selectWrapStyle } =
+    useCardCustomization(customize);
   const customBadge = customize?.customLabel ? customize?.customLabelText?.trim() : null;
 
   return (
@@ -388,6 +462,7 @@ function CompactCard({ data, selected, activePlan, selectedPlanId, onSelect, onS
                 style={{
                   fontWeight: 700,
                   fontSize: 16,
+                  color: titleColor,
                   wordBreak: "break-word",
                   overflowWrap: "break-word",
                   minWidth: 0,
@@ -400,10 +475,10 @@ function CompactCard({ data, selected, activePlan, selectedPlanId, onSelect, onS
                     {activePlan.comparePrice}
                   </span>
                 )}
-                {customBadge && <span style={styles.badge}>{customBadge}</span>}
+                {customBadge && <span style={badgeStyle}>{customBadge}</span>}
               </span>
 
-              <span style={{ fontWeight: 700, whiteSpace: "nowrap", flexShrink: 0 }}>
+              <span style={{ fontWeight: 700, color: priceColor, whiteSpace: "nowrap", flexShrink: 0 }}>
                 {activePlan?.price}
               </span>
             </div>
@@ -413,11 +488,14 @@ function CompactCard({ data, selected, activePlan, selectedPlanId, onSelect, onS
               onClick={(e) => e.stopPropagation()}
             >
               <span style={{ color: "#555" }}>Deliver every:</span>
-              <div style={{ width: 110 }}>
+              <div style={{ minWidth: 130, flexShrink: 0, ...selectWrapStyle }}>
                 <Select
                   label=""
                   labelHidden
-                  options={data.plans.map((p) => ({ label: p.label, value: p.id }))}
+                  options={data.plans.map((p) => ({
+                    label: customize?.displaySellingPlanName ? p.name || p.label : p.label,
+                    value: p.id,
+                  }))}
                   value={selectedPlanId}
                   onChange={(value) => {
                     onSelect("subscribe");
@@ -427,9 +505,7 @@ function CompactCard({ data, selected, activePlan, selectedPlanId, onSelect, onS
               </div>
             </div>
 
-            {customize?.displaySellingPlanName && activePlan?.name && (
-              <div style={{ fontSize: 11, color: "#777", marginTop: 4 }}>{activePlan.name}</div>
-            )}
+            {/* STEP 15 FIX: selling plan name ab select ke andar hi dikh raha hai (upar), yahan alag se nahi */}
           </div>
         </div>
       </div>
