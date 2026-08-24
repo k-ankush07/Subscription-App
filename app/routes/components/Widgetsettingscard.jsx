@@ -1,309 +1,3 @@
-// import React from "react";
-// import {
-//   Card,
-//   Select,
-//   TextField,
-//   BlockStack,
-//   RangeSlider,
-//   ColorField
-// } from "@shopify/polaris";
-
-// export const TEMPLATE_OPTIONS = [
-//   { label: "Radio button", value: "radio" },
-//   { label: "Highlight", value: "highlight" },
-//   { label: "Checkbox", value: "checkbox" },
-// ];
-
-// function WidgetSettingsCard({
-//   widgetName,
-//   onWidgetNameChange,
-//   template,
-//   onTemplateChange,
-//   customize,
-//   onCustomizeChange,
-//   showTemplate = true,
-// }) {
-//   const handleCustomizeChange = (field, value) => {
-//     onCustomizeChange({
-//       ...customize,
-//       [field]: value,
-//     });
-//   };
-
-//   return (
-//     <div style={{ width: "100%" }}>
-//       <Card>
-//         <BlockStack gap="400">
-//           <TextField
-//             label="Widget name (internal)"
-//             value={widgetName}
-//             onChange={onWidgetNameChange}
-//             placeholder="For your reference only"
-//             autoComplete="off"
-//           />
-
-//           {showTemplate && (
-//             <Select
-//               label="Widget template"
-//               options={TEMPLATE_OPTIONS}
-//               value={template}
-//               onChange={onTemplateChange}
-//             />
-//           )}
-
-//           <div>
-//             <h2>Customize</h2>
-
-//             <div>
-//               {template === "radio" && (
-//                 <div>
-//                   <h2>Block title</h2>
-
-//                   <TextField
-//                     value={customize.blockTitle}
-//                     onChange={(value) =>
-//                       handleCustomizeChange("blockTitle", value)
-//                     }
-//                     autoComplete="off"
-//                   />
-//                 </div>
-//               )}
-
-//               <div>
-//                 <h2>One-time purchase option title</h2>
-
-//                 <TextField
-//                   value={customize.oneTimePurchaseTitle}
-//                   onChange={(value) =>
-//                     handleCustomizeChange("oneTimePurchaseTitle", value)
-//                   }
-//                   autoComplete="off"
-//                 />
-//               </div>
-
-//               <div>
-//                 <h2>Subscription option title</h2>
-
-//                 <TextField
-//                   value={customize.subscriptionTitle}
-//                   onChange={(value) =>
-//                     handleCustomizeChange("subscriptionTitle", value)
-//                   }
-//                   autoComplete="off"
-//                 />
-//               </div>
-//               <div>
-//                 <div>
-//                   <input
-//                     type="checkbox"
-//                     checked={customize.preselectSubscription}
-//                     onChange={(e) =>
-//                       handleCustomizeChange(
-//                         "preselectSubscription",
-//                         e.target.checked,
-//                       )
-//                     }
-//                   />
-//                   <label>Preselect subscription option</label>
-//                 </div>
-
-//                 <div>
-//                   <input
-//                     type="checkbox"
-//                     checked={customize.displayCompareAtPrice}
-//                     onChange={(e) =>
-//                       handleCustomizeChange(
-//                         "displayCompareAtPrice",
-//                         e.target.checked,
-//                       )
-//                     }
-//                   />
-//                   <label>Display compare-at price</label>
-//                 </div>
-
-//                 <div>
-//                   <input
-//                     type="checkbox"
-//                     checked={customize.displaySellingPlanName}
-//                     onChange={(e) =>
-//                       handleCustomizeChange(
-//                         "displaySellingPlanName",
-//                         e.target.checked,
-//                       )
-//                     }
-//                   />
-//                   <label>Display selling plan name</label>
-//                 </div>
-
-//                 <div>
-//                   <input
-//                     type="checkbox"
-//                     checked={customize.customCurrencyFormat}
-//                     onChange={(e) =>
-//                       handleCustomizeChange(
-//                         "customCurrencyFormat",
-//                         e.target.checked,
-//                       )
-//                     }
-//                   />
-//                   <label>Custom currency format</label>
-//                 </div>
-
-//                 {template !== "highlight" && (
-//                   <div>
-//                     <input
-//                       type="checkbox"
-//                       checked={customize.customLabel}
-//                       onChange={(e) =>
-//                         handleCustomizeChange("customLabel", e.target.checked)
-//                       }
-//                     />
-//                     <label>Custom label</label>
-//                   </div>
-//                 )}
-//               </div>
-//               <div>
-//                 <b>Style</b>
-//                 <div
-//                   style={{
-//                     display: "flex",
-//                     justifyContent: "space-between",
-//                     gap: "10px",
-//                   }}
-//                 >
-//                   <RangeSlider
-//                     label="Corner radius"
-//                     value={Number(customize.cornerRadius)}
-//                     min={0}
-//                     max={50}
-//                     step={1}
-//                     onChange={(value) =>
-//                       onCustomizeChange((prev) => ({
-//                         ...prev,
-//                         cornerRadius: value,
-//                       }))
-//                     }
-//                     output
-//                   />
-
-//                   <RangeSlider
-//                     label="Spacing"
-//                     value={Number(customize.spacing)}
-//                     min={0}
-//                     max={20}
-//                     step={1}
-//                     onChange={(value) =>
-//                       onCustomizeChange((prev) => ({
-//                         ...prev,
-//                         spacing: value,
-//                       }))
-//                     }
-//                     output
-//                   />
-//                 </div>
-//               </div>
-
-//              <div>
-//   <b>Colors</b>
-
-//   <div
-//     style={{
-//       display: "grid",
-//       gridTemplateColumns: "repeat(2, 1fr)",
-//       gap: "16px",
-//       marginTop: "12px",
-//     }}
-//   >
-//     <ColorField
-//       label="Card"
-//       value={customize.cardColor}
-//       onChange={(value) => handleCustomizeChange("cardColor", value)}
-//     />
-
-//     <ColorField
-//       label="Selected card"
-//       value={customize.selectedCardColor}
-//       onChange={(value) =>
-//         handleCustomizeChange("selectedCardColor", value)
-//       }
-//     />
-
-//     <ColorField
-//       label="Border color"
-//       value={customize.borderColor}
-//       onChange={(value) =>
-//         handleCustomizeChange("borderColor", value)
-//       }
-//     />
-
-//     <ColorField
-//       label="Block title"
-//       value={customize.blockTitleColor}
-//       onChange={(value) =>
-//         handleCustomizeChange("blockTitleColor", value)
-//       }
-//     />
-
-//     <ColorField
-//       label="Title"
-//       value={customize.titleColor}
-//       onChange={(value) =>
-//         handleCustomizeChange("titleColor", value)
-//       }
-//     />
-
-//     <ColorField
-//       label="Price"
-//       value={customize.priceColor}
-//       onChange={(value) =>
-//         handleCustomizeChange("priceColor", value)
-//       }
-//     />
-
-//     <ColorField
-//       label="Label background"
-//       value={customize.labelBackgroundColor}
-//       onChange={(value) =>
-//         handleCustomizeChange("labelBackgroundColor", value)
-//       }
-//     />
-
-//     <ColorField
-//       label="Label text"
-//       value={customize.labelTextColor}
-//       onChange={(value) =>
-//         handleCustomizeChange("labelTextColor", value)
-//       }
-//     />
-
-//     <ColorField
-//       label="Badge background"
-//       value={customize.badgeBackgroundColor}
-//       onChange={(value) =>
-//         handleCustomizeChange("badgeBackgroundColor", value)
-//       }
-//     />
-
-//     <ColorField
-//       label="Badge text"
-//       value={customize.badgeTextColor}
-//       onChange={(value) =>
-//         handleCustomizeChange("badgeTextColor", value)
-//       }
-//     />
-//   </div>
-// </div>
-//             </div>
-//           </div>
-//         </BlockStack>
-//       </Card>
-//     </div>
-//   );
-// }
-
-// export default WidgetSettingsCard;
-
-
 import React from "react";
 import {
   Card,
@@ -311,7 +5,6 @@ import {
   TextField,
   BlockStack,
   RangeSlider,
-  ColorField,
 } from "@shopify/polaris";
 
 export const TEMPLATE_OPTIONS = [
@@ -330,10 +23,10 @@ function WidgetSettingsCard({
   showTemplate = true,
 }) {
   const handleCustomizeChange = (field, value) => {
-    onCustomizeChange((prev) => ({
-      ...prev,
+    onCustomizeChange({
+      ...customize,
       [field]: value,
-    }));
+    });
   };
 
   return (
@@ -360,259 +53,168 @@ function WidgetSettingsCard({
           <div>
             <h2>Customize</h2>
 
-            {template === "radio" && (
+            <div>
+              {template === "radio" && (
+                <div>
+                  <h2>Block title</h2>
+
+                  <TextField
+                    value={customize.blockTitle}
+                    onChange={(value) =>
+                      handleCustomizeChange("blockTitle", value)
+                    }
+                    autoComplete="off"
+                  />
+                </div>
+              )}
+
               <div>
-                <h2>Block title</h2>
+                <h2>One-time purchase option title</h2>
 
                 <TextField
-                  value={customize.blockTitle}
+                  value={customize.oneTimePurchaseTitle}
                   onChange={(value) =>
-                    handleCustomizeChange("blockTitle", value)
+                    handleCustomizeChange("oneTimePurchaseTitle", value)
                   }
                   autoComplete="off"
                 />
               </div>
-            )}
-
-            <div>
-              <h2>One-time purchase option title</h2>
-
-              <TextField
-                value={customize.oneTimePurchaseTitle}
-                onChange={(value) =>
-                  handleCustomizeChange("oneTimePurchaseTitle", value)
-                }
-                autoComplete="off"
-              />
-            </div>
-
-            <div>
-              <h2>Subscription option title</h2>
-
-              <TextField
-                value={customize.subscriptionTitle}
-                onChange={(value) =>
-                  handleCustomizeChange("subscriptionTitle", value)
-                }
-                autoComplete="off"
-              />
-            </div>
-
-            <div>
-              <div>
-                <input
-                  type="checkbox"
-                  checked={customize.preselectSubscription}
-                  onChange={(e) =>
-                    handleCustomizeChange(
-                      "preselectSubscription",
-                      e.target.checked,
-                    )
-                  }
-                />
-                <label>Preselect subscription option</label>
-              </div>
 
               <div>
-                <input
-                  type="checkbox"
-                  checked={customize.displayCompareAtPrice}
-                  onChange={(e) =>
-                    handleCustomizeChange(
-                      "displayCompareAtPrice",
-                      e.target.checked,
-                    )
-                  }
-                />
-                <label>Display compare-at price</label>
-              </div>
+                <h2>Subscription option title</h2>
 
+                <TextField
+                  value={customize.subscriptionTitle}
+                  onChange={(value) =>
+                    handleCustomizeChange("subscriptionTitle", value)
+                  }
+                  autoComplete="off"
+                />
+              </div>
               <div>
-                <input
-                  type="checkbox"
-                  checked={customize.displaySellingPlanName}
-                  onChange={(e) =>
-                    handleCustomizeChange(
-                      "displaySellingPlanName",
-                      e.target.checked,
-                    )
-                  }
-                />
-                <label>Display selling plan name</label>
-              </div>
-
-              <div>
-                <input
-                  type="checkbox"
-                  checked={customize.customCurrencyFormat}
-                  onChange={(e) =>
-                    handleCustomizeChange(
-                      "customCurrencyFormat",
-                      e.target.checked,
-                    )
-                  }
-                />
-                <label>Custom currency format</label>
-              </div>
-
-              {template !== "highlight" && (
                 <div>
                   <input
                     type="checkbox"
-                    checked={customize.customLabel}
+                    checked={customize.preselectSubscription}
                     onChange={(e) =>
-                      handleCustomizeChange("customLabel", e.target.checked)
+                      handleCustomizeChange(
+                        "preselectSubscription",
+                        e.target.checked,
+                      )
                     }
                   />
-                  <label>Custom label</label>
+                  <label>Preselect subscription option</label>
                 </div>
-              )}
-            </div>
 
-            {/* STYLE */}
-            <div>
-              <b>Style</b>
+                <div>
+                  <input
+                    type="checkbox"
+                    checked={customize.displayCompareAtPrice}
+                    onChange={(e) =>
+                      handleCustomizeChange(
+                        "displayCompareAtPrice",
+                        e.target.checked,
+                      )
+                    }
+                  />
+                  <label>Display compare-at price</label>
+                </div>
 
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  gap: "10px",
-                }}
-              >
-                <RangeSlider
-                  label="Corner radius"
-                  value={Number(customize.cornerRadius)}
-                  min={0}
-                  max={50}
-                  step={1}
-                  onChange={(value) =>
-                    handleCustomizeChange("cornerRadius", value)
-                  }
-                  output
-                />
+                <div>
+                  <input
+                    type="checkbox"
+                    checked={customize.displaySellingPlanName}
+                    onChange={(e) =>
+                      handleCustomizeChange(
+                        "displaySellingPlanName",
+                        e.target.checked,
+                      )
+                    }
+                  />
+                  <label>Display selling plan name</label>
+                </div>
 
-                <RangeSlider
-                  label="Spacing"
-                  value={Number(customize.spacing)}
-                  min={0}
-                  max={20}
-                  step={1}
-                  onChange={(value) =>
-                    handleCustomizeChange("spacing", value)
-                  }
-                  output
-                />
+                <div>
+                  <input
+                    type="checkbox"
+                    checked={customize.customCurrencyFormat}
+                    onChange={(e) =>
+                      handleCustomizeChange(
+                        "customCurrencyFormat",
+                        e.target.checked,
+                      )
+                    }
+                  />
+                  <label>Custom currency format</label>
+                </div>
+
+                {template !== "highlight" && (
+                  <div>
+                    <input
+                      type="checkbox"
+                      checked={customize.customLabel}
+                      onChange={(e) =>
+                        handleCustomizeChange("customLabel", e.target.checked)
+                      }
+                    />
+                    <label>Custom label</label>
+                  </div>
+                )}
               </div>
-            </div>
+              <div>
+                <b>Style</b>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: "10px",
+                  }}
+                >
+                  <RangeSlider
+                    label="Corner radius"
+                    value={Number(customize.cornerRadius)}
+                    min={0}
+                    max={50}
+                    step={1}
+                    onChange={(value) =>
+                      onCustomizeChange((prev) => ({
+                        ...prev,
+                        cornerRadius: value,
+                      }))
+                    }
+                    output
+                  />
 
-            {/* COLORS */}
-            <div style={{ marginTop: "20px" }}>
-              <b>Colors</b>
+                  <RangeSlider
+                    label="Spacing"
+                    value={Number(customize.spacing)}
+                    min={0}
+                    max={20}
+                    step={1}
+                    onChange={(value) =>
+                      onCustomizeChange((prev) => ({
+                        ...prev,
+                        spacing: value,
+                      }))
+                    }
+                    output
+                  />
+                </div>
+              </div>
 
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(2, 1fr)",
-                  gap: "16px",
-                  marginTop: "12px",
-                }}
-              >
-                <ColorField
-                  label="Card"
-                  value={customize.cardColor}
-                  onChange={(value) =>
-                    handleCustomizeChange("cardColor", value)
-                  }
-                  alpha
-                />
+              <div>
+                <b>Colors</b>
 
-                <ColorField
-                  label="Selected card"
-                  value={customize.selectedCardColor}
-                  onChange={(value) =>
-                    handleCustomizeChange("selectedCardColor", value)
-                  }
-                  alpha
-                />
-
-                <ColorField
-                  label="Border color"
-                  value={customize.borderColor}
-                  onChange={(value) =>
-                    handleCustomizeChange("borderColor", value)
-                  }
-                  alpha
-                />
-
-                <ColorField
-                  label="Block title"
-                  value={customize.blockTitleColor}
-                  onChange={(value) =>
-                    handleCustomizeChange("blockTitleColor", value)
-                  }
-                  alpha
-                />
-
-                <ColorField
-                  label="Title"
-                  value={customize.titleColor}
-                  onChange={(value) =>
-                    handleCustomizeChange("titleColor", value)
-                  }
-                  alpha
-                />
-
-                <ColorField
-                  label="Price"
-                  value={customize.priceColor}
-                  onChange={(value) =>
-                    handleCustomizeChange("priceColor", value)
-                  }
-                  alpha
-                />
-
-                <ColorField
-                  label="Label background"
-                  value={customize.labelBackgroundColor}
-                  onChange={(value) =>
-                    handleCustomizeChange(
-                      "labelBackgroundColor",
-                      value,
-                    )
-                  }
-                  alpha
-                />
-
-                <ColorField
-                  label="Label text"
-                  value={customize.labelTextColor}
-                  onChange={(value) =>
-                    handleCustomizeChange("labelTextColor", value)
-                  }
-                  alpha
-                />
-
-                <ColorField
-                  label="Badge background"
-                  value={customize.badgeBackgroundColor}
-                  onChange={(value) =>
-                    handleCustomizeChange(
-                      "badgeBackgroundColor",
-                      value,
-                    )
-                  }
-                  alpha
-                />
-
-                <ColorField
-                  label="Badge text"
-                  value={customize.badgeTextColor}
-                  onChange={(value) =>
-                    handleCustomizeChange("badgeTextColor", value)
-                  }
-                  alpha
-                />
+                <div style={{display:"flex", justifyContent:"space-between"}}>
+                   <div>
+                     <input type="color" />
+                    <label>Card</label>
+                   </div>
+                   <div>
+                     <input type="color" />
+                    <label>Selected card</label>
+                   </div>
+                </div>
               </div>
             </div>
           </div>
