@@ -76,8 +76,13 @@ function CreateWidget({
     blockTitle: "Abc",
     oneTimePurchaseTitle: "One time purchase",
     subscriptionTitle: "Save and subscribe",
-    cornerRadius:8,
-    spacing:8,
+    preselectSubscription: false,
+    displayCompareAtPrice: false,
+    displaySellingPlanName: false,
+    customCurrencyFormat: false,
+    customLabel: false,
+    cornerRadius: 8,
+    spacing: 8,
   });
   const navigate = useNavigate();
   useEffect(() => {
@@ -261,19 +266,18 @@ function CreateWidget({
 
       console.log("Widget created:", data.widget);
 
-     setTimeout(()=>
-    {
-       navigate("/app/widgets");
-    },2000)
+      setTimeout(() => {
+        navigate("/app/widgets");
+      }, 2000);
       // navigate(`/app/widgets/${newWidgetId}`, {
       //   state: { widget: data.widget },
       // });
     } catch (error) {
       console.error("Save widget error:", error);
       alert(error.message || "Something went wrong");
-    }finally {
-    setSaving(false);
-  }
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -350,8 +354,12 @@ function CreateWidget({
               </div>
 
               <div style={{ paddingTop: " 10px" }}>
-                <Button variant="primary"   loading={saving}
-  disabled={saving} onClick={handleSaveWidget}>
+                <Button
+                  variant="primary"
+                  loading={saving}
+                  disabled={saving}
+                  onClick={handleSaveWidget}
+                >
                   Save Widget
                 </Button>
               </div>
