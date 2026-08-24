@@ -12,7 +12,7 @@ import {
   normalizeSellingPlan,
   buildPurchaseCards,
 } from "../utils/purchaseCardHelpers";
-
+import { generateWidgetId } from "../utils/generateWidgetId";
 const styles = {
   wrapper: {
     display: "flex",
@@ -223,17 +223,18 @@ function CreateWidget({
     cardData?.plans?.[0] ||
     null;
 
-  const handleSaveWidget = async () => {
+   const handleSaveWidget = async () => {
     try {
       if (!widgetName.trim()) {
         alert("Widget name required");
         return;
       }
-
       if (!shop) {
         alert("Shop missing");
         return;
       }
+
+      const newWidgetId = generateWidgetId(); // id khud generate
 
       const response = await fetch(`${API}/api/widgets`, {
         method: "POST",
@@ -242,9 +243,12 @@ function CreateWidget({
           "x-api-key": SECRET_KEY,
         },
         body: JSON.stringify({
+          widgetId: newWidgetId,
           shop,
           widgetName,
           template,
+          planId: selectedPlan,
+          productId: previewProduct?.id || null,
         }),
       });
 
@@ -256,7 +260,10 @@ function CreateWidget({
 
       console.log("Widget created:", data.widget);
 
-      alert("Widget saved successfully!");
+      // ab yahi generated id se redirect
+      navigate(`/app/widgets/${newWidgetId}`, {
+        state: { widget: data.widget },
+      });
     } catch (error) {
       console.error("Save widget error:", error);
       alert(error.message || "Something went wrong");
