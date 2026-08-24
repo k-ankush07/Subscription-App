@@ -81,6 +81,7 @@ function CreateWidget({
     displaySellingPlanName: false,
     customCurrencyFormat: false,
     customLabel: false,
+    customLabelText: "",
     cornerRadius: 8,
     spacing: 8,
     
@@ -199,21 +200,34 @@ function CreateWidget({
 
   const basePrice = Number(previewProduct?.price) || 0;
 
-  const normalizedPlans = useMemo(() => {
-    if (!selectedPlanData?.sellingPlans) {
-      return [];
-    }
+  // const normalizedPlans = useMemo(() => {
+  //   if (!selectedPlanData?.sellingPlans) {
+  //     return [];
+  //   }
 
-    return selectedPlanData.sellingPlans.map((sp) =>
-      normalizeSellingPlan(sp, basePrice, currencyCode),
-    );
-  }, [selectedPlanData, basePrice, currencyCode]);
+  //   return selectedPlanData.sellingPlans.map((sp) =>
+  //     normalizeSellingPlan(sp, basePrice, currencyCode),
+  //   );
+  // }, [selectedPlanData, basePrice, currencyCode]);
 
-  const purchaseCards = useMemo(
-    () => buildPurchaseCards(normalizedPlans, basePrice, currencyCode),
-    [normalizedPlans, basePrice, currencyCode],
+  // const purchaseCards = useMemo(
+  //   () => buildPurchaseCards(normalizedPlans, basePrice, currencyCode),
+  //   [normalizedPlans, basePrice, currencyCode],
+  // );
+const normalizedPlans = useMemo(() => {
+  if (!selectedPlanData?.sellingPlans) {
+    return [];
+  }
+
+  return selectedPlanData.sellingPlans.map((sp) =>
+    normalizeSellingPlan(sp, basePrice, currencyCode, customize.customCurrencyFormat),
   );
+}, [selectedPlanData, basePrice, currencyCode, customize.customCurrencyFormat]);
 
+const purchaseCards = useMemo(
+  () => buildPurchaseCards(normalizedPlans, basePrice, currencyCode, customize.customCurrencyFormat),
+  [normalizedPlans, basePrice, currencyCode, customize.customCurrencyFormat],
+);
   const variant = TEMPLATE_TO_VARIANT[template] || "simple";
 
   const cardData = useMemo(
@@ -224,7 +238,13 @@ function CreateWidget({
     [purchaseCards, variant],
   );
 
-  const [selected, setSelected] = useState("subscribe");
+  const [selected, setSelected] = useState(
+  customize.preselectSubscription ? "subscribe" : "onetime",
+);
+
+useEffect(() => {
+  setSelected(customize.preselectSubscription ? "subscribe" : "onetime");
+}, [customize.preselectSubscription]);
   const [selectedPlanId, setSelectedPlanId] = useState(null);
 
   useEffect(() => {
@@ -362,6 +382,7 @@ function CreateWidget({
                   selectedPlanId={selectedPlanId}
                   onSelect={setSelected}
                   onSelectPlan={setSelectedPlanId}
+                  customize={customize} 
                 />
               </div>
 

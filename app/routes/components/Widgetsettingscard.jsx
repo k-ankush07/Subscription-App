@@ -150,14 +150,31 @@ function WidgetSettingsCard({
 
                 {template !== "highlight" && (
                   <div>
-                    <input
-                      type="checkbox"
-                      checked={customize.customLabel}
-                      onChange={(e) =>
-                        handleCustomizeChange("customLabel", e.target.checked)
-                      }
-                    />
-                    <label>Custom label</label>
+                    <div>
+                      <input
+                        type="checkbox"
+                        checked={customize.customLabel}
+                        onChange={(e) =>
+                          handleCustomizeChange("customLabel", e.target.checked)
+                        }
+                      />
+                      <label>Custom label</label>
+                    </div>
+
+                    {customize.customLabel && (
+                      <div style={{ marginTop: 8 }}>
+                        <TextField
+                          label="Custom label text"
+                          labelHidden
+                          placeholder="e.g. Best value"
+                          value={customize.customLabelText || ""}
+                          onChange={(value) =>
+                            handleCustomizeChange("customLabelText", value)
+                          }
+                          autoComplete="off"
+                        />
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
