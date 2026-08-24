@@ -93,29 +93,70 @@ function WidgetSettingsCard({
               </div>
               <div>
                 <div>
-                    
-                    <input type="checkbox"  />
-                    <label>Preselect subscription option</label>
+                  <input
+                    type="checkbox"
+                    checked={customize.preselectSubscription}
+                    onChange={(e) =>
+                      handleCustomizeChange(
+                        "preselectSubscription",
+                        e.target.checked,
+                      )
+                    }
+                  />
+                  <label>Preselect subscription option</label>
                 </div>
+
                 <div>
-                   
-                    <input type="checkbox"  />
-                     <label>Display compare-at price</label>
+                  <input
+                    type="checkbox"
+                    checked={customize.displayCompareAtPrice}
+                    onChange={(e) =>
+                      handleCustomizeChange(
+                        "displayCompareAtPrice",
+                        e.target.checked,
+                      )
+                    }
+                  />
+                  <label>Display compare-at price</label>
                 </div>
+
                 <div>
-                    
-                    <input type="checkbox"  />
-                    <label>Display selling plan name</label>
+                  <input
+                    type="checkbox"
+                    checked={customize.displaySellingPlanName}
+                    onChange={(e) =>
+                      handleCustomizeChange(
+                        "displaySellingPlanName",
+                        e.target.checked,
+                      )
+                    }
+                  />
+                  <label>Display selling plan name</label>
                 </div>
+
                 <div>
-                    
-                    <input type="checkbox"  />
-                    <label>Custom currency format</label>
+                  <input
+                    type="checkbox"
+                    checked={customize.customCurrencyFormat}
+                    onChange={(e) =>
+                      handleCustomizeChange(
+                        "customCurrencyFormat",
+                        e.target.checked,
+                      )
+                    }
+                  />
+                  <label>Custom currency format</label>
                 </div>
+
                 <div>
-                    
-                    <input type="checkbox"  />
-                    <label>Custom label</label>
+                  <input
+                    type="checkbox"
+                    checked={customize.customLabel}
+                    onChange={(e) =>
+                      handleCustomizeChange("customLabel", e.target.checked)
+                    }
+                  />
+                  <label>Custom label</label>
                 </div>
               </div>
               <div>
