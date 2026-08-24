@@ -136,6 +136,7 @@ export function normalizeSellingPlan(sp, basePrice, currencyCode) {
   };
 }
 
+
 export const cardShells = [
   {
     id: "card-1",
@@ -157,6 +158,13 @@ export const cardShells = [
   },
 ];
 
+export function getVariantForCardId(id) {
+  return cardShells.find((c) => c.id === id)?.variant || cardShells[0].variant;
+}
+
+export function getCardIdForVariant(variant) {
+  return cardShells.find((c) => c.variant === variant)?.id || cardShells[0].id;
+}
 
 export function buildPurchaseCards(normalizedPlans, basePrice, currencyCode) {
   return cardShells.map((shell) => {

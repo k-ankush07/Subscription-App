@@ -1,72 +1,15 @@
-// import React from "react";
-// import CreateWidget from "./components/CreateWidget";
-// import { Page } from "@shopify/polaris";
-// import { useLoaderData, useNavigate } from "react-router";
-// import { authenticate } from "../shopify.server";
 
-// const API = import.meta.env.VITE_API_URL;
-// const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
-// export const loader = async ({ request }) => {
-//   const { session, admin } = await authenticate.admin(request);
-//   const shop = session.shop;
-
-//   try {
-//     const plansResponse = await fetch(`${API}/plans/getAllPlans?shop=${shop}`, {
-//       headers: { "x-api-key": SECRET_KEY },
-//     });
-//     const plansData = await plansResponse.json();
-//     const plans = plansData.success ? plansData.data : [];
-
-//     const productRes = await admin.graphql(`
-//       query {
-//         products(first: 1) {
-//           edges {
-//             node {
-//               id
-//               title
-//             }
-//           }
-//         }
-//       }
-//     `);
-//     const productJson = await productRes.json();
-//     const firstProduct =
-//       productJson.data?.products?.edges?.[0]?.node || null;
-
-//     return Response.json({
-//       plans,
-//       defaultProduct: firstProduct,
-//       shop,
-//     });
-//   } catch (error) {
-//     console.error("Failed to fetch data:", error);
-//     return Response.json({ plans: [], defaultProduct: null });
-//   }
-// };
-
-// function WidgetCreate() {
-//   const navigate = useNavigate();
-//   const { plans, defaultProduct ,shop,} = useLoaderData();
-
-//   const handelBack = () => navigate("/app/widgets-v2/create");
-
-//   return (
-//     <Page title="Widgets Editor" backAction={{ content: "Widgets", onAction: handelBack }}>
-//       <CreateWidget plans={plans} defaultProduct={defaultProduct} shop={shop} />
-//     </Page>
-//   );
-// }
-
-// export default WidgetCreate;
 
 import React from "react";
 import CreateWidget from "./components/CreateWidget";
 import { Page } from "@shopify/polaris";
-import { useLoaderData, useLocation, useNavigate } from "react-router";
+import { useLoaderData, useLocation, useNavigate, useParams } from "react-router";
 import { authenticate } from "../shopify.server";
+import { getVariantForCardId, getCardIdForVariant } from "./utils/purchaseCardHelpers";
 
 const API = import.meta.env.VITE_API_URL;
 const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
+
 export const loader = async ({ request }) => {
   const { session, admin } = await authenticate.admin(request);
   const shop = session.shop;
@@ -77,6 +20,73 @@ export const loader = async ({ request }) => {
     });
     const plansData = await plansResponse.json();
     const plans = plansData.success ? plansData.data : [];
+    const productIds = [
+      ...new Set(
+        plans.flatMap((plan) =>
+          (plan.products || []).map((product) => product.id).filter(Boolean),
+        ),
+      ),
+    ];
+
+    const productPrices = {};
+
+    for (const productId of productIds) {
+      try {
+        const productResponse = await admin.graphql(
+          `#graphql
+          query ProductPrice($id: ID!) {
+            product(id: $id) {
+              id
+              title
+              featuredImage {
+                url
+              }
+              variants(first: 1) {
+                nodes {
+                  price
+                }
+              }
+              priceRangeV2 {
+                minVariantPrice {
+                  amount
+                }
+              }
+            }
+          }`,
+          { variables: { id: productId } },
+        );
+
+        const productJson = await productResponse.json();
+        const product = productJson?.data?.product;
+
+        if (product) {
+          const variantPrice = product?.variants?.nodes?.[0]?.price;
+          const minPrice = product?.priceRangeV2?.minVariantPrice?.amount;
+
+          productPrices[product.id] = {
+            price: Number(variantPrice ?? minPrice ?? 0),
+            image: product?.featuredImage?.url || null,
+            title: product?.title || "",
+          };
+        }
+      } catch (error) {
+        console.error("Failed to fetch Shopify product:", productId, error);
+      }
+    }
+
+    const updatedPlans = plans.map((plan) => ({
+      ...plan,
+      products: (plan.products || []).map((product) => {
+        const shopifyProduct = productPrices[product.id];
+
+        return {
+          ...product,
+          price: shopifyProduct?.price ?? product?.price ?? product?.minPrice ?? 0,
+          ProductImage: shopifyProduct?.image ?? product?.ProductImage ?? null,
+          title: shopifyProduct?.title ?? product?.title ?? "",
+        };
+      }),
+    }));
 
     const productRes = await admin.graphql(`
       query {
@@ -91,8 +101,7 @@ export const loader = async ({ request }) => {
       }
     `);
     const productJson = await productRes.json();
-    const firstProduct =
-      productJson.data?.products?.edges?.[0]?.node || null;
+    const firstProduct = productJson.data?.products?.edges?.[0]?.node || null;
 
     let currencyCode = "USD";
     try {
@@ -110,7 +119,7 @@ export const loader = async ({ request }) => {
     }
 
     return Response.json({
-      plans,
+      plans: updatedPlans,
       defaultProduct: firstProduct,
       shop,
       currencyCode,
@@ -124,15 +133,25 @@ export const loader = async ({ request }) => {
 function WidgetCreate() {
   const navigate = useNavigate();
   const location = useLocation();
+  const params = useParams(); 
   const { plans, defaultProduct, shop, currencyCode } = useLoaderData();
 
-  // This is what Widgets2's "Choose" button put here via navigate(..., { state }).
-  // `widget.variant` tells CreateWidget which template (radio/highlight/checkbox)
-  // to preselect, and `planId`/`product` seed the Plan & Product preview pickers
-  // so the preview looks the same as what was chosen on the Widgets2 page.
-  const { widget, planId, product } = location.state || {};
+  const initialVariant = getVariantForCardId(params.id);
+
+  const { planId, productId } = location.state || {};
 
   const handelBack = () => navigate("/app/widgets-v2/create");
+
+  const handleVariantChange = (variant) => {
+    const newId = getCardIdForVariant(variant);
+
+    if (newId === params.id) return;
+
+    navigate(`/app/widgets/create/${newId}`, {
+      replace: true,
+      state: location.state,
+    });
+  };
 
   return (
     <Page title="Widgets Editor" backAction={{ content: "Widgets", onAction: handelBack }}>
@@ -141,9 +160,10 @@ function WidgetCreate() {
         defaultProduct={defaultProduct}
         shop={shop}
         currencyCode={currencyCode}
-        initialVariant={widget?.variant}
+        initialVariant={initialVariant}
         initialPlanId={planId}
-        initialProduct={product}
+        initialProductId={productId}
+        onVariantChange={handleVariantChange}
       />
     </Page>
   );
