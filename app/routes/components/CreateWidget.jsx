@@ -1,5 +1,10 @@
-
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Card, Select, TextField, BlockStack, Button } from "@shopify/polaris";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import PurchaseOptionCard from "./PurchaseOptionCard";
@@ -9,6 +14,13 @@ import {
 } from "../utils/purchaseCardHelpers";
 
 const styles = {
+  wrapper: {
+    display: "flex",
+    justifyContent: "center",
+    background: "#f1f1f1",
+    padding: 24,
+    borderRadius: 12,
+  },
   productPickerField: {
     display: "flex",
     alignItems: "center",
@@ -37,7 +49,6 @@ const TEMPLATE_OPTIONS = [
   { label: "Checkbox", value: "checkbox" },
 ];
 
-
 const TEMPLATE_TO_VARIANT = {
   radio: "simple",
   highlight: "detailed",
@@ -61,7 +72,11 @@ function CreateWidget({
   const shopify = useAppBridge();
 
   const [widgetName, setWidgetName] = useState("Widgets #");
-  const [template, setTemplate] = useState(VARIANT_TO_TEMPLATE[initialVariant] || "radio");
+  const [template, setTemplate] = useState(
+    VARIANT_TO_TEMPLATE[initialVariant] || "radio",
+  );
+
+  // Keep in sync if the URL changes from outside (back/forward, or a fresh
 
   useEffect(() => {
     setTemplate(VARIANT_TO_TEMPLATE[initialVariant] || "radio");
@@ -104,8 +119,9 @@ function CreateWidget({
     let target = null;
 
     if (initialProductIdRef.current) {
-      target = products.find((p) => p.id === initialProductIdRef.current) || null;
-      initialProductIdRef.current = null; 
+      target =
+        products.find((p) => p.id === initialProductIdRef.current) || null;
+      initialProductIdRef.current = null; // only honor this once, on first match
     }
 
     if (!target) {
@@ -118,7 +134,10 @@ function CreateWidget({
     }
 
     const price = Number(
-      target.price ?? target.minPrice ?? target?.priceRangeV2?.minVariantPrice?.amount ?? 0,
+      target.price ??
+        target.minPrice ??
+        target?.priceRangeV2?.minVariantPrice?.amount ??
+        0,
     );
 
     setPreviewProduct({
@@ -179,13 +198,18 @@ function CreateWidget({
   const variant = TEMPLATE_TO_VARIANT[template] || "simple";
 
   const cardData = useMemo(
-    () => purchaseCards.find((c) => c.variant === variant) || purchaseCards[0] || null,
+    () =>
+      purchaseCards.find((c) => c.variant === variant) ||
+      purchaseCards[0] ||
+      null,
     [purchaseCards, variant],
   );
 
   const [selected, setSelected] = useState("subscribe");
   const [selectedPlanId, setSelectedPlanId] = useState(null);
 
+  // Keep the chosen selling plan valid whenever the available plans change
+  // (new product/plan picked, or template swapped to a card with different ids).
   useEffect(() => {
     const stillValid = cardData?.plans?.some((p) => p.id === selectedPlanId);
 
@@ -267,11 +291,6 @@ function CreateWidget({
             />
           </BlockStack>
         </Card>
-        <div style={{ paddingTop: "10px" }}>
-          <Button variant="primary" onClick={handleSaveWidget}>
-            Save Widget
-          </Button>
-        </div>
       </div>
 
       {/* RIGHT SIDE - PREVIEW */}
@@ -317,16 +336,24 @@ function CreateWidget({
           </div>
 
           {cardData ? (
-            <div style={{ display: "flex", justifyContent: "center" }}>
-              <PurchaseOptionCard
-                data={cardData}
-                selected={selected}
-                activePlan={activePlan}
-                selectedPlanId={selectedPlanId}
-                onSelect={setSelected}
-                onSelectPlan={setSelectedPlanId}
-              />
-            </div>
+            <>
+              <div style={styles.wrapper}>
+                <PurchaseOptionCard
+                  data={cardData}
+                  selected={selected}
+                  activePlan={activePlan}
+                  selectedPlanId={selectedPlanId}
+                  onSelect={setSelected}
+                  onSelectPlan={setSelectedPlanId}
+                />
+              </div>
+
+              <div style={{ paddingTop: "10px" }}>
+                <Button variant="primary" onClick={handleSaveWidget}>
+                  Save Widget
+                </Button>
+              </div>
+            </>
           ) : (
             <p>No selling plans found for this plan/product to preview.</p>
           )}
