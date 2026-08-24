@@ -205,15 +205,93 @@ function WidgetSettingsCard({
               <div>
                 <b>Colors</b>
 
-                <div style={{display:"flex", justifyContent:"space-between"}}>
-                   <div>
-                     <input type="color" />
-                    <label>Card</label>
-                   </div>
-                   <div>
-                     <input type="color" />
-                    <label>Selected card</label>
-                   </div>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: "16px",
+                    marginTop: "12px",
+                  }}
+                >
+                  <ColorField
+                    label="Card"
+                    value={customize.cardColor}
+                    onChange={(value) =>
+                      handleCustomizeChange("cardColor", value)
+                    }
+                  />
+
+                  <ColorField
+                    label="Selected card"
+                    value={customize.selectedCardColor}
+                    onChange={(value) =>
+                      handleCustomizeChange("selectedCardColor", value)
+                    }
+                  />
+
+                  <ColorField
+                    label="Border color"
+                    value={customize.borderColor}
+                    onChange={(value) =>
+                      handleCustomizeChange("borderColor", value)
+                    }
+                  />
+
+                  <ColorField
+                    label="Block title"
+                    value={customize.blockTitleColor}
+                    onChange={(value) =>
+                      handleCustomizeChange("blockTitleColor", value)
+                    }
+                  />
+
+                  <ColorField
+                    label="Title"
+                    value={customize.titleColor}
+                    onChange={(value) =>
+                      handleCustomizeChange("titleColor", value)
+                    }
+                  />
+
+                  <ColorField
+                    label="Price"
+                    value={customize.priceColor}
+                    onChange={(value) =>
+                      handleCustomizeChange("priceColor", value)
+                    }
+                  />
+
+                  <ColorField
+                    label="Label background"
+                    value={customize.labelBackgroundColor}
+                    onChange={(value) =>
+                      handleCustomizeChange("labelBackgroundColor", value)
+                    }
+                  />
+
+                  <ColorField
+                    label="Label text"
+                    value={customize.labelTextColor}
+                    onChange={(value) =>
+                      handleCustomizeChange("labelTextColor", value)
+                    }
+                  />
+
+                  <ColorField
+                    label="Badge background"
+                    value={customize.badgeBackgroundColor}
+                    onChange={(value) =>
+                      handleCustomizeChange("badgeBackgroundColor", value)
+                    }
+                  />
+
+                  <ColorField
+                    label="Badge text"
+                    value={customize.badgeTextColor}
+                    onChange={(value) =>
+                      handleCustomizeChange("badgeTextColor", value)
+                    }
+                  />
                 </div>
               </div>
             </div>
@@ -225,3 +303,32 @@ function WidgetSettingsCard({
 }
 
 export default WidgetSettingsCard;
+
+function ColorField({ label, value, onChange }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "12px",
+      }}
+    >
+      <input
+        type="color"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        style={{
+          width: "62px",
+          height: "32px",
+          padding: 0,
+          border: "1px solid #c9cccf",
+          borderRadius: "4px",
+          cursor: "pointer",
+          background: "#fff",
+        }}
+      />
+
+      <label>{label}</label>
+    </div>
+  );
+}
