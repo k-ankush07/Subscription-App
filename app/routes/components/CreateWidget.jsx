@@ -14,7 +14,7 @@ import {
 } from "../utils/purchaseCardHelpers";
 import { generateWidgetId } from "../utils/generateWidgetId";
 import { useNavigate } from "react-router";
-import WidgetSettingsCard from "./WidgetSettingsCard";
+import WidgetSettingsCard, { DEFAULT_CUSTOMIZE } from "./WidgetSettingsCard";
 const styles = {
   wrapper: {
     display: "flex",
@@ -72,28 +72,7 @@ function CreateWidget({
   const [template, setTemplate] = useState(
     VARIANT_TO_TEMPLATE[initialVariant] || "radio",
   );
-  const [customize, setCustomize] = useState({
-    blockTitle: "Abc",
-    oneTimePurchaseTitle: "One time purchase",
-    subscriptionTitle: "Save and subscribe",
-    preselectSubscription: true,
-    displayCompareAtPrice: false,
-    displaySellingPlanName: false,
-    customLabelText: "",
-    cornerRadius: 8,
-    spacing: 8,
-    
-
-     cardColor: "#FFFFFF",
-  selectedCardColor: "#FFFFFF",
-  borderColor: "#000000",
-  blockTitleColor: "#000000",
-  titleColor: "#000000",
-  priceColor: "#000000",
-  labelBackgroundColor: "#D9D9D9",
-  labelTextColor: "#000000",
-
-  });
+  const [customize, setCustomize] = useState(DEFAULT_CUSTOMIZE);
   const navigate = useNavigate();
   useEffect(() => {
     setTemplate(VARIANT_TO_TEMPLATE[initialVariant] || "radio");
@@ -197,21 +176,9 @@ function CreateWidget({
 
   const basePrice = Number(previewProduct?.price) || 0;
 
-  // const normalizedPlans = useMemo(() => {
-  //   if (!selectedPlanData?.sellingPlans) {
-  //     return [];
-  //   }
 
-  //   return selectedPlanData.sellingPlans.map((sp) =>
-  //     normalizeSellingPlan(sp, basePrice, currencyCode),
-  //   );
-  // }, [selectedPlanData, basePrice, currencyCode]);
 
-  // const purchaseCards = useMemo(
-  //   () => buildPurchaseCards(normalizedPlans, basePrice, currencyCode),
-  //   [normalizedPlans, basePrice, currencyCode],
-  // );
-const normalizedPlans = useMemo(() => {
+  const normalizedPlans = useMemo(() => {
   if (!selectedPlanData?.sellingPlans) {
     return [];
   }

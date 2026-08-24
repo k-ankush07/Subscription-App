@@ -49,8 +49,8 @@ function Widgets() {
               <th>Widget title</th>
               <th>Plans assigned</th>
               <th>Highlights</th>
-              <th>Sticky ATC</th>
-              <th>Card badge</th>
+              {/* <th>Sticky ATC</th>
+              <th>Card badge</th> */}
               <th>Actions</th>
             </tr>
           </thead>
@@ -63,8 +63,8 @@ function Widgets() {
 
               <td>0</td>
               <td>-</td>
-              <td>-</td>
-              <td>-</td>
+              {/* <td>-</td>
+              <td>-</td> */}
               <td>...</td>
             </tr>
           </tbody>

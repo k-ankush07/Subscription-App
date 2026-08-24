@@ -38,10 +38,6 @@ function ChooseButton({ onChoose }) {
   );
 }
 
-// cornerRadius -> sirf border boxes ke radius par
-// spacing -> border ke andar ka padding (text se border ki dooriyaan)
-// STEP 12 FIX: customize.* color fields ab yahan se actual style values mein convert hote hain,
-// pehle ye kahin bhi use nahi ho rahe the isliye color pickers ka koi effect nahi padta tha
 function useCardCustomization(customize) {
   const cornerRadius = Number(customize?.cornerRadius ?? 8);
   const spacing = Number(customize?.spacing ?? 14);
@@ -53,17 +49,14 @@ function useCardCustomization(customize) {
   const borderColor = customize?.borderColor || "#111";
   const blockTitleColor = customize?.blockTitleColor || "#100e0e";
   const titleColor = customize?.titleColor || "#111";
-  const priceColor = customize?.priceColor || "#111";
+  const priceColor = customize?.priceColor || "#000000";
   const labelBackgroundColor = customize?.labelBackgroundColor || "#e8e8e8";
   const labelTextColor = customize?.labelTextColor || "#111";
 
   return {
     cornerRadius,
     spacing,
-    // STEP 16 FIX: outer wrapper hamesha white/default rahega, cardColor sirf boxes ke liye hai
     cardStyle: styles.card,
-    // border boxes — yahi cornerRadius + spacing(padding) + colors lete hain
-    // STEP 17 FIX: borderColor sirf SELECTED box pe, unselected apna default border rakhega
     boxSelected: {
       ...styles.optionBoxSelected,
       borderRadius: cornerRadius,
@@ -84,19 +77,13 @@ function useCardCustomization(customize) {
     blockTitleColor,
     labelBackgroundColor,
     labelTextColor,
-    // FIX: badge ab labelBackgroundColor / labelTextColor use karta hai — pehle
-    // badgeBackgroundColor/badgeTextColor use hoti thi jinke liye UI mein koi
-    // color picker hi nahi tha, isliye badge hamesha default grey rehta tha
     badgeStyle: { ...styles.badge, background: labelBackgroundColor, color: labelTextColor },
-    // STEP 16 FIX: select dropdown ke around bordered wrapper, taaki borderColor Select pe bhi dikhe
     selectWrapStyle: {
-      border: `1px solid ${borderColor}`,
+      border: "none",
       borderRadius: Math.min(cornerRadius, 8),
       overflow: "hidden",
     },
-    // STEP 17 FIX: block title ke dono taraf ki lines bhi borderColor use karengi
     headerLineStyle: { ...styles.headerLine, background: borderColor, flexShrink: 0 },
-    // STEP 20 FIX: radio dot ka checked color bhi borderColor follow karega
     radioColor: borderColor,
   };
 }
@@ -142,7 +129,6 @@ function SimpleCard({ data, selected, activePlan, selectedPlanId, onSelect, onSe
         style={selected === "onetime" ? boxSelected : boxUnselected}
         onClick={() => onSelect("onetime")}
       >
-        {/* STEP 1 FIX: one-time purchase title row — minWidth:0 + wordBreak so long text wraps instead of overflowing */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, flex: 1 }}>
             <RadioDot checked={selected === "onetime"} color={radioColor} />
@@ -169,7 +155,6 @@ function SimpleCard({ data, selected, activePlan, selectedPlanId, onSelect, onSe
         style={selected === "subscribe" ? boxSelected : boxUnselected}
         onClick={() => onSelect("subscribe")}
       >
-        {/* STEP 2 FIX: subscribe title */}
         <div
           style={{
             fontWeight: 700,
@@ -188,11 +173,6 @@ function SimpleCard({ data, selected, activePlan, selectedPlanId, onSelect, onSe
           const badgeText = customize?.customLabel
             ? customize?.customLabelText?.trim()
             : plan.discountLabel;
-
-          // FIX: displaySellingPlanName ON -> show plan.name (custom selling plan name)
-          // displaySellingPlanName OFF -> show plan.label (auto-generated "Deliver every week" text)
-          // Pehle plan.label hamesha primary text hota tha aur plan.name sirf ek chhoti
-          // secondary line ke roop mein neeche add hoti thi (dono ek saath dikhte the).
           const displayText = customize?.displaySellingPlanName
             ? plan.name || plan.label
             : plan.label;
@@ -214,7 +194,6 @@ function SimpleCard({ data, selected, activePlan, selectedPlanId, onSelect, onSe
                 onSelectPlan(plan.id);
               }}
             >
-              {/* STEP 3 FIX: plan label row */}
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
                   <RadioDot checked={planChecked} color={radioColor} />
@@ -228,7 +207,7 @@ function SimpleCard({ data, selected, activePlan, selectedPlanId, onSelect, onSe
               <div style={{ textAlign: "right", flexShrink: 0 }}>
                 <span style={{ fontWeight: 700, color: priceColor }}>{plan.price}</span>
                 {customize?.displayCompareAtPrice && plan.comparePrice && (
-                  <div style={{ color: "#999", textDecoration: "line-through", fontSize: 12 }}>
+                  <div style={{ color: "#000", textDecoration: "line-through", fontSize: 12 }}>
                     {plan.comparePrice}
                   </div>
                 )}
@@ -283,7 +262,6 @@ function DetailedCard({ data, selected, activePlan, selectedPlanId, onSelect, on
         style={selected === "onetime" ? boxSelected : boxUnselected}
         onClick={() => onSelect("onetime")}
       >
-        {/* STEP 4 FIX: same one-time purchase title row fix as SimpleCard */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, flex: 1 }}>
             <RadioDot checked={selected === "onetime"} color={radioColor} />
@@ -305,8 +283,6 @@ function DetailedCard({ data, selected, activePlan, selectedPlanId, onSelect, on
           </span>
         </div>
       </div>
-
-      {/* STEP 14 FIX: banner ab labelBackgroundColor / labelTextColor use karta hai */}
       <div
         style={{
           background: labelBackgroundColor,
@@ -325,8 +301,6 @@ function DetailedCard({ data, selected, activePlan, selectedPlanId, onSelect, on
 
       <div
         style={{
-          // STEP 19 FIX: pehle yahan hardcoded border tha, koi background nahi — isliye
-          // "Save and subscribe" select hone par bhi Selected card color kabhi nahi dikhta tha
           ...(selected === "subscribe" ? boxSelected : boxUnselected),
           borderRadius: `0 0 ${cornerRadius}px ${cornerRadius}px`,
           marginBottom: 12,
@@ -354,7 +328,7 @@ function DetailedCard({ data, selected, activePlan, selectedPlanId, onSelect, on
               {activePlan?.price}
             </div>
             {customize?.displayCompareAtPrice && activePlan?.comparePrice && (
-              <div style={{ color: "#999", textDecoration: "line-through", fontSize: 13, marginTop: 2 }}>
+              <div style={{ color: "#000", textDecoration: "line-through", fontSize: 13, marginTop: 2 }}>
                 {activePlan.comparePrice}
               </div>
             )}
@@ -377,7 +351,6 @@ function DetailedCard({ data, selected, activePlan, selectedPlanId, onSelect, on
                 marginBottom: 10,
               }}
             >
-              {/* STEP 5 FIX: benefit text wraps instead of overflowing */}
               <div style={{ display: "flex", alignItems: "flex-start", gap: 10, minWidth: 0, flex: isLast ? "0 1 auto" : 1 }}>
                 <span style={styles.checkCircle}>✓</span>
                 <span style={{ wordBreak: "break-word", overflowWrap: "break-word" }}>{benefit}</span>
@@ -417,19 +390,21 @@ function DetailedCard({ data, selected, activePlan, selectedPlanId, onSelect, on
 
 function CompactCard({ data, selected, activePlan, selectedPlanId, onSelect, onSelectPlan, onChoose, customize }) {
   const checked = selected === "subscribe";
-  const { cardStyle, cornerRadius, spacing, titleColor, priceColor, badgeStyle, selectWrapStyle, radioColor } =
+  const { cardStyle, cornerRadius, spacing, titleColor, priceColor, badgeStyle, radioColor , boxSelected,
+    boxUnselected,} =
     useCardCustomization(customize);
   const customBadge = customize?.customLabel ? customize?.customLabelText?.trim() : null;
 
   return (
     <div style={{ ...cardStyle, width: 300 }}>
-      <div
+     <div
         style={{
-           border: `2px dashed ${radioColor}`, 
+          border: `2px dashed ${radioColor}`,
           borderRadius: cornerRadius,
           padding: spacing,
           marginBottom: 12,
           cursor: "pointer",
+          background: checked ? boxSelected.background : boxUnselected.background,
         }}
         onClick={() => onSelect(checked ? "none" : "subscribe")}
       >
@@ -452,8 +427,6 @@ function CompactCard({ data, selected, activePlan, selectedPlanId, onSelect, onS
           >
             {checked && "✓"}
           </span>
-
-          {/* STEP 6 FIX: title + price restructured so long title wraps and price stays fixed */}
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
               <span
@@ -468,7 +441,7 @@ function CompactCard({ data, selected, activePlan, selectedPlanId, onSelect, onS
               >
                 {customize?.subscriptionTitle?.trim() || "Subscribe & save"}
                 {customize?.displayCompareAtPrice && activePlan?.comparePrice && (
-                  <span style={{ color: "#999", textDecoration: "line-through", fontWeight: 400, fontSize: 14 }}>
+                  <span style={{ color: "#000", textDecoration: "line-through", fontWeight: 400, fontSize: 14 }}>
                     {" "}
                     {activePlan.comparePrice}
                   </span>
@@ -502,8 +475,6 @@ function CompactCard({ data, selected, activePlan, selectedPlanId, onSelect, onS
                 />
               </div>
             </div>
-
-            {/* STEP 15 FIX: selling plan name ab select ke andar hi dikh raha hai (upar), yahan alag se nahi */}
           </div>
         </div>
       </div>

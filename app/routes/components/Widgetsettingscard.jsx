@@ -13,6 +13,28 @@ export const TEMPLATE_OPTIONS = [
   { label: "Checkbox", value: "checkbox" },
 ];
 
+
+
+export const DEFAULT_CUSTOMIZE = {
+  blockTitle: "Abc",
+  oneTimePurchaseTitle: "One time purchase",
+  subscriptionTitle: "Save and subscribe",
+  preselectSubscription: true,
+  displayCompareAtPrice: false,
+  displaySellingPlanName: false,
+  customLabel: true,
+  cornerRadius: 8,
+  spacing: 8,
+  cardColor: "#FFFFFF",
+  selectedCardColor: "#FFFFFF",
+  borderColor: "#000000",
+  blockTitleColor: "#000000",
+  titleColor: "#000000",
+  priceColor: "#000000",
+  labelBackgroundColor: "#D9D9D9",
+  labelTextColor: "#000000",
+};
+
 function WidgetSettingsCard({
   widgetName,
   onWidgetNameChange,
@@ -51,7 +73,7 @@ function WidgetSettingsCard({
           )}
 
           <div>
-            <h2>Customize</h2>
+            <b>Customize</b>
 
             <div>
               {template === "radio" && (
@@ -68,7 +90,7 @@ function WidgetSettingsCard({
                 </div>
               )}
 
-              <div>
+              <div style={{paddingTop:"10px"}}>
                 <h2>One-time purchase option title</h2>
 
                 <TextField
@@ -80,7 +102,7 @@ function WidgetSettingsCard({
                 />
               </div>
 
-              <div>
+              <div style={{paddingTop:"10px"}}>
                 <h2>Subscription option title</h2>
 
                 <TextField
@@ -91,7 +113,7 @@ function WidgetSettingsCard({
                   autoComplete="off"
                 />
               </div>
-              <div>
+              <div style={{paddingTop:"10px", display:"flex", flexDirection:"column", gap:"6px"}}>
                 <div>
                   <input
                     type="checkbox"
@@ -137,7 +159,8 @@ function WidgetSettingsCard({
 
                
               </div>
-              <div>
+              <div style={{paddingTop:"5px"}}>
+
                 <b>Style</b>
                 <div
                   style={{
@@ -178,7 +201,7 @@ function WidgetSettingsCard({
                 </div>
               </div>
 
-              <div>
+              <div style={{paddingTop:"5px"}}>
                 <b>Colors</b>
 
                 <div
