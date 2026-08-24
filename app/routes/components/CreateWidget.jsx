@@ -73,8 +73,11 @@ function CreateWidget({
   const [template, setTemplate] = useState(
     VARIANT_TO_TEMPLATE[initialVariant] || "radio",
   );
-
-  // Keep in sync if the URL changes from outside (back/forward, or a fresh
+const [customize, setCustomize] = useState({
+  blockTitle: "Abc",
+  oneTimePurchaseTitle: "One time purchase",
+  subscriptionTitle: "Save and subscribe",
+});
   const navigate = useNavigate();
   useEffect(() => {
     setTemplate(VARIANT_TO_TEMPLATE[initialVariant] || "radio");
@@ -119,7 +122,7 @@ function CreateWidget({
     if (initialProductIdRef.current) {
       target =
         products.find((p) => p.id === initialProductIdRef.current) || null;
-      initialProductIdRef.current = null; // only honor this once, on first match
+      initialProductIdRef.current = null; 
     }
 
     if (!target) {
@@ -206,8 +209,6 @@ function CreateWidget({
   const [selected, setSelected] = useState("subscribe");
   const [selectedPlanId, setSelectedPlanId] = useState(null);
 
-  // Keep the chosen selling plan valid whenever the available plans change
-  // (new product/plan picked, or template swapped to a card with different ids).
   useEffect(() => {
     const stillValid = cardData?.plans?.some((p) => p.id === selectedPlanId);
 
@@ -247,6 +248,7 @@ function CreateWidget({
           template,
           planId: selectedPlan,
           productId: previewProduct?.id || null,
+            customize,
         }),
       });
 
@@ -283,6 +285,8 @@ function CreateWidget({
   onWidgetNameChange={setWidgetName}
   template={template}
   onTemplateChange={handleTemplateChange}
+   customize={customize}
+  onCustomizeChange={setCustomize}
 />
 
       {/* RIGHT SIDE - PREVIEW */}
