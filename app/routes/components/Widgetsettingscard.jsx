@@ -45,6 +45,8 @@ function WidgetSettingsCard({
   assignedPlanIds = [],
   onAssignedPlanIdsChange,
   showAssignedPlans = true,
+  currentWidgetId = null,
+  validWidgetIds = new Set(),
 }) {
   const handleCustomizeChange = (field, value) => {
     onCustomizeChange({
@@ -83,21 +85,51 @@ function WidgetSettingsCard({
           )}
 
           <div>
-            {showAssignedPlans && (          
+            {showAssignedPlans && (
               <div>
                 <h2>Plans assigned</h2>
-                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "6px",
+                  }}
+                >
                   {plans.length === 0 && <p>No plans available</p>}
-                  {plans.map((plan) => (
-                    <div key={plan.planId} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                      <input
-                        type="checkbox"
-                        checked={assignedPlanIds.includes(plan.planId)}
-                        onChange={(e) => handlePlanToggle(plan.planId, e.target.checked)}
-                      />
-                      <label>{plan.planName}</label>
-                    </div>
-                  ))}
+                  {plans.map((plan) => {
+                    // 👇 defensive: sirf tab disable karo jab plan.widget REAL existing widget ho
+                    const assignedToOther =
+                      !!plan.widget &&
+                      String(plan.widget) !== String(currentWidgetId) &&
+                      validWidgetIds.has(String(plan.widget));
+
+                    const isChecked = assignedPlanIds.includes(plan.planId);
+
+                    return (
+                      <div
+                        key={plan.planId}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "8px",
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          disabled={assignedToOther}
+                          onChange={(e) =>
+                            handlePlanToggle(plan.planId, e.target.checked)
+                          }
+                        />
+                        <label style={assignedToOther ? { opacity: 0.5 } : {}}>
+                          {plan.planName}
+                          {assignedToOther &&
+                            " (Already assigned to another widget)"}
+                        </label>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}

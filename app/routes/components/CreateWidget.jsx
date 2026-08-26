@@ -71,7 +71,28 @@ function CreateWidget({
   showAssignedPlans = true,
 }) {
   const shopify = useAppBridge();
+const [validWidgetIds, setValidWidgetIds] = useState(new Set());
 
+useEffect(() => {
+  if (!shop) return;
+
+  const fetchWidgetIds = async () => {
+    try {
+      const res = await fetch(
+        `${API}/api/widgets?shop=${encodeURIComponent(shop)}`,
+        { headers: { "x-api-key": SECRET_KEY } },
+      );
+      const data = await res.json();
+      if (data.success) {
+        setValidWidgetIds(new Set(data.widgets.map((w) => String(w.widgetId))));
+      }
+    } catch (err) {
+      console.error("Failed to fetch widget ids:", err);
+    }
+  };
+
+  fetchWidgetIds();
+}, [shop]);
   const [widgetName, setWidgetName] = useState(initialWidgetName);
   const [saving, setSaving] = useState(false);
   const [template, setTemplate] = useState(
@@ -105,14 +126,17 @@ function CreateWidget({
     initialAssignedPlanIds || [],
   );
   useEffect(() => {
-    if (
-      !initialAssignedPlanIds &&
-      planOptions.length > 0 &&
-      assignedPlanIds.length === 0
-    ) {
-      setAssignedPlanIds(planOptions.map((p) => p.value));
-    }
-  }, [planOptions]);
+  if (
+    !initialAssignedPlanIds &&
+    plans.length > 0 &&
+    assignedPlanIds.length === 0
+  ) {
+    const freePlanIds = plans
+      .filter((p) => !p.widget || String(p.widget) === String(widgetId))
+      .map((p) => p.planId);
+    setAssignedPlanIds(freePlanIds);
+  }
+}, [plans]);
 
   const selectedPlanData = useMemo(() => {
     return (
@@ -378,6 +402,8 @@ function CreateWidget({
         assignedPlanIds={assignedPlanIds}
         onAssignedPlanIdsChange={setAssignedPlanIds}
         showAssignedPlans={showAssignedPlans}
+        currentWidgetId={widgetId}
+        validWidgetIds={validWidgetIds}
       />
 
       {/* RIGHT SIDE - PREVIEW */}

@@ -1,5 +1,3 @@
-
-
 import React, { useCallback, useEffect, useState } from "react";
 import {
   Page,
@@ -110,7 +108,7 @@ function Template({ shop, editPlandData, dublicateData }) {
   const [planId, setPlanId] = useState(editPlandData?.planId || null);
   const [shopifyGroupId, setShopifyGroupId] = useState(null);
   const [planName, setPlanName] = useState("Plan #1");
-  const [widget, setWidget] = useState("widget1");
+  const [widget, setWidget] = useState();
   const [allowProductSwaps, setAllowProductSwaps] = useState(true);
   const [allowVariantChanges, setAllowVariantChanges] = useState(true);
   const [allowQuantityChanges, setAllowQuantityChanges] = useState(true);
@@ -126,7 +124,41 @@ function Template({ shop, editPlandData, dublicateData }) {
   );
   const [initialSnapshot, setInitialSnapshot] = useState(null);
 
-  
+  const [widgets, setWidgets] = useState([]);
+  const [widgetsLoading, setWidgetsLoading] = useState(true);
+
+  useEffect(() => {
+    if (!shop) return;
+
+    const fetchWidgets = async () => {
+      try {
+        setWidgetsLoading(true);
+        const res = await fetch(
+          `http://localhost:5000/api/widgets?shop=${encodeURIComponent(shop)}`,
+          { headers: { "x-api-key": SECRET_KEY } },
+        );
+        const data = await res.json();
+        if (data.success) {
+          setWidgets(data.widgets || []);
+        }
+      } catch (err) {
+        console.error("Failed to fetch widgets:", err);
+      } finally {
+        setWidgetsLoading(false);
+      }
+    };
+
+    fetchWidgets();
+  }, [shop]);
+
+  const widgetOptions = React.useMemo(
+    () =>
+      widgets.map((w) => ({
+        label: w.widgetName || `Widget ${w.widgetId}`,
+        value: String(w.widgetId),
+      })),
+    [widgets],
+  );
   const validateSellingPlans = (plans) => {
     const newErrors = {};
     const names = [];
@@ -147,7 +179,6 @@ function Template({ shop, editPlandData, dublicateData }) {
         intervals.push(combo);
       }
 
-    
       if (
         plan.changeQuantityAfterOrders &&
         (!plan.quantityProducts || plan.quantityProducts.length === 0)
@@ -209,7 +240,6 @@ function Template({ shop, editPlandData, dublicateData }) {
       });
     }
   }, [shopify, selectedProducts]);
-
 
   useEffect(() => {
     const allowedIds = new Set(selectedProducts.map((p) => p.id));
@@ -276,7 +306,7 @@ function Template({ shop, editPlandData, dublicateData }) {
       setInitialSnapshot(
         JSON.stringify({
           planName: "Plan #1",
-          widget: "widget1",
+          widget: "",
           selectedProducts: [],
           sellingPlans: [{ ...defaultPlan }],
           allowProductSwaps: true,
@@ -480,17 +510,13 @@ function Template({ shop, editPlandData, dublicateData }) {
     }
   }, [diablecheck]);
 
-  
   const allPlanErrorMessages = Object.values(planErrors);
   const hasAnyError = productError || allPlanErrorMessages.length > 0;
 
   return (
     <Frame>
       {toastActive && (
-        <Toast
-          content={toastMessage}
-          onDismiss={() => setToastActive(false)}
-        />
+        <Toast content={toastMessage} onDismiss={() => setToastActive(false)} />
       )}
       <Page
         title={
@@ -518,7 +544,6 @@ function Template({ shop, editPlandData, dublicateData }) {
               ]
         }
       >
-    
         {hasAnyError && (
           <Banner tone="critical" title="Validation error">
             <ul style={{ margin: 0, paddingLeft: "20px" }}>
@@ -538,7 +563,7 @@ function Template({ shop, editPlandData, dublicateData }) {
               onChange={setPlanName}
               helpText="For your reference only"
             />
-            <Select
+            {/* <Select
               label="Widget assigned"
               options={[
                 { label: "Widget 1", value: "widget1" },
@@ -549,6 +574,25 @@ function Template({ shop, editPlandData, dublicateData }) {
               value={widget}
               onChange={setWidget}
               helpText="Will be visible for customers on the product page"
+            /> */}
+            <Select
+              label="Widget assigned"
+              options={
+                widgetOptions.length > 0
+                  ? widgetOptions
+                  : [
+                      {
+                        label: widgetsLoading
+                          ? "Loading widgets..."
+                          : "No widgets found",
+                        value: "",
+                      },
+                    ]
+              }
+              value={widget}
+              onChange={setWidget}
+              helpText="Will be visible for customers on the product page"
+              disabled={widgetsLoading || widgetOptions.length === 0}
             />
             <Card>
               <Product
