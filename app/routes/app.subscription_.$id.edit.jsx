@@ -163,10 +163,6 @@ export async function action({ request, params }) {
       let removedLines = payload.removedLines || [];
       let deferredRemoval = null;
 
-      // Agar sab committed/new lines hat rahi hain, to aakhri wali ko
-      // turant delete karne ke bajaye "scheduled removal" bana do —
-      // bilkul detail page ke "Remove" jaisa. Isse Shopify ka
-      // "at least one line" error kabhi nahi aayega.
       if (resultingRealLines === 0 && removedLines.length > 0) {
         deferredRemoval = removedLines[removedLines.length - 1];
         removedLines = removedLines.slice(0, -1);

@@ -582,7 +582,7 @@ export async function action({ request, params }) {
             shop: session.shop,
             subscriptionId,
             contractId,
-            cancelledBy: "merchant",
+            actionBy: "merchant",
             actionReason: "",
             cancelledAt: new Date().toISOString(),
           }),

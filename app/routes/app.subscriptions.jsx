@@ -1,4 +1,3 @@
-
 import {
   Page,
   Card,
@@ -20,15 +19,21 @@ import {
 } from "react-router";
 import { currencySymbol } from "./utils/formatMoney.js";
 import { PaginationBar } from "./components/PaginationBar";
-import { formatDate } from "./utils/formatDate.js"
+import { formatDate } from "./utils/formatDate.js";
 const PAGE_SIZE = 10;
 
-export function shouldRevalidate({ currentUrl, nextUrl, defaultShouldRevalidate }) {
+export function shouldRevalidate({
+  currentUrl,
+  nextUrl,
+  defaultShouldRevalidate,
+}) {
   if (currentUrl.pathname !== nextUrl.pathname) {
     return defaultShouldRevalidate;
   }
   const keys = ["status", "q"];
-  return keys.some((k) => currentUrl.searchParams.get(k) !== nextUrl.searchParams.get(k));
+  return keys.some(
+    (k) => currentUrl.searchParams.get(k) !== nextUrl.searchParams.get(k),
+  );
 }
 
 const CONTRACT_FIELDS = `
@@ -84,9 +89,9 @@ const CONTRACT_FIELDS = `
   }
 `;
 
-
 async function fetchContractsPage(admin, { status, cursor }) {
-  const query = status && status !== "ALL" ? `status:${status.toLowerCase()}` : undefined;
+  const query =
+    status && status !== "ALL" ? `status:${status.toLowerCase()}` : undefined;
 
   const res = await admin.graphql(
     `
@@ -129,7 +134,8 @@ async function fetchPageByWalking(admin, { status, targetPage }) {
 }
 
 async function fetchAllContracts(admin, { status }) {
-  const query = status && status !== "ALL" ? `status:${status.toLowerCase()}` : undefined;
+  const query =
+    status && status !== "ALL" ? `status:${status.toLowerCase()}` : undefined;
 
   let allContracts = [];
   let hasNextPage = true;
@@ -178,7 +184,6 @@ export async function loader({ request }) {
   }
 
   if (cursor) {
-
     const result = await fetchContractsPage(admin, { status, cursor });
     return { mode: "page", ...result, page };
   }
@@ -187,7 +192,6 @@ export async function loader({ request }) {
     const result = await fetchContractsPage(admin, { status, cursor: null });
     return { mode: "page", ...result, page: 1, cursors: { 1: null } };
   }
-
 
   const result = await fetchPageByWalking(admin, { status, targetPage: page });
   return { mode: "page", ...result, page };
@@ -214,7 +218,10 @@ function Subscriptions() {
     setDisplayData(loaderData);
     setCurrentPage(loaderData.page || 1);
     if (loaderData.mode === "page") {
-      cursorMapRef.current = { ...cursorMapRef.current, ...(loaderData.cursors || {}) };
+      cursorMapRef.current = {
+        ...cursorMapRef.current,
+        ...(loaderData.cursors || {}),
+      };
     }
   }, [loaderData]);
 
@@ -230,7 +237,6 @@ function Subscriptions() {
       setSearchParams(next, { replace: true });
       pendingRef.current = null;
     }
-
   }, [fetcher.state, fetcher.data]);
 
   const isNavLoading =
@@ -242,24 +248,22 @@ function Subscriptions() {
   // const handelRowClick = (id) => {
   //   navigate(`/app/subscription/${id}`);
   // };
-const handelRowClick = (id) => {
-  if (loadingSubscriptionId) return;
+  const handelRowClick = (id) => {
+    if (loadingSubscriptionId) return;
 
-  setLoadingSubscriptionId(id);
-  navigate(`/app/subscription/${id}`);
-};
+    setLoadingSubscriptionId(id);
+    navigate(`/app/subscription/${id}`);
+  };
   const createSubscription = () => {
-  navigate("/app/create-contract");
-};
+    navigate("/app/create-contract");
+  };
 
-  const handelCustomer= ()=>
-  {
-    navigate(`/app/subscriptions/customers`)
-  }
-  const handelOrders= ()=>
-  {
-    navigate(`/app/subscriptions/orders`)
-  }
+  const handelCustomer = () => {
+    navigate(`/app/subscriptions/customers`);
+  };
+  const handelOrders = () => {
+    navigate(`/app/subscriptions/orders`);
+  };
   function getLinePriceWithoutIndex(line) {
     const basePrice = parseFloat(line?.currentPrice?.amount ?? 0);
     const discounts = line?.pricingPolicy?.cycleDiscounts || [];
@@ -273,12 +277,12 @@ const handelRowClick = (id) => {
   }
 
   const tabs = [
-  { id: "all", content: "All", status: "ALL" },
-  { id: "active", content: "Active", status: "ACTIVE" },
-  { id: "paused", content: "Paused", status: "PAUSED" },
-  { id: "cancelled", content: "Cancelled", status: "CANCELLED" },
-  // { id: "billing_issues", content: "Billing issues", status: "FAILED" },
-];
+    { id: "all", content: "All", status: "ALL" },
+    { id: "active", content: "Active", status: "ACTIVE" },
+    { id: "paused", content: "Paused", status: "PAUSED" },
+    { id: "cancelled", content: "Cancelled", status: "CANCELLED" },
+    // { id: "billing_issues", content: "Billing issues", status: "FAILED" },
+  ];
 
   const selectedTabIndex = tabs.findIndex((t) => t.status === currentStatus);
   const selected = selectedTabIndex === -1 ? 0 : selectedTabIndex;
@@ -327,7 +331,6 @@ const handelRowClick = (id) => {
     };
   }, []);
 
-
   if (loaderData.mode === "search") {
     const { contracts } = loaderData;
     const search = searchValue.trim().toLowerCase();
@@ -351,12 +354,13 @@ const handelRowClick = (id) => {
       handleTabChange,
       searchValue,
       handleSearchChange,
-      isLoading, 
+      isLoading,
+      isRowLoading: loadingSubscriptionId,
       contracts: paginated,
       formatDate,
       handelRowClick,
-      handelCustomer,   
-      handelOrders,   
+      handelCustomer,
+      handelOrders,
       getLinePriceWithoutIndex,
       createSubscription,
       pagination: (
@@ -371,12 +375,12 @@ const handelRowClick = (id) => {
     });
   }
 
-
   const { contracts, hasNextPage } = displayData;
 
   const triggerFetch = (targetPage, cursor) => {
     const params = new URLSearchParams();
-    if (currentStatus !== "ALL") params.set("status", currentStatus.toLowerCase());
+    if (currentStatus !== "ALL")
+      params.set("status", currentStatus.toLowerCase());
     if (cursor) params.set("cursor", cursor);
     pendingRef.current = { targetPage, cursor };
     fetcher.load(`${location.pathname}?${params.toString()}`);
@@ -404,11 +408,12 @@ const handelRowClick = (id) => {
     searchValue,
     handleSearchChange,
     isLoading,
+    isRowLoading: loadingSubscriptionId,
     contracts,
     formatDate,
     handelRowClick,
-     handelCustomer,  
-     handelOrders,
+    handelCustomer,
+    handelOrders,
     getLinePriceWithoutIndex,
     createSubscription,
     pagination: (
@@ -431,6 +436,7 @@ function renderPage({
   searchValue,
   handleSearchChange,
   isLoading,
+   isRowLoading,
   contracts,
   formatDate,
   handelRowClick,
@@ -443,9 +449,9 @@ function renderPage({
   return (
     <Page
       title="Subscriptions"
-       primaryAction={{
+      primaryAction={{
         content: "Create Subscription",
-        onAction: createSubscription,   
+        onAction: createSubscription,
       }}
       // secondaryActions={[
       //   {
@@ -475,7 +481,13 @@ function renderPage({
       ]}
     >
       <Card>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
           <div style={{ flex: 1 }}>
             <Tabs tabs={tabs} selected={selected} onSelect={handleTabChange} />
           </div>
@@ -494,13 +506,18 @@ function renderPage({
           />
         </div>
 
-        {contracts.length === 0  && contracts.status !== "FAILED" ?(
+        {contracts.length === 0 && contracts.status !== "FAILED" ? (
           <EmptyState>
             <img src="https://subscriptions.kachingappz.app/images/empty-subscriptions-list-state.png" />
             <p>No Subscriptions</p>
           </EmptyState>
         ) : (
-          <div style={{ opacity: isLoading ? 0.5 : 1, transition: "opacity 0.15s" }}>
+          <div
+            style={{
+              opacity: isLoading ? 0.5 : 1,
+              transition: "opacity 0.15s",
+            }}
+          >
             <table border="1">
               <thead>
                 <tr>
@@ -525,30 +542,57 @@ function renderPage({
                   }, 0);
                   const currencyCode = lines[0]?.currentPrice?.currencyCode;
                   const productLabel =
-                    lines.length === 1 ? lines[0].title : `${lines.length} Products`;
+                    lines.length === 1
+                      ? lines[0].title
+                      : `${lines.length} Products`;
 
                   return (
                     <tr key={item.id}>
-                      <td
+                      {/* <td
                         style={{ cursor: "pointer" }}
                         onClick={() => handelRowClick(item.id.split("/").pop())}
                       >
                         {item.id.split("/").pop()}
+                      </td> */}
+                      <td
+                        style={{
+                          cursor: "pointer",
+                          opacity:
+                            isRowLoading === item.id.split("/").pop() ? 0.6 : 1,
+                        }}
+                        onClick={() => handelRowClick(item.id.split("/").pop())}
+                      >
+                        {isRowLoading === item.id.split("/").pop() ? (
+                          <Spinner
+                            accessibilityLabel="Opening subscription"
+                            size="small"
+                          />
+                        ) : (
+                          item.id.split("/").pop()
+                        )}
                       </td>
-                      <td style={{ textTransform: "lowercase" }}>{item.status}</td>
+                      <td style={{ textTransform: "lowercase" }}>
+                        {item.status}
+                      </td>
                       <td>
-                        {item.customer?.firstName} {item.customer?.lastName} <br />
+                        {item.customer?.firstName} {item.customer?.lastName}{" "}
+                        <br />
                         {item.customer?.email}
                       </td>
                       <td>{formatDate(item.createdAt)}</td>
                       <td>{formatDate(item.updatedAt)}</td>
-                      <td>{item.status !== "CANCELLED" ? formatDate(item.nextBillingDate) : ""}</td>
+                      <td>
+                        {item.status !== "CANCELLED"
+                          ? formatDate(item.nextBillingDate)
+                          : ""}
+                      </td>
                       <td>{productLabel}</td>
                       <td>
                         {currencySymbol(currencyCode)} {total.toFixed(2)}
                       </td>
                       <td>
-                        Every {item.deliveryPolicy?.intervalCount} {item.deliveryPolicy?.interval}
+                        Every {item.deliveryPolicy?.intervalCount}{" "}
+                        {item.deliveryPolicy?.interval}
                       </td>
                     </tr>
                   );
