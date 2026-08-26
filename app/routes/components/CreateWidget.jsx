@@ -349,8 +349,8 @@ function CreateWidget({
           data.error || `Failed to ${isEdit ? "update" : "create"} widget`,
         );
       }
-
-      setTimeout(() => navigate("/app/widgets"), 1200);
+      console.log("dfjkdsfnjksdfn",data)
+      setTimeout(() => navigate(`/app/widget/edit/${data.widget.widgetId}`), 1200);
     } catch (error) {
       console.error("Save widget error:", error);
       alert(error.message || "Something went wrong");
