@@ -64,15 +64,23 @@ function CreateWidget({
   initialPlanId = null,
   initialProductId = null,
   onVariantChange,
+  widgetId = null,
+  initialWidgetName = "Widgets #",
+  initialAssignedPlanIds = null,
+  initialCustomize = null,
+  showAssignedPlans = true,
 }) {
   const shopify = useAppBridge();
 
-  const [widgetName, setWidgetName] = useState("Widgets #");
+  const [widgetName, setWidgetName] = useState(initialWidgetName);
   const [saving, setSaving] = useState(false);
   const [template, setTemplate] = useState(
     VARIANT_TO_TEMPLATE[initialVariant] || "radio",
   );
-  const [customize, setCustomize] = useState(DEFAULT_CUSTOMIZE);
+
+  const [customize, setCustomize] = useState(
+    initialCustomize || DEFAULT_CUSTOMIZE,
+  );
   const navigate = useNavigate();
   useEffect(() => {
     setTemplate(VARIANT_TO_TEMPLATE[initialVariant] || "radio");
@@ -93,6 +101,18 @@ function CreateWidget({
       })),
     [plans],
   );
+  const [assignedPlanIds, setAssignedPlanIds] = useState(
+    initialAssignedPlanIds || [],
+  );
+  useEffect(() => {
+    if (
+      !initialAssignedPlanIds &&
+      planOptions.length > 0 &&
+      assignedPlanIds.length === 0
+    ) {
+      setAssignedPlanIds(planOptions.map((p) => p.value));
+    }
+  }, [planOptions]);
 
   const selectedPlanData = useMemo(() => {
     return (
@@ -176,22 +196,36 @@ function CreateWidget({
 
   const basePrice = Number(previewProduct?.price) || 0;
 
-
-
   const normalizedPlans = useMemo(() => {
-  if (!selectedPlanData?.sellingPlans) {
-    return [];
-  }
+    if (!selectedPlanData?.sellingPlans) {
+      return [];
+    }
 
-  return selectedPlanData.sellingPlans.map((sp) =>
-    normalizeSellingPlan(sp, basePrice, currencyCode, customize.customCurrencyFormat),
+    return selectedPlanData.sellingPlans.map((sp) =>
+      normalizeSellingPlan(
+        sp,
+        basePrice,
+        currencyCode,
+        customize.customCurrencyFormat,
+      ),
+    );
+  }, [
+    selectedPlanData,
+    basePrice,
+    currencyCode,
+    customize.customCurrencyFormat,
+  ]);
+
+  const purchaseCards = useMemo(
+    () =>
+      buildPurchaseCards(
+        normalizedPlans,
+        basePrice,
+        currencyCode,
+        customize.customCurrencyFormat,
+      ),
+    [normalizedPlans, basePrice, currencyCode, customize.customCurrencyFormat],
   );
-}, [selectedPlanData, basePrice, currencyCode, customize.customCurrencyFormat]);
-
-const purchaseCards = useMemo(
-  () => buildPurchaseCards(normalizedPlans, basePrice, currencyCode, customize.customCurrencyFormat),
-  [normalizedPlans, basePrice, currencyCode, customize.customCurrencyFormat],
-);
   const variant = TEMPLATE_TO_VARIANT[template] || "simple";
 
   const cardData = useMemo(
@@ -203,12 +237,12 @@ const purchaseCards = useMemo(
   );
 
   const [selected, setSelected] = useState(
-  customize.preselectSubscription ? "subscribe" : "onetime",
-);
+    customize.preselectSubscription ? "subscribe" : "onetime",
+  );
 
-useEffect(() => {
-  setSelected(customize.preselectSubscription ? "subscribe" : "onetime");
-}, [customize.preselectSubscription]);
+  useEffect(() => {
+    setSelected(customize.preselectSubscription ? "subscribe" : "onetime");
+  }, [customize.preselectSubscription]);
   const [selectedPlanId, setSelectedPlanId] = useState(null);
 
   useEffect(() => {
@@ -224,50 +258,99 @@ useEffect(() => {
     cardData?.plans?.[0] ||
     null;
 
+  // const handleSaveWidget = async () => {
+  //   try {
+  //     if (!widgetName.trim()) {
+  //       alert("Widget name required");
+  //       return;
+  //     }
+  //     if (!shop) {
+  //       alert("Shop missing");
+  //       return;
+  //     }
+  //     setSaving(true);
+  //     const newWidgetId = generateWidgetId();
+
+  //     const response = await fetch(`${API}/api/widgets`, {
+  //       method: "POST",
+  //       headers: {
+  //         "Content-Type": "application/json",
+  //         "x-api-key": SECRET_KEY,
+  //       },
+  //       body: JSON.stringify({
+  //         widgetId: newWidgetId,
+  //         shop,
+  //         widgetName,
+  //         template,
+  //         planId: selectedPlan,
+  //         productId: previewProduct?.id || null,
+  //          assignedPlanIds,
+  //         customize,
+  //       }),
+  //     });
+
+  //     const data = await response.json();
+  //     console.log("vjhdhd", data)
+
+  //     if (!response.ok || !data.success) {
+  //       throw new Error(data.error || "Failed to create widget");
+  //     }
+
+  //     // console.log("Widget created:", data.widget);
+
+  //     setTimeout(() => {
+  //       navigate("/app/widgets");
+  //     }, 2000);
+  //     // navigate(`/app/widgets/${newWidgetId}`, {
+  //     //   state: { widget: data.widget },
+  //     // });
+  //   } catch (error) {
+  //     console.error("Save widget error:", error);
+  //     alert(error.message || "Something went wrong");
+  //   } finally {
+  //     setSaving(false);
+  //   }
+  // };
   const handleSaveWidget = async () => {
     try {
-      if (!widgetName.trim()) {
-        alert("Widget name required");
-        return;
-      }
-      if (!shop) {
-        alert("Shop missing");
-        return;
-      }
-      setSaving(true);
-      const newWidgetId = generateWidgetId();
+      if (!widgetName.trim()) return alert("Widget name required");
+      if (!shop) return alert("Shop missing");
 
-      const response = await fetch(`${API}/api/widgets`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": SECRET_KEY,
+      setSaving(true);
+      const isEdit = Boolean(widgetId);
+      const idToUse = widgetId || generateWidgetId();
+
+      const response = await fetch(
+        isEdit
+          ? `${API}/api/widgets/${idToUse}?shop=${shop}`
+          : `${API}/api/widgets`,
+        {
+          method: isEdit ? "PUT" : "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": SECRET_KEY,
+          },
+          body: JSON.stringify({
+            widgetId: idToUse,
+            shop,
+            widgetName,
+            template,
+            planId: selectedPlan,
+            productId: previewProduct?.id || null,
+            assignedPlanIds,
+            customize,
+          }),
         },
-        body: JSON.stringify({
-          widgetId: newWidgetId,
-          shop,
-          widgetName,
-          template,
-          planId: selectedPlan,
-          productId: previewProduct?.id || null,
-          customize,
-        }),
-      });
+      );
 
       const data = await response.json();
-
       if (!response.ok || !data.success) {
-        throw new Error(data.error || "Failed to create widget");
+        throw new Error(
+          data.error || `Failed to ${isEdit ? "update" : "create"} widget`,
+        );
       }
 
-      console.log("Widget created:", data.widget);
-
-      setTimeout(() => {
-        navigate("/app/widgets");
-      }, 2000);
-      // navigate(`/app/widgets/${newWidgetId}`, {
-      //   state: { widget: data.widget },
-      // });
+      setTimeout(() => navigate("/app/widgets"), 1200);
     } catch (error) {
       console.error("Save widget error:", error);
       alert(error.message || "Something went wrong");
@@ -275,7 +358,6 @@ useEffect(() => {
       setSaving(false);
     }
   };
-
   return (
     <div
       style={{
@@ -292,6 +374,10 @@ useEffect(() => {
         onTemplateChange={handleTemplateChange}
         customize={customize}
         onCustomizeChange={setCustomize}
+        plans={plans}
+        assignedPlanIds={assignedPlanIds}
+        onAssignedPlanIdsChange={setAssignedPlanIds}
+        showAssignedPlans={showAssignedPlans}
       />
 
       {/* RIGHT SIDE - PREVIEW */}
@@ -346,7 +432,7 @@ useEffect(() => {
                   selectedPlanId={selectedPlanId}
                   onSelect={setSelected}
                   onSelectPlan={setSelectedPlanId}
-                  customize={customize} 
+                  customize={customize}
                 />
               </div>
 

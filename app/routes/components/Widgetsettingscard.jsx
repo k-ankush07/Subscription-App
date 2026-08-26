@@ -13,8 +13,6 @@ export const TEMPLATE_OPTIONS = [
   { label: "Checkbox", value: "checkbox" },
 ];
 
-
-
 export const DEFAULT_CUSTOMIZE = {
   blockTitle: "Abc",
   oneTimePurchaseTitle: "One time purchase",
@@ -43,12 +41,24 @@ function WidgetSettingsCard({
   customize,
   onCustomizeChange,
   showTemplate = true,
+  plans = [],
+  assignedPlanIds = [],
+  onAssignedPlanIdsChange,
+  showAssignedPlans = true,
 }) {
   const handleCustomizeChange = (field, value) => {
     onCustomizeChange({
       ...customize,
       [field]: value,
     });
+  };
+
+  const handlePlanToggle = (planId, checked) => {
+    if (checked) {
+      onAssignedPlanIdsChange?.([...assignedPlanIds, planId]);
+    } else {
+      onAssignedPlanIdsChange?.(assignedPlanIds.filter((id) => id !== planId));
+    }
   };
 
   return (
@@ -73,13 +83,24 @@ function WidgetSettingsCard({
           )}
 
           <div>
-
-            <div>
-              <h2>Plans assigned</h2>
-              <select>
-                <option>plans</option>
-              </select>
-            </div>
+            {showAssignedPlans && (          
+              <div>
+                <h2>Plans assigned</h2>
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  {plans.length === 0 && <p>No plans available</p>}
+                  {plans.map((plan) => (
+                    <div key={plan.planId} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <input
+                        type="checkbox"
+                        checked={assignedPlanIds.includes(plan.planId)}
+                        onChange={(e) => handlePlanToggle(plan.planId, e.target.checked)}
+                      />
+                      <label>{plan.planName}</label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             <b>Customize</b>
 
             <div>
@@ -97,7 +118,7 @@ function WidgetSettingsCard({
                 </div>
               )}
 
-              <div style={{paddingTop:"10px"}}>
+              <div style={{ paddingTop: "10px" }}>
                 <h2>One-time purchase option title</h2>
 
                 <TextField
@@ -109,7 +130,7 @@ function WidgetSettingsCard({
                 />
               </div>
 
-              <div style={{paddingTop:"10px"}}>
+              <div style={{ paddingTop: "10px" }}>
                 <h2>Subscription option title</h2>
 
                 <TextField
@@ -120,7 +141,14 @@ function WidgetSettingsCard({
                   autoComplete="off"
                 />
               </div>
-              <div style={{paddingTop:"10px", display:"flex", flexDirection:"column", gap:"6px"}}>
+              <div
+                style={{
+                  paddingTop: "10px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "6px",
+                }}
+              >
                 <div>
                   <input
                     type="checkbox"
@@ -162,12 +190,8 @@ function WidgetSettingsCard({
                   />
                   <label>Display selling plan name</label>
                 </div>
-
-
-               
               </div>
-              <div style={{paddingTop:"5px"}}>
-
+              <div style={{ paddingTop: "5px" }}>
                 <b>Style</b>
                 <div
                   style={{
@@ -208,7 +232,7 @@ function WidgetSettingsCard({
                 </div>
               </div>
 
-              <div style={{paddingTop:"5px"}}>
+              <div style={{ paddingTop: "5px" }}>
                 <b>Colors</b>
 
                 <div
@@ -282,7 +306,7 @@ function WidgetSettingsCard({
                       handleCustomizeChange("labelTextColor", value)
                     }
                   />
-{/* 
+                  {/* 
                   <ColorField
                     label="Badge background"
                     value={customize.badgeBackgroundColor}

@@ -110,7 +110,7 @@ function Template({ shop, editPlandData, dublicateData }) {
   const [planId, setPlanId] = useState(editPlandData?.planId || null);
   const [shopifyGroupId, setShopifyGroupId] = useState(null);
   const [planName, setPlanName] = useState("Plan #1");
-  const [widget, setWidget] = useState("widget1");
+  const [widget, setWidget] = useState();
   const [allowProductSwaps, setAllowProductSwaps] = useState(true);
   const [allowVariantChanges, setAllowVariantChanges] = useState(true);
   const [allowQuantityChanges, setAllowQuantityChanges] = useState(true);
@@ -126,7 +126,7 @@ function Template({ shop, editPlandData, dublicateData }) {
   );
   const [initialSnapshot, setInitialSnapshot] = useState(null);
 
-  // ---- VALIDATION ----
+  
   const validateSellingPlans = (plans) => {
     const newErrors = {};
     const names = [];
@@ -147,7 +147,7 @@ function Template({ shop, editPlandData, dublicateData }) {
         intervals.push(combo);
       }
 
-      // Quantity-change enabled but no product selected
+    
       if (
         plan.changeQuantityAfterOrders &&
         (!plan.quantityProducts || plan.quantityProducts.length === 0)
@@ -210,8 +210,7 @@ function Template({ shop, editPlandData, dublicateData }) {
     }
   }, [shopify, selectedProducts]);
 
-  // ---- SYNC: agar overall selectedProducts se koi product remove ho,
-  // to har selling plan ke quantityProducts / freeProducts se bhi hata do ----
+
   useEffect(() => {
     const allowedIds = new Set(selectedProducts.map((p) => p.id));
 
@@ -481,10 +480,46 @@ function Template({ shop, editPlandData, dublicateData }) {
     }
   }, [diablecheck]);
 
-  // ---- COMBINED BANNER MESSAGES ----
+  
   const allPlanErrorMessages = Object.values(planErrors);
   const hasAnyError = productError || allPlanErrorMessages.length > 0;
 
+  const [widgetOptions, setWidgetOptions] = useState([]);
+const [loadingWidgets, setLoadingWidgets] = useState(true);
+
+useEffect(() => {
+  const fetchWidgets = async () => {
+    try {
+      if (!shop) return;
+      setLoadingWidgets(true);
+
+      const response = await fetch(
+        `${API}/api/widgets?shop=${shop}`,
+        {
+          headers: {
+            "x-api-key": SECRET_KEY,
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (data.success) {
+        const options = (data.widgets || []).map((w) => ({
+          label: w.widgetName,
+          value: String(w.widgetId),
+        }));
+        setWidgetOptions(options);
+      }
+    } catch (error) {
+      console.error("Fetch widgets error:", error);
+    } finally {
+      setLoadingWidgets(false);
+    }
+  };
+
+  fetchWidgets();
+}, [shop, API, SECRET_KEY]);
   return (
     <Frame>
       {toastActive && (
@@ -519,7 +554,7 @@ function Template({ shop, editPlandData, dublicateData }) {
               ]
         }
       >
-        {/* ---- SINGLE COMBINED BANNER ---- */}
+    
         {hasAnyError && (
           <Banner tone="critical" title="Validation error">
             <ul style={{ margin: 0, paddingLeft: "20px" }}>
