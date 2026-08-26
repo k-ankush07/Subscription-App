@@ -73,6 +73,13 @@ function WidgetSettingsCard({
           )}
 
           <div>
+
+            <div>
+              <h2>Plans assigned</h2>
+              <select>
+                <option>plans</option>
+              </select>
+            </div>
             <b>Customize</b>
 
             <div>
