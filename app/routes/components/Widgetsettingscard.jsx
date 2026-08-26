@@ -55,14 +55,41 @@ function WidgetSettingsCard({
     });
   };
 
-  const handlePlanToggle = (planId, checked) => {
-    if (checked) {
-      onAssignedPlanIdsChange?.([...assignedPlanIds, planId]);
-    } else {
-      onAssignedPlanIdsChange?.(assignedPlanIds.filter((id) => id !== planId));
-    }
-  };
+  // const handlePlanToggle = (planId, checked) => {
+  //   if (checked) {
+  //     onAssignedPlanIdsChange?.([...assignedPlanIds, planId]);
+  //   } else {
+  //     onAssignedPlanIdsChange?.(assignedPlanIds.filter((id) => id !== planId));
+  //   }
+  // };
+const handlePlanToggle = (planId, checked) => {
+  const plan = plans.find((p) => p.planId === planId);
 
+  const planWidgetId =
+    plan?.widget?.widgetId ??
+    plan?.widget?._id ??
+    plan?.widget?.id ??
+    plan?.widget ??
+    null;
+
+  const assignedToOtherWidget =
+    planWidgetId &&
+    String(planWidgetId) !== String(currentWidgetId);
+
+  if (assignedToOtherWidget) {
+    return;
+  }
+
+  if (checked) {
+    onAssignedPlanIdsChange?.([
+      ...new Set([...assignedPlanIds, planId]),
+    ]);
+  } else {
+    onAssignedPlanIdsChange?.(
+      assignedPlanIds.filter((id) => id !== planId)
+    );
+  }
+};
   return (
     <div style={{ width: "100%" }}>
       <Card>
@@ -97,39 +124,65 @@ function WidgetSettingsCard({
                 >
                   {plans.length === 0 && <p>No plans available</p>}
                   {plans.map((plan) => {
-                    // 👇 defensive: sirf tab disable karo jab plan.widget REAL existing widget ho
-                    const assignedToOther =
-                      !!plan.widget &&
-                      String(plan.widget) !== String(currentWidgetId) &&
-                      validWidgetIds.has(String(plan.widget));
+  const planWidgetId =
+    plan?.widget?.widgetId ??
+    plan?.widget?._id ??
+    plan?.widget?.id ??
+    plan?.widget ??
+    null;
 
-                    const isChecked = assignedPlanIds.includes(plan.planId);
+  const isAssignedToCurrentWidget =
+    planWidgetId != null &&
+    String(planWidgetId) === String(currentWidgetId);
 
-                    return (
-                      <div
-                        key={plan.planId}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "8px",
-                        }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          disabled={assignedToOther}
-                          onChange={(e) =>
-                            handlePlanToggle(plan.planId, e.target.checked)
-                          }
-                        />
-                        <label style={assignedToOther ? { opacity: 0.5 } : {}}>
-                          {plan.planName}
-                          {assignedToOther &&
-                            " (Already assigned to another widget)"}
-                        </label>
-                      </div>
-                    );
-                  })}
+  const isAssignedToOtherWidget =
+    planWidgetId != null &&
+    String(planWidgetId).trim() !== "" &&
+    !isAssignedToCurrentWidget;
+
+  const isChecked = assignedPlanIds.includes(plan.planId);
+
+  return (
+    <div
+      key={plan.planId}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "8px",
+      }}
+    >
+      <input
+        type="checkbox"
+        checked={isChecked}
+        disabled={isAssignedToOtherWidget}
+        onChange={(e) => {
+          if (isAssignedToOtherWidget) return;
+
+          handlePlanToggle(
+            plan.planId,
+            e.target.checked
+          );
+        }}
+      />
+
+      <label
+        style={
+          isAssignedToOtherWidget
+            ? {
+                opacity: 0.5,
+                cursor: "not-allowed",
+              }
+            : {}
+        }
+      >
+        {plan.planName}
+
+        {isAssignedToOtherWidget &&
+          " (Already assigned to another widget)"}
+      </label>
+    </div>
+  );
+})}
                 </div>
               </div>
             )}
@@ -159,6 +212,7 @@ function WidgetSettingsCard({
                     handleCustomizeChange("oneTimePurchaseTitle", value)
                   }
                   autoComplete="off"
+                   required
                 />
               </div>
 
@@ -171,6 +225,7 @@ function WidgetSettingsCard({
                     handleCustomizeChange("subscriptionTitle", value)
                   }
                   autoComplete="off"
+                   required
                 />
               </div>
               <div

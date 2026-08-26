@@ -204,6 +204,7 @@ function Subscriptions() {
   const currentStatus = (searchParams.get("status") || "ALL").toUpperCase();
 
   const [displayData, setDisplayData] = useState(loaderData);
+  const [loadingSubscriptionId, setLoadingSubscriptionId] = useState(null);
   const [currentPage, setCurrentPage] = useState(loaderData.page || 1);
   const cursorMapRef = useRef(loaderData.cursors || { 1: null });
   const pendingRef = useRef(null);
@@ -238,10 +239,15 @@ function Subscriptions() {
 
   const isLoading = fetcher.state === "loading" || isNavLoading;
 
-  const handelRowClick = (id) => {
-    navigate(`/app/subscription/${id}`);
-  };
+  // const handelRowClick = (id) => {
+  //   navigate(`/app/subscription/${id}`);
+  // };
+const handelRowClick = (id) => {
+  if (loadingSubscriptionId) return;
 
+  setLoadingSubscriptionId(id);
+  navigate(`/app/subscription/${id}`);
+};
   const createSubscription = () => {
   navigate("/app/create-contract");
 };
