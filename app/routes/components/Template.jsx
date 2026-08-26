@@ -541,12 +541,12 @@ function Template({ shop, editPlandData, dublicateData }) {
             />
             <Select
               label="Widget assigned"
-              options={[
-                { label: "Widget 1", value: "widget1" },
-                { label: "Widget 2", value: "widget2" },
-                { label: "Widget 3", value: "widget3" },
-                { label: "Widget 4", value: "widget4" },
-              ]}
+              // options={[
+              //   { label: "Widget 1", value: "widget1" },
+              //   { label: "Widget 2", value: "widget2" },
+              //   { label: "Widget 3", value: "widget3" },
+              //   { label: "Widget 4", value: "widget4" },
+              // ]}
               value={widget}
               onChange={setWidget}
               helpText="Will be visible for customers on the product page"

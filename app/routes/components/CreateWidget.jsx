@@ -63,16 +63,20 @@ function CreateWidget({
   initialVariant = "simple",
   initialPlanId = null,
   initialProductId = null,
+  initialWidgetId = null,
   onVariantChange,
 }) {
   const shopify = useAppBridge();
-
+const [widgetId] = useState(() => initialWidgetId || generateWidgetId());
   const [widgetName, setWidgetName] = useState("Widgets #");
   const [saving, setSaving] = useState(false);
   const [template, setTemplate] = useState(
     VARIANT_TO_TEMPLATE[initialVariant] || "radio",
   );
   const [customize, setCustomize] = useState(DEFAULT_CUSTOMIZE);
+  const [assignedPlanIds, setAssignedPlanIds] = useState(() =>
+    plans.filter((p) => p.widget === widgetId).map((p) => p.planId),
+  );
   const navigate = useNavigate();
   useEffect(() => {
     setTemplate(VARIANT_TO_TEMPLATE[initialVariant] || "radio");
@@ -224,58 +228,142 @@ useEffect(() => {
     cardData?.plans?.[0] ||
     null;
 
-  const handleSaveWidget = async () => {
-    try {
-      if (!widgetName.trim()) {
-        alert("Widget name required");
-        return;
-      }
-      if (!shop) {
-        alert("Shop missing");
-        return;
-      }
-      setSaving(true);
-      const newWidgetId = generateWidgetId();
+  // const handleSaveWidget = async () => {
+  //   try {
+  //     if (!widgetName.trim()) {
+  //       alert("Widget name required");
+  //       return;
+  //     }
+  //     if (!shop) {
+  //       alert("Shop missing");
+  //       return;
+  //     }
+  //     setSaving(true);
+  //     const newWidgetId = generateWidgetId();
 
-      const response = await fetch(`${API}/api/widgets`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": SECRET_KEY,
-        },
-        body: JSON.stringify({
-          widgetId: newWidgetId,
-          shop,
-          widgetName,
-          template,
-          planId: selectedPlan,
-          productId: previewProduct?.id || null,
-          customize,
-        }),
-      });
+  //     const response = await fetch(`${API}/api/widgets`, {
+  //       method: "POST",
+  //       headers: {
+  //         "Content-Type": "application/json",
+  //         "x-api-key": SECRET_KEY,
+  //       },
+  //       body: JSON.stringify({
+  //         widgetId: newWidgetId,
+  //         shop,
+  //         widgetName,
+  //         template,
+  //         planId: selectedPlan,
+  //         productId: previewProduct?.id || null,
+  //         customize,
+  //       }),
+  //     });
 
-      const data = await response.json();
+  //     const data = await response.json();
 
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || "Failed to create widget");
-      }
+  //     if (!response.ok || !data.success) {
+  //       throw new Error(data.error || "Failed to create widget");
+  //     }
 
-      console.log("Widget created:", data.widget);
+  //     console.log("Widget created:", data.widget);
 
-      setTimeout(() => {
-        navigate("/app/widgets");
-      }, 2000);
-      // navigate(`/app/widgets/${newWidgetId}`, {
-      //   state: { widget: data.widget },
-      // });
-    } catch (error) {
-      console.error("Save widget error:", error);
-      alert(error.message || "Something went wrong");
-    } finally {
-      setSaving(false);
+  //     setTimeout(() => {
+  //       navigate("/app/widgets");
+  //     }, 2000);
+  //     // navigate(`/app/widgets/${newWidgetId}`, {
+  //     //   state: { widget: data.widget },
+  //     // });
+  //   } catch (error) {
+  //     console.error("Save widget error:", error);
+  //     alert(error.message || "Something went wrong");
+  //   } finally {
+  //     setSaving(false);
+  //   }
+  // };
+const handleSaveWidget = async () => {
+  try {
+    if (!widgetName.trim()) {
+      alert("Widget name required");
+      return;
     }
-  };
+    if (!shop) {
+      alert("Shop missing");
+      return;
+    }
+    setSaving(true);
 
+    // ❌ pehle: const newWidgetId = generateWidgetId();
+    // ✅ ab: upar wali stable widgetId hi use hogi
+
+    const response = await fetch(`${API}/api/widgets`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": SECRET_KEY,
+      },
+      body: JSON.stringify({
+        widgetId,                 // 👈 stable id
+        shop,
+        widgetName,
+        template,
+        planId: selectedPlan,
+        productId: previewProduct?.id || null,
+        customize,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok || !data.success) {
+      throw new Error(data.error || "Failed to create widget");
+    }
+
+    console.log("Widget created:", data.widget);
+
+    // 👇 NAYA — ab plans ki `widget` field ko sync karo
+    const previouslyAssigned = plans
+      .filter((p) => p.widget === widgetId)
+      .map((p) => p.planId);
+
+    const toAssign = assignedPlanIds.filter(
+      (id) => !previouslyAssigned.includes(id),
+    );
+    const toUnassign = previouslyAssigned.filter(
+      (id) => !assignedPlanIds.includes(id),
+    );
+
+    await Promise.all([
+      ...toAssign.map((planId) =>
+        fetch(`${API}/plans/update/${planId}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": SECRET_KEY,
+          },
+          body: JSON.stringify({ widget: widgetId }),
+        }),
+      ),
+      ...toUnassign.map((planId) =>
+        fetch(`${API}/plans/update/${planId}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": SECRET_KEY,
+          },
+          body: JSON.stringify({ widget: null }),
+        }),
+      ),
+    ]);
+
+    setTimeout(() => {
+      navigate("/app/widgets");
+    }, 2000);
+  } catch (error) {
+    console.error("Save widget error:", error);
+    alert(error.message || "Something went wrong");
+  } finally {
+    setSaving(false);
+  }
+};
   return (
     <div
       style={{
@@ -292,6 +380,10 @@ useEffect(() => {
         onTemplateChange={handleTemplateChange}
         customize={customize}
         onCustomizeChange={setCustomize}
+        plans={plans}                             
+  widgetId={widgetId}                       
+  assignedPlanIds={assignedPlanIds}         
+  onAssignedPlanIdsChange={setAssignedPlanIds} 
       />
 
       {/* RIGHT SIDE - PREVIEW */}

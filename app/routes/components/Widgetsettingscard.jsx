@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   Card,
   Select,
@@ -43,6 +43,10 @@ function WidgetSettingsCard({
   customize,
   onCustomizeChange,
   showTemplate = true,
+   plans = [],                    
+  widgetId,                      
+  assignedPlanIds = [],          
+  onAssignedPlanIdsChange,   
 }) {
   const handleCustomizeChange = (field, value) => {
     onCustomizeChange({
@@ -50,7 +54,32 @@ function WidgetSettingsCard({
       [field]: value,
     });
   };
+  const [plansModalOpen, setPlansModalOpen] = useState(false);
+  const [pendingPlanIds, setPendingPlanIds] = useState(assignedPlanIds);
 
+  useEffect(() => {
+    setPendingPlanIds(assignedPlanIds);
+  }, [assignedPlanIds]);
+
+  const hasLockedPlan = plans.some(
+    (p) => p.widget && p.widget !== widgetId,
+  );
+
+  const togglePlan = (planId, checked) => {
+    setPendingPlanIds((prev) =>
+      checked ? [...prev, planId] : prev.filter((id) => id !== planId),
+    );
+  };
+
+  const handleApply = () => {
+    onAssignedPlanIdsChange(pendingPlanIds);
+    setPlansModalOpen(false);
+  };
+
+  const handleCancel = () => {
+    setPendingPlanIds(assignedPlanIds);
+    setPlansModalOpen(false);
+  };
   return (
     <div style={{ width: "100%" }}>
       <Card>
@@ -76,10 +105,54 @@ function WidgetSettingsCard({
 
             <div>
               <h2>Plans assigned</h2>
-              <select>
-                <option>plans</option>
-              </select>
+               <Button onClick={() => setPlansModalOpen(true)}>
+                {assignedPlanIds.length > 0
+                  ? `${assignedPlanIds.length} plan${
+                      assignedPlanIds.length > 1 ? "s" : ""
+                    } selected`
+                  : "Select plans"}
+              </Button>
             </div>
+             <Modal
+              open={plansModalOpen}
+              onClose={handleCancel}
+              title="Select plans"
+              primaryAction={{ content: "Apply", onAction: handleApply }}
+              secondaryActions={[
+                { content: "Cancel", onAction: handleCancel },
+              ]}
+            >
+              <Modal.Section>
+                {hasLockedPlan && (
+                  <div style={{ marginBottom: "12px" }}>
+                    <Banner tone="info">
+                      These plans can't be unassigned here. Assign them to
+                      another widget instead.
+                    </Banner>
+                  </div>
+                )}
+                <BlockStack gap="200">
+                  {plans.length === 0 && <p>No plans found.</p>}
+                  {plans.map((plan) => {
+                    const lockedElsewhere =
+                      plan.widget && plan.widget !== widgetId;
+                    const checked =
+                      lockedElsewhere ||
+                      pendingPlanIds.includes(plan.planId);
+
+                    return (
+                      <Checkbox
+                        key={plan.planId}
+                        label={plan.planName}
+                        checked={checked}
+                        disabled={lockedElsewhere}
+                        onChange={(value) => togglePlan(plan.planId, value)}
+                      />
+                    );
+                  })}
+                </BlockStack>
+              </Modal.Section>
+            </Modal>
             <b>Customize</b>
 
             <div>
