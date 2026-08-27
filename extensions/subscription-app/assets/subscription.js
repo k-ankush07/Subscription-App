@@ -1,7 +1,3 @@
-
-
-
-
 (function () {
   const shop = window.Shopify?.shop;
   const SECRET_KEY = "08466sdmfbf94374nkjsnfdkyry89nfksd388934jkdsf89y389bjkkr32";
@@ -57,43 +53,40 @@
     return null;
   }
 
-  // function findMatchedPlan(variantId) {
-  //   if (!allPlans || !variantId) return null;
-  //   const gid = `gid://shopify/ProductVariant/${variantId}`;
-  //   return (
-  //     allPlans.find((plan) =>
-  //       (plan.products || []).some((product) =>
-  //         (product.variants || []).some((v) => v.variantsId === gid)
-  //       )
-  //     ) || null
-  //   );
-  // }
-function findMatchedPlan(variantId) {
-  if (!allPlans || !variantId) return null;
-  const gid = `gid://shopify/ProductVariant/${variantId}`;
+  // Returns ALL plan-configs whose products/variants include this variant
+  // (previously this returned only a single "best" match — now we keep all
+  // of them so their selling-plan options can be merged into one widget).
+  function findMatchedPlans(variantId) {
+    if (!allPlans || !variantId) return [];
+    const gid = `gid://shopify/ProductVariant/${variantId}`;
 
-  const matchedPlans = allPlans.filter((plan) =>
-    (plan.products || []).some((product) =>
-      (product.variants || []).some((v) => v.variantsId === gid)
-    )
-  );
+    return allPlans.filter((plan) =>
+      (plan.products || []).some((product) =>
+        (product.variants || []).some((v) => v.variantsId === gid)
+      )
+    );
+  }
 
-  if (matchedPlans.length === 0) return null;
-  if (matchedPlans.length === 1) return matchedPlans[0];
+  // Picks which matched plan-config's WIDGET (styling/template) should be used
+  // when more than one plan-config matches the same variant.
+  function pickPrimaryPlan(matchedPlans) {
+    if (matchedPlans.length === 0) return null;
+    if (matchedPlans.length === 1) return matchedPlans[0];
 
-  // sirf wahi plans consider karo jinka koi widget assign hai
-  const withWidget = matchedPlans.filter((p) => p.widget);
-  const pool = withWidget.length > 0 ? withWidget : matchedPlans;
+    // sirf wahi plans consider karo jinka koi widget assign hai
+    const withWidget = matchedPlans.filter((p) => p.widget);
+    const pool = withWidget.length > 0 ? withWidget : matchedPlans;
 
-  // highest widgetPriority wala pehle, tie hone par jo baad me updated hua wo pehle
-  pool.sort((a, b) => {
-    const pDiff = (b.widgetPriority || 0) - (a.widgetPriority || 0);
-    if (pDiff !== 0) return pDiff;
-    return new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0);
-  });
+    // highest widgetPriority wala pehle, tie hone par jo baad me updated hua wo pehle
+    pool.sort((a, b) => {
+      const pDiff = (b.widgetPriority || 0) - (a.widgetPriority || 0);
+      if (pDiff !== 0) return pDiff;
+      return new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0);
+    });
 
-  return pool[0];
-}
+    return pool[0];
+  }
+
   function findMatchedProduct(plan, variantId) {
     const gid = `gid://shopify/ProductVariant/${variantId}`;
     return (
@@ -184,12 +177,16 @@ function findMatchedPlan(variantId) {
     );
   }
 
+  // planDoc = ek selling-plan config (group). Ismein multiple planDocs se aaye
+  // sellingPlans ko caller merge karega, is liye har normalized plan ke saath
+  // uska parent planDoc bhi tag kar rahe hain (debugging / future use ke liye).
   function normalizePlans(planDoc, basePrice) {
     return (planDoc.sellingPlans || []).map((sp) => {
       const price = computeSellingPlanPrice(basePrice, sp);
       return {
         id: String(sp.shopifySellingPlanId).split("/").pop(),
         raw: sp,
+        parentPlanId: planDoc._id || planDoc.id || null,
         name: sp.name,
         label: `Deliver ${deliveryPhrase(sp)}`,
         shortLabel: shortDeliveryLabel(sp),
@@ -197,6 +194,17 @@ function findMatchedPlan(variantId) {
         price: formatMoney(price),
         comparePrice: formatMoney(basePrice),
       };
+    });
+  }
+
+  // Multiple plan-configs se options aane par same shopifySellingPlanId id
+  // do baar na aaye, is liye dedupe kar rahe hain (pehli occurrence rakhi jati hai).
+  function dedupePlans(plans) {
+    const seen = new Set();
+    return plans.filter((p) => {
+      if (seen.has(p.id)) return false;
+      seen.add(p.id);
+      return true;
     });
   }
 
@@ -211,14 +219,16 @@ function findMatchedPlan(variantId) {
     const isDesignMode = mount.dataset.designMode === "true";
     const variantId = variantInput ? variantInput.value : null;
 
-    let matchedPlan = variantId ? findMatchedPlan(variantId) : null;
+    let matchedPlansArr = variantId ? findMatchedPlans(variantId) : [];
+    let primaryPlan = pickPrimaryPlan(matchedPlansArr);
     let isFallbackPreview = false;
 
     // Real storefront: only show when this product/variant actually has a plan assigned.
     // Theme editor (design mode): always show something so the merchant can see the widget.
-    if (!matchedPlan) {
+    if (!primaryPlan) {
       if (isDesignMode && allPlans.length > 0) {
-        matchedPlan = allPlans[0];
+        primaryPlan = allPlans[0];
+        matchedPlansArr = [primaryPlan];
         isFallbackPreview = true;
       } else {
         mount.style.display = "none";
@@ -227,19 +237,24 @@ function findMatchedPlan(variantId) {
       }
     }
 
-    fetchWidget(matchedPlan.widget).then((widget) => {
+    fetchWidget(primaryPlan.widget).then((widget) => {
       if (!widget) {
         mount.style.display = "none";
         mount.innerHTML = "";
         return;
       }
 
-      const product = isFallbackPreview ? null : findMatchedProduct(matchedPlan, variantId);
+      const product = isFallbackPreview ? null : findMatchedProduct(primaryPlan, variantId);
       const basePrice = Number(
         mount.dataset.price || product?.price || product?.minPrice || 0
       );
 
-      const plans = normalizePlans(matchedPlan, basePrice);
+      // Merge selling-plan options from EVERY matched plan-config (not just the
+      // primary/top-priority one) into a single combined list for this widget.
+      const plans = dedupePlans(
+        matchedPlansArr.flatMap((planDoc) => normalizePlans(planDoc, basePrice))
+      );
+
       if (!plans.length) {
         mount.style.display = "none";
         mount.innerHTML = "";
