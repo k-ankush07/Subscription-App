@@ -1,6 +1,6 @@
 import React from "react";
 import { Select, Button } from "@shopify/polaris";
-import { cardStyles as styles, getSubscriptionDetails } from "../utils/purchaseCardHelpers";
+import { cardStyles as styles, getSubscriptionDetails ,truncateText } from "../utils/purchaseCardHelpers";
 
 function RadioDot({ checked, color = "#111" }) {
   return (
@@ -41,6 +41,8 @@ function ChooseButton({ onChoose }) {
 function useCardCustomization(customize) {
   const cornerRadius = Number(customize?.cornerRadius ?? 8);
   const spacing = Number(customize?.spacing ?? 14);
+  const borderWidth = Number(customize?.borderWidth ?? 2);
+   const borderStyle = customize?.borderStyle || "solid";
  const oneTimeLabel = customize?.oneTimePurchaseTitle?.trim() || "";
 const subscribeLabel = customize?.subscriptionTitle?.trim() || "";
 
@@ -53,22 +55,29 @@ const subscribeLabel = customize?.subscriptionTitle?.trim() || "";
   const labelBackgroundColor = customize?.labelBackgroundColor || "#e8e8e8";
   const labelTextColor = customize?.labelTextColor || "#111";
 
+
+
+  const borderCss = (color) =>
+    borderStyle === "none" ? "none" : `${borderWidth}px ${borderStyle} ${color}`;
   return {
     cornerRadius,
     spacing,
+     borderWidth,
+      borderStyle, 
     cardStyle: styles.card,
     boxSelected: {
       ...styles.optionBoxSelected,
       borderRadius: cornerRadius,
       padding: spacing,
       background: selectedCardColor,
-      borderColor,
+       border: borderCss(borderColor),
     },
     boxUnselected: {
       ...styles.optionBoxUnselected,
       borderRadius: cornerRadius,
       padding: spacing,
       background: cardColor,
+      border: borderCss("#d0d0d0"),
     },
     oneTimeLabel,
     subscribeLabel,
@@ -174,8 +183,8 @@ function SimpleCard({ data, selected, activePlan, selectedPlanId, onSelect, onSe
             ? customize?.customLabelText?.trim()
             : plan.discountLabel;
           const displayText = customize?.displaySellingPlanName
-            ? plan.name || plan.label
-            : plan.label;
+  ? truncateText(plan.name || plan.label, 26)
+  : plan.label;
 
           return (
             <div
@@ -364,9 +373,9 @@ function DetailedCard({ data, selected, activePlan, selectedPlanId, onSelect, on
                       label=""
                       labelHidden
                       options={data.plans.map((p) => ({
-                        label: customize?.displaySellingPlanName ? p.name || p.label : p.label,
-                        value: p.id,
-                      }))}
+  label: customize?.displaySellingPlanName ? truncateText(p.name || p.label, 20) : p.label,
+  value: p.id,
+}))}
                       value={selectedPlanId}
                       onChange={(value) => {
                         onSelect("subscribe");
@@ -388,83 +397,75 @@ function DetailedCard({ data, selected, activePlan, selectedPlanId, onSelect, on
   );
 }
 
+
+
 function CompactCard({ data, selected, activePlan, selectedPlanId, onSelect, onSelectPlan, onChoose, customize }) {
   const checked = selected === "subscribe";
-  const { cardStyle, cornerRadius, spacing, titleColor, priceColor, badgeStyle, radioColor , boxSelected,
-    boxUnselected,} =
+  const { cardStyle, cornerRadius, spacing, titleColor, priceColor, badgeStyle, radioColor, boxSelected,
+    boxUnselected, borderWidth, borderStyle } =
     useCardCustomization(customize);
   const customBadge = customize?.customLabel ? customize?.customLabelText?.trim() : null;
+  const titleText = truncateText(customize?.subscriptionTitle?.trim() || "Subscribe & save", 28);
 
   return (
-    <div style={{ ...cardStyle, width: 300 }}>
-     <div
+    <div style={{ ...cardStyle, maxWidth: "100%", boxSizing: "border-box" }}>
+      <div
         style={{
-          border: `2px dashed ${radioColor}`,
+          border: borderStyle === "none" ? "none" : `${borderWidth}px ${borderStyle} ${radioColor}`,
           borderRadius: cornerRadius,
           padding: spacing,
           marginBottom: 12,
           cursor: "pointer",
           background: checked ? boxSelected.background : boxUnselected.background,
+          boxSizing: "border-box",
         }}
         onClick={() => onSelect(checked ? "none" : "subscribe")}
       >
-        <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 12, minWidth: 0 }}>
           <span
             style={{
-              width: 20,
-              height: 20,
-              borderRadius: 4,
+              width: 20, height: 20, borderRadius: 4,
               background: checked ? "#111" : "#fff",
               border: checked ? "none" : "2px solid #999",
               color: "#fff",
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 13,
-              flexShrink: 0,
-              marginTop: 2,
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+              fontSize: 13, flexShrink: 0, marginTop: 2,
             }}
           >
             {checked && "✓"}
           </span>
+
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, flexWrap: "wrap" }}>
               <span
                 style={{
-                  fontWeight: 700,
-                  fontSize: 16,
-                  color: titleColor,
-                  wordBreak: "break-word",
-                  overflowWrap: "break-word",
-                  minWidth: 0,
+                  fontWeight: 700, fontSize: 15, color: titleColor,
+                  wordBreak: "break-word", overflowWrap: "break-word",
+                  minWidth: 0, maxWidth: "60%",
                 }}
               >
-                {customize?.subscriptionTitle?.trim() || "Subscribe & save"}
-                {customize?.displayCompareAtPrice && activePlan?.comparePrice && (
-                  <span style={{ color: "#000", textDecoration: "line-through", fontWeight: 400, fontSize: 14 }}>
-                    {" "}
-                    {activePlan.comparePrice}
-                  </span>
-                )}
+                {titleText}
                 {customBadge && <span style={badgeStyle}>{customBadge}</span>}
               </span>
 
-              <span style={{ fontWeight: 700, color: priceColor, whiteSpace: "nowrap", flexShrink: 0 }}>
-                {activePlan?.price}
+              <span style={{ textAlign: "right", flexShrink: 0, whiteSpace: "nowrap" }}>
+                {customize?.displayCompareAtPrice && activePlan?.comparePrice && (
+                  <span style={{ color: "#888", textDecoration: "line-through", fontWeight: 400, fontSize: 13, marginRight: 6 }}>
+                    {activePlan.comparePrice}
+                  </span>
+                )}
+                <span style={{ fontWeight: 700, color: priceColor }}>{activePlan?.price}</span>
               </span>
             </div>
 
-            <div
-              style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <span style={{ color: "#555" }}>Deliver every:</span>
-              <div style={{ minWidth: 130, flexShrink: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6, minWidth: 0 }} onClick={(e) => e.stopPropagation()}>
+              <span style={{ color: "#555", fontSize: 13, flexShrink: 0 }}>Deliver every:</span>
+              <div style={{ minWidth: 0, maxWidth: 150, flex: 1 }}>
                 <Select
                   label=""
                   labelHidden
                   options={data.plans.map((p) => ({
-                    label: customize?.displaySellingPlanName ? p.name || p.label : p.label,
+                    label: customize?.displaySellingPlanName ? truncateText(p.name || p.label, 18) : p.label,
                     value: p.id,
                   }))}
                   value={selectedPlanId}
@@ -480,7 +481,6 @@ function CompactCard({ data, selected, activePlan, selectedPlanId, onSelect, onS
       </div>
 
       {checked && <SubscriptionDetailsBlock activePlan={activePlan} />}
-
       <ChooseButton onChoose={onChoose} />
     </div>
   );

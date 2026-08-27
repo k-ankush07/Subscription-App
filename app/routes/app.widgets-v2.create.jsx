@@ -5,6 +5,7 @@ import { useLoaderData, useNavigate } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 import PurchaseOptionCard from "./components/PurchaseOptionCard";
+import { DEFAULT_CUSTOMIZE } from "./components/WidgetSettingsCard";
 import {
   normalizeSellingPlan,
   buildPurchaseCards,
@@ -372,6 +373,7 @@ function Widgets2() {
             onSelect={(value) => select(data.id, value)}
             onSelectPlan={(planId) => selectPlan(data.id, planId)}
             onChoose={() => handelChooseBtn(data.id)}
+              customize={DEFAULT_CUSTOMIZE}
           />
         ))}
       </div>

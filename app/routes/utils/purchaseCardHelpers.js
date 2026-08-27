@@ -8,7 +8,10 @@ export function formatMoney(amount, currencyCode, useCustomFormat = false) {
   }
   return `${currencySymbol(currencyCode)}${n.toFixed(2)}`;
 }
-
+export function truncateText(text, max = 22) {
+  if (!text) return text;
+  return text.length > max ? text.slice(0, max - 1).trimEnd() + "…" : text;
+}
 export function intervalUnit(interval, count) {
   const unit = String(interval || "").toLowerCase();
   return count > 1 ? `${unit}s` : unit;
@@ -229,7 +232,7 @@ export const cardStyles = {
     background: "#fff",
     borderRadius: 8,
     padding: 20,
-    width: 340,
+    // width: 340,
     boxSizing: "border-box",
     fontFamily: "sans-serif",
   },

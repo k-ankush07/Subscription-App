@@ -12,6 +12,11 @@ export const TEMPLATE_OPTIONS = [
   { label: "Highlight", value: "highlight" },
   { label: "Checkbox", value: "checkbox" },
 ];
+export const BORDER_STYLE_OPTIONS = [
+  { label: "Solid", value: "solid" },
+  { label: "Dashed", value: "dashed" },
+  { label: "None", value: "none" },
+];
 
 export const DEFAULT_CUSTOMIZE = {
   blockTitle: "Abc",
@@ -23,14 +28,16 @@ export const DEFAULT_CUSTOMIZE = {
   customLabel: true,
   cornerRadius: 8,
   spacing: 8,
+  borderWidth: 2,
+  borderStyle: "solid",
   cardColor: "#FFFFFF",
   selectedCardColor: "#FFFFFF",
   borderColor: "#000000",
   blockTitleColor: "#000000",
   titleColor: "#000000",
   priceColor: "#000000",
-  labelBackgroundColor: "#D9D9D9",
-  labelTextColor: "#000000",
+  labelBackgroundColor: "#000",
+  labelTextColor: "#FFF",
 };
 
 function WidgetSettingsCard({
@@ -62,34 +69,29 @@ function WidgetSettingsCard({
   //     onAssignedPlanIdsChange?.(assignedPlanIds.filter((id) => id !== planId));
   //   }
   // };
-const handlePlanToggle = (planId, checked) => {
-  const plan = plans.find((p) => p.planId === planId);
+  const handlePlanToggle = (planId, checked) => {
+    const plan = plans.find((p) => p.planId === planId);
 
-  const planWidgetId =
-    plan?.widget?.widgetId ??
-    plan?.widget?._id ??
-    plan?.widget?.id ??
-    plan?.widget ??
-    null;
+    const planWidgetId =
+      plan?.widget?.widgetId ??
+      plan?.widget?._id ??
+      plan?.widget?.id ??
+      plan?.widget ??
+      null;
 
-  const assignedToOtherWidget =
-    planWidgetId &&
-    String(planWidgetId) !== String(currentWidgetId);
+    const assignedToOtherWidget =
+      planWidgetId && String(planWidgetId) !== String(currentWidgetId);
 
-  if (assignedToOtherWidget) {
-    return;
-  }
+    if (assignedToOtherWidget) {
+      return;
+    }
 
-  if (checked) {
-    onAssignedPlanIdsChange?.([
-      ...new Set([...assignedPlanIds, planId]),
-    ]);
-  } else {
-    onAssignedPlanIdsChange?.(
-      assignedPlanIds.filter((id) => id !== planId)
-    );
-  }
-};
+    if (checked) {
+      onAssignedPlanIdsChange?.([...new Set([...assignedPlanIds, planId])]);
+    } else {
+      onAssignedPlanIdsChange?.(assignedPlanIds.filter((id) => id !== planId));
+    }
+  };
   return (
     <div style={{ width: "100%" }}>
       <Card>
@@ -124,65 +126,62 @@ const handlePlanToggle = (planId, checked) => {
                 >
                   {plans.length === 0 && <p>No plans available</p>}
                   {plans.map((plan) => {
-  const planWidgetId =
-    plan?.widget?.widgetId ??
-    plan?.widget?._id ??
-    plan?.widget?.id ??
-    plan?.widget ??
-    null;
+                    const planWidgetId =
+                      plan?.widget?.widgetId ??
+                      plan?.widget?._id ??
+                      plan?.widget?.id ??
+                      plan?.widget ??
+                      null;
 
-  const isAssignedToCurrentWidget =
-    planWidgetId != null &&
-    String(planWidgetId) === String(currentWidgetId);
+                    const isAssignedToCurrentWidget =
+                      planWidgetId != null &&
+                      String(planWidgetId) === String(currentWidgetId);
 
-  const isAssignedToOtherWidget =
-    planWidgetId != null &&
-    String(planWidgetId).trim() !== "" &&
-    !isAssignedToCurrentWidget;
+                    const isAssignedToOtherWidget =
+                      planWidgetId != null &&
+                      String(planWidgetId).trim() !== "" &&
+                      !isAssignedToCurrentWidget;
 
-  const isChecked = assignedPlanIds.includes(plan.planId);
+                    const isChecked = assignedPlanIds.includes(plan.planId);
 
-  return (
-    <div
-      key={plan.planId}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: "8px",
-      }}
-    >
-      <input
-        type="checkbox"
-        checked={isChecked}
-        disabled={isAssignedToOtherWidget}
-        onChange={(e) => {
-          if (isAssignedToOtherWidget) return;
+                    return (
+                      <div
+                        key={plan.planId}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "8px",
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          disabled={isAssignedToOtherWidget}
+                          onChange={(e) => {
+                            if (isAssignedToOtherWidget) return;
 
-          handlePlanToggle(
-            plan.planId,
-            e.target.checked
-          );
-        }}
-      />
+                            handlePlanToggle(plan.planId, e.target.checked);
+                          }}
+                        />
 
-      <label
-        style={
-          isAssignedToOtherWidget
-            ? {
-                opacity: 0.5,
-                cursor: "not-allowed",
-              }
-            : {}
-        }
-      >
-        {plan.planName}
+                        <label
+                          style={
+                            isAssignedToOtherWidget
+                              ? {
+                                  opacity: 0.5,
+                                  cursor: "not-allowed",
+                                }
+                              : {}
+                          }
+                        >
+                          {plan.planName}
 
-        {isAssignedToOtherWidget &&
-          " (Already assigned to another widget)"}
-      </label>
-    </div>
-  );
-})}
+                          {isAssignedToOtherWidget &&
+                            " (Already assigned to another widget)"}
+                        </label>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -212,8 +211,12 @@ const handlePlanToggle = (planId, checked) => {
                     handleCustomizeChange("oneTimePurchaseTitle", value)
                   }
                   autoComplete="off"
-                   required
-                   error={!customize.oneTimePurchaseTitle?.trim() ? "This field is required" : undefined}
+                  required
+                  error={
+                    !customize.oneTimePurchaseTitle?.trim()
+                      ? "This field is required"
+                      : undefined
+                  }
                 />
               </div>
 
@@ -226,8 +229,12 @@ const handlePlanToggle = (planId, checked) => {
                     handleCustomizeChange("subscriptionTitle", value)
                   }
                   autoComplete="off"
-                   required
-                   error={!customize.subscriptionTitle?.trim() ? "This field is required" : undefined}
+                  required
+                  error={
+                    !customize.subscriptionTitle?.trim()
+                      ? "This field is required"
+                      : undefined
+                  }
                 />
               </div>
               <div
@@ -285,11 +292,17 @@ const handlePlanToggle = (planId, checked) => {
                 <div
                   style={{
                     display: "flex",
+                    flexDirection:"column",
                     justifyContent: "space-between",
                     gap: "10px",
                   }}
                 >
-                  <RangeSlider
+                  <div  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: "10px",
+                  }}>
+                    <RangeSlider
                     label="Corner radius"
                     value={Number(customize.cornerRadius)}
                     min={0}
@@ -318,6 +331,39 @@ const handlePlanToggle = (planId, checked) => {
                     }
                     output
                   />
+                  </div>
+
+                  <div
+                    style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: "10px",
+                  }}>
+                    <RangeSlider
+                    label="Border thickness"
+                    value={Number(customize.borderWidth ?? 2)}
+                    min={0}
+                    max={10}
+                    step={1}
+                    onChange={(value) =>
+                      onCustomizeChange((prev) => ({
+                        ...prev,
+                        borderWidth: value,
+                      }))
+                    }
+                    output
+                  />
+
+
+<div style={{ minWidth: 140 }}>
+  <Select
+    label="Border style"
+    options={BORDER_STYLE_OPTIONS}
+    value={customize.borderStyle || "solid"}
+    onChange={(value) => handleCustomizeChange("borderStyle", value)}
+  />
+</div>
+                  </div>
                 </div>
               </div>
 
