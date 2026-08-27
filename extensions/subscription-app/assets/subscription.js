@@ -57,18 +57,43 @@
     return null;
   }
 
-  function findMatchedPlan(variantId) {
-    if (!allPlans || !variantId) return null;
-    const gid = `gid://shopify/ProductVariant/${variantId}`;
-    return (
-      allPlans.find((plan) =>
-        (plan.products || []).some((product) =>
-          (product.variants || []).some((v) => v.variantsId === gid)
-        )
-      ) || null
-    );
-  }
+  // function findMatchedPlan(variantId) {
+  //   if (!allPlans || !variantId) return null;
+  //   const gid = `gid://shopify/ProductVariant/${variantId}`;
+  //   return (
+  //     allPlans.find((plan) =>
+  //       (plan.products || []).some((product) =>
+  //         (product.variants || []).some((v) => v.variantsId === gid)
+  //       )
+  //     ) || null
+  //   );
+  // }
+function findMatchedPlan(variantId) {
+  if (!allPlans || !variantId) return null;
+  const gid = `gid://shopify/ProductVariant/${variantId}`;
 
+  const matchedPlans = allPlans.filter((plan) =>
+    (plan.products || []).some((product) =>
+      (product.variants || []).some((v) => v.variantsId === gid)
+    )
+  );
+
+  if (matchedPlans.length === 0) return null;
+  if (matchedPlans.length === 1) return matchedPlans[0];
+
+  // sirf wahi plans consider karo jinka koi widget assign hai
+  const withWidget = matchedPlans.filter((p) => p.widget);
+  const pool = withWidget.length > 0 ? withWidget : matchedPlans;
+
+  // highest widgetPriority wala pehle, tie hone par jo baad me updated hua wo pehle
+  pool.sort((a, b) => {
+    const pDiff = (b.widgetPriority || 0) - (a.widgetPriority || 0);
+    if (pDiff !== 0) return pDiff;
+    return new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0);
+  });
+
+  return pool[0];
+}
   function findMatchedProduct(plan, variantId) {
     const gid = `gid://shopify/ProductVariant/${variantId}`;
     return (
@@ -306,7 +331,7 @@
       .join("");
 
     return `
-      <div style="background:#808080;border-radius:8px;padding:20px;font-family:sans-serif;box-sizing:border-box;">
+      <div style="background:#ede9e9;border-radius:8px;padding:20px;font-family:sans-serif;box-sizing:border-box;">
         <div class="sw-toggle" style="border:${border};border-radius:${c.cornerRadius}px;padding:${c.spacing}px;margin-bottom:12px;cursor:pointer;background:${checked ? c.selectedCardColor : c.cardColor};box-sizing:border-box;">
           <div style="display:flex;align-items:flex-start;gap:12px;">
             <span style="width:20px;height:20px;border-radius:4px;background:${checked ? "#111" : "#fff"};border:${checked ? "none" : "2px solid #999"};color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;margin-top:2px;">${checked ? "✓" : ""}</span>
@@ -376,7 +401,7 @@
       .join("");
 
     return `
-      <div style="background:#808080;border-radius:8px;padding:20px;font-family:sans-serif;box-sizing:border-box;">
+      <div style="background:#ede9e9;border-radius:8px;padding:20px;font-family:sans-serif;box-sizing:border-box;">
         <div class="sw-onetime" style="border:${border};border-radius:${c.cornerRadius}px;padding:${c.spacing}px;margin-bottom:12px;cursor:pointer;background:${oneTimeSelected ? c.selectedCardColor : c.cardColor};box-sizing:border-box;display:flex;justify-content:space-between;align-items:center;">
           <div style="display:flex;align-items:center;gap:12px;">
             ${radioDot(oneTimeSelected, c.borderColor)}
@@ -485,7 +510,7 @@
         : "";
 
     return `
-      <div style="background:#808080;border-radius:8px;padding:20px;font-family:sans-serif;">
+      <div style="background:#ede9e9;border-radius:8px;padding:20px;font-family:sans-serif;">
         ${
           c.blockTitle
             ? `<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">

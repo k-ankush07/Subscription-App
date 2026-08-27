@@ -17,10 +17,10 @@ import { useNavigate } from "react-router";
 import WidgetSettingsCard, { DEFAULT_CUSTOMIZE } from "./WidgetSettingsCard";
 const styles = {
   wrapper: {
-    display: "flex",
-    justifyContent: "center",
-    background: "#f1f1f1",
-    padding: 24,
+    // display: "flex",
+    // justifyContent: "center",
+    background: "#fff",
+    padding: 9,
     borderRadius: 12,
   },
   productPickerField: {

@@ -19,7 +19,7 @@ export const BORDER_STYLE_OPTIONS = [
 ];
 
 export const DEFAULT_CUSTOMIZE = {
-  blockTitle: "Abc",
+  blockTitle: "PURCHASE OPTIONS",
   oneTimePurchaseTitle: "One time purchase",
   subscriptionTitle: "Save and subscribe",
   preselectSubscription: true,

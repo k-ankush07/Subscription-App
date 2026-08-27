@@ -135,7 +135,7 @@ const styles = {
     display: "flex",
     gap: 10,
     alignItems: "flex-start",
-    background: "#f1f1f1",
+    background: "#fff",
     padding: 24,
   },
 

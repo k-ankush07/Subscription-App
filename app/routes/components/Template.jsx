@@ -182,18 +182,7 @@ function Template({ shop, editPlandData, dublicateData, currencyCode = "INR" }) 
     [widgets],
   );
 
-  // useEffect(() => {
-  //   if (
-  //     !widgetsLoading &&
-  //     widgetOptions.length > 0 &&
-  //     !editPlandData &&
-  //     !dublicateData &&
-  //     !widget
-  //   ) {
-  //     setWidget(widgetOptions[0].value);
-  //   }
-  // }, [widgetsLoading, widgetOptions, editPlandData, dublicateData, widget]);
-  // NAYA — fallback bhi karo agar current widget invalid/mismatch ho
+
 useEffect(() => {
   if (widgetsLoading || widgetOptions.length === 0) return;
 
@@ -966,10 +955,10 @@ useEffect(() => {
 ) : cardData ? (
   <div
     style={{
-      display: "flex",
-      justifyContent: "center",
-      background: "#f1f1f1",
-      padding: 24,
+      // display: "flex",
+      // justifyContent: "center",
+      background: "#fff",
+      padding: 9,
       borderRadius: 12,
     }}
   >

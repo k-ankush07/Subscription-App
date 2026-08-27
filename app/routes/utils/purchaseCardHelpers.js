@@ -229,7 +229,7 @@ export function buildPurchaseCards(normalizedPlans, basePrice, currencyCode, use
 
 export const cardStyles = {
   card: {
-    background: "#fff",
+    background: "#ede9e9",
     borderRadius: 8,
     padding: 20,
     // width: 340,
