@@ -421,7 +421,7 @@ function CompactCard({ data, selected, activePlan, selectedPlanId, onSelect, onS
         }}
         onClick={() => onSelect(checked ? "none" : "subscribe")}
       >
-        <div style={{ display: "flex", alignItems: "flex-start", gap: 12, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "flex-start",  justifyContent: "space-between", gap: 12, minWidth: 0 }}>
           <span
             style={{
               width: 20, height: 20, borderRadius: 4,
@@ -458,7 +458,7 @@ function CompactCard({ data, selected, activePlan, selectedPlanId, onSelect, onS
               </span>
             </div>
 
-            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6, minWidth: 0 }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", alignItems: "center",justifyContent:"space-between", gap: 6, marginTop: 6, minWidth: 0 }} onClick={(e) => e.stopPropagation()}>
               <span style={{ color: "#555", fontSize: 13, flexShrink: 0 }}>Deliver every:</span>
               <div style={{ minWidth: 0, maxWidth: 150, flex: 1 }}>
                 <Select
