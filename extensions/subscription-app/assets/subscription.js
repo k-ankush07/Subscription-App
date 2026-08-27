@@ -2,7 +2,7 @@
   const root = document.getElementById("subscription-widget-root");
   if (!root) return;
 
-  const API = "https://your-production-api.com"; // TODO: prod URL daalo (same jo admin app use karti hai)
+  const API = "https://localhost:5000"; // TODO: prod URL daalo (same jo admin app use karti hai)
   const shop = root.dataset.shop;
   const productId = root.dataset.productId;
   const currencyCode = root.dataset.currency || "USD";
