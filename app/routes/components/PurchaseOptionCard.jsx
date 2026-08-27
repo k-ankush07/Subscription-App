@@ -41,8 +41,8 @@ function ChooseButton({ onChoose }) {
 function useCardCustomization(customize) {
   const cornerRadius = Number(customize?.cornerRadius ?? 8);
   const spacing = Number(customize?.spacing ?? 14);
-  const oneTimeLabel = customize?.oneTimePurchaseTitle?.trim() || "One time purchase";
-  const subscribeLabel = customize?.subscriptionTitle?.trim() || "Subscribe & save";
+ const oneTimeLabel = customize?.oneTimePurchaseTitle?.trim() || "";
+const subscribeLabel = customize?.subscriptionTitle?.trim() || "";
 
   const cardColor = customize?.cardColor || "#fff";
   const selectedCardColor = customize?.selectedCardColor || cardColor;

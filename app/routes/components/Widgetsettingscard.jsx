@@ -213,6 +213,7 @@ const handlePlanToggle = (planId, checked) => {
                   }
                   autoComplete="off"
                    required
+                   error={!customize.oneTimePurchaseTitle?.trim() ? "This field is required" : undefined}
                 />
               </div>
 
@@ -226,6 +227,7 @@ const handlePlanToggle = (planId, checked) => {
                   }
                   autoComplete="off"
                    required
+                   error={!customize.subscriptionTitle?.trim() ? "This field is required" : undefined}
                 />
               </div>
               <div

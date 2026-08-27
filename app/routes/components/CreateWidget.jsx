@@ -338,6 +338,8 @@ useEffect(() => {
   const handleSaveWidget = async () => {
     try {
       if (!widgetName.trim()) return alert("Widget name required");
+      if (!customize.oneTimePurchaseTitle?.trim()) return alert("One-time purchase title required");
+if (!customize.subscriptionTitle?.trim()) return alert("Subscription title required");
       if (!shop) return alert("Shop missing");
 
       setSaving(true);
