@@ -1,299 +1,250 @@
 (function () {
-  const root = document.getElementById("subscription-widget-root");
-  if (!root) return;
-
-  const API = "https://localhost:5000"; // TODO: prod URL daalo (same jo admin app use karti hai)
-  const shop = root.dataset.shop;
-  const productId = root.dataset.productId;
-  const currencyCode = root.dataset.currency || "USD";
-
-  const variantsJson = document.getElementById("subscription-variant-data");
-  const variants = variantsJson ? JSON.parse(variantsJson.textContent) : [];
-
-  let widgetConfig = null;
-  let sellingPlans = [];
-  let normalizedPlans = [];
-  let selected = "onetime";
-  let selectedPlanId = null;
-  let basePrice = Number(root.dataset.price || 0) / 100; // Shopify prices are in cents in variant price field
-
-  // ---------- ported helpers (from purchaseCardHelpers.js) ----------
-  function formatMoney(amount, useCustomFormat) {
-    const n = Number(amount) || 0;
-    if (useCustomFormat) return `${n.toFixed(2)} ${currencyCode}`;
+  const shop = window.Shopify?.shop;
+  const SECRET_KEY = "08466sdmfbf94374nkjsnfdkyry89nfksd388934jkdsf89y389bjkkr32";
+  let allData = null;
+  async function getData() {
     try {
-      return new Intl.NumberFormat(undefined, { style: "currency", currency: currencyCode }).format(n);
-    } catch {
-      return `${n.toFixed(2)} ${currencyCode}`;
+      const response = await fetch(
+        `http://localhost:5000/plans/getAllPlans?shop=${shop}`,
+        {
+          headers: {
+            "x-api-key": SECRET_KEY,
+          },
+        },
+      );
+      const data = await response.json();
+      allData = data.data;
+      updateWidgetVisibility();
+      // console.log("data from api", allData);
+      
+      return data;
+    } catch (error) {
+      console.error("Fetch error:", error);
     }
   }
 
-  function intervalUnit(interval, count) {
-    const unit = String(interval || "").toLowerCase();
-    return count > 1 ? `${unit}s` : unit;
+  const widget = document.getElementById("subscription-widget");
+  if (!widget) return;
+  const quantityInput = document.querySelector('[name="quantity"]');
+  const radios = widget.querySelectorAll('input[name="purchase_type"]');
+  const plansContainer = document.getElementById("selling-plans-container");
+  const planSelect = document.getElementById("selling-plan-select");
+  const Subscription_innerText = document.getElementsByClassName(
+    "Subscription_innerText",
+  )[0];
+  const addToCartBtn =
+    document.querySelector('[name="add"]') ||
+    document.querySelector(".product-form__submit");
+  let currentSellingPlanId = null;
+  getData();
+
+  const variantInput = document.querySelector(
+    'form[action="/cart/add"] [name="id"]',
+  );
+
+  if (variantInput) {
+    const observer = new MutationObserver(() => {
+      updateWidgetVisibility();
+    });
+
+    observer.observe(variantInput, {
+      attributes: true,
+      attributeFilter: ["value"],
+    });
   }
 
-  function deliveryPhrase(sp) {
-    const count = sp.intervalCount || 1;
-    const unit = intervalUnit(sp.interval, count);
-    return count > 1 ? `every ${count} ${unit}` : `every ${unit}`;
-  }
-
-  function shortDeliveryLabel(sp) {
-    const count = sp.intervalCount || 1;
-    const unit = intervalUnit(sp.interval, count);
-    return count > 1 ? `${count} ${unit}` : unit;
-  }
-
-  function discountLabelFor(sp, useCustomFormat) {
-    if (!sp.giveSubscriptionDiscount) return undefined;
-    if (sp.discountType === "PERCENTAGE") return `${sp.discountValue}% off`;
-    if (sp.discountValue) return `${formatMoney(sp.discountValue, useCustomFormat)} off`;
-    return undefined;
-  }
-
-  function computeSellingPlanPrice(base, sp) {
-    if (!sp.giveSubscriptionDiscount) return base;
-    if (sp.discountType === "PERCENTAGE") {
-      return base - (base * Number(sp.discountValue || 0)) / 100;
+  function updateWidgetVisibility() {
+    if (!variantInput || !allData) return;
+    console.log("variantInput.value =", variantInput.value);
+    const currentVariantId = `gid://shopify/ProductVariant/${variantInput.value}`;
+    console.log("currentVariantId =", currentVariantId);
+    const hasPlan = allData.some((plan) =>
+      plan.products.some((product) =>
+        product.variants.some(
+          (variant) => variant.variantsId === currentVariantId,
+        ),
+      ),
+    );
+    const outer = document.getElementById("subscription_Outer");
+    console.log("hasPlan:", hasPlan);
+    if (hasPlan) {
+      widget.style.display = "block";
+      outer.style.display = "block";
+    } else {
+      widget.style.display = "none";
+      outer.style.display = "none";
     }
-    return Math.max(base - Number(sp.discountValue || 0), 0);
   }
+  document.querySelectorAll('input[type="radio"]').forEach((radio) => {
+    radio.addEventListener("change", () => {
+      updateWidgetVisibility();
+    });
+  });
 
-  function getSubscriptionDetails(sp) {
-    if (!sp) return "";
-    let discountText = "", afterOrderSubscription = "";
-    if (sp.giveSubscriptionDiscount) {
-      if (sp.discountType === "PERCENTAGE") discountText = `Discount: ${sp.discountValue}%.`;
-      else if (sp.discountType === "PRICE") discountText = `Fixed Price: ${sp.discountValue}.`;
-      else if (sp.discountType === "FIXED_AMOUNT") discountText = `Discount: ${sp.discountValue} off.`;
+  radios.forEach(function (radio) {
+    radio.addEventListener("change", function () {
+      if (this.value === "subscription") {
+        plansContainer.style.display = "block";
+        Subscription_innerText.style.display = "block";
+        //Pehli baar subscription select hone par default plan apply karo
+        if (planSelect.value) {
+          planSelect.dispatchEvent(new Event("change"));
+        }
+      } else {
+        plansContainer.style.display = "none";
+        currentSellingPlanId = null;
+        // One-time select hone par quantity reset karo
+        planSelect.selectedIndex = 0;
+        quantityInput.value = 1;
+        quantityInput.min = 1;
+        quantityInput.setAttribute("data-min", 1);
+        Subscription_innerText.style.display = "none";
+      }
+    });
+  });
 
-      if (sp.changeDiscountAfterOrders) {
-        if (sp.afterDiscountType === "PERCENTAGE") afterOrderSubscription = `After ${sp.afterOrders} Orders Discount will change to ${sp.afterDiscountValue}%.`;
-        else if (sp.afterDiscountType === "PRICE") afterOrderSubscription = `After ${sp.afterOrders} Orders price will be fixed at ${sp.afterDiscountValue}.`;
-        else if (sp.afterDiscountType === "FIXED_AMOUNT") afterOrderSubscription = `After ${sp.afterOrders} Orders price will be reduced from original price ${sp.afterDiscountValue}.`;
+  planSelect.addEventListener("change", function () {
+    currentSellingPlanId = this.value;
+     console.log("Selected value:", currentSellingPlanId);
+  console.log("Available plan IDs:", allData.flatMap(g => g.sellingPlans).map(p => p.shopifySellingPlanId));
+    const matchedPlan = allData
+      .flatMap((group) => group.sellingPlans)
+      .find(
+        (plan) =>
+          plan.shopifySellingPlanId.split("/").pop() === currentSellingPlanId,
+      );
+
+    // console.log("Matched Plan", matchedPlan);
+    if (!matchedPlan) {
+      console.warn("No matching plan found for", currentSellingPlanId);
+      if (Subscription_innerText) {
+      Subscription_innerText.textContent = "";
+    }
+    quantityInput.value = 1;
+    quantityInput.min = 1;
+    quantityInput.setAttribute("data-min", 1);
+      return;
+    }
+    const DeliveryCount = matchedPlan.intervalCount;
+    const DeliveryInterval = matchedPlan.interval;
+
+    let discountText = "";
+    let afterOrderSubscription = "";
+
+    if (matchedPlan.giveSubscriptionDiscount) {
+      const discountType = matchedPlan.discountType;
+      const discountValue = matchedPlan.discountValue;
+      if (discountType === "PERCENTAGE") {
+        discountText = ` | Discount: ${discountValue}%.`;
+      } else if (discountType === "PRICE") {
+        discountText = ` | Fixed Price: ₹${discountValue}.`;
+      } else if (discountType === "FIXED_AMOUNT") {
+        discountText = ` | Discount: ₹${discountValue} off.`;
+      }
+
+      if (matchedPlan.changeDiscountAfterOrders) {
+        const afterDiscountType = matchedPlan.afterDiscountType;
+        const afterDiscountValue = matchedPlan.afterDiscountValue;
+        const afterOrders = matchedPlan.afterOrders;
+        if (afterDiscountType === "PERCENTAGE") {
+          afterOrderSubscription = ` After ${afterOrders} Orders Discount will change to ${afterDiscountValue}%.`;
+        } else if (afterDiscountType === "PRICE") {
+          afterOrderSubscription = `After ${afterOrders} Orders price will be fixed at ₹${afterDiscountValue}.`;
+        } else if (afterDiscountType === "FIXED_AMOUNT") {
+          afterOrderSubscription = ` After ${afterOrders} Orders price will be reduce from original price ₹${afterDiscountValue}.`;
+        }
       }
     }
 
-    let cycles = "";
-    if (sp.minCycles && sp.maxCycles) cycles = `You will be able to cancel your subscription after ${sp.minCycles} Orders. Subscription will cancel automatically after ${sp.maxCycles} Orders.`;
-    else if (sp.minCycles) cycles = `You can cancel Subscription after ${sp.minCycles} Orders.`;
-    else if (sp.maxCycles) cycles = `Subscription will cancel automatically after ${sp.maxCycles} Orders.`;
+    let MinCycle = null;
+    let MaxCycle = null;
+    let BothCombine = "";
+    if (matchedPlan.minCycles !== null || matchedPlan.maxCycles !== null) {
+      MinCycle = matchedPlan.minCycles;
+      MaxCycle = matchedPlan.maxCycles;
+      if (MinCycle && MaxCycle) {
+        BothCombine = ` You will be able to cancel your subscription after ${MinCycle} Orders. Subscription will cancel automatically after  ${MaxCycle} Orders.`;
+      } else if (MinCycle) {
+        BothCombine = `You can cancel Subscription after ${MinCycle} Orders.`;
+      } else if (MaxCycle) {
+        BothCombine = `Subscription will cancel automatically after ${MaxCycle} Orders.`;
+      }
+    }
+    let ShippingDiscount = "";
+    if (matchedPlan.giveShippingDiscount) {
+      const shippingDiscountType = matchedPlan.shippingDiscountType;
+      const shippingDiscountValue = matchedPlan.shippingDiscountValue;
+      const shippingAfterOrders = matchedPlan.shippingAfterOrders;
 
-    let shipping = "";
-    if (sp.giveShippingDiscount) {
-      if (sp.shippingDiscountType === "PERCENTAGE") shipping = `Delivery price will be reduced by ${sp.shippingDiscountValue}% after ${sp.shippingAfterOrders} Orders.`;
-      else if (sp.shippingDiscountType === "PRICE") shipping = `Delivery price will be fixed at ${sp.shippingDiscountValue} after ${sp.shippingAfterOrders} Orders.`;
-      else if (sp.shippingDiscountType === "FIXED_AMOUNT") shipping = `Delivery price will be reduced by ${sp.shippingDiscountValue} after ${sp.shippingAfterOrders} Orders.`;
+      if (shippingDiscountType === "PERCENTAGE") {
+        ShippingDiscount = `Delivery price will be reduced by ${shippingDiscountValue}% after ${shippingAfterOrders} Orders.`;
+      } else if (shippingDiscountType === "PRICE") {
+        ShippingDiscount = `Delivery price will be fixed at ₹${shippingDiscountValue} after ${shippingAfterOrders} Orders.`;
+      } else if (shippingDiscountType === "FIXED_AMOUNT") {
+        ShippingDiscount = `Delivery price will be reduced by ₹${shippingDiscountValue} after ${shippingAfterOrders} Orders.`;
+      }
     }
 
-    let qty = "";
-    if (sp.changeQuantityAfterOrders) qty = `Quantity will change ${sp.quantityAfterOrdersValue} after ${sp.quantityAfterOrders} Orders.`;
-
-    return [`Delivery: Every ${sp.intervalCount} ${sp.interval}.`, discountText, afterOrderSubscription, cycles, shipping, qty]
-      .filter(Boolean).join(" ");
-  }
-
-  function normalizeSellingPlan(sp) {
-    const useCustom = !!widgetConfig?.customize?.customCurrencyFormat;
-    const price = computeSellingPlanPrice(basePrice, sp);
-    return {
-      id: String(sp.shopifySellingPlanId).split("/").pop(),
-      name: sp.name,
-      label: `Deliver ${deliveryPhrase(sp)}`,
-      shortLabel: shortDeliveryLabel(sp),
-      discountLabel: discountLabelFor(sp, useCustom),
-      price: formatMoney(price, useCustom),
-      comparePrice: formatMoney(basePrice, useCustom),
-      raw: sp,
-    };
-  }
-
-  // ---------- render ----------
-  function esc(s) { return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c])); }
-
-  function activePlan() {
-    return normalizedPlans.find((p) => p.id === selectedPlanId) || normalizedPlans[0] || null;
-  }
-
-  function render() {
-    const c = widgetConfig.customize || {};
-    const template = widgetConfig.template; // radio | highlight | checkbox
-    const plan = activePlan();
-
-    let html = "";
-    if (template === "radio") html = renderSimple(c, plan);
-    else if (template === "highlight") html = renderDetailed(c, plan);
-    else html = renderCompact(c, plan);
-
-    root.querySelector(".sw-card")?.remove();
-    root.insertAdjacentHTML("beforeend", `<div class="sw-card">${html}</div>`);
-    bindEvents();
-  }
-
-  function radioDot(checked, color) {
-    return `<span class="sw-radio" style="border-color:${checked ? color : "#999"}">
-      ${checked ? `<span class="sw-radio-inner" style="background:${color}"></span>` : ""}
-    </span>`;
-  }
-
-  function detailsBlock(plan) {
-    if (selected === "onetime" || !plan?.raw) return "";
-    return `<div class="sw-details"><strong>Subscription details</strong><div>${esc(getSubscriptionDetails(plan.raw))}</div></div>`;
-  }
-
-  function renderSimple(c, plan) {
-    const radioColor = c.borderColor || "#111";
-    const rows = normalizedPlans.map((p) => {
-      const checked = selected === "subscribe" && plan?.id === p.id;
-      const badge = c.customLabel ? esc(c.customLabelText || "") : esc(p.discountLabel || "");
-      const label = c.displaySellingPlanName ? (p.name || p.label) : p.label;
-      return `<div class="sw-plan-row" data-plan-id="${p.id}">
-        <div style="display:flex;align-items:center;gap:12px;min-width:0;flex:1">
-          ${radioDot(checked, radioColor)}
-          <span>${esc(label)}</span>
-          ${badge ? `<span class="sw-badge" style="background:${c.labelBackgroundColor || "#eee"};color:${c.labelTextColor || "#111"}">${badge}</span>` : ""}
-        </div>
-        <div style="text-align:right">
-          <span style="font-weight:700;color:${c.priceColor || "#000"}">${p.price}</span>
-          ${c.displayCompareAtPrice ? `<div style="text-decoration:line-through;font-size:12px">${p.comparePrice}</div>` : ""}
-        </div>
-      </div>`;
-    }).join("");
-
-    return `
-      ${c.blockTitle ? `<div class="sw-header"><span class="sw-line" style="background:${c.borderColor}"></span><span style="color:${c.blockTitleColor}">${esc(c.blockTitle)}</span><span class="sw-line" style="background:${c.borderColor}"></span></div>` : ""}
-      <div class="sw-box ${selected === "onetime" ? "selected" : ""}" data-select="onetime" style="border-radius:${c.cornerRadius}px;padding:${c.spacing}px">
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <div style="display:flex;align-items:center;gap:12px">${radioDot(selected === "onetime", radioColor)}<span style="color:${c.titleColor}">${esc(c.oneTimePurchaseTitle)}</span></div>
-          <span style="color:${c.priceColor}">${formatMoney(basePrice, c.customCurrencyFormat)}</span>
-        </div>
-      </div>
-      <div class="sw-box ${selected === "subscribe" ? "selected" : ""}" data-select="subscribe" style="border-radius:${c.cornerRadius}px;padding:${c.spacing}px">
-        <div style="color:${c.titleColor};font-weight:700;margin-bottom:12px">${esc(c.subscriptionTitle)}</div>
-        ${rows}
-      </div>
-      ${detailsBlock(plan)}`;
-  }
-
-  function renderDetailed(c, plan) {
-    const radioColor = c.borderColor || "#111";
-    const options = normalizedPlans.map((p) => `<option value="${p.id}" ${p.id === plan?.id ? "selected" : ""}>${esc(c.displaySellingPlanName ? (p.name || p.label) : p.label)}</option>`).join("");
-    const benefits = [
-      plan?.discountLabel ? `${plan.discountLabel} of all recurring orders` : "Discount on all recurring orders",
-      "Lowest price option", "Easily swap & skip deliveries", "Cancel quickly anytime",
-    ];
-    const badge = c.customLabel ? esc(c.customLabelText || "") : (plan?.discountLabel ? `Save ${plan.discountLabel.replace(" off","")} on every delivery` : "Subscribe & save on every delivery");
-
-    return `
-      <div class="sw-box ${selected === "onetime" ? "selected" : ""}" data-select="onetime" style="border-radius:${c.cornerRadius}px;padding:${c.spacing}px">
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <div style="display:flex;align-items:center;gap:12px">${radioDot(selected === "onetime", radioColor)}<span style="color:${c.titleColor}">${esc(c.oneTimePurchaseTitle)}</span></div>
-          <span style="color:${c.priceColor}">${formatMoney(basePrice, c.customCurrencyFormat)}</span>
-        </div>
-      </div>
-      <div class="sw-banner" style="background:${c.labelBackgroundColor};color:${c.labelTextColor}">${badge}</div>
-      <div class="sw-box ${selected === "subscribe" ? "selected" : ""}" data-select="subscribe" style="border-radius:0 0 ${c.cornerRadius}px ${c.cornerRadius}px;padding:${c.spacing}px">
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <div style="display:flex;align-items:center;gap:12px">${radioDot(selected === "subscribe", radioColor)}<span style="color:${c.titleColor}">${esc(c.subscriptionTitle)}</span></div>
-          <div style="text-align:right">
-            <div style="background:#eee;padding:4px 10px;border-radius:4px;color:${c.priceColor}">${plan?.price || ""}</div>
-            ${c.displayCompareAtPrice ? `<div style="text-decoration:line-through;font-size:12px">${plan?.comparePrice || ""}</div>` : ""}
-          </div>
-        </div>
-        <div style="font-weight:700;margin:16px 0 10px">How subscriptions work:</div>
-        ${benefits.map((b, i) => `<div style="display:flex;gap:10px;margin-bottom:10px;${i === benefits.length -1 ? "justify-content:space-between" : ""}">
-          <div style="display:flex;gap:10px"><span class="sw-check">✓</span><span>${esc(b)}</span></div>
-          ${i === benefits.length - 1 ? `<select class="sw-plan-select">${options}</select>` : ""}
-        </div>`).join("")}
-      </div>
-      ${detailsBlock(plan)}`;
-  }
-
-  function renderCompact(c, plan) {
-    const checked = selected === "subscribe";
-    const options = normalizedPlans.map((p) => `<option value="${p.id}" ${p.id === plan?.id ? "selected" : ""}>${esc(c.displaySellingPlanName ? (p.name || p.label) : p.label)}</option>`).join("");
-    const badge = c.customLabel ? esc(c.customLabelText || "") : "";
-    return `
-      <div class="sw-box sw-dashed ${checked ? "selected" : ""}" data-select="${checked ? "onetime" : "subscribe"}" style="border-radius:${c.cornerRadius}px;padding:${c.spacing}px;border:2px dashed ${c.borderColor}">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start">
-          <span style="color:${c.titleColor};font-weight:700">
-            ${esc(c.subscriptionTitle || "Subscribe & save")}
-            ${c.displayCompareAtPrice ? ` <span style="text-decoration:line-through">${plan?.comparePrice || ""}</span>` : ""}
-            ${badge ? `<span class="sw-badge">${badge}</span>` : ""}
-          </span>
-          <span style="color:${c.priceColor};font-weight:700">${plan?.price || ""}</span>
-        </div>
-        <div style="margin-top:8px">Deliver every: <select class="sw-plan-select">${options}</select></div>
-      </div>
-      ${checked ? detailsBlock(plan) : ""}`;
-  }
-
-  function bindEvents() {
-    root.querySelectorAll("[data-select]").forEach((el) => {
-      el.addEventListener("click", () => { selected = el.dataset.select; render(); });
-    });
-    root.querySelectorAll(".sw-plan-row").forEach((el) => {
-      el.addEventListener("click", (e) => { e.stopPropagation(); selected = "subscribe"; selectedPlanId = el.dataset.planId; render(); });
-    });
-    root.querySelector(".sw-plan-select")?.addEventListener("change", (e) => {
-      e.stopPropagation(); selected = "subscribe"; selectedPlanId = e.target.value; render();
-    });
-  }
-
-  // ---------- add to cart ----------
-  function bindAddToCart() {
-    const form = document.querySelector('form[action="/cart/add"]');
-    const addBtn = form?.querySelector('[name="add"], .product-form__submit');
-    if (!addBtn) return;
-    addBtn.addEventListener("click", function (e) {
-      if (selected !== "subscribe") return; // one-time -> normal Shopify flow
-      const plan = activePlan();
-      if (!plan) return;
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      const variantId = form.querySelector('[name="id"]').value;
-      const quantity = form.querySelector('[name="quantity"]')?.value || 1;
-      fetch("/cart/add.js", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: variantId, quantity: parseInt(quantity), selling_plan: parseInt(plan.id) }),
-      }).then((r) => r.json()).then(() => document.dispatchEvent(new CustomEvent("cart:refresh")))
-        .catch((err) => console.error("Cart error:", err));
-    }, true);
-  }
-
-  function updatePriceForVariant(variantId) {
-    const v = variants.find((v) => String(v.id) === String(variantId));
-    if (v) basePrice = Number(v.price) / 100;
-  }
-
-  function bindVariantWatcher() {
-    const variantInput = document.querySelector('form[action="/cart/add"] [name="id"]');
-    if (!variantInput) return;
-    const sync = () => { updatePriceForVariant(variantInput.value); normalizedPlans = sellingPlans.map(normalizeSellingPlan); render(); };
-    new MutationObserver(sync).observe(variantInput, { attributes: true, attributeFilter: ["value"] });
-  }
-
-  async function init() {
-    try {
-      const res = await fetch(`${API}/api/widgets/for-product?shop=${encodeURIComponent(shop)}&productId=${encodeURIComponent(productId)}`);
-      const data = await res.json();
-      if (!data.success || !data.widget) { root.style.display = "none"; return; }
-
-      widgetConfig = data.widget;
-      sellingPlans = data.plan?.sellingPlans || [];
-      normalizedPlans = sellingPlans.map(normalizeSellingPlan);
-      selected = widgetConfig.customize?.preselectSubscription ? "subscribe" : "onetime";
-      selectedPlanId = normalizedPlans[0]?.id || null;
-
-      render();
-      bindAddToCart();
-      bindVariantWatcher();
-    } catch (err) {
-      console.error("subscription widget fetch error:", err);
+    //quantity chnage
+    let QuantityChange = "";
+    if (matchedPlan.changeQuantityAfterOrders) {
+      const quantityAfterOrdersValue = matchedPlan.quantityAfterOrdersValue;
+      const quantityAfterOrders = matchedPlan.quantityAfterOrders;
+      QuantityChange = ` Quantity will change ${quantityAfterOrdersValue} after ${quantityAfterOrders} Orders.`;
     }
-  }
 
-  init();
+    if (Subscription_innerText) {
+      Subscription_innerText.textContent = `Delivery: Every ${DeliveryCount} ${DeliveryInterval}. ${discountText} ${afterOrderSubscription} ${BothCombine} ${ShippingDiscount}  ${QuantityChange}`;
+    }
+
+    if (matchedPlan.MinimumQuanitity) {
+      const minVal = matchedPlan.MinimumQuanitityValue;
+      quantityInput.value = minVal;
+      quantityInput.min = minVal;
+      quantityInput.setAttribute("data-min", minVal);
+    } else {
+      quantityInput.value = 1;
+      quantityInput.min = 1;
+      quantityInput.setAttribute("data-min", 1);
+    }
+  });
+
+  if (addToCartBtn) {
+    addToCartBtn.addEventListener(
+      "click",
+      function (e) {
+        if (!currentSellingPlanId) return;
+
+        e.preventDefault();
+        e.stopImmediatePropagation();
+
+        const form = document.querySelector('form[action="/cart/add"]');
+        // const variantId = form.querySelector('[name="id"]').value;
+        const variantId = variantInput.value;
+        const quantity = form.querySelector('[name="quantity"]')?.value || 1;
+
+        fetch("/cart/add.js", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: variantId,
+            quantity: parseInt(quantity),
+            selling_plan: parseInt(currentSellingPlanId),
+          }),
+        })
+          .then(function (res) {
+            return res.json();
+          })
+          .then(function (data) {
+            // console.log("Cart response:", data);
+
+            document.dispatchEvent(new CustomEvent("cart:refresh"));
+          })
+          .catch(function (err) {
+            console.error("Cart error:", err);
+          });
+      },
+      true,
+    );
+  }
 })();
