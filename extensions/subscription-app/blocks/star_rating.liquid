@@ -1,4 +1,4 @@
-
+{% comment %} 
 
 
 {% schema %}
@@ -43,4 +43,33 @@
         <p class="subscription_discount"></p>
         
   </div>
-{% endif %}
+{% endif %} {% endcomment %}
+
+
+{% comment %}
+  Old version looped every product.selling_plan_groups and rendered a generic
+  radio + <select>. Now the section just exposes a mount point; subscription.js
+  auto-matches the current product/variant to its assigned plan (via
+  /plans/getAllPlans) and then fetches that plan's widget (via
+  /api/widgets/:widgetId) to render the ACTUAL widget design — colors,
+  template (radio/highlight/checkbox), titles, discount labels — exactly as
+  configured in the app, instead of a plain Shopify dropdown.
+{% endcomment %}
+
+<div
+  id="subscription-widget-mount"
+  data-product-id="{{ product.id }}"
+  data-price="{{ product.selected_or_first_available_variant.price | divided_by: 100.0 }}"
+  data-currency="{{ cart.currency.iso_code }}"
+  style="display:none;"
+></div>
+
+{% schema %}
+{
+  "name": "subscription",
+  "target": "section",
+  "stylesheet": "subscription.css",
+  "javascript": "subscription.js",
+  "settings": []
+}
+{% endschema %}
