@@ -251,7 +251,6 @@
 
 
 
-
 (function () {
   const shop = window.Shopify?.shop;
   const SECRET_KEY = "08466sdmfbf94374nkjsnfdkyry89nfksd388934jkdsf89y389bjkkr32";
@@ -277,7 +276,7 @@
   async function fetchPlans() {
     try {
       const res = await fetch(`${API_BASE}/plans/getAllPlans?shop=${shop}`, {
-        headers: { "x-api-key": SECRET_KEY },
+        headers: { "x-api-key": SECRET_KEY, "ngrok-skip-browser-warning": "true" },
       });
       const data = await res.json();
       allPlans = data.data || [];
@@ -294,7 +293,7 @@
     if (widgetCache[widgetId]) return widgetCache[widgetId];
     try {
       const res = await fetch(`${API_BASE}/api/widgets/${widgetId}`, {
-        headers: { "x-api-key": SECRET_KEY },
+        headers: { "x-api-key": SECRET_KEY, "ngrok-skip-browser-warning": "true" },
       });
       const data = await res.json();
       if (data.success) {
@@ -838,7 +837,7 @@
     }
   }
 
-  // ---------------- variant change + add to cart ----------------
+
 
   if (variantInput) {
     const observer = new MutationObserver(render);
