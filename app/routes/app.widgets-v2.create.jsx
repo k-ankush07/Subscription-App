@@ -136,6 +136,7 @@ const styles = {
     gap: 10,
     alignItems: "flex-start",
     background: "#fff",
+    borderRadius:20,
     padding: 24,
   },
 
@@ -321,6 +322,7 @@ function Widgets2() {
       <div
         style={{
           display: "flex",
+          marginBottom:"20px"
         }}
       >
         <div
