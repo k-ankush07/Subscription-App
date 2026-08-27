@@ -156,7 +156,7 @@ function Template({ shop, editPlandData, dublicateData, currencyCode = "INR" }) 
       try {
         setWidgetsLoading(true);
         const res = await fetch(
-          `${API}/api/widgets?shop=${shop}`,
+          `http://localhost:5000/api/widgets?shop=${shop}`,
           { headers: { "x-api-key": SECRET_KEY } },
         );
         const data = await res.json();
