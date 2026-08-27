@@ -1,6 +1,3 @@
-
-
-
 {% schema %}
 {
   "name": "subscription",
@@ -11,37 +8,16 @@
 }
 {% endschema %}
 
-
-
 {% if product.selling_plan_groups.size > 0 %}
-<div class="subscription-widget" id="subscription-widget">
-  <label class="purchase-option">
-    <input type="radio" name="purchase_type" value="one_time" checked>
-    <span>One-time Purchase</span>
-  </label>
-
-  <label class="purchase-option">
-    <input type="radio" name="purchase_type" value="subscription">
-    <span>Subscribe &amp; Save</span>
-  </label>
-
-  <div id="selling-plans-container" style="display:none; margin-top: 10px;">
-    <select id="selling-plan-select" name="selling_plan">
-  {% for group in product.selling_plan_groups %}
-    <optgroup  label="{{ group.name }}">
-      {% for plan in group.selling_plans %}
-        <option  value="{{ plan.id | split: '/' | last }}">{{ plan.name }}</option>
-      {% endfor %}
-    </optgroup>
-  {% endfor %}
-</select>
-  </div>
-
+<div
+  id="subscription-widget-root"
+  data-shop="{{ shop.permanent_domain }}"
+  data-product-id="{{ product.id }}"
+  data-currency="{{ cart.currency.iso_code }}"
+  data-price="{{ product.selected_or_first_available_variant.price }}"
+>
+  <script type="application/json" id="subscription-variant-data">
+    {{ product.variants | json }}
+  </script>
 </div>
-
-  <div class="subscription_Outer" id="subscription_Outer">
-        <p class="Subscription_innerText" id="Subscription_innerText"></p>
-        <p class="subscription_discount"></p>
-        
-  </div>
 {% endif %}

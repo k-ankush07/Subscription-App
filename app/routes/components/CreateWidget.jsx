@@ -282,59 +282,7 @@ useEffect(() => {
     cardData?.plans?.[0] ||
     null;
 
-  // const handleSaveWidget = async () => {
-  //   try {
-  //     if (!widgetName.trim()) {
-  //       alert("Widget name required");
-  //       return;
-  //     }
-  //     if (!shop) {
-  //       alert("Shop missing");
-  //       return;
-  //     }
-  //     setSaving(true);
-  //     const newWidgetId = generateWidgetId();
-
-  //     const response = await fetch(`${API}/api/widgets`, {
-  //       method: "POST",
-  //       headers: {
-  //         "Content-Type": "application/json",
-  //         "x-api-key": SECRET_KEY,
-  //       },
-  //       body: JSON.stringify({
-  //         widgetId: newWidgetId,
-  //         shop,
-  //         widgetName,
-  //         template,
-  //         planId: selectedPlan,
-  //         productId: previewProduct?.id || null,
-  //          assignedPlanIds,
-  //         customize,
-  //       }),
-  //     });
-
-  //     const data = await response.json();
-  //     console.log("vjhdhd", data)
-
-  //     if (!response.ok || !data.success) {
-  //       throw new Error(data.error || "Failed to create widget");
-  //     }
-
-  //     // console.log("Widget created:", data.widget);
-
-  //     setTimeout(() => {
-  //       navigate("/app/widgets");
-  //     }, 2000);
-  //     // navigate(`/app/widgets/${newWidgetId}`, {
-  //     //   state: { widget: data.widget },
-  //     // });
-  //   } catch (error) {
-  //     console.error("Save widget error:", error);
-  //     alert(error.message || "Something went wrong");
-  //   } finally {
-  //     setSaving(false);
-  //   }
-  // };
+ 
   const handleSaveWidget = async () => {
     try {
       if (!widgetName.trim()) return alert("Widget name required");
