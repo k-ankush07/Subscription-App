@@ -252,7 +252,7 @@
 (function () {
   const shop = window.Shopify?.shop;
   const SECRET_KEY = "08466sdmfbf94374nkjsnfdkyry89nfksd388934jkdsf89y389bjkkr32";
-  const API_BASE = "http://localhost:5000";
+  const API_BASE = "https://habitant-startling-cassette.ngrok-free.dev";
 
   const mount = document.getElementById("subscription-widget-mount");
   if (!mount) return;
@@ -284,8 +284,6 @@
     }
   }
 
-  // NOTE: assumes a GET /api/widgets/:widgetId endpoint (per widgetController.getWidgetById).
-  // Update API_BASE / path here if your widget routes are mounted elsewhere.
   async function fetchWidget(widgetId) {
     if (!widgetId) return null;
     if (widgetCache[widgetId]) return widgetCache[widgetId];
@@ -324,7 +322,6 @@
     );
   }
 
-  // ---------------- money / plan helpers (mirrors purchaseCardHelpers.js) ----------------
 
   function currencySymbol(code) {
     const map = { USD: "$", INR: "₹", EUR: "€", GBP: "£" };
@@ -426,7 +423,6 @@
     return plans.find((p) => p.id === state.selectedPlanId) || plans[0] || null;
   }
 
-  // ---------------- render ----------------
 
   function render() {
     if (!variantInput || !allPlans) return;
@@ -823,8 +819,6 @@
       resetQuantity();
     }
   }
-
-  // ---------------- variant change + add to cart ----------------
 
   if (variantInput) {
     const observer = new MutationObserver(render);
