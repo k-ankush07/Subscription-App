@@ -14,13 +14,32 @@ const SEARCH_DEBOUNCE_MS = 400;
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
-  const response = await fetch(`${API}/plans/getAllPlans?shop=${shop}`, {
-    headers: {
-      "x-api-key": SECRET_KEY,
-    },
+   const [plansResponse, widgetsResponse] = await Promise.all([
+    fetch(`${API}/plans/getAllPlans?shop=${shop}`, {
+      headers: {
+        "x-api-key": SECRET_KEY,
+      },
+    }),
+
+    fetch(`${API}/api/widgets?shop=${shop}`, {
+      headers: {
+        "x-api-key": SECRET_KEY,
+      },
+    }),
+  ]);
+    const plansData = await plansResponse.json();
+  const widgetsData = await widgetsResponse.json();
+  return Response.json({
+    plans: plansData.success ? plansData.data : [],
+    widgets: widgetsData.success ? widgetsData.widgets || [] : [],
   });
-  const data = await response.json();
-  return Response.json({ plans: data.success ? data.data : [] });
+  // const response = await fetch(`${API}/plans/getAllPlans?shop=${shop}`, {
+  //   headers: {
+  //     "x-api-key": SECRET_KEY,
+  //   },
+  // });
+  // const data = await response.json();
+  // return Response.json({ plans: data.success ? data.data : [] });
 };
 // export const loader = async ({ request }) => {
 //   const { admin, session } = await authenticate.admin(request);
@@ -297,7 +316,16 @@ export const action = async ({ request }) => {
 };
 
 function Plans() {
-  const { plans } = useLoaderData();
+  const { plans ,widgets } = useLoaderData();
+  const widgetMap = useMemo(() => {
+  const map = {};
+
+  (widgets || []).forEach((widget) => {
+    map[String(widget.widgetId)] = widget.widgetName;
+  });
+
+  return map;
+}, [widgets]);
   const navigate = useNavigate();
   const fetcher = useFetcher();
   const bulkFetcher = useFetcher();
@@ -588,7 +616,10 @@ function Plans() {
                             : `${item.sellingPlans?.length || 0} discount options`}
                         </td>
                         <td>{item?.status}</td>
-                        <td>{item.widget}</td>
+                        {/* <td>{item.widget}</td> */}
+                        <td>
+  {widgetMap[String(item.widget)] || "—"}
+</td>
                         <td
                           onClick={(e) => {
                             e.stopPropagation();
