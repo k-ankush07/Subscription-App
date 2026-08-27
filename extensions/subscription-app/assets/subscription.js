@@ -473,7 +473,173 @@
     });
   }
 
+  const TEMPLATE_TO_VARIANT = { radio: "simple", highlight: "detailed", checkbox: "compact" };
+
   function renderCard(widget, plans, basePrice) {
+    const variant = TEMPLATE_TO_VARIANT[widget.template] || "simple";
+    if (variant === "compact") return renderCompact(widget, plans, basePrice);
+    if (variant === "detailed") return renderDetailed(widget, plans, basePrice);
+    return renderSimple(widget, plans, basePrice);
+  }
+
+  function getCustomize(widget) {
+    return Object.assign(
+      {
+        blockTitle: "",
+        oneTimePurchaseTitle: "One-time purchase",
+        subscriptionTitle: "Subscribe & save",
+        cornerRadius: 8,
+        spacing: 14,
+        borderWidth: 2,
+        borderStyle: "solid",
+        cardColor: "#fff",
+        selectedCardColor: "#fff",
+        borderColor: "#111",
+        blockTitleColor: "#100e0e",
+        titleColor: "#111",
+        priceColor: "#000",
+        labelBackgroundColor: "#e8e8e8",
+        labelTextColor: "#111",
+        displayCompareAtPrice: false,
+        displaySellingPlanName: false,
+        customLabel: false,
+        customLabelText: "",
+      },
+      widget.customize || {}
+    );
+  }
+
+  function radioDot(checked, color) {
+    return `<span style="width:18px;height:18px;border-radius:50%;border:2px solid ${
+      checked ? color : "#999"
+    };display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;">
+      ${checked ? `<span style="width:9px;height:9px;border-radius:50%;background:${color};"></span>` : ""}
+    </span>`;
+  }
+
+  function detailsBlockHtml(selected, ap) {
+    if (!(selected === "subscribe" && ap?.raw)) return "";
+    return `<div style="margin-bottom:12px;color:#555;font-size:13px;line-height:1.6;">
+      <strong>Subscription details</strong>
+      <div style="margin-top:6px;">${escapeHtml(getSubscriptionDetails(ap.raw))}</div>
+    </div>`;
+  }
+
+  // ---- compact (checkbox) template — single card with a "Deliver every" select ----
+  function renderCompact(widget, plans, basePrice) {
+    const c = getCustomize(widget);
+    const border = c.borderStyle === "none" ? "none" : `${c.borderWidth}px ${c.borderStyle} ${c.borderColor}`;
+    const checked = state.selected === "subscribe";
+    const ap = activePlan(plans);
+    const customBadge = c.customLabel ? c.customLabelText || "" : "";
+    const titleText = escapeHtml(truncateText(c.subscriptionTitle?.trim() || "Subscribe & save", 28));
+
+    const optionsHtml = plans
+      .map((p) => {
+        const label = escapeHtml(c.displaySellingPlanName ? truncateText(p.name || p.shortLabel, 18) : p.shortLabel);
+        return `<option value="${p.id}" ${p.id === ap?.id ? "selected" : ""}>${label}</option>`;
+      })
+      .join("");
+
+    return `
+      <div style="background:#fff;border-radius:8px;padding:20px;font-family:sans-serif;box-sizing:border-box;">
+        <div class="sw-toggle" style="border:${border};border-radius:${c.cornerRadius}px;padding:${c.spacing}px;margin-bottom:12px;cursor:pointer;background:${checked ? c.selectedCardColor : c.cardColor};box-sizing:border-box;">
+          <div style="display:flex;align-items:flex-start;gap:12px;">
+            <span style="width:20px;height:20px;border-radius:4px;background:${checked ? "#111" : "#fff"};border:${checked ? "none" : "2px solid #999"};color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;margin-top:2px;">${checked ? "✓" : ""}</span>
+            <div style="flex:1;min-width:0;">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap;">
+                <span style="font-weight:700;font-size:15px;color:${c.titleColor};">
+                  ${titleText}
+                  ${customBadge ? `<span style="background:${c.labelBackgroundColor};color:${c.labelTextColor};font-size:12px;font-weight:600;border-radius:12px;padding:2px 10px;margin-left:8px;">${escapeHtml(customBadge)}</span>` : ""}
+                </span>
+                <span style="text-align:right;flex-shrink:0;white-space:nowrap;">
+                  ${c.displayCompareAtPrice && ap?.comparePrice ? `<span style="color:#888;text-decoration:line-through;font-size:13px;margin-right:6px;">${ap.comparePrice}</span>` : ""}
+                  <span style="font-weight:700;color:${c.priceColor};">${ap?.price || ""}</span>
+                </span>
+              </div>
+              <div class="sw-select-row" style="display:flex;align-items:center;gap:6px;margin-top:6px;">
+                <span style="color:#555;font-size:13px;flex-shrink:0;">Deliver every:</span>
+                <select class="sw-plan-select" style="padding:5px;border-radius:8px;outline:0;">
+                  ${optionsHtml}
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+        ${detailsBlockHtml(state.selected, ap)}
+      </div>`;
+  }
+
+  // ---- detailed (highlight) template — banner + benefits list + select ----
+  function renderDetailed(widget, plans, basePrice) {
+    const c = getCustomize(widget);
+    const border = c.borderStyle === "none" ? "none" : `${c.borderWidth}px ${c.borderStyle} ${c.borderColor}`;
+    const oneTimeSelected = state.selected === "onetime";
+    const subSelected = state.selected === "subscribe";
+    const ap = activePlan(plans);
+    const customBadge = c.customLabel ? c.customLabelText || "" : "";
+    const bannerLabel = customBadge || (ap?.discountLabel ? `Save ${ap.discountLabel.replace(" off", "")} on every delivery` : "Subscribe & save on every delivery");
+    const benefits = [
+      ap?.discountLabel ? `${ap.discountLabel} of all recurring orders` : "Discount on all recurring orders",
+      "Easily swap & skip deliveries",
+      "Cancel quickly anytime",
+    ];
+    const optionsHtml = plans
+      .map((p) => {
+        const label = escapeHtml(c.displaySellingPlanName ? truncateText(p.name || p.shortLabel, 20) : p.shortLabel);
+        return `<option value="${p.id}" ${p.id === ap?.id ? "selected" : ""}>${label}</option>`;
+      })
+      .join("");
+
+    const benefitsHtml = benefits
+      .map(
+        (b, i) => `
+      <div style="display:flex;align-items:flex-start;justify-content:${i === benefits.length - 1 ? "space-between" : "flex-start"};gap:10px;margin-bottom:10px;">
+        <div style="display:flex;align-items:flex-start;gap:10px;">
+          <span style="width:18px;height:18px;border-radius:50%;background:#111;color:#fff;font-size:11px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;">✓</span>
+          <span>${escapeHtml(b)}</span>
+        </div>
+        ${
+          i === benefits.length - 1
+            ? `<div style="width:150px;flex-shrink:0;">
+                 <div style="font-size:13px;color:#333;margin-bottom:4px;">Deliver every:</div>
+                 <select class="sw-plan-select" style="padding:5px;border-radius:8px;outline:0;width:100%;">${optionsHtml}</select>
+               </div>`
+            : ""
+        }
+      </div>`
+      )
+      .join("");
+
+    return `
+      <div style="background:#fff;border-radius:8px;padding:20px;font-family:sans-serif;box-sizing:border-box;">
+        <div class="sw-onetime" style="border:${border};border-radius:${c.cornerRadius}px;padding:${c.spacing}px;margin-bottom:12px;cursor:pointer;background:${oneTimeSelected ? c.selectedCardColor : c.cardColor};box-sizing:border-box;display:flex;justify-content:space-between;align-items:center;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            ${radioDot(oneTimeSelected, c.borderColor)}
+            <span style="font-weight:700;font-size:16px;color:${c.titleColor};">${escapeHtml(c.oneTimePurchaseTitle)}</span>
+          </div>
+          <span style="font-weight:600;color:${c.priceColor};">${formatMoney(basePrice)}</span>
+        </div>
+        <div style="background:${c.labelBackgroundColor};color:${c.labelTextColor};text-align:center;font-weight:600;font-size:13px;padding:8px 0;border-radius:${c.cornerRadius}px ${c.cornerRadius}px 0 0;">${escapeHtml(bannerLabel)}</div>
+        <div class="sw-subscribe" style="border:${border};border-radius:0 0 ${c.cornerRadius}px ${c.cornerRadius}px;padding:${c.spacing}px;margin-bottom:12px;cursor:pointer;background:${subSelected ? c.selectedCardColor : c.cardColor};box-sizing:border-box;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+            <div style="display:flex;align-items:center;gap:12px;">
+              ${radioDot(subSelected, c.borderColor)}
+              <span style="font-weight:700;font-size:16px;color:${c.titleColor};">${escapeHtml(c.subscriptionTitle)}</span>
+            </div>
+            <div style="text-align:right;flex-shrink:0;">
+              <div style="background:#eee;font-weight:700;color:${c.priceColor};padding:4px 10px;border-radius:4px;">${ap?.price || ""}</div>
+              ${c.displayCompareAtPrice && ap?.comparePrice ? `<div style="color:#000;text-decoration:line-through;font-size:13px;margin-top:2px;">${ap.comparePrice}</div>` : ""}
+            </div>
+          </div>
+          <div style="font-weight:700;margin-top:16px;margin-bottom:10px;">How subscriptions work:</div>
+          ${benefitsHtml}
+        </div>
+        ${detailsBlockHtml(state.selected, ap)}
+      </div>`;
+  }
+
+  function renderSimple(widget, plans, basePrice) {
     const c = Object.assign(
       {
         blockTitle: "",
@@ -584,24 +750,57 @@
       </div>`;
   }
 
-  function bindEvents(widget, plans, basePrice) {
-    mount.querySelector(".sw-onetime")?.addEventListener("click", () => {
-      state.selected = "onetime";
-      currentSellingPlanId = null;
-      resetQuantity();
-      mount.innerHTML = renderCard(widget, plans, basePrice);
-      bindEvents(widget, plans, basePrice);
-    });
+  function rerender(widget, plans, basePrice) {
+    mount.innerHTML = renderCard(widget, plans, basePrice);
+    bindEvents(widget, plans, basePrice);
+  }
 
+  function selectSubscribe(planId, plans) {
+    state.selected = "subscribe";
+    state.selectedPlanId = planId;
+    currentSellingPlanId = planId;
+    applyMinQuantity(plans);
+  }
+
+  function selectOneTime() {
+    state.selected = "onetime";
+    currentSellingPlanId = null;
+    resetQuantity();
+  }
+
+  function bindEvents(widget, plans, basePrice) {
+    // simple template
+    mount.querySelector(".sw-onetime")?.addEventListener("click", () => {
+      selectOneTime();
+      rerender(widget, plans, basePrice);
+    });
     mount.querySelectorAll(".sp-option").forEach((el) => {
       el.addEventListener("click", () => {
-        state.selected = "subscribe";
-        state.selectedPlanId = el.dataset.planId;
-        currentSellingPlanId = state.selectedPlanId;
-        applyMinQuantity(plans);
-        mount.innerHTML = renderCard(widget, plans, basePrice);
-        bindEvents(widget, plans, basePrice);
+        selectSubscribe(el.dataset.planId, plans);
+        rerender(widget, plans, basePrice);
       });
+    });
+
+    // detailed template — same .sw-onetime handler above also applies here
+    mount.querySelector(".sw-subscribe")?.addEventListener("click", (e) => {
+      if (e.target.closest(".sw-plan-select")) return;
+      selectSubscribe(state.selectedPlanId || plans[0]?.id, plans);
+      rerender(widget, plans, basePrice);
+    });
+
+    // compact template
+    mount.querySelector(".sw-toggle")?.addEventListener("click", (e) => {
+      if (e.target.closest(".sw-select-row")) return;
+      if (state.selected === "subscribe") selectOneTime();
+      else selectSubscribe(state.selectedPlanId || plans[0]?.id, plans);
+      rerender(widget, plans, basePrice);
+    });
+
+    // compact + detailed dropdown
+    mount.querySelector(".sw-plan-select")?.addEventListener("click", (e) => e.stopPropagation());
+    mount.querySelector(".sw-plan-select")?.addEventListener("change", (e) => {
+      selectSubscribe(e.target.value, plans);
+      rerender(widget, plans, basePrice);
     });
   }
 
