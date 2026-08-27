@@ -61,6 +61,7 @@
   data-product-id="{{ product.id }}"
   data-price="{{ product.selected_or_first_available_variant.price | divided_by: 100.0 }}"
   data-currency="{{ cart.currency.iso_code }}"
+  data-design-mode="{{ request.design_mode }}"
   style="display:none;"
 ></div>
 

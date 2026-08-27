@@ -432,14 +432,24 @@
   // ---------------- render ----------------
 
   function render() {
-    if (!variantInput || !allPlans) return;
-    const variantId = variantInput.value;
-    const matchedPlan = findMatchedPlan(variantId);
+    if (!allPlans) return;
+    const isDesignMode = mount.dataset.designMode === "true";
+    const variantId = variantInput ? variantInput.value : null;
 
+    let matchedPlan = variantId ? findMatchedPlan(variantId) : null;
+    let isFallbackPreview = false;
+
+    // Real storefront: only show when this product/variant actually has a plan assigned.
+    // Theme editor (design mode): always show something so the merchant can see the widget.
     if (!matchedPlan) {
-      mount.style.display = "none";
-      mount.innerHTML = "";
-      return;
+      if (isDesignMode && allPlans.length > 0) {
+        matchedPlan = allPlans[0];
+        isFallbackPreview = true;
+      } else {
+        mount.style.display = "none";
+        mount.innerHTML = "";
+        return;
+      }
     }
 
     fetchWidget(matchedPlan.widget).then((widget) => {
@@ -449,7 +459,7 @@
         return;
       }
 
-      const product = findMatchedProduct(matchedPlan, variantId);
+      const product = isFallbackPreview ? null : findMatchedProduct(matchedPlan, variantId);
       const basePrice = Number(
         mount.dataset.price || product?.price || product?.minPrice || 0
       );
@@ -828,6 +838,7 @@
     }
   }
 
+  // ---------------- variant change + add to cart ----------------
 
   if (variantInput) {
     const observer = new MutationObserver(render);
