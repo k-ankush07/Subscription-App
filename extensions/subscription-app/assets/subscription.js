@@ -254,7 +254,7 @@
 (function () {
   const shop = window.Shopify?.shop;
   const SECRET_KEY = "08466sdmfbf94374nkjsnfdkyry89nfksd388934jkdsf89y389bjkkr32";
-  const API_BASE = "https://habitant-startling-cassette.ngrok-free.dev";
+  const API_BASE = "https://localhost:5000";
 
   const mount = document.getElementById("subscription-widget-mount");
   if (!mount) return;
