@@ -25,7 +25,9 @@ import {
 import React, { useCallback, useMemo, useState } from "react";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { useNavigate } from "react-router";
-
+let propertyIdCounter = 0;
+const generatePropertyId = () =>
+  `prop_${Date.now()}_${propertyIdCounter++}_${Math.random().toString(36).slice(2, 8)}`;
 const API = import.meta.env.VITE_API_URL;
 const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
 
@@ -74,7 +76,10 @@ const buildAttributesParams = (properties) => {
   });
   return parts.join("&");
 };
-
+const buildNoteParam = (note) => {
+  const trimmed = (note || "").trim();
+  return trimmed ? `note=${encodeURIComponent(trimmed)}` : "";
+};
 const buildItemsQueryString = (products) => {
   const parts = [];
   let index = 0;
@@ -104,6 +109,7 @@ const buildCheckoutLink = (
   removePreviousDiscounts,
   customer,
   properties,
+  orderNote,
 ) => {
   if (!shop) return "";
 
@@ -114,6 +120,11 @@ const buildCheckoutLink = (
   let checkoutPath = trimmedDiscount
     ? `/checkout?discount=${encodeURIComponent(trimmedDiscount)}`
     : `/checkout`;
+
+  const noteQuery = buildNoteParam(orderNote);
+  if (noteQuery) {
+    checkoutPath += `${checkoutPath.includes("?") ? "&" : "?"}${noteQuery}`;
+  }
 
   const shippingAddressQuery = buildShippingAddressParams(customer);
   if (shippingAddressQuery) {
@@ -165,31 +176,41 @@ function QuickCheckoutPage({
   const [toastActive, setToastActive] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [propertiesOpen, setPropertiesOpen] = useState(true);
-  const [properties, setProperties] = useState(
-    initialData?.properties?.length
-      ? initialData.properties
-      : [{ id: crypto.randomUUID(), name: "", value: "" }],
-  );
+ const [properties, setProperties] = useState(
+  initialData?.properties?.length
+    ? initialData.properties.map((p) => ({
+        id: generatePropertyId(),
+        name: p.name || "",
+        value: p.value || "",
+      }))
+    : [{ id: generatePropertyId(), name: "", value: "" }],
+);
+const [linkName, setLinkName] = useState(initialData?.name || "");
+const [linkDescription, setLinkDescription] = useState(
+  initialData?.description || "",
+);
 
   const handleAddProperty = () => {
-    setProperties((prev) => [
-      ...prev,
-      { id: crypto.randomUUID(), name: "", value: "" },
-    ]);
-  };
+  setProperties((prev) => [
+    ...prev,
+    { id: generatePropertyId(), name: "", value: "" },
+  ]);
+};
 
   const handleRemoveProperty = (id) => {
     setProperties((prev) => prev.filter((p) => p.id !== id));
   };
 
-  const updatePropertyField = (id, field, value) => {
-    setProperties((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, [field]: value } : p)),
-    );
-  };
+const updatePropertyField = (id, field, value) => {
+  if (id === undefined || id === null) return;
+  setProperties((prev) =>
+    prev.map((p) => (p.id === id ? { ...p, [field]: value } : p)),
+  );
+};
 
   // Discount code section state
   const [discountOpen, setDiscountOpen] = useState(true);
+  const [orderNote, setOrderNote] = useState(initialData?.orderNote || "");
   const [removePreviousDiscounts, setRemovePreviousDiscounts] = useState(
     initialData?.removePreviousDiscounts ?? true,
   );
@@ -207,32 +228,35 @@ function QuickCheckoutPage({
   const updateCustomerField = (field, value) => {
     setCustomer((prev) => ({ ...prev, [field]: value }));
   };
-
+const nameError =
+  linkName.trim().length === 0 ? "Name is required" : undefined;
   const countryCodeError =
     customer.countryCode.trim().length > 0 &&
     !/^[A-Za-z]{2}$/.test(customer.countryCode.trim())
       ? "Enter a 2-letter ISO country code"
       : undefined;
 
-  const checkoutLink = useMemo(
-    () =>
-      buildCheckoutLink(
-        shop,
-        selectedProducts,
-        discountCode,
-        removePreviousDiscounts,
-        customer,
-        properties,
-      ),
-    [
+const checkoutLink = useMemo(
+  () =>
+    buildCheckoutLink(
       shop,
       selectedProducts,
       discountCode,
       removePreviousDiscounts,
       customer,
       properties,
-    ],
-  );
+      orderNote,
+    ),
+  [
+    shop,
+    selectedProducts,
+    discountCode,
+    removePreviousDiscounts,
+    customer,
+    properties,
+    orderNote,
+  ],
+);
   const handleCopyLink = async () => {
     if (!checkoutLink) return;
     try {
@@ -331,6 +355,11 @@ function QuickCheckoutPage({
   };
 
   const handleSave = async () => {
+    if (!linkName.trim()) {
+  setToastMessage("Please enter a name for this link");
+  setToastActive(true);
+  return;
+}
     if (selectedProducts.length === 0) {
       setToastMessage("Please select at least one product");
       setToastActive(true);
@@ -347,7 +376,8 @@ function QuickCheckoutPage({
     try {
       const payload = {
         shop,
-        name: initialData?.name || "Link #1",
+        name: linkName.trim(),
+  description: linkDescription.trim(),
         products: selectedProducts,
         discountCode: discountCode || "",
         removePreviousDiscounts,
@@ -355,6 +385,7 @@ function QuickCheckoutPage({
         properties: properties
           .filter((p) => p.name.trim() && p.value.trim())
           .map((p) => ({ name: p.name.trim(), value: p.value.trim() })),
+           orderNote: orderNote.trim(),
       };
 
       const url = isEditMode
@@ -794,7 +825,7 @@ function QuickCheckoutPage({
                           updatePropertyField(prop.id, "value", value)
                         }
                         autoComplete="off"
-                        placeholder="e.g., happy birthday"
+                        placeholder="e.g.,  bhappyirthday"
                       />
                     </div>
                     <Button
@@ -815,6 +846,33 @@ function QuickCheckoutPage({
             </Collapsible>
           </BlockStack>
         </Card>
+
+        <Card>
+  <BlockStack gap="300">
+    <TextField
+      label="Name"
+      value={linkName}
+      onChange={setLinkName}
+      autoComplete="off"
+      maxLength={100}
+      showCharacterCount
+      requiredIndicator
+      error={nameError}
+      helpText="Give this link a memorable name"
+    />
+
+    <TextField
+      label="Description (optional)"
+      value={linkDescription}
+      onChange={setLinkDescription}
+      autoComplete="off"
+      multiline={4}
+      maxLength={500}
+      showCharacterCount
+      helpText="Add notes about this link for future reference"
+    />
+  </BlockStack>
+</Card>
         <Button loading={isSaving} onClick={handleSave}>
           {isEditMode ? "Update" : "Save"}
         </Button>
