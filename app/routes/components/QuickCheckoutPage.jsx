@@ -11,19 +11,55 @@ import { useNavigate } from "react-router";
 const API = import.meta.env.VITE_API_URL;
 const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
 
-function QuickCheckoutPage({ shop, plans = [] }) {
+const DEFAULT_CUSTOMER = {
+  firstName: "",
+  lastName: "",
+  address1: "",
+  address2: "",
+  city: "",
+  province: "",
+  zip: "",
+  country: "United States",
+  companyName: "",
+  countryCode: "",
+};
+
+function QuickCheckoutPage({ shop, plans = [], initialData = null, linkId = null }) {
   const shopify = useAppBridge();
   const navigate = useNavigate();
 
-  const [selectedProducts, setSelectedProducts] = useState([]);
+  const isEditMode = Boolean(linkId);
+
+  const [selectedProducts, setSelectedProducts] = useState(
+    initialData?.products || []
+  );
   const [isSaving, setIsSaving] = useState(false);
   const [toastActive, setToastActive] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
 
   // Discount code section state
   const [discountOpen, setDiscountOpen] = useState(true);
-  const [removePreviousDiscounts, setRemovePreviousDiscounts] = useState(true);
-  const [discountCode, setDiscountCode] = useState("");
+  const [removePreviousDiscounts, setRemovePreviousDiscounts] = useState(
+    initialData?.removePreviousDiscounts ?? true
+  );
+  const [discountCode, setDiscountCode] = useState(initialData?.discountCode || "");
+
+  // Customer information section state
+  const [customerOpen, setCustomerOpen] = useState(true);
+  const [customer, setCustomer] = useState({
+    ...DEFAULT_CUSTOMER,
+    ...(initialData?.customer || {}),
+  });
+
+  const updateCustomerField = (field, value) => {
+    setCustomer((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const countryCodeError =
+    customer.countryCode.trim().length > 0 &&
+    !/^[A-Za-z]{2}$/.test(customer.countryCode.trim())
+      ? "Enter a 2-letter ISO country code"
+      : undefined;
 
   const getPlansForVariant = (productId, variantId) => {
     const matchingPlans = plans.filter((plan) => {
@@ -111,31 +147,50 @@ function QuickCheckoutPage({ shop, plans = [] }) {
       return;
     }
 
+    if (countryCodeError) {
+      setToastMessage(countryCodeError);
+      setToastActive(true);
+      return;
+    }
+
     setIsSaving(true);
     try {
-      const response = await fetch(`${API}/checkout-links/create`, {
-        method: "POST",
+      const payload = {
+        shop,
+        name: initialData?.name || "Link #1",
+        products: selectedProducts,
+        discountCode: discountCode || "",
+        removePreviousDiscounts,
+        customer,
+      };
+
+      const url = isEditMode
+        ? `${API}/checkout-links/${linkId}`
+        : `${API}/checkout-links/create`;
+      const method = isEditMode ? "PUT" : "POST";
+
+      const response = await fetch(url, {
+        method,
         headers: {
           "Content-Type": "application/json",
           "x-api-key": SECRET_KEY,
         },
-        body: JSON.stringify({
-          shop,
-          name: "Link #1",
-          products: selectedProducts,
-          discountCode: discountCode || "",
-          removePreviousDiscounts,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
 
       if (data.success) {
-        setToastMessage("Link saved successfully");
+        setToastMessage(
+          isEditMode ? "Link updated successfully" : "Link saved successfully"
+        );
         setToastActive(true);
-        setTimeout(() => {
-          navigate(`/app/quick-checkout-link/${data.data._id}`);
-        }, 2000);
+
+        if (!isEditMode) {
+          setTimeout(() => {
+            navigate(`/app/quick-checkout-link/${data.data._id}`);
+          }, 2000);
+        }
       } else {
         setToastMessage(data.message || "Failed to save link");
         setToastActive(true);
@@ -154,7 +209,10 @@ function QuickCheckoutPage({ shop, plans = [] }) {
       {toastActive && (
         <Toast content={toastMessage} onDismiss={() => setToastActive(false)} />
       )}
-      <Page title="Create quick checkout link">
+      <Page
+        title={isEditMode ? (initialData?.name || "Edit link") : "Create quick checkout link"}
+        backAction={isEditMode ? { onAction: () => navigate("/app/quick-checkout-link") } : undefined}
+      >
         <Card>
           <BlockStack gap="400">
             <InlineStack align="space-between" blockAlign="center">
@@ -261,7 +319,13 @@ function QuickCheckoutPage({ shop, plans = [] }) {
                   <Checkbox
                     label="Remove previous discounts"
                     checked={removePreviousDiscounts}
-                    onChange={(value) => setRemovePreviousDiscounts(value)}
+                    onChange={(value) => {
+                      setRemovePreviousDiscounts(value);
+                      if (value) {
+                        setDiscountCode("");
+                      }
+                    }}
+                    disabled={discountCode.trim().length > 0}
                   />
                   <Text as="p" variant="bodySm" tone="subdued">
                     Removes any previous discounts applied to the cart
@@ -273,16 +337,134 @@ function QuickCheckoutPage({ shop, plans = [] }) {
                   labelHidden
                   placeholder="e.g., SUMMER2024"
                   value={discountCode}
-                  onChange={(value) => setDiscountCode(value)}
+                  onChange={(value) => {
+                    setDiscountCode(value);
+                    setRemovePreviousDiscounts(value.trim().length > 0 ? false : true);
+                  }}
                   autoComplete="off"
-                  helpText="The discount code will be automatically applied at checkout. Whether it actually applies to a product depends on that product's purchase type (one-time / subscription), as configured in the Shopify discount rule."
+                  disabled={removePreviousDiscounts}
+                  helpText="The discount code will be automatically applied at checkout"
                 />
               </BlockStack>
             </Collapsible>
           </BlockStack>
         </Card>
 
-        <Button loading={isSaving} onClick={handleSave}>Save</Button>
+        <Card>
+          <BlockStack gap="300">
+            <InlineStack
+              align="space-between"
+              blockAlign="center"
+              onClick={() => setCustomerOpen((prev) => !prev)}
+            >
+              <InlineStack gap="200" blockAlign="center">
+                <Text as="h2" variant="headingMd">Customer information</Text>
+                <Badge tone="new">Optional</Badge>
+              </InlineStack>
+              <Button
+                variant="plain"
+                icon={customerOpen ? ChevronUpIcon : ChevronDownIcon}
+                onClick={() => setCustomerOpen((prev) => !prev)}
+                accessibilityLabel="Toggle customer information section"
+              />
+            </InlineStack>
+
+            <Collapsible open={customerOpen} id="customer-information-collapsible">
+              <BlockStack gap="300">
+                <InlineStack gap="300" wrap={false}>
+                  <div style={{ flex: 1 }}>
+                    <TextField
+                      label="First name"
+                      value={customer.firstName}
+                      onChange={(value) => updateCustomerField("firstName", value)}
+                      autoComplete="off"
+                    />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <TextField
+                      label="Last name"
+                      value={customer.lastName}
+                      onChange={(value) => updateCustomerField("lastName", value)}
+                      autoComplete="off"
+                    />
+                  </div>
+                </InlineStack>
+
+                <TextField
+                  label="Address 1"
+                  value={customer.address1}
+                  onChange={(value) => updateCustomerField("address1", value)}
+                  autoComplete="off"
+                />
+
+                <TextField
+                  label="Address 2"
+                  value={customer.address2}
+                  onChange={(value) => updateCustomerField("address2", value)}
+                  autoComplete="off"
+                />
+
+                <InlineStack gap="300" wrap={false}>
+                  <div style={{ flex: 1 }}>
+                    <TextField
+                      label="City"
+                      value={customer.city}
+                      onChange={(value) => updateCustomerField("city", value)}
+                      autoComplete="off"
+                    />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <TextField
+                      label="State / Province"
+                      value={customer.province}
+                      onChange={(value) => updateCustomerField("province", value)}
+                      autoComplete="off"
+                    />
+                  </div>
+                </InlineStack>
+
+                <InlineStack gap="300" wrap={false}>
+                  <div style={{ flex: 1 }}>
+                    <TextField
+                      label="Zip / Postal code"
+                      value={customer.zip}
+                      onChange={(value) => updateCustomerField("zip", value)}
+                      autoComplete="off"
+                    />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <TextField
+                      label="Country"
+                      value={customer.country}
+                      onChange={(value) => updateCustomerField("country", value)}
+                      autoComplete="off"
+                    />
+                  </div>
+                </InlineStack>
+
+                <TextField
+                  label="Company name"
+                  value={customer.companyName}
+                  onChange={(value) => updateCustomerField("companyName", value)}
+                  autoComplete="off"
+                />
+
+                <TextField
+                  label="Country code"
+                  value={customer.countryCode}
+                  onChange={(value) => updateCustomerField("countryCode", value)}
+                  autoComplete="off"
+                  error={countryCodeError}
+                  helpText="Use the 2-letter ISO code for the country (e.g., DE, FR, AU, JP). Takes priority over Country field in the generated link."
+                />
+              </BlockStack>
+            </Collapsible>
+          </BlockStack>
+        </Card>
+
+        <Button loading={isSaving} onClick={handleSave}>
+          {isEditMode ? "Update" : "Save"}
+        </Button>
       </Page>
     </Frame>
   );
