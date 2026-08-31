@@ -142,7 +142,27 @@ function resolveLineItems({ lineItems, lineItem }) {
   if (lineItem) return [lineItem];
   return [];
 }
+function supportFooterHtml(supportEmail) {
+  if (!supportEmail) return "";
+  return `
+    <div style="margin-top:24px;padding-top:16px;border-top:1px solid #e5e7eb;">
+      <p style="font-size:12px;color:#888;line-height:1.6;margin:0;">
+        If you have any questions or need assistance, our support team is here to help.
+        Just reply to this email or reach out at
+        <a href="mailto:${supportEmail}" style="color:#16a34a;text-decoration:none;">${supportEmail}</a>
+      </p>
+    </div>`;
+}
 
+function baseWrapper(innerHtml, supportEmail) {
+  return `
+  <div style="background:#f3f4f6;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;">
+    <div style="max-width:520px;margin:0 auto;background:#ffffff;padding:32px;border-radius:6px;">
+      ${innerHtml}
+      ${supportFooterHtml(supportEmail)}
+    </div>
+  </div>`;
+}
 // SKIP EMAIL
 export function buildSkipEmail({
   customerName,
@@ -158,6 +178,7 @@ export function buildSkipEmail({
   paymentLast4,
   paymentBrand,
   manageUrl,
+  supportEmail,
 }) {
   const items = resolveLineItems({ lineItems, lineItem });
   const subject = "Your upcoming order was skipped";
@@ -171,7 +192,7 @@ export function buildSkipEmail({
     ${manageButtonHtml(manageUrl)}
     ${lineItemsListHtml(items)}
     ${orderSummaryHtml({ subtotal, shipping, total })}
-    ${addressBlockHtml({ shippingAddress, billingAddress, nextOrderDate, paymentLast4, paymentBrand })}
+    ${addressBlockHtml({ shippingAddress, billingAddress, nextOrderDate, paymentLast4, paymentBrand },supportEmail,)}
   `);
   return { subject, html };
 }
@@ -189,6 +210,7 @@ export function buildCancelEmail({
   paymentLast4,
   paymentBrand,
   manageUrl,
+  supportEmail,
 }) {
   const items = resolveLineItems({ lineItems, lineItem });
   const subject = "Your subscription has been cancelled";
@@ -199,7 +221,7 @@ export function buildCancelEmail({
     ${manageButtonHtml(manageUrl)}
     ${lineItemsListHtml(items)}
     ${orderSummaryHtml({ subtotal, shipping, total })}
-    ${addressBlockHtml({ shippingAddress, billingAddress, paymentLast4, paymentBrand })}
+    ${addressBlockHtml({ shippingAddress, billingAddress, paymentLast4, paymentBrand },supportEmail,)}
   `);
   return { subject, html };
 }
@@ -216,6 +238,7 @@ export function buildPauseEmail({
   paymentLast4,
   paymentBrand,
   manageUrl,
+  supportEmail,
 }) {
   const items = resolveLineItems({ lineItems, lineItem });
   const subject = "Your subscription has been paused";
@@ -228,7 +251,7 @@ export function buildPauseEmail({
     ${manageButtonHtml(manageUrl)}
     ${lineItemsListHtml(items)}
     ${orderSummaryHtml({ subtotal, shipping, total })}
-    ${addressBlockHtml({ shippingAddress, billingAddress, paymentLast4, paymentBrand })}
+    ${addressBlockHtml({ shippingAddress, billingAddress, paymentLast4, paymentBrand },supportEmail,)}
   `);
   return { subject, html };
 }
@@ -247,6 +270,7 @@ export function buildResumeEmail({
   paymentLast4,
   paymentBrand,
   manageUrl,
+  supportEmail,
 }) {
   const items = resolveLineItems({ lineItems, lineItem });
   const subject = "Your subscription has been resumed";
@@ -259,7 +283,7 @@ export function buildResumeEmail({
     ${manageButtonHtml(manageUrl)}
     ${lineItemsListHtml(items)}
     ${orderSummaryHtml({ subtotal, shipping, total })}
-    ${addressBlockHtml({ shippingAddress, billingAddress, nextOrderDate, paymentLast4, paymentBrand })}
+    ${addressBlockHtml({ shippingAddress, billingAddress, nextOrderDate, paymentLast4, paymentBrand },supportEmail,)}
   `);
   return { subject, html };
 }

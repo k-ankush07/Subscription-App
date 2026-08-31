@@ -6,6 +6,7 @@ import {
   getContractEmailData,
   getCustomerPortalBaseUrl,
   getShopName,
+   getShopEmail,
 } from "../lib/email-helpers.server";
 
 const CORS_HEADERS = {
@@ -91,6 +92,7 @@ export const action = async ({ request }) => {
         getContractEmailData(admin, subscriptionContractId),
         getCustomerPortalBaseUrl(admin),
         getShopName(admin),
+        getShopEmail(admin), 
       ]);
     } catch (fetchErr) {
       console.error("[pause] pre-fetch for email/DB failed:", fetchErr.message);
@@ -129,6 +131,7 @@ export const action = async ({ request }) => {
           paymentLast4: emailData.paymentLast4,
           paymentBrand: emailData.paymentBrand,
           manageUrl: `${portalBaseUrl}/subscriptions/${getNumericId(subscriptionContractId)}`,
+          supportEmail,
         });
 
         await sendMail({

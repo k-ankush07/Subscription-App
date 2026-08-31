@@ -63,6 +63,18 @@ export async function getCustomerPortalBaseUrl(admin) {
   if (!baseUrl) return null;
   return myPage ? `${baseUrl}/pages/${myPage.handle}` : baseUrl;
 }
+const SHOP_EMAIL_QUERY = `#graphql
+  query GetShopEmail {
+    shop {
+      contactEmail
+    }
+  }
+`;
+export async function getShopEmail(admin) {
+  const res = await admin.graphql(SHOP_EMAIL_QUERY);
+  const { data } = await res.json();
+  return data?.shop?.contactEmail || null;
+}
 const SHOP_NAME_QUERY = `#graphql
   query GetShopName {
     shop {
