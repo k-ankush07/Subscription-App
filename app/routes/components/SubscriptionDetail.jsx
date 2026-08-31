@@ -1157,9 +1157,17 @@ export default function SubscriptionDetail() {
                     {li.variantId && <p>Variant ID: {li.variantId}</p>}
 
                     <p>
-                      Qty: {li.quantity} • {li.pricePerUnit?.amount}{" "}
+                       {/* Qty: {li.quantity} • {currencySymbol(li.pricePerUnit?.currencyCode)}
+  {li.pricePerUnit?.amount} × {li.quantity} ={" "}
+  {currencySymbol(li.itemTotal?.currencyCode)}
+  {li.itemTotal?.amount} */}
+  Qty: {li.quantity} • {currencySymbol(li.pricePerUnit?.currencyCode)}
+  {li.pricePerUnit?.amount} × {li.quantity} ={" "}
+  {currencySymbol(li.itemTotal?.currencyCode)}
+  {li.itemTotal?.amount}
+                      {/* Qty: {li.quantity} • {li.pricePerUnit?.amount}{" "}
                       {li.pricePerUnit?.currencyCode} × {li.quantity} ={" "}
-                      {li.itemTotal?.amount} {li.itemTotal?.currencyCode}
+                      {li.itemTotal?.amount} {li.itemTotal?.currencyCode} */}
                     </p>
 
                     {contract?.status !== "CANCELLED" && li.discountLabel && (

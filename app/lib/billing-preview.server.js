@@ -1923,6 +1923,7 @@ async function getContractPreview(
         subscriptionContract(id: $id) {
           id
           status
+          currencyCode 
           nextBillingDate
           deliveryPrice { amount currencyCode }
           billingPolicy {
@@ -2147,12 +2148,20 @@ async function getContractPreview(
     cycleIndex,
   );
 
-  const currencyCodeFallback =
-  (await getShopCurrencyCode(admin)) ??        
+const currencyCodeFallback =
+  contract.currencyCode ??                              // ← authoritative, locked currency
+  contract.deliveryPrice?.currencyCode ??
   firstLine?.pricingPolicy?.basePrice?.currencyCode ??
   firstLine?.currentPrice?.currencyCode ??
-  extraSettings?.currencyCode ??               
+  extraSettings?.currencyCode ??
+  (await getShopCurrencyCode(admin)) ??
   "USD";
+  // const currencyCodeFallback =
+  // (await getShopCurrencyCode(admin)) ??        
+  // firstLine?.pricingPolicy?.basePrice?.currencyCode ??
+  // firstLine?.currentPrice?.currencyCode ??
+  // extraSettings?.currencyCode ??               
+  // "USD";
   // const currencyCodeFallback =
   // extraSettings?.currencyCode ??  
   //   firstLine?.pricingPolicy?.basePrice?.currencyCode ??
@@ -2175,8 +2184,9 @@ async function getContractPreview(
     );
     if (isRemoved) continue;
 
-    const lineCurrency =
-      line.currentPrice?.currencyCode ?? currencyCodeFallback;
+    // const lineCurrency =
+    //   line.currentPrice?.currencyCode ?? currencyCodeFallback;
+    const lineCurrency = currencyCodeFallback;
     const originalVariantInfo = variantDataMap[line.variantId];
 
     let effectiveBase =
