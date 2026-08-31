@@ -228,14 +228,24 @@ export function buildPurchaseCards(normalizedPlans, basePrice, currencyCode, use
 }
 
 export const cardStyles = {
+  // card: {
+  //   background: "#ede9e9",
+  //   borderRadius: 8,
+  //   padding: 20,
+  //   // width: 340,
+  //   boxSizing: "border-box",
+  //   fontFamily: "sans-serif",
+  // },
   card: {
-    background: "#ede9e9",
-    borderRadius: 8,
-    padding: 20,
-    // width: 340,
-    boxSizing: "border-box",
-    fontFamily: "sans-serif",
-  },
+  background: "#ede9e9",
+  borderRadius: 8,
+  padding: 20,
+  width: 340,
+  minWidth: 0,
+  flex: "1 1 340px",
+  boxSizing: "border-box",
+  fontFamily: "sans-serif",
+},
 
   headerWithLines: {
     display: "flex",

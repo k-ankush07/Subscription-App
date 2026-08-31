@@ -411,7 +411,9 @@ function CompactCard({ data, selected, activePlan, selectedPlanId, onSelect, onS
     <div style={{ ...cardStyle, maxWidth: "100%", boxSizing: "border-box" }}>
       <div
         style={{
-          border: borderStyle === "none" ? "none" : `${borderWidth}px ${borderStyle} ${radioColor}`,
+          border: borderStyle === "none"
+  ? "none"
+  : `${borderWidth}px ${borderStyle} ${checked ? radioColor : "#d0d0d0"}`,
           borderRadius: cornerRadius,
           padding: spacing,
           marginBottom: 12,
