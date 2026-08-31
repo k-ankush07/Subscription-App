@@ -5,14 +5,14 @@ import {
 import { DeleteIcon } from '@shopify/polaris-icons';
 import React, { useCallback, useState } from 'react';
 import { useAppBridge } from '@shopify/app-bridge-react';
-import { useNavigate } from "react-router"; // 👈 naya import
+import { useNavigate } from "react-router";
 
 const API = import.meta.env.VITE_API_URL;
 const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
 
 function QuickCheckoutPage({ shop, plans = [] }) {
   const shopify = useAppBridge();
-  const navigate = useNavigate(); // 👈 naya
+  const navigate = useNavigate(); 
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
   const [toastActive, setToastActive] = useState(false);
@@ -97,7 +97,6 @@ function QuickCheckoutPage({ shop, plans = [] }) {
     );
   };
 
-  // ---- Save button: DB me store karein aur redirect karein ----
   const handleSave = async () => {
     if (selectedProducts.length === 0) {
       setToastMessage("Please select at least one product");
@@ -123,8 +122,11 @@ function QuickCheckoutPage({ shop, plans = [] }) {
       const data = await response.json();
 
       if (data.success) {
-        // 👇 yahi hai wo redirect jo aapko chahiye tha
-        navigate(`/app/quick-checkout-links/${data.data._id}`);
+        setTimeout(()=>
+        {
+navigate(`/app/quick-checkout-links/${data.data._id}`);
+        },2000)
+        
       } else {
         setToastMessage(data.message || "Failed to save link");
         setToastActive(true);

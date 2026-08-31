@@ -37,7 +37,7 @@ export default function App() {
             Customer portal & retention
           </s-link>
           <s-link href="/app/widgets">Widgets</s-link>
-          <s-link href="/app/quick-checkout-links/create">
+          <s-link href="/app/quick-checkout-links">
             Quick checkout links
           </s-link>
           <s-link href="/app/analystic">Analystic</s-link>
