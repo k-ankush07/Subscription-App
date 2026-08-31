@@ -1,4 +1,8 @@
-import { Card, Page, Button, Thumbnail, InlineStack, BlockStack, Text, Badge } from '@shopify/polaris';
+import {
+  Card, Page, Button, Thumbnail, InlineStack, BlockStack,
+  Text, Badge, Select, TextField, Icon, Divider
+} from '@shopify/polaris';
+import { DeleteIcon } from '@shopify/polaris-icons';
 import React, { useCallback, useState } from 'react';
 import { useAppBridge } from '@shopify/app-bridge-react';
 
@@ -6,11 +10,18 @@ function QuickCheckoutPage() {
   const shopify = useAppBridge();
   const [selectedProducts, setSelectedProducts] = useState([]);
 
+  // ---- Product picker khulne par purane selections pass karein ----
   const handleSelectProducts = useCallback(async () => {
+    const selectionIds = selectedProducts.map((p) => ({
+      id: p.id,
+      variants: p.variants.map((v) => ({ id: v.variantsId })),
+    }));
+
     const selected = await shopify.resourcePicker({
       type: "product",
       multiple: true,
       action: "select",
+      selectionIds, // 👈 isse pehle se selected products/variants dikhenge checked
     });
 
     if (selected) {
@@ -21,12 +32,48 @@ function QuickCheckoutPage() {
         variants: (product.variants || []).map((v) => ({
           variantsId: v.id,
           variantsTitle: v.title,
+          purchaseOption: "onetime",
+          quantity: "1",
         })),
       }));
 
       setSelectedProducts(incoming);
     }
-  }, [shopify]);
+  }, [shopify, selectedProducts]);
+
+  // ---- Poore product ko remove karein ----
+  const handleRemoveProduct = (productId) => {
+    setSelectedProducts((prev) => prev.filter((p) => p.id !== productId));
+  };
+
+  // ---- Sirf ek variant remove karein ----
+  const handleRemoveVariant = (productId, variantId) => {
+    setSelectedProducts((prev) =>
+      prev
+        .map((p) =>
+          p.id === productId
+            ? { ...p, variants: p.variants.filter((v) => v.variantsId !== variantId) }
+            : p
+        )
+        .filter((p) => p.variants.length > 0) // agar sab variants hat gaye to product hi hata dein
+    );
+  };
+
+  // ---- Variant ka field (purchaseOption / quantity) update karein ----
+  const updateVariantField = (productId, variantId, field, value) => {
+    setSelectedProducts((prev) =>
+      prev.map((p) =>
+        p.id === productId
+          ? {
+              ...p,
+              variants: p.variants.map((v) =>
+                v.variantsId === variantId ? { ...v, [field]: value } : v
+              ),
+            }
+          : p
+      )
+    );
+  };
 
   return (
     <Page title="Create quick checkout link">
@@ -34,25 +81,75 @@ function QuickCheckoutPage() {
         <BlockStack gap="400">
           <InlineStack align="space-between" blockAlign="center">
             <Text as="h2" variant="headingMd">Products</Text>
-            {selectedProducts.length > 0 && (
-              <Badge tone="info">{selectedProducts.length} selected</Badge>
-            )}
+            <InlineStack gap="200">
+              {selectedProducts.length > 0 && (
+                <Badge tone="info">{selectedProducts.length} selected</Badge>
+              )}
+              <Button variant="plain" onClick={handleSelectProducts}>
+                Select products
+              </Button>
+            </InlineStack>
           </InlineStack>
 
           {selectedProducts.length > 0 ? (
-            selectedProducts.map((product) => (
-              <InlineStack key={product.id} gap="300" blockAlign="center">
-                <Thumbnail source={product.ProductImage} alt={product.title} size="small" />
-                <Text fontWeight="medium">{product.title}</Text>
-              </InlineStack>
+            selectedProducts.map((product, index) => (
+              <BlockStack gap="300" key={product.id}>
+                {index > 0 && <Divider />}
+
+                {/* ---- Product header ---- */}
+                <InlineStack align="space-between" blockAlign="center">
+                  <InlineStack gap="300" blockAlign="center">
+                    <Thumbnail source={product.ProductImage} alt={product.title} size="small" />
+                    <Text fontWeight="medium">{product.title}</Text>
+                  </InlineStack>
+                  <Button variant="plain" tone="critical" onClick={() => handleRemoveProduct(product.id)}>
+                    Remove
+                  </Button>
+                </InlineStack>
+
+                {/* ---- Har variant apni row me ---- */}
+                {product.variants.map((variant) => (
+                  <BlockStack gap="200" key={variant.variantsId}>
+                    <InlineStack align="space-between" blockAlign="center">
+                      <Text as="p" variant="bodySm" tone="subdued">
+                        {variant.variantsTitle}
+                      </Text>
+                      <Button
+                        variant="plain"
+                        tone="critical"
+                        icon={DeleteIcon}
+                        onClick={() => handleRemoveVariant(product.id, variant.variantsId)}
+                      />
+                    </InlineStack>
+
+                    <Select
+                      label="Purchase option"
+                      options={[{ label: "One-time purchase", value: "onetime" }]}
+                      value={variant.purchaseOption}
+                      onChange={(value) =>
+                        updateVariantField(product.id, variant.variantsId, "purchaseOption", value)
+                      }
+                    />
+
+                    <TextField
+                      label="Quantity"
+                      type="number"
+                      min={1}
+                      value={variant.quantity}
+                      onChange={(value) =>
+                        updateVariantField(product.id, variant.variantsId, "quantity", value)
+                      }
+                    />
+                  </BlockStack>
+                ))}
+              </BlockStack>
             ))
           ) : (
-            <Text as="p" tone="subdued">No products selected</Text>
+            <BlockStack gap="300">
+              <Text as="p" tone="subdued">No products selected</Text>
+              <Button onClick={handleSelectProducts}>Select products</Button>
+            </BlockStack>
           )}
-
-          <Button onClick={handleSelectProducts}>
-            {selectedProducts.length > 0 ? "Add more products" : "Select products"}
-          </Button>
         </BlockStack>
       </Card>
     </Page>
