@@ -124,7 +124,7 @@ function QuickCheckoutPage({ shop, plans = [] }) {
       if (data.success) {
         setTimeout(()=>
         {
-navigate(`/app/quick-checkout-links/${data.data._id}`);
+navigate(`/app/quick-checkout-link/${data.data._id}`);
         },2000)
         
       } else {
