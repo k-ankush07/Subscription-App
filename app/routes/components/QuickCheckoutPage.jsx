@@ -176,37 +176,37 @@ function QuickCheckoutPage({
   const [toastActive, setToastActive] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [propertiesOpen, setPropertiesOpen] = useState(true);
- const [properties, setProperties] = useState(
-  initialData?.properties?.length
-    ? initialData.properties.map((p) => ({
-        id: generatePropertyId(),
-        name: p.name || "",
-        value: p.value || "",
-      }))
-    : [{ id: generatePropertyId(), name: "", value: "" }],
-);
-const [linkName, setLinkName] = useState(initialData?.name || "");
-const [linkDescription, setLinkDescription] = useState(
-  initialData?.description || "",
-);
+  const [properties, setProperties] = useState(
+    initialData?.properties?.length
+      ? initialData.properties.map((p) => ({
+          id: generatePropertyId(),
+          name: p.name || "",
+          value: p.value || "",
+        }))
+      : [{ id: generatePropertyId(), name: "", value: "" }],
+  );
+  const [linkName, setLinkName] = useState(initialData?.name || "");
+  const [linkDescription, setLinkDescription] = useState(
+    initialData?.description || "",
+  );
 
   const handleAddProperty = () => {
-  setProperties((prev) => [
-    ...prev,
-    { id: generatePropertyId(), name: "", value: "" },
-  ]);
-};
+    setProperties((prev) => [
+      ...prev,
+      { id: generatePropertyId(), name: "", value: "" },
+    ]);
+  };
 
   const handleRemoveProperty = (id) => {
     setProperties((prev) => prev.filter((p) => p.id !== id));
   };
 
-const updatePropertyField = (id, field, value) => {
-  if (id === undefined || id === null) return;
-  setProperties((prev) =>
-    prev.map((p) => (p.id === id ? { ...p, [field]: value } : p)),
-  );
-};
+  const updatePropertyField = (id, field, value) => {
+    if (id === undefined || id === null) return;
+    setProperties((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, [field]: value } : p)),
+    );
+  };
 
   // Discount code section state
   const [discountOpen, setDiscountOpen] = useState(true);
@@ -228,17 +228,26 @@ const updatePropertyField = (id, field, value) => {
   const updateCustomerField = (field, value) => {
     setCustomer((prev) => ({ ...prev, [field]: value }));
   };
-const nameError =
-  linkName.trim().length === 0 ? "Name is required" : undefined;
+  const nameError =
+    linkName.trim().length === 0 ? "Name is required" : undefined;
   const countryCodeError =
     customer.countryCode.trim().length > 0 &&
     !/^[A-Za-z]{2}$/.test(customer.countryCode.trim())
       ? "Enter a 2-letter ISO country code"
       : undefined;
 
-const checkoutLink = useMemo(
-  () =>
-    buildCheckoutLink(
+  const checkoutLink = useMemo(
+    () =>
+      buildCheckoutLink(
+        shop,
+        selectedProducts,
+        discountCode,
+        removePreviousDiscounts,
+        customer,
+        properties,
+        orderNote,
+      ),
+    [
       shop,
       selectedProducts,
       discountCode,
@@ -246,17 +255,8 @@ const checkoutLink = useMemo(
       customer,
       properties,
       orderNote,
-    ),
-  [
-    shop,
-    selectedProducts,
-    discountCode,
-    removePreviousDiscounts,
-    customer,
-    properties,
-    orderNote,
-  ],
-);
+    ],
+  );
   const handleCopyLink = async () => {
     if (!checkoutLink) return;
     try {
@@ -356,10 +356,10 @@ const checkoutLink = useMemo(
 
   const handleSave = async () => {
     if (!linkName.trim()) {
-  setToastMessage("Please enter a name for this link");
-  setToastActive(true);
-  return;
-}
+      setToastMessage("Please enter a name for this link");
+      setToastActive(true);
+      return;
+    }
     if (selectedProducts.length === 0) {
       setToastMessage("Please select at least one product");
       setToastActive(true);
@@ -377,7 +377,7 @@ const checkoutLink = useMemo(
       const payload = {
         shop,
         name: linkName.trim(),
-  description: linkDescription.trim(),
+        description: linkDescription.trim(),
         products: selectedProducts,
         discountCode: discountCode || "",
         removePreviousDiscounts,
@@ -385,7 +385,7 @@ const checkoutLink = useMemo(
         properties: properties
           .filter((p) => p.name.trim() && p.value.trim())
           .map((p) => ({ name: p.name.trim(), value: p.value.trim() })),
-           orderNote: orderNote.trim(),
+        orderNote: orderNote.trim(),
       };
 
       const url = isEditMode
@@ -848,31 +848,51 @@ const checkoutLink = useMemo(
         </Card>
 
         <Card>
-  <BlockStack gap="300">
-    <TextField
-      label="Name"
-      value={linkName}
-      onChange={setLinkName}
-      autoComplete="off"
-      maxLength={100}
-      showCharacterCount
-      requiredIndicator
-      error={nameError}
-      helpText="Give this link a memorable name"
-    />
+          <BlockStack gap="300">
+            <TextField
+              label="Name"
+              value={linkName}
+              onChange={setLinkName}
+              autoComplete="off"
+              maxLength={100}
+              showCharacterCount
+              requiredIndicator
+              error={nameError}
+              helpText="Give this link a memorable name"
+            />
 
-    <TextField
-      label="Description (optional)"
-      value={linkDescription}
-      onChange={setLinkDescription}
-      autoComplete="off"
-      multiline={4}
-      maxLength={500}
-      showCharacterCount
-      helpText="Add notes about this link for future reference"
-    />
-  </BlockStack>
-</Card>
+            <TextField
+              label="Description (optional)"
+              value={linkDescription}
+              onChange={setLinkDescription}
+              autoComplete="off"
+              multiline={4}
+              maxLength={500}
+              showCharacterCount
+              helpText="Add notes about this link for future reference"
+            />
+          </BlockStack>
+        </Card>
+        <Card>
+          <BlockStack gap="300">
+            <InlineStack gap="200" blockAlign="center">
+              <Text as="h2" variant="headingMd">
+                Order note
+              </Text>
+              <Badge tone="new">Optional</Badge>
+            </InlineStack>
+            <TextField
+              label="Note"
+              labelHidden
+              placeholder="e.g., Please gift wrap this order"
+              value={orderNote}
+              onChange={setOrderNote}
+              autoComplete="off"
+              multiline={3}
+              helpText="This note will be added to the order and visible to store staff"
+            />
+          </BlockStack>
+        </Card>
         <Button loading={isSaving} onClick={handleSave}>
           {isEditMode ? "Update" : "Save"}
         </Button>
