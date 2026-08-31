@@ -1,5 +1,5 @@
 
-import { authenticate } from "../shopify.server";
+import { authenticate, unauthenticated } from "../shopify.server";
 import { snapshotContractSettings,getShopCurrencyCode  } from "../lib/billing-preview.server";
 
 async function getContractSellingPlanId(admin, contractId) {
@@ -197,6 +197,7 @@ export const action = async ({ request }) => {
     : `gid://shopify/SubscriptionContract/${contractId}`;
 
   try {
+     const { admin } = await unauthenticated.admin(shop);
     const sellingPlanId = await getContractSellingPlanId(admin, normalizedContractId);
 
     const liveSettings = sellingPlanId
@@ -231,6 +232,7 @@ export const action = async ({ request }) => {
 
     if (liveSettings || groupSnapshotData) {
       const shopCurrencyCode = await getShopCurrencyCode(admin); 
+      console.log(`[webhook] snapshotting for shop=${shop}, resolved currency=${shopCurrencyCode}`);
       const combinedSettings = {
         ...(liveSettings || {}), 
         products: groupSnapshotData?.products ?? [],

@@ -13,7 +13,7 @@ export const loader = async ({ request, params }) => {
     fetch(`${API}/checkout-links/${id}`, {
       headers: { "x-api-key": SECRET_KEY },
     }),
-    fetch(`${API}/plans?shop=${session.shop}`, {
+    fetch(`${API}/plans/getAllPlans?shop=${session.shop}`, {
       headers: { "x-api-key": SECRET_KEY },
     }),
   ]);

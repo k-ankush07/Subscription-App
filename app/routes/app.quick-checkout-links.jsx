@@ -90,11 +90,11 @@ function QuickCheckoutAll() {
       </IndexTable.Cell>
       <IndexTable.Cell>
         <InlineStack gap="200">
-          <Button
+          {/* <Button
             icon={ClipboardIcon}
             onClick={(e) => handleCopy(e, link)}
             accessibilityLabel="Copy link"
-          />
+          /> */}
           <Button
             icon={DeleteIcon}
             tone="critical"

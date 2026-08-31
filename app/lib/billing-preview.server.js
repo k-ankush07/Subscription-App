@@ -2148,11 +2148,17 @@ async function getContractPreview(
   );
 
   const currencyCodeFallback =
-  extraSettings?.currencyCode ??  
-    firstLine?.pricingPolicy?.basePrice?.currencyCode ??
-    firstLine?.currentPrice?.currencyCode ??
-    (await getShopCurrencyCode(admin)) ??
-    "USD";
+  (await getShopCurrencyCode(admin)) ??        
+  firstLine?.pricingPolicy?.basePrice?.currencyCode ??
+  firstLine?.currentPrice?.currencyCode ??
+  extraSettings?.currencyCode ??               
+  "USD";
+  // const currencyCodeFallback =
+  // extraSettings?.currencyCode ??  
+  //   firstLine?.pricingPolicy?.basePrice?.currencyCode ??
+  //   firstLine?.currentPrice?.currencyCode ??
+  //   (await getShopCurrencyCode(admin)) ??
+  //   "USD";
 
   const lineItems = [];
 

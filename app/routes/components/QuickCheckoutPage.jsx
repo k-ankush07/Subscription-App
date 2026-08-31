@@ -1,15 +1,69 @@
 import {
   Card, Page, Button, Thumbnail, InlineStack, BlockStack,
   Text, Badge, Select, TextField, Divider, Toast, Frame,
-  Checkbox, Collapsible
+  Checkbox, Collapsible, Box
 } from '@shopify/polaris';
-import { DeleteIcon, ChevronUpIcon, ChevronDownIcon } from '@shopify/polaris-icons';
-import React, { useCallback, useState } from 'react';
+import { DeleteIcon, ChevronUpIcon, ChevronDownIcon, ClipboardIcon } from '@shopify/polaris-icons';
+import React, { useCallback, useMemo, useState } from 'react';
 import { useAppBridge } from '@shopify/app-bridge-react';
 import { useNavigate } from "react-router";
 
 const API = import.meta.env.VITE_API_URL;
 const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
+
+// Extracts the trailing numeric id from a Shopify GID
+// e.g. "gid://shopify/ProductVariant/47460524818644" -> "47460524818644"
+const extractNumericId = (gid) => {
+  if (!gid) return "";
+  const match = String(gid).match(/(\d+)$/);
+  return match ? match[1] : String(gid);
+};
+
+// Builds the "items[i][id]=..&items[i][quantity]=..&items[i][selling_plan]=.." query string
+const buildItemsQueryString = (products) => {
+  const parts = [];
+  let index = 0;
+  (products || []).forEach((product) => {
+    (product.variants || []).forEach((variant) => {
+      const numericId = extractNumericId(variant.variantsId);
+      const qty = variant.quantity || 1;
+      if (!numericId) return;
+      parts.push(`items[${index}][id]=${numericId}`);
+      parts.push(`items[${index}][quantity]=${qty}`);
+      if (variant.purchaseOption && variant.purchaseOption !== "onetime") {
+        const sellingPlanNumericId = extractNumericId(variant.purchaseOption);
+        if (sellingPlanNumericId) {
+          parts.push(`items[${index}][selling_plan]=${sellingPlanNumericId}`);
+        }
+      }
+      index++;
+    });
+  });
+  return parts.join("&");
+};
+
+// Builds the full quick-checkout link:
+// https://{shop}/cart/clear?return_to=/cart/add?items[...]&return_to=/checkout?discount=CODE
+// When removePreviousDiscounts is false, /cart/clear is skipped so the existing cart is preserved.
+const buildCheckoutLink = (shop, products, discountCode, removePreviousDiscounts) => {
+  if (!shop) return "";
+
+  const itemsQuery = buildItemsQueryString(products);
+  if (!itemsQuery) return "";
+
+  const trimmedDiscount = (discountCode || "").trim();
+  const checkoutPath = trimmedDiscount
+    ? `/checkout?discount=${encodeURIComponent(trimmedDiscount)}`
+    : `/checkout`;
+
+  const cartAddPath = `/cart/add?${itemsQuery}&return_to=${encodeURIComponent(checkoutPath)}`;
+
+  if (removePreviousDiscounts) {
+    return `https://${shop}/cart/clear?return_to=${encodeURIComponent(cartAddPath)}`;
+  }
+
+  return `https://${shop}${cartAddPath}`;
+};
 
 const DEFAULT_CUSTOMER = {
   firstName: "",
@@ -60,6 +114,24 @@ function QuickCheckoutPage({ shop, plans = [], initialData = null, linkId = null
     !/^[A-Za-z]{2}$/.test(customer.countryCode.trim())
       ? "Enter a 2-letter ISO country code"
       : undefined;
+
+  const checkoutLink = useMemo(
+    () => buildCheckoutLink(shop, selectedProducts, discountCode, removePreviousDiscounts),
+    [shop, selectedProducts, discountCode, removePreviousDiscounts]
+  );
+
+  const handleCopyLink = async () => {
+    if (!checkoutLink) return;
+    try {
+      await navigator.clipboard.writeText(checkoutLink);
+      setToastMessage("Link copied to clipboard");
+      setToastActive(true);
+    } catch (err) {
+      console.error("Copy failed:", err);
+      setToastMessage("Could not copy link");
+      setToastActive(true);
+    }
+  };
 
   const getPlansForVariant = (productId, variantId) => {
     const matchingPlans = plans.filter((plan) => {
@@ -211,7 +283,7 @@ function QuickCheckoutPage({ shop, plans = [], initialData = null, linkId = null
       )}
       <Page
         title={isEditMode ? (initialData?.name || "Edit link") : "Create quick checkout link"}
-        backAction={isEditMode ? { onAction: () => navigate("/app/quick-checkout-link") } : undefined}
+        backAction={isEditMode ? { onAction: () => navigate("/app/quick-checkout-links") } : undefined}
       >
         <Card>
           <BlockStack gap="400">
@@ -291,6 +363,33 @@ function QuickCheckoutPage({ shop, plans = [], initialData = null, linkId = null
                 <Button onClick={handleSelectProducts}>Select products</Button>
               </BlockStack>
             )}
+          </BlockStack>
+        </Card>
+
+        <Card>
+          <BlockStack gap="300">
+            <Text as="h2" variant="headingMd">Checkout link</Text>
+
+            <Box
+              padding="300"
+              background="bg-surface-secondary"
+              borderRadius="200"
+              borderWidth="025"
+              borderColor="border"
+            >
+              <Text as="span" variant="bodySm" tone="subdued" truncate>
+                {checkoutLink || "Select products to generate a checkout link"}
+              </Text>
+            </Box>
+
+            <Button
+              icon={ClipboardIcon}
+              onClick={handleCopyLink}
+              disabled={!checkoutLink}
+              fullWidth
+            >
+              Copy link
+            </Button>
           </BlockStack>
         </Card>
 
