@@ -1,39 +1,41 @@
 import {
   Card, Page, Button, Thumbnail, InlineStack, BlockStack,
-  Text, Badge, Select, TextField, Divider
+  Text, Badge, Select, TextField, Divider, Toast, Frame
 } from '@shopify/polaris';
 import { DeleteIcon } from '@shopify/polaris-icons';
 import React, { useCallback, useState } from 'react';
 import { useAppBridge } from '@shopify/app-bridge-react';
+import { useNavigate } from "react-router"; // 👈 naya import
+
+const API = import.meta.env.VITE_API_URL;
+const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
 
 function QuickCheckoutPage({ shop, plans = [] }) {
   const shopify = useAppBridge();
+  const navigate = useNavigate(); // 👈 naya
   const [selectedProducts, setSelectedProducts] = useState([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const [toastActive, setToastActive] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
 
-  // ---- Variant-level match: is product+variant par jo selling plans lage hain ----
   const getPlansForVariant = (productId, variantId) => {
     const matchingPlans = plans.filter((plan) => {
       if (plan.status === "draft") return false;
-
       const product = (plan.products || []).find((p) => p.id === productId);
       if (!product) return false;
-
       return (product.variants || []).some((v) => v.variantsId === variantId);
     });
 
     return matchingPlans
       .flatMap((plan) =>
         (plan.sellingPlans || []).map((sp) => ({
-          label:
-            sp.name ||
-            `Every ${sp.intervalCount} ${sp.interval?.toLowerCase()}`,
+          label: sp.name || `Every ${sp.intervalCount} ${sp.interval?.toLowerCase()}`,
           value: sp.shopifySellingPlanId,
         }))
       )
       .filter((opt) => opt.value);
   };
 
-  // ---- Product picker khulne par purane selections pass karein ----
   const handleSelectProducts = useCallback(async () => {
     const selectionIds = selectedProducts.map((p) => ({
       id: p.id,
@@ -64,12 +66,10 @@ function QuickCheckoutPage({ shop, plans = [] }) {
     }
   }, [shopify, selectedProducts]);
 
-  // ---- Poore product ko remove karein ----
   const handleRemoveProduct = (productId) => {
     setSelectedProducts((prev) => prev.filter((p) => p.id !== productId));
   };
 
-  // ---- Sirf ek variant remove karein ----
   const handleRemoveVariant = (productId, variantId) => {
     setSelectedProducts((prev) =>
       prev
@@ -82,7 +82,6 @@ function QuickCheckoutPage({ shop, plans = [] }) {
     );
   };
 
-  // ---- Variant ka field (purchaseOption / quantity) update karein ----
   const updateVariantField = (productId, variantId, field, value) => {
     setSelectedProducts((prev) =>
       prev.map((p) =>
@@ -98,89 +97,137 @@ function QuickCheckoutPage({ shop, plans = [] }) {
     );
   };
 
+  // ---- Save button: DB me store karein aur redirect karein ----
+  const handleSave = async () => {
+    if (selectedProducts.length === 0) {
+      setToastMessage("Please select at least one product");
+      setToastActive(true);
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const response = await fetch(`${API}/checkout-links/create`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": SECRET_KEY,
+        },
+        body: JSON.stringify({
+          shop,
+          name: "Link #1",
+          products: selectedProducts,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // 👇 yahi hai wo redirect jo aapko chahiye tha
+        navigate(`/app/quick-checkout-links/${data.data._id}`);
+      } else {
+        setToastMessage(data.message || "Failed to save link");
+        setToastActive(true);
+      }
+    } catch (err) {
+      console.error("Save error:", err);
+      setToastMessage("Something went wrong while saving");
+      setToastActive(true);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
-    <Page title="Create quick checkout link">
-      <Card>
-        <BlockStack gap="400">
-          <InlineStack align="space-between" blockAlign="center">
-            <Text as="h2" variant="headingMd">Products</Text>
-            <InlineStack gap="200">
-              {selectedProducts.length > 0 && (
-                <Badge tone="info">{selectedProducts.length} selected</Badge>
-              )}
-              <Button variant="plain" onClick={handleSelectProducts}>
-                Select products
-              </Button>
+    <Frame>
+      {toastActive && (
+        <Toast content={toastMessage} onDismiss={() => setToastActive(false)} />
+      )}
+      <Page title="Create quick checkout link">
+        <Card>
+          <BlockStack gap="400">
+            <InlineStack align="space-between" blockAlign="center">
+              <Text as="h2" variant="headingMd">Products</Text>
+              <InlineStack gap="200">
+                {selectedProducts.length > 0 && (
+                  <Badge tone="info">{selectedProducts.length} selected</Badge>
+                )}
+                <Button variant="plain" onClick={handleSelectProducts}>
+                  Select products
+                </Button>
+              </InlineStack>
             </InlineStack>
-          </InlineStack>
 
-          {selectedProducts.length > 0 ? (
-            selectedProducts.map((product, index) => (
-              <BlockStack gap="300" key={product.id}>
-                {index > 0 && <Divider />}
+            {selectedProducts.length > 0 ? (
+              selectedProducts.map((product, index) => (
+                <BlockStack gap="300" key={product.id}>
+                  {index > 0 && <Divider />}
 
-                <InlineStack align="space-between" blockAlign="center">
-                  <InlineStack gap="300" blockAlign="center">
-                    <Thumbnail source={product.ProductImage} alt={product.title} size="small" />
-                    <Text fontWeight="medium">{product.title}</Text>
+                  <InlineStack align="space-between" blockAlign="center">
+                    <InlineStack gap="300" blockAlign="center">
+                      <Thumbnail source={product.ProductImage} alt={product.title} size="small" />
+                      <Text fontWeight="medium">{product.title}</Text>
+                    </InlineStack>
+                    <Button variant="plain" tone="critical" onClick={() => handleRemoveProduct(product.id)}>
+                      Remove
+                    </Button>
                   </InlineStack>
-                  <Button variant="plain" tone="critical" onClick={() => handleRemoveProduct(product.id)}>
-                    Remove
-                  </Button>
-                </InlineStack>
 
-                {product.variants.map((variant) => {
-                  const planOptions = getPlansForVariant(product.id, variant.variantsId);
+                  {product.variants.map((variant) => {
+                    const planOptions = getPlansForVariant(product.id, variant.variantsId);
 
-                  return (
-                    <BlockStack gap="200" key={variant.variantsId}>
-                      <InlineStack align="space-between" blockAlign="center">
-                        <Text as="p" variant="bodySm" tone="subdued">
-                          {variant.variantsTitle}
-                        </Text>
-                        <Button
-                          variant="plain"
-                          tone="critical"
-                          icon={DeleteIcon}
-                          onClick={() => handleRemoveVariant(product.id, variant.variantsId)}
+                    return (
+                      <BlockStack gap="200" key={variant.variantsId}>
+                        <InlineStack align="space-between" blockAlign="center">
+                          <Text as="p" variant="bodySm" tone="subdued">
+                            {variant.variantsTitle}
+                          </Text>
+                          <Button
+                            variant="plain"
+                            tone="critical"
+                            icon={DeleteIcon}
+                            onClick={() => handleRemoveVariant(product.id, variant.variantsId)}
+                          />
+                        </InlineStack>
+
+                        <Select
+                          label="Purchase option"
+                          options={[
+                            { label: "One-time purchase", value: "onetime" },
+                            ...planOptions,
+                          ]}
+                          value={variant.purchaseOption}
+                          onChange={(value) =>
+                            updateVariantField(product.id, variant.variantsId, "purchaseOption", value)
+                          }
                         />
-                      </InlineStack>
 
-                      <Select
-                        label="Purchase option"
-                        options={[
-                          { label: "One-time purchase", value: "onetime" },
-                          ...planOptions,
-                        ]}
-                        value={variant.purchaseOption}
-                        onChange={(value) =>
-                          updateVariantField(product.id, variant.variantsId, "purchaseOption", value)
-                        }
-                      />
-
-                      <TextField
-                        label="Quantity"
-                        type="number"
-                        min={1}
-                        value={variant.quantity}
-                        onChange={(value) =>
-                          updateVariantField(product.id, variant.variantsId, "quantity", value)
-                        }
-                      />
-                    </BlockStack>
-                  );
-                })}
+                        <TextField
+                          label="Quantity"
+                          type="number"
+                          min={1}
+                          value={variant.quantity}
+                          onChange={(value) =>
+                            updateVariantField(product.id, variant.variantsId, "quantity", value)
+                          }
+                        />
+                      </BlockStack>
+                    );
+                  })}
+                </BlockStack>
+              ))
+            ) : (
+              <BlockStack gap="300">
+                <Text as="p" tone="subdued">No products selected</Text>
+                <Button onClick={handleSelectProducts}>Select products</Button>
               </BlockStack>
-            ))
-          ) : (
-            <BlockStack gap="300">
-              <Text as="p" tone="subdued">No products selected</Text>
-              <Button onClick={handleSelectProducts}>Select products</Button>
-            </BlockStack>
-          )}
-        </BlockStack>
-      </Card>
-    </Page>
+            )}
+          </BlockStack>
+        </Card>
+
+        <Button loading={isSaving} onClick={handleSave}>Save</Button>
+      </Page>
+    </Frame>
   );
 }
 
