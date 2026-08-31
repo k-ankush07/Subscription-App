@@ -6,9 +6,30 @@ import { DeleteIcon } from '@shopify/polaris-icons';
 import React, { useCallback, useState } from 'react';
 import { useAppBridge } from '@shopify/app-bridge-react';
 
-function QuickCheckoutPage({ shop }) {
+function QuickCheckoutPage({ shop, plans = [] }) {
   const shopify = useAppBridge();
   const [selectedProducts, setSelectedProducts] = useState([]);
+
+  // ---- Kisi product ke liye jo bhi selling plans assign hain, wo nikalein ----
+  const getPlansForProduct = (productId) => {
+    const matchingPlans = plans.filter(
+      (plan) =>
+        plan.status !== "draft" &&
+        Array.isArray(plan.products) &&
+        plan.products.some((p) => p.id === productId)
+    );
+
+    return matchingPlans
+      .flatMap((plan) =>
+        (plan.sellingPlans || []).map((sp) => ({
+          label:
+            sp.name ||
+            `Every ${sp.intervalCount} ${sp.interval?.toLowerCase()}`,
+          value: sp.shopifySellingPlanId,
+        }))
+      )
+      .filter((opt) => opt.value);
+  };
 
   // ---- Product picker khulne par purane selections pass karein ----
   const handleSelectProducts = useCallback(async () => {
@@ -92,56 +113,63 @@ function QuickCheckoutPage({ shop }) {
           </InlineStack>
 
           {selectedProducts.length > 0 ? (
-            selectedProducts.map((product, index) => (
-              <BlockStack gap="300" key={product.id}>
-                {index > 0 && <Divider />}
+            selectedProducts.map((product, index) => {
+              const planOptions = getPlansForProduct(product.id);
 
-                <InlineStack align="space-between" blockAlign="center">
-                  <InlineStack gap="300" blockAlign="center">
-                    <Thumbnail source={product.ProductImage} alt={product.title} size="small" />
-                    <Text fontWeight="medium">{product.title}</Text>
-                  </InlineStack>
-                  <Button variant="plain" tone="critical" onClick={() => handleRemoveProduct(product.id)}>
-                    Remove
-                  </Button>
-                </InlineStack>
+              return (
+                <BlockStack gap="300" key={product.id}>
+                  {index > 0 && <Divider />}
 
-                {product.variants.map((variant) => (
-                  <BlockStack gap="200" key={variant.variantsId}>
-                    <InlineStack align="space-between" blockAlign="center">
-                      <Text as="p" variant="bodySm" tone="subdued">
-                        {variant.variantsTitle}
-                      </Text>
-                      <Button
-                        variant="plain"
-                        tone="critical"
-                        icon={DeleteIcon}
-                        onClick={() => handleRemoveVariant(product.id, variant.variantsId)}
-                      />
+                  <InlineStack align="space-between" blockAlign="center">
+                    <InlineStack gap="300" blockAlign="center">
+                      <Thumbnail source={product.ProductImage} alt={product.title} size="small" />
+                      <Text fontWeight="medium">{product.title}</Text>
                     </InlineStack>
+                    <Button variant="plain" tone="critical" onClick={() => handleRemoveProduct(product.id)}>
+                      Remove
+                    </Button>
+                  </InlineStack>
 
-                    <Select
-                      label="Purchase option"
-                      options={[{ label: "One-time purchase", value: "onetime" }]}
-                      value={variant.purchaseOption}
-                      onChange={(value) =>
-                        updateVariantField(product.id, variant.variantsId, "purchaseOption", value)
-                      }
-                    />
+                  {product.variants.map((variant) => (
+                    <BlockStack gap="200" key={variant.variantsId}>
+                      <InlineStack align="space-between" blockAlign="center">
+                        <Text as="p" variant="bodySm" tone="subdued">
+                          {variant.variantsTitle}
+                        </Text>
+                        <Button
+                          variant="plain"
+                          tone="critical"
+                          icon={DeleteIcon}
+                          onClick={() => handleRemoveVariant(product.id, variant.variantsId)}
+                        />
+                      </InlineStack>
 
-                    <TextField
-                      label="Quantity"
-                      type="number"
-                      min={1}
-                      value={variant.quantity}
-                      onChange={(value) =>
-                        updateVariantField(product.id, variant.variantsId, "quantity", value)
-                      }
-                    />
-                  </BlockStack>
-                ))}
-              </BlockStack>
-            ))
+                      <Select
+                        label="Purchase option"
+                        options={[
+                          { label: "One-time purchase", value: "onetime" },
+                          ...planOptions,
+                        ]}
+                        value={variant.purchaseOption}
+                        onChange={(value) =>
+                          updateVariantField(product.id, variant.variantsId, "purchaseOption", value)
+                        }
+                      />
+
+                      <TextField
+                        label="Quantity"
+                        type="number"
+                        min={1}
+                        value={variant.quantity}
+                        onChange={(value) =>
+                          updateVariantField(product.id, variant.variantsId, "quantity", value)
+                        }
+                      />
+                    </BlockStack>
+                  ))}
+                </BlockStack>
+              );
+            })
           ) : (
             <BlockStack gap="300">
               <Text as="p" tone="subdued">No products selected</Text>
