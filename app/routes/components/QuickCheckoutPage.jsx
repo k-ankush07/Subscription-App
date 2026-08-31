@@ -1,25 +1,80 @@
 import {
-  Card, Page, Button, Thumbnail, InlineStack, BlockStack,
-  Text, Badge, Select, TextField, Divider, Toast, Frame,
-  Checkbox, Collapsible, Box
-} from '@shopify/polaris';
-import { DeleteIcon, ChevronUpIcon, ChevronDownIcon, ClipboardIcon } from '@shopify/polaris-icons';
-import React, { useCallback, useMemo, useState } from 'react';
-import { useAppBridge } from '@shopify/app-bridge-react';
+  Card,
+  Page,
+  Button,
+  Thumbnail,
+  InlineStack,
+  BlockStack,
+  Text,
+  Badge,
+  Select,
+  TextField,
+  Divider,
+  Toast,
+  Frame,
+  Checkbox,
+  Collapsible,
+  Box,
+} from "@shopify/polaris";
+import {
+  DeleteIcon,
+  ChevronUpIcon,
+  ChevronDownIcon,
+  ClipboardIcon,
+} from "@shopify/polaris-icons";
+import React, { useCallback, useMemo, useState } from "react";
+import { useAppBridge } from "@shopify/app-bridge-react";
 import { useNavigate } from "react-router";
 
 const API = import.meta.env.VITE_API_URL;
 const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
 
-// Extracts the trailing numeric id from a Shopify GID
-// e.g. "gid://shopify/ProductVariant/47460524818644" -> "47460524818644"
 const extractNumericId = (gid) => {
   if (!gid) return "";
   const match = String(gid).match(/(\d+)$/);
   return match ? match[1] : String(gid);
 };
 
-// Builds the "items[i][id]=..&items[i][quantity]=..&items[i][selling_plan]=.." query string
+const buildShippingAddressParams = (customer) => {
+  if (!customer) return "";
+  const parts = [];
+
+  const addField = (key, value) => {
+    if (value && String(value).trim() !== "") {
+      parts.push(
+        `checkout[shipping_address][${key}]=${encodeURIComponent(value.trim())}`,
+      );
+    }
+  };
+
+  addField("first_name", customer.firstName);
+  addField("last_name", customer.lastName);
+  addField("company", customer.companyName);
+  addField("address1", customer.address1);
+  addField("address2", customer.address2);
+  addField("city", customer.city);
+  addField("province", customer.province);
+  addField("zip", customer.zip);
+
+  const countryValue = customer.countryCode?.trim() || customer.country;
+  addField("country", countryValue);
+
+  return parts.join("&");
+};
+const buildAttributesParams = (properties) => {
+  const parts = [];
+  (properties || []).forEach((prop) => {
+    const name = (prop.name || "").trim();
+    const value = (prop.value || "").trim();
+    if (name && value) {
+      parts.push(
+        `attributes[${encodeURIComponent(name)}]=${encodeURIComponent(value)}`,
+      );
+    }
+  });
+  return parts.join("&");
+};
+
 const buildItemsQueryString = (products) => {
   const parts = [];
   let index = 0;
@@ -42,19 +97,33 @@ const buildItemsQueryString = (products) => {
   return parts.join("&");
 };
 
-// Builds the full quick-checkout link:
-// https://{shop}/cart/clear?return_to=/cart/add?items[...]&return_to=/checkout?discount=CODE
-// When removePreviousDiscounts is false, /cart/clear is skipped so the existing cart is preserved.
-const buildCheckoutLink = (shop, products, discountCode, removePreviousDiscounts) => {
+const buildCheckoutLink = (
+  shop,
+  products,
+  discountCode,
+  removePreviousDiscounts,
+  customer,
+  properties,
+) => {
   if (!shop) return "";
 
   const itemsQuery = buildItemsQueryString(products);
   if (!itemsQuery) return "";
 
   const trimmedDiscount = (discountCode || "").trim();
-  const checkoutPath = trimmedDiscount
+  let checkoutPath = trimmedDiscount
     ? `/checkout?discount=${encodeURIComponent(trimmedDiscount)}`
     : `/checkout`;
+
+  const shippingAddressQuery = buildShippingAddressParams(customer);
+  if (shippingAddressQuery) {
+    checkoutPath += `${checkoutPath.includes("?") ? "&" : "?"}${shippingAddressQuery}`;
+  }
+
+  const attributesQuery = buildAttributesParams(properties);
+  if (attributesQuery) {
+    checkoutPath += `${checkoutPath.includes("?") ? "&" : "?"}${attributesQuery}`;
+  }
 
   const cartAddPath = `/cart/add?${itemsQuery}&return_to=${encodeURIComponent(checkoutPath)}`;
 
@@ -78,25 +147,55 @@ const DEFAULT_CUSTOMER = {
   countryCode: "",
 };
 
-function QuickCheckoutPage({ shop, plans = [], initialData = null, linkId = null }) {
+function QuickCheckoutPage({
+  shop,
+  plans = [],
+  initialData = null,
+  linkId = null,
+}) {
   const shopify = useAppBridge();
   const navigate = useNavigate();
 
   const isEditMode = Boolean(linkId);
 
   const [selectedProducts, setSelectedProducts] = useState(
-    initialData?.products || []
+    initialData?.products || [],
   );
   const [isSaving, setIsSaving] = useState(false);
   const [toastActive, setToastActive] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
+  const [propertiesOpen, setPropertiesOpen] = useState(true);
+  const [properties, setProperties] = useState(
+    initialData?.properties?.length
+      ? initialData.properties
+      : [{ id: crypto.randomUUID(), name: "", value: "" }],
+  );
+
+  const handleAddProperty = () => {
+    setProperties((prev) => [
+      ...prev,
+      { id: crypto.randomUUID(), name: "", value: "" },
+    ]);
+  };
+
+  const handleRemoveProperty = (id) => {
+    setProperties((prev) => prev.filter((p) => p.id !== id));
+  };
+
+  const updatePropertyField = (id, field, value) => {
+    setProperties((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, [field]: value } : p)),
+    );
+  };
 
   // Discount code section state
   const [discountOpen, setDiscountOpen] = useState(true);
   const [removePreviousDiscounts, setRemovePreviousDiscounts] = useState(
-    initialData?.removePreviousDiscounts ?? true
+    initialData?.removePreviousDiscounts ?? true,
   );
-  const [discountCode, setDiscountCode] = useState(initialData?.discountCode || "");
+  const [discountCode, setDiscountCode] = useState(
+    initialData?.discountCode || "",
+  );
 
   // Customer information section state
   const [customerOpen, setCustomerOpen] = useState(true);
@@ -116,10 +215,24 @@ function QuickCheckoutPage({ shop, plans = [], initialData = null, linkId = null
       : undefined;
 
   const checkoutLink = useMemo(
-    () => buildCheckoutLink(shop, selectedProducts, discountCode, removePreviousDiscounts),
-    [shop, selectedProducts, discountCode, removePreviousDiscounts]
+    () =>
+      buildCheckoutLink(
+        shop,
+        selectedProducts,
+        discountCode,
+        removePreviousDiscounts,
+        customer,
+        properties,
+      ),
+    [
+      shop,
+      selectedProducts,
+      discountCode,
+      removePreviousDiscounts,
+      customer,
+      properties,
+    ],
   );
-
   const handleCopyLink = async () => {
     if (!checkoutLink) return;
     try {
@@ -144,9 +257,11 @@ function QuickCheckoutPage({ shop, plans = [], initialData = null, linkId = null
     return matchingPlans
       .flatMap((plan) =>
         (plan.sellingPlans || []).map((sp) => ({
-          label: sp.name || `Every ${sp.intervalCount} ${sp.interval?.toLowerCase()}`,
+          label:
+            sp.name ||
+            `Every ${sp.intervalCount} ${sp.interval?.toLowerCase()}`,
           value: sp.shopifySellingPlanId,
-        }))
+        })),
       )
       .filter((opt) => opt.value);
   };
@@ -190,10 +305,13 @@ function QuickCheckoutPage({ shop, plans = [], initialData = null, linkId = null
       prev
         .map((p) =>
           p.id === productId
-            ? { ...p, variants: p.variants.filter((v) => v.variantsId !== variantId) }
-            : p
+            ? {
+                ...p,
+                variants: p.variants.filter((v) => v.variantsId !== variantId),
+              }
+            : p,
         )
-        .filter((p) => p.variants.length > 0)
+        .filter((p) => p.variants.length > 0),
     );
   };
 
@@ -204,11 +322,11 @@ function QuickCheckoutPage({ shop, plans = [], initialData = null, linkId = null
           ? {
               ...p,
               variants: p.variants.map((v) =>
-                v.variantsId === variantId ? { ...v, [field]: value } : v
+                v.variantsId === variantId ? { ...v, [field]: value } : v,
               ),
             }
-          : p
-      )
+          : p,
+      ),
     );
   };
 
@@ -234,6 +352,9 @@ function QuickCheckoutPage({ shop, plans = [], initialData = null, linkId = null
         discountCode: discountCode || "",
         removePreviousDiscounts,
         customer,
+        properties: properties
+          .filter((p) => p.name.trim() && p.value.trim())
+          .map((p) => ({ name: p.name.trim(), value: p.value.trim() })),
       };
 
       const url = isEditMode
@@ -254,7 +375,7 @@ function QuickCheckoutPage({ shop, plans = [], initialData = null, linkId = null
 
       if (data.success) {
         setToastMessage(
-          isEditMode ? "Link updated successfully" : "Link saved successfully"
+          isEditMode ? "Link updated successfully" : "Link saved successfully",
         );
         setToastActive(true);
 
@@ -282,13 +403,23 @@ function QuickCheckoutPage({ shop, plans = [], initialData = null, linkId = null
         <Toast content={toastMessage} onDismiss={() => setToastActive(false)} />
       )}
       <Page
-        title={isEditMode ? (initialData?.name || "Edit link") : "Create quick checkout link"}
-        backAction={isEditMode ? { onAction: () => navigate("/app/quick-checkout-links") } : undefined}
+        title={
+          isEditMode
+            ? initialData?.name || "Edit link"
+            : "Create quick checkout link"
+        }
+        backAction={
+          isEditMode
+            ? { onAction: () => navigate("/app/quick-checkout-links") }
+            : undefined
+        }
       >
         <Card>
           <BlockStack gap="400">
             <InlineStack align="space-between" blockAlign="center">
-              <Text as="h2" variant="headingMd">Products</Text>
+              <Text as="h2" variant="headingMd">
+                Products
+              </Text>
               <InlineStack gap="200">
                 {selectedProducts.length > 0 && (
                   <Badge tone="info">{selectedProducts.length} selected</Badge>
@@ -306,16 +437,27 @@ function QuickCheckoutPage({ shop, plans = [], initialData = null, linkId = null
 
                   <InlineStack align="space-between" blockAlign="center">
                     <InlineStack gap="300" blockAlign="center">
-                      <Thumbnail source={product.ProductImage} alt={product.title} size="small" />
+                      <Thumbnail
+                        source={product.ProductImage}
+                        alt={product.title}
+                        size="small"
+                      />
                       <Text fontWeight="medium">{product.title}</Text>
                     </InlineStack>
-                    <Button variant="plain" tone="critical" onClick={() => handleRemoveProduct(product.id)}>
+                    <Button
+                      variant="plain"
+                      tone="critical"
+                      onClick={() => handleRemoveProduct(product.id)}
+                    >
                       Remove
                     </Button>
                   </InlineStack>
 
                   {product.variants.map((variant) => {
-                    const planOptions = getPlansForVariant(product.id, variant.variantsId);
+                    const planOptions = getPlansForVariant(
+                      product.id,
+                      variant.variantsId,
+                    );
 
                     return (
                       <BlockStack gap="200" key={variant.variantsId}>
@@ -327,7 +469,12 @@ function QuickCheckoutPage({ shop, plans = [], initialData = null, linkId = null
                             variant="plain"
                             tone="critical"
                             icon={DeleteIcon}
-                            onClick={() => handleRemoveVariant(product.id, variant.variantsId)}
+                            onClick={() =>
+                              handleRemoveVariant(
+                                product.id,
+                                variant.variantsId,
+                              )
+                            }
                           />
                         </InlineStack>
 
@@ -339,7 +486,12 @@ function QuickCheckoutPage({ shop, plans = [], initialData = null, linkId = null
                           ]}
                           value={variant.purchaseOption}
                           onChange={(value) =>
-                            updateVariantField(product.id, variant.variantsId, "purchaseOption", value)
+                            updateVariantField(
+                              product.id,
+                              variant.variantsId,
+                              "purchaseOption",
+                              value,
+                            )
                           }
                         />
 
@@ -349,7 +501,12 @@ function QuickCheckoutPage({ shop, plans = [], initialData = null, linkId = null
                           min={1}
                           value={variant.quantity}
                           onChange={(value) =>
-                            updateVariantField(product.id, variant.variantsId, "quantity", value)
+                            updateVariantField(
+                              product.id,
+                              variant.variantsId,
+                              "quantity",
+                              value,
+                            )
                           }
                         />
                       </BlockStack>
@@ -359,7 +516,9 @@ function QuickCheckoutPage({ shop, plans = [], initialData = null, linkId = null
               ))
             ) : (
               <BlockStack gap="300">
-                <Text as="p" tone="subdued">No products selected</Text>
+                <Text as="p" tone="subdued">
+                  No products selected
+                </Text>
                 <Button onClick={handleSelectProducts}>Select products</Button>
               </BlockStack>
             )}
@@ -368,7 +527,9 @@ function QuickCheckoutPage({ shop, plans = [], initialData = null, linkId = null
 
         <Card>
           <BlockStack gap="300">
-            <Text as="h2" variant="headingMd">Checkout link</Text>
+            <Text as="h2" variant="headingMd">
+              Checkout link
+            </Text>
 
             <Box
               padding="300"
@@ -401,7 +562,9 @@ function QuickCheckoutPage({ shop, plans = [], initialData = null, linkId = null
               onClick={() => setDiscountOpen((prev) => !prev)}
             >
               <InlineStack gap="200" blockAlign="center">
-                <Text as="h2" variant="headingMd">Discount code</Text>
+                <Text as="h2" variant="headingMd">
+                  Discount code
+                </Text>
                 <Badge tone="new">Optional</Badge>
               </InlineStack>
               <Button
@@ -438,7 +601,9 @@ function QuickCheckoutPage({ shop, plans = [], initialData = null, linkId = null
                   value={discountCode}
                   onChange={(value) => {
                     setDiscountCode(value);
-                    setRemovePreviousDiscounts(value.trim().length > 0 ? false : true);
+                    setRemovePreviousDiscounts(
+                      value.trim().length > 0 ? false : true,
+                    );
                   }}
                   autoComplete="off"
                   disabled={removePreviousDiscounts}
@@ -457,7 +622,9 @@ function QuickCheckoutPage({ shop, plans = [], initialData = null, linkId = null
               onClick={() => setCustomerOpen((prev) => !prev)}
             >
               <InlineStack gap="200" blockAlign="center">
-                <Text as="h2" variant="headingMd">Customer information</Text>
+                <Text as="h2" variant="headingMd">
+                  Customer information
+                </Text>
                 <Badge tone="new">Optional</Badge>
               </InlineStack>
               <Button
@@ -468,14 +635,19 @@ function QuickCheckoutPage({ shop, plans = [], initialData = null, linkId = null
               />
             </InlineStack>
 
-            <Collapsible open={customerOpen} id="customer-information-collapsible">
+            <Collapsible
+              open={customerOpen}
+              id="customer-information-collapsible"
+            >
               <BlockStack gap="300">
                 <InlineStack gap="300" wrap={false}>
                   <div style={{ flex: 1 }}>
                     <TextField
                       label="First name"
                       value={customer.firstName}
-                      onChange={(value) => updateCustomerField("firstName", value)}
+                      onChange={(value) =>
+                        updateCustomerField("firstName", value)
+                      }
                       autoComplete="off"
                     />
                   </div>
@@ -483,7 +655,9 @@ function QuickCheckoutPage({ shop, plans = [], initialData = null, linkId = null
                     <TextField
                       label="Last name"
                       value={customer.lastName}
-                      onChange={(value) => updateCustomerField("lastName", value)}
+                      onChange={(value) =>
+                        updateCustomerField("lastName", value)
+                      }
                       autoComplete="off"
                     />
                   </div>
@@ -516,7 +690,9 @@ function QuickCheckoutPage({ shop, plans = [], initialData = null, linkId = null
                     <TextField
                       label="State / Province"
                       value={customer.province}
-                      onChange={(value) => updateCustomerField("province", value)}
+                      onChange={(value) =>
+                        updateCustomerField("province", value)
+                      }
                       autoComplete="off"
                     />
                   </div>
@@ -535,7 +711,9 @@ function QuickCheckoutPage({ shop, plans = [], initialData = null, linkId = null
                     <TextField
                       label="Country"
                       value={customer.country}
-                      onChange={(value) => updateCustomerField("country", value)}
+                      onChange={(value) =>
+                        updateCustomerField("country", value)
+                      }
                       autoComplete="off"
                     />
                   </div>
@@ -544,14 +722,18 @@ function QuickCheckoutPage({ shop, plans = [], initialData = null, linkId = null
                 <TextField
                   label="Company name"
                   value={customer.companyName}
-                  onChange={(value) => updateCustomerField("companyName", value)}
+                  onChange={(value) =>
+                    updateCustomerField("companyName", value)
+                  }
                   autoComplete="off"
                 />
 
                 <TextField
                   label="Country code"
                   value={customer.countryCode}
-                  onChange={(value) => updateCustomerField("countryCode", value)}
+                  onChange={(value) =>
+                    updateCustomerField("countryCode", value)
+                  }
                   autoComplete="off"
                   error={countryCodeError}
                   helpText="Use the 2-letter ISO code for the country (e.g., DE, FR, AU, JP). Takes priority over Country field in the generated link."
@@ -560,7 +742,79 @@ function QuickCheckoutPage({ shop, plans = [], initialData = null, linkId = null
             </Collapsible>
           </BlockStack>
         </Card>
+        <Card>
+          <BlockStack gap="300">
+            <InlineStack
+              align="space-between"
+              blockAlign="center"
+              onClick={() => setPropertiesOpen((prev) => !prev)}
+            >
+              <InlineStack gap="200" blockAlign="center">
+                <Text as="h2" variant="headingMd">
+                  Order properties
+                </Text>
+                <Badge tone="new">Optional</Badge>
+              </InlineStack>
+              <Button
+                variant="plain"
+                icon={propertiesOpen ? ChevronUpIcon : ChevronDownIcon}
+                onClick={() => setPropertiesOpen((prev) => !prev)}
+                accessibilityLabel="Toggle order properties section"
+              />
+            </InlineStack>
 
+            <Collapsible
+              open={propertiesOpen}
+              id="order-properties-collapsible"
+            >
+              <BlockStack gap="300">
+                {properties.map((prop) => (
+                  <InlineStack
+                    gap="300"
+                    blockAlign="end"
+                    wrap={false}
+                    key={prop.id}
+                  >
+                    <div style={{ flex: 1 }}>
+                      <TextField
+                        label="Property name"
+                        value={prop.name}
+                        onChange={(value) =>
+                          updatePropertyField(prop.id, "name", value)
+                        }
+                        autoComplete="off"
+                        placeholder="e.g., gift"
+                      />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <TextField
+                        label="Property value"
+                        value={prop.value}
+                        onChange={(value) =>
+                          updatePropertyField(prop.id, "value", value)
+                        }
+                        autoComplete="off"
+                        placeholder="e.g., happy birthday"
+                      />
+                    </div>
+                    <Button
+                      icon={DeleteIcon}
+                      accessibilityLabel="Remove property"
+                      onClick={() => handleRemoveProperty(prop.id)}
+                      disabled={properties.length === 1}
+                    />
+                  </InlineStack>
+                ))}
+
+                <Box>
+                  <Button variant="plain" onClick={handleAddProperty}>
+                    + Add property
+                  </Button>
+                </Box>
+              </BlockStack>
+            </Collapsible>
+          </BlockStack>
+        </Card>
         <Button loading={isSaving} onClick={handleSave}>
           {isEditMode ? "Update" : "Save"}
         </Button>
