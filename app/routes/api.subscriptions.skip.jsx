@@ -5,6 +5,7 @@ import {
   getContractEmailData,
   getCustomerPortalBaseUrl,
   getShopName,
+    getShopEmail,
 } from "../lib/email-helpers.server";
 import { formatDate } from "./utils/formatDate.js"
 const CORS_HEADERS = {
@@ -156,10 +157,11 @@ export const action = async ({ request }) => {
 
     // --- email bhejna (best-effort — fail ho bhi jaye to skip response fail nahi hona chahiye) ---
     try {
-      const [emailData, portalBaseUrl, shopName] = await Promise.all([
+      const [emailData, portalBaseUrl, shopName,supportEmail] = await Promise.all([
         getContractEmailData(admin, contractId),
         getCustomerPortalBaseUrl(admin),
         getShopName(admin),
+         getShopEmail(admin),
       ]);
 
       if (emailData?.email && portalBaseUrl) {
@@ -178,6 +180,7 @@ export const action = async ({ request }) => {
           paymentLast4: emailData.paymentLast4,
           paymentBrand: emailData.paymentBrand, 
           manageUrl: `${portalBaseUrl}/subscriptions/${getNumericId(contractId)}`,
+          supportEmail,
         });
 
         await sendMail({

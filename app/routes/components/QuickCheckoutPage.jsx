@@ -25,125 +25,15 @@ import {
 import React, { useCallback, useMemo, useState } from "react";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { useNavigate } from "react-router";
+import {
+  buildCheckoutLink,
+} from "../utils/checkoutLink";
 let propertyIdCounter = 0;
 const generatePropertyId = () =>
   `prop_${Date.now()}_${propertyIdCounter++}_${Math.random().toString(36).slice(2, 8)}`;
 const API = import.meta.env.VITE_API_URL;
 const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
 
-const extractNumericId = (gid) => {
-  if (!gid) return "";
-  const match = String(gid).match(/(\d+)$/);
-  return match ? match[1] : String(gid);
-};
-
-const buildShippingAddressParams = (customer) => {
-  if (!customer) return "";
-  const parts = [];
-
-  const addField = (key, value) => {
-    if (value && String(value).trim() !== "") {
-      parts.push(
-        `checkout[shipping_address][${key}]=${encodeURIComponent(value.trim())}`,
-      );
-    }
-  };
-
-  addField("first_name", customer.firstName);
-  addField("last_name", customer.lastName);
-  addField("company", customer.companyName);
-  addField("address1", customer.address1);
-  addField("address2", customer.address2);
-  addField("city", customer.city);
-  addField("province", customer.province);
-  addField("zip", customer.zip);
-
-  const countryValue = customer.countryCode?.trim() || customer.country;
-  addField("country", countryValue);
-
-  return parts.join("&");
-};
-const buildAttributesParams = (properties) => {
-  const parts = [];
-  (properties || []).forEach((prop) => {
-    const name = (prop.name || "").trim();
-    const value = (prop.value || "").trim();
-    if (name && value) {
-      parts.push(
-        `attributes[${encodeURIComponent(name)}]=${encodeURIComponent(value)}`,
-      );
-    }
-  });
-  return parts.join("&");
-};
-const buildNoteParam = (note) => {
-  const trimmed = (note || "").trim();
-  return trimmed ? `note=${encodeURIComponent(trimmed)}` : "";
-};
-const buildItemsQueryString = (products) => {
-  const parts = [];
-  let index = 0;
-  (products || []).forEach((product) => {
-    (product.variants || []).forEach((variant) => {
-      const numericId = extractNumericId(variant.variantsId);
-      const qty = variant.quantity || 1;
-      if (!numericId) return;
-      parts.push(`items[${index}][id]=${numericId}`);
-      parts.push(`items[${index}][quantity]=${qty}`);
-      if (variant.purchaseOption && variant.purchaseOption !== "onetime") {
-        const sellingPlanNumericId = extractNumericId(variant.purchaseOption);
-        if (sellingPlanNumericId) {
-          parts.push(`items[${index}][selling_plan]=${sellingPlanNumericId}`);
-        }
-      }
-      index++;
-    });
-  });
-  return parts.join("&");
-};
-
-const buildCheckoutLink = (
-  shop,
-  products,
-  discountCode,
-  removePreviousDiscounts,
-  customer,
-  properties,
-  orderNote,
-) => {
-  if (!shop) return "";
-
-  const itemsQuery = buildItemsQueryString(products);
-  if (!itemsQuery) return "";
-
-  const trimmedDiscount = (discountCode || "").trim();
-  let checkoutPath = trimmedDiscount
-    ? `/checkout?discount=${encodeURIComponent(trimmedDiscount)}`
-    : `/checkout`;
-
-  const noteQuery = buildNoteParam(orderNote);
-  if (noteQuery) {
-    checkoutPath += `${checkoutPath.includes("?") ? "&" : "?"}${noteQuery}`;
-  }
-
-  const shippingAddressQuery = buildShippingAddressParams(customer);
-  if (shippingAddressQuery) {
-    checkoutPath += `${checkoutPath.includes("?") ? "&" : "?"}${shippingAddressQuery}`;
-  }
-
-  const attributesQuery = buildAttributesParams(properties);
-  if (attributesQuery) {
-    checkoutPath += `${checkoutPath.includes("?") ? "&" : "?"}${attributesQuery}`;
-  }
-
-  const cartAddPath = `/cart/add?${itemsQuery}&return_to=${encodeURIComponent(checkoutPath)}`;
-
-  if (removePreviousDiscounts) {
-    return `https://${shop}/cart/clear?return_to=${encodeURIComponent(cartAddPath)}`;
-  }
-
-  return `https://${shop}${cartAddPath}`;
-};
 
 const DEFAULT_CUSTOMER = {
   firstName: "",
@@ -211,6 +101,18 @@ function QuickCheckoutPage({
   // Discount code section state
   const [discountOpen, setDiscountOpen] = useState(true);
   const [orderNote, setOrderNote] = useState(initialData?.orderNote || "");
+  const [campaignOpen, setCampaignOpen] = useState(true);
+  const [campaignParams, setCampaignParams] = useState({
+    source: initialData?.campaignParams?.source || "",
+    medium: initialData?.campaignParams?.medium || "",
+    campaign: initialData?.campaignParams?.campaign || "",
+    term: initialData?.campaignParams?.term || "",
+    content: initialData?.campaignParams?.content || "",
+  });
+
+  const updateCampaignField = (field, value) => {
+    setCampaignParams((prev) => ({ ...prev, [field]: value }));
+  };
   const [removePreviousDiscounts, setRemovePreviousDiscounts] = useState(
     initialData?.removePreviousDiscounts ?? true,
   );
@@ -246,6 +148,7 @@ function QuickCheckoutPage({
         customer,
         properties,
         orderNote,
+        campaignParams,
       ),
     [
       shop,
@@ -255,6 +158,7 @@ function QuickCheckoutPage({
       customer,
       properties,
       orderNote,
+      campaignParams,
     ],
   );
   const handleCopyLink = async () => {
@@ -386,6 +290,13 @@ function QuickCheckoutPage({
           .filter((p) => p.name.trim() && p.value.trim())
           .map((p) => ({ name: p.name.trim(), value: p.value.trim() })),
         orderNote: orderNote.trim(),
+        campaignParams: {
+          source: campaignParams.source.trim(),
+          medium: campaignParams.medium.trim(),
+          campaign: campaignParams.campaign.trim(),
+          term: campaignParams.term.trim(),
+          content: campaignParams.content.trim(),
+        },
       };
 
       const url = isEditMode
@@ -644,7 +555,7 @@ function QuickCheckoutPage({
             </Collapsible>
           </BlockStack>
         </Card>
-
+        
         <Card>
           <BlockStack gap="300">
             <InlineStack
@@ -778,6 +689,81 @@ function QuickCheckoutPage({
             <InlineStack
               align="space-between"
               blockAlign="center"
+              onClick={() => setCampaignOpen((prev) => !prev)}
+            >
+              <InlineStack gap="200" blockAlign="center">
+                <Text as="h2" variant="headingMd">
+                  Campaign parameters
+                </Text>
+                <Badge tone="new">Optional</Badge>
+              </InlineStack>
+              <Button
+                variant="plain"
+                icon={campaignOpen ? ChevronUpIcon : ChevronDownIcon}
+                onClick={() => setCampaignOpen((prev) => !prev)}
+                accessibilityLabel="Toggle campaign parameters section"
+              />
+            </InlineStack>
+
+            <Collapsible
+              open={campaignOpen}
+              id="campaign-parameters-collapsible"
+            >
+              <BlockStack gap="300">
+                <TextField
+                  label="Campaign source"
+                  placeholder="e.g., facebook, google, newsletter"
+                  value={campaignParams.source}
+                  onChange={(value) => updateCampaignField("source", value)}
+                  autoComplete="off"
+                  helpText="Identifies the source of traffic (utm_source)"
+                />
+
+                <TextField
+                  label="Campaign medium"
+                  placeholder="e.g., email, cpc, social"
+                  value={campaignParams.medium}
+                  onChange={(value) => updateCampaignField("medium", value)}
+                  autoComplete="off"
+                  helpText="Identifies the medium (utm_medium)"
+                />
+
+                <TextField
+                  label="Campaign name"
+                  placeholder="e.g., summer_sale, product_launch"
+                  value={campaignParams.campaign}
+                  onChange={(value) => updateCampaignField("campaign", value)}
+                  autoComplete="off"
+                  helpText="Identifies the campaign (utm_campaign)"
+                />
+
+                <TextField
+                  label="Campaign term (optional)"
+                  placeholder="e.g., running+shoes"
+                  value={campaignParams.term}
+                  onChange={(value) => updateCampaignField("term", value)}
+                  autoComplete="off"
+                  helpText="Identifies paid search keywords (utm_term)"
+                />
+
+                <TextField
+                  label="Campaign content (optional)"
+                  placeholder="e.g., banner_ad, text_link"
+                  value={campaignParams.content}
+                  onChange={(value) => updateCampaignField("content", value)}
+                  autoComplete="off"
+                  helpText="Differentiates similar content or links (utm_content)"
+                />
+              </BlockStack>
+            </Collapsible>
+          </BlockStack>
+        </Card>
+
+        <Card>
+          <BlockStack gap="300">
+            <InlineStack
+              align="space-between"
+              blockAlign="center"
               onClick={() => setPropertiesOpen((prev) => !prev)}
             >
               <InlineStack gap="200" blockAlign="center">
@@ -825,7 +811,7 @@ function QuickCheckoutPage({
                           updatePropertyField(prop.id, "value", value)
                         }
                         autoComplete="off"
-                        placeholder="e.g.,  bhappyirthday"
+                        placeholder="e.g.,  Happy Birthday"
                       />
                     </div>
                     <Button

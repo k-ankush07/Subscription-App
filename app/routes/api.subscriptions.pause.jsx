@@ -87,8 +87,9 @@ export const action = async ({ request }) => {
     let emailData = null;
     let portalBaseUrl = null;
     let shopName = null;
+    let supportEmail = null;   
     try {
-      [emailData, portalBaseUrl, shopName] = await Promise.all([
+      [emailData, portalBaseUrl, shopName,supportEmail] = await Promise.all([
         getContractEmailData(admin, subscriptionContractId),
         getCustomerPortalBaseUrl(admin),
         getShopName(admin),

@@ -6,7 +6,7 @@ import { DeleteIcon, ClipboardIcon } from '@shopify/polaris-icons';
 import React, { useState } from 'react';
 import { useLoaderData, useNavigate, useFetcher } from 'react-router';
 import { authenticate } from "../shopify.server";
-
+import { buildCheckoutLink } from "./utils/checkoutLink";
 const API = import.meta.env.VITE_API_URL;
 const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
 
@@ -40,7 +40,7 @@ export const action = async ({ request }) => {
 };
 
 function QuickCheckoutAll() {
-  const { links } = useLoaderData();
+  const { shop,links } = useLoaderData();
   const navigate = useNavigate();
   const fetcher = useFetcher();
   const [toastActive, setToastActive] = useState(false);
@@ -55,11 +55,28 @@ function QuickCheckoutAll() {
   };
 
   const handleCopy = (e, link) => {
-    e.stopPropagation();
-    navigator.clipboard.writeText(link.generatedUrl || "");
-    setToastMessage("Link copied to clipboard");
+  e.stopPropagation();
+  const url = buildCheckoutLink(
+    shop,
+    link.products,
+    link.discountCode,
+    link.removePreviousDiscounts,
+    link.customer,
+    link.properties,
+    link.orderNote,
+    link.campaignParams,
+  );
+
+  if (!url) {
+    setToastMessage("This link has no products — cannot copy");
     setToastActive(true);
-  };
+    return;
+  }
+
+  navigator.clipboard.writeText(url);
+  setToastMessage("Link copied to clipboard");
+  setToastActive(true);
+};
 
   const handleDelete = (e, id) => {
     e.stopPropagation();
@@ -90,11 +107,11 @@ function QuickCheckoutAll() {
       </IndexTable.Cell>
       <IndexTable.Cell>
         <InlineStack gap="200">
-          {/* <Button
+          <Button
             icon={ClipboardIcon}
             onClick={(e) => handleCopy(e, link)}
             accessibilityLabel="Copy link"
-          /> */}
+          />
           <Button
             icon={DeleteIcon}
             tone="critical"

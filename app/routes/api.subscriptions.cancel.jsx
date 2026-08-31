@@ -6,6 +6,7 @@ import {
   getContractEmailData,
   getCustomerPortalBaseUrl,
   getShopName,
+  getShopEmail,
 } from "../lib/email-helpers.server";
 
 const CORS_HEADERS = {
@@ -117,9 +118,10 @@ try {
 }
     try {
       if (emailData?.email) {
-        const [portalBaseUrl, shopName] = await Promise.all([
+        const [portalBaseUrl, shopName,supportEmail] = await Promise.all([
           getCustomerPortalBaseUrl(admin),
           getShopName(admin),
+          getShopEmail(admin),
         ]);
 
         if (portalBaseUrl) {
@@ -134,6 +136,7 @@ try {
             paymentLast4: emailData.paymentLast4,
             paymentBrand: emailData.paymentBrand, 
             manageUrl: `${portalBaseUrl}/subscriptions/${getNumericId(subscriptionContractId)}`,
+              supportEmail,
           });
 
           await sendMail({
