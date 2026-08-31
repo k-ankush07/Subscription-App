@@ -1,13 +1,9 @@
 import { Outlet, useLoaderData, useRouteError } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 
-import {
-  AppProvider as ShopifyAppProvider,
-} from "@shopify/shopify-app-react-router/react";
+import { AppProvider as ShopifyAppProvider } from "@shopify/shopify-app-react-router/react";
 
-import {
-  AppProvider as PolarisAppProvider,
-} from "@shopify/polaris";
+import { AppProvider as PolarisAppProvider } from "@shopify/polaris";
 
 import "@shopify/polaris/build/esm/styles.css";
 import enTranslations from "@shopify/polaris/locales/en.json";
@@ -24,9 +20,7 @@ export const loader = async ({ request }) => {
 
 function PolarisProvider({ children }) {
   return (
-    <PolarisAppProvider i18n={enTranslations}>
-      {children}
-    </PolarisAppProvider>
+    <PolarisAppProvider i18n={enTranslations}>{children}</PolarisAppProvider>
   );
 }
 
@@ -39,11 +33,14 @@ export default function App() {
         <s-app-nav>
           <s-link href="/app/plans">Plan Page</s-link>
           <s-link href="/app/subscriptions">Subscriptions</s-link>
-          <s-link href="/app/customer-portal">Customer portal & retention</s-link>
-             <s-link href="/app/widgets">Widgets</s-link>
-             <s-link href="/app/quick/checkout">Quick checkout links</s-link>
+          <s-link href="/app/customer-portal">
+            Customer portal & retention
+          </s-link>
+          <s-link href="/app/widgets">Widgets</s-link>
+          <s-link href="/app/quick-checkout-links/create">
+            Quick checkout links
+          </s-link>
           <s-link href="/app/analystic">Analystic</s-link>
-       
         </s-app-nav>
 
         <Outlet />
@@ -51,7 +48,6 @@ export default function App() {
     </PolarisProvider>
   );
 }
-
 
 export function ErrorBoundary() {
   return boundary.error(useRouteError());
