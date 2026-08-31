@@ -10,14 +10,16 @@ function QuickCheckoutPage({ shop, plans = [] }) {
   const shopify = useAppBridge();
   const [selectedProducts, setSelectedProducts] = useState([]);
 
-  // ---- Kisi product ke liye jo bhi selling plans assign hain, wo nikalein ----
-  const getPlansForProduct = (productId) => {
-    const matchingPlans = plans.filter(
-      (plan) =>
-        plan.status !== "draft" &&
-        Array.isArray(plan.products) &&
-        plan.products.some((p) => p.id === productId)
-    );
+  // ---- Variant-level match: is product+variant par jo selling plans lage hain ----
+  const getPlansForVariant = (productId, variantId) => {
+    const matchingPlans = plans.filter((plan) => {
+      if (plan.status === "draft") return false;
+
+      const product = (plan.products || []).find((p) => p.id === productId);
+      if (!product) return false;
+
+      return (product.variants || []).some((v) => v.variantsId === variantId);
+    });
 
     return matchingPlans
       .flatMap((plan) =>
@@ -113,24 +115,24 @@ function QuickCheckoutPage({ shop, plans = [] }) {
           </InlineStack>
 
           {selectedProducts.length > 0 ? (
-            selectedProducts.map((product, index) => {
-              const planOptions = getPlansForProduct(product.id);
+            selectedProducts.map((product, index) => (
+              <BlockStack gap="300" key={product.id}>
+                {index > 0 && <Divider />}
 
-              return (
-                <BlockStack gap="300" key={product.id}>
-                  {index > 0 && <Divider />}
-
-                  <InlineStack align="space-between" blockAlign="center">
-                    <InlineStack gap="300" blockAlign="center">
-                      <Thumbnail source={product.ProductImage} alt={product.title} size="small" />
-                      <Text fontWeight="medium">{product.title}</Text>
-                    </InlineStack>
-                    <Button variant="plain" tone="critical" onClick={() => handleRemoveProduct(product.id)}>
-                      Remove
-                    </Button>
+                <InlineStack align="space-between" blockAlign="center">
+                  <InlineStack gap="300" blockAlign="center">
+                    <Thumbnail source={product.ProductImage} alt={product.title} size="small" />
+                    <Text fontWeight="medium">{product.title}</Text>
                   </InlineStack>
+                  <Button variant="plain" tone="critical" onClick={() => handleRemoveProduct(product.id)}>
+                    Remove
+                  </Button>
+                </InlineStack>
 
-                  {product.variants.map((variant) => (
+                {product.variants.map((variant) => {
+                  const planOptions = getPlansForVariant(product.id, variant.variantsId);
+
+                  return (
                     <BlockStack gap="200" key={variant.variantsId}>
                       <InlineStack align="space-between" blockAlign="center">
                         <Text as="p" variant="bodySm" tone="subdued">
@@ -166,10 +168,10 @@ function QuickCheckoutPage({ shop, plans = [] }) {
                         }
                       />
                     </BlockStack>
-                  ))}
-                </BlockStack>
-              );
-            })
+                  );
+                })}
+              </BlockStack>
+            ))
           ) : (
             <BlockStack gap="300">
               <Text as="p" tone="subdued">No products selected</Text>
