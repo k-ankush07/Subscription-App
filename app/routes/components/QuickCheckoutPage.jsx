@@ -1,8 +1,9 @@
 import {
   Card, Page, Button, Thumbnail, InlineStack, BlockStack,
-  Text, Badge, Select, TextField, Divider, Toast, Frame
+  Text, Badge, Select, TextField, Divider, Toast, Frame,
+  Checkbox, Collapsible
 } from '@shopify/polaris';
-import { DeleteIcon } from '@shopify/polaris-icons';
+import { DeleteIcon, ChevronUpIcon, ChevronDownIcon } from '@shopify/polaris-icons';
 import React, { useCallback, useState } from 'react';
 import { useAppBridge } from '@shopify/app-bridge-react';
 import { useNavigate } from "react-router";
@@ -12,11 +13,17 @@ const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
 
 function QuickCheckoutPage({ shop, plans = [] }) {
   const shopify = useAppBridge();
-  const navigate = useNavigate(); 
+  const navigate = useNavigate();
+
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
   const [toastActive, setToastActive] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
+
+  // Discount code section state
+  const [discountOpen, setDiscountOpen] = useState(true);
+  const [removePreviousDiscounts, setRemovePreviousDiscounts] = useState(true);
+  const [discountCode, setDiscountCode] = useState("");
 
   const getPlansForVariant = (productId, variantId) => {
     const matchingPlans = plans.filter((plan) => {
@@ -116,17 +123,19 @@ function QuickCheckoutPage({ shop, plans = [] }) {
           shop,
           name: "Link #1",
           products: selectedProducts,
+          discountCode: discountCode || "",
+          removePreviousDiscounts,
         }),
       });
 
       const data = await response.json();
 
       if (data.success) {
-        setTimeout(()=>
-        {
-navigate(`/app/quick-checkout-link/${data.data._id}`);
-        },2000)
-        
+        setToastMessage("Link saved successfully");
+        setToastActive(true);
+        setTimeout(() => {
+          navigate(`/app/quick-checkout-link/${data.data._id}`);
+        }, 2000);
       } else {
         setToastMessage(data.message || "Failed to save link");
         setToastActive(true);
@@ -224,6 +233,52 @@ navigate(`/app/quick-checkout-link/${data.data._id}`);
                 <Button onClick={handleSelectProducts}>Select products</Button>
               </BlockStack>
             )}
+          </BlockStack>
+        </Card>
+
+        <Card>
+          <BlockStack gap="300">
+            <InlineStack
+              align="space-between"
+              blockAlign="center"
+              onClick={() => setDiscountOpen((prev) => !prev)}
+            >
+              <InlineStack gap="200" blockAlign="center">
+                <Text as="h2" variant="headingMd">Discount code</Text>
+                <Badge tone="new">Optional</Badge>
+              </InlineStack>
+              <Button
+                variant="plain"
+                icon={discountOpen ? ChevronUpIcon : ChevronDownIcon}
+                onClick={() => setDiscountOpen((prev) => !prev)}
+                accessibilityLabel="Toggle discount code section"
+              />
+            </InlineStack>
+
+            <Collapsible open={discountOpen} id="discount-code-collapsible">
+              <BlockStack gap="300">
+                <BlockStack gap="100">
+                  <Checkbox
+                    label="Remove previous discounts"
+                    checked={removePreviousDiscounts}
+                    onChange={(value) => setRemovePreviousDiscounts(value)}
+                  />
+                  <Text as="p" variant="bodySm" tone="subdued">
+                    Removes any previous discounts applied to the cart
+                  </Text>
+                </BlockStack>
+
+                <TextField
+                  label="Discount code"
+                  labelHidden
+                  placeholder="e.g., SUMMER2024"
+                  value={discountCode}
+                  onChange={(value) => setDiscountCode(value)}
+                  autoComplete="off"
+                  helpText="The discount code will be automatically applied at checkout. Whether it actually applies to a product depends on that product's purchase type (one-time / subscription), as configured in the Shopify discount rule."
+                />
+              </BlockStack>
+            </Collapsible>
           </BlockStack>
         </Card>
 
