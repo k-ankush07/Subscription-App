@@ -416,7 +416,6 @@ async function processShop(admin) {
           node {
             id
             status
-            currencyCode
             createdAt
             nextBillingDate
             deliveryPrice { amount currencyCode }

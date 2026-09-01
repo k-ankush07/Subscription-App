@@ -2148,20 +2148,8 @@ async function getContractPreview(
     cycleIndex,
   );
 
-// const currencyCodeFallback = (await getShopCurrencyCode(admin)) ?? "USD";
 const currencyCodeFallback = contract.currencyCode;
-  // const currencyCodeFallback =
-  // (await getShopCurrencyCode(admin)) ??        
-  // firstLine?.pricingPolicy?.basePrice?.currencyCode ??
-  // firstLine?.currentPrice?.currencyCode ??
-  // extraSettings?.currencyCode ??               
-  // "USD";
-  // const currencyCodeFallback =
-  // extraSettings?.currencyCode ??  
-  //   firstLine?.pricingPolicy?.basePrice?.currencyCode ??
-  //   firstLine?.currentPrice?.currencyCode ??
-  //   (await getShopCurrencyCode(admin)) ??
-  //   "USD";
+
 
   const lineItems = [];
 
