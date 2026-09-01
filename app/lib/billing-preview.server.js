@@ -19,7 +19,35 @@ async function getShopCurrencyCode(admin) {
     return null;
   }
 }
+const currencyRateCache = {};
+const CURRENCY_CACHE_TTL_MS = 60 * 60 * 1000; 
 
+async function getExchangeRate(fromCurrency, toCurrency) {
+  if (!fromCurrency || !toCurrency || fromCurrency === toCurrency) return 1;
+  const key = `${fromCurrency}_${toCurrency}`;
+  const cached = currencyRateCache[key];
+  if (cached && Date.now() - cached.fetchedAt < CURRENCY_CACHE_TTL_MS) {
+    return cached.rate;
+  }
+  try {
+    const res = await fetch(`https://api.exchangerate-api.com/v4/latest/${fromCurrency}`);
+    const data = await res.json();
+    const rate = data?.rates?.[toCurrency];
+    if (rate) {
+      currencyRateCache[key] = { rate, fetchedAt: Date.now() };
+      return rate;
+    }
+  } catch (err) {
+    console.warn(`[getExchangeRate] failed for ${fromCurrency}->${toCurrency}:`, err);
+  }
+  return 1; // conversion fail ho to safe fallback — koi conversion nahi
+}
+
+async function convertCurrency(amount, fromCurrency, toCurrency) {
+  if (amount == null) return amount;
+  const rate = await getExchangeRate(fromCurrency, toCurrency);
+  return Number(amount) * rate;
+}
 function contractSnapshotKey(contractId) {
   const numericId = String(contractId).split("/").pop();
   return `contract_snapshot_${numericId}`;
@@ -716,12 +744,15 @@ async function fetchVariantsBatch(admin, variantIds) {
   return map;
 }
 
-async function getEffectiveBasePrice(admin, actions, fallbackBasePrice) {
+async function getEffectiveBasePrice(admin, actions, fallbackBasePrice, shopCurrencyCode = null, contractCurrencyCode = null) {
   const swap = actions?.find(
     (a) => a.type === "VARIANT_SWAP" || a.type === "PRODUCT_SWAP",
   );
   if (swap?.variantId) {
-    const newPrice = await fetchVariantPrice(admin, swap.variantId);
+    const rawNewPrice = await fetchVariantPrice(admin, swap.variantId);
+    const newPrice = rawNewPrice != null
+      ? await convertCurrency(rawNewPrice, shopCurrencyCode, contractCurrencyCode)
+      : null;
     if (newPrice != null) return newPrice;
     console.warn(
       `[getEffectiveBasePrice] swap target variant (${swap.variantId}) price fetch failed — ` +
@@ -943,6 +974,8 @@ async function applyActionsToCycle(
   cycleDate = null,
   deliveryPriceAmount = null,
   extraSettings = null,
+  contractCurrencyCode = null,
+  shopCurrencyCode = null,
 ) {
   const openSelector = cycleDate ? { date: cycleDate } : { index: cycleIndex };
   console.log(
@@ -999,6 +1032,8 @@ async function applyActionsToCycle(
     admin,
     actions,
     basePriceAmount,
+     shopCurrencyCode,
+    contractCurrencyCode,
   );
   const discountTierForCycle = getDiscountTierForCycle(
     pricingPolicy,
@@ -1082,7 +1117,12 @@ async function applyActionsToCycle(
         if (!action.variantId)
           throw new Error(`${action.type} failed: no variantId configured`);
 
-        const ownVariantPrice = batchedVariantData[action.variantId]?.price;
+
+               const rawOwnVariantPrice = batchedVariantData[action.variantId]?.price;
+        const ownVariantPrice =
+          rawOwnVariantPrice != null
+            ? await convertCurrency(rawOwnVariantPrice, shopCurrencyCode, contractCurrencyCode)
+            : null;
         const basePriceForThisSwap =
           ownVariantPrice != null ? ownVariantPrice : effectiveBasePrice;
         let recalculatedPrice = null;
@@ -1411,10 +1451,14 @@ async function applyActionsToCycle(
         let addPrice = action.currentPrice ?? null;
 
         if (addPrice == null) {
-          const isSwapGenerated =
+                  const isSwapGenerated =
             !!action.destProductId || !!action.sourceProductId;
-          const knownPrice =
+          const rawKnownPrice =
             batchedVariantData[action.variantId]?.price ?? null;
+          const knownPrice =
+            rawKnownPrice != null
+              ? await convertCurrency(rawKnownPrice, shopCurrencyCode, contractCurrencyCode)
+              : null;
           const price = computeLinePriceFromKnownPrice(
             knownPrice,
             {
@@ -2149,6 +2193,7 @@ async function getContractPreview(
   );
 
 const currencyCodeFallback = contract.currencyCode;
+const shopCurrencyCode = await getShopCurrencyCode(admin);
 
 
   const lineItems = [];
@@ -2166,16 +2211,13 @@ const currencyCodeFallback = contract.currencyCode;
     );
     if (isRemoved) continue;
 
-    // const lineCurrency =
-    //   line.currentPrice?.currencyCode ?? currencyCodeFallback;
-    const lineCurrency = currencyCodeFallback;
+       const lineCurrency = currencyCodeFallback;
     const originalVariantInfo = variantDataMap[line.variantId];
-
     let effectiveBase =
       Number(
-        originalVariantInfo?.price ??
-          line?.pricingPolicy?.basePrice?.amount ??
-          line?.currentPrice?.amount,
+        line?.pricingPolicy?.basePrice?.amount ??
+          line?.currentPrice?.amount ??
+          originalVariantInfo?.price,
       ) || 0;
 
     let title = line.title;
@@ -2190,8 +2232,12 @@ const currencyCodeFallback = contract.currencyCode;
 
     if (isSwapTarget && swapAction.variantId) {
       const swappedInfo = variantDataMap[swapAction.variantId];
-      if (swappedInfo?.price != null) {
-        effectiveBase = swappedInfo.price;
+       if (swappedInfo?.price != null) {
+        effectiveBase = await convertCurrency(
+          swappedInfo.price,
+          shopCurrencyCode,
+          currencyCodeFallback,
+        );
       }
       variantIdOut = swapAction.variantId;
       const matchedDest = (swapAction.dests || []).find((d) =>
@@ -2358,11 +2404,16 @@ const currencyCodeFallback = contract.currencyCode;
   }
 
   for (const action of addProductActions) {
+    const addLineCurrency = currencyCodeFallback;
     const isSwapGenerated = !!action.destProductId || !!action.sourceProductId;
     const qty = Number(action.quantity) || 1;
 
-    const variantInfo = variantDataMap[action.variantId];
-    const knownPrice = variantInfo?.price ?? null;
+    // const variantInfo = variantDataMap[action.variantId];
+    // const knownPrice = variantInfo?.price ?? null;
+       const variantInfo = variantDataMap[action.variantId];
+    const knownPrice = variantInfo?.price != null
+      ? await convertCurrency(variantInfo.price, shopCurrencyCode, currencyCodeFallback)
+      : null;
     const effectiveBaseForAdd =
       Number(
         firstLine?.pricingPolicy?.basePrice?.amount ??
@@ -2392,7 +2443,8 @@ const currencyCodeFallback = contract.currencyCode;
     }
     const priceBeforeManualDiscountsForAdd = {
       amount: pricePerUnitNum.toFixed(2),
-      currencyCode: currencyCodeFallback,
+      // currencyCode: currencyCodeFallback,
+      currencyCode: addLineCurrency,
     };
     const activeManualDiscountsForAdd = getActiveManualDiscountsForLine(
       extraSettings,
@@ -2437,38 +2489,52 @@ const currencyCodeFallback = contract.currencyCode;
       })),
       pricePerUnit: {
         amount: pricePerUnitNum.toFixed(2),
-        currencyCode: currencyCodeFallback,
+        // currencyCode: currencyCodeFallback,
+        currencyCode: addLineCurrency,
       },
       itemTotal: {
         amount: (pricePerUnitNum * qty).toFixed(2),
-        currencyCode: currencyCodeFallback,
+        // currencyCode: currencyCodeFallback,
+        currencyCode: addLineCurrency,
       },
       originalPricePerUnit: {
         amount: originalPriceValue.toFixed(2),
-        currencyCode: currencyCodeFallback,
+        // currencyCode: currencyCodeFallback,
+        currencyCode: addLineCurrency,
       },
       originalItemTotal: {
         amount: (originalPriceValue * qty).toFixed(2),
-        currencyCode: currencyCodeFallback,
+        // currencyCode: currencyCodeFallback,
+        currencyCode: addLineCurrency,
       },
       isBaseLine: false,
       automationCycleIndex: action.__automationCycleIndex ?? null,
       automationActionIndex: action.__automationActionIndex ?? null,
       discountPhase: null,
-      discountLabel:
+            discountLabel:
         action.discountEnabled &&
         Number(action.discountValue) > 0 &&
         !action.__manualPriceOverride
           ? String(action.discountType).toLowerCase() === "percentage"
             ? `${action.discountValue}% off`
             : String(action.discountType).toLowerCase() === "fixed_amount"
-              ? `Fixed price: ${currencySymbol(currencyCodeFallback)}${action.discountValue}`
-              : `${currencySymbol(currencyCodeFallback)}${action.discountValue} off`
+              ? `Fixed price: ${currencySymbol(addLineCurrency)}${action.discountValue}`
+              : `${currencySymbol(addLineCurrency)}${action.discountValue} off`
           : null,
+      // discountLabel:
+      //   action.discountEnabled &&
+      //   Number(action.discountValue) > 0 &&
+      //   !action.__manualPriceOverride
+      //     ? String(action.discountType).toLowerCase() === "percentage"
+      //       ? `${action.discountValue}% off`
+      //       : String(action.discountType).toLowerCase() === "fixed_amount"
+      //         ? `Fixed price: ${currencySymbol(currencyCodeFallback)}${action.discountValue}`
+      //         : `${currencySymbol(currencyCodeFallback)}${action.discountValue} off`
+      //     : null,
     });
   }
 
-  const currencyCode = currencyCodeFallback;
+   const currencyCode = currencyCodeFallback;
 
   const calculatedOrderTotal = {
     amount: lineItems
@@ -3322,5 +3388,6 @@ export {
   removeManualDiscount,
   getActiveManualDiscountsForLine,
   applyManualDiscountsToPrice,
-  getShopCurrencyCode
+  getShopCurrencyCode,
+  convertCurrency
 };

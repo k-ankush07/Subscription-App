@@ -37,6 +37,8 @@ import {
   addBaseLineRemoval,
   setBaseLineFixedPrice,
   setLineFixedPrice,
+  // getShopCurrencyCode,
+  //   convertCurrency,
 } from "../lib/billing-preview.server";
 import { currencySymbol } from "./utils/formatMoney.js";
 export async function loader({ params, request }) {
@@ -51,6 +53,7 @@ export async function loader({ params, request }) {
       subscriptionContract(id: $contractId) {
         id
         status
+        currencyCode
         deliveryPrice { amount currencyCode }
         deliveryPolicy { interval intervalCount }
         billingPolicy { interval intervalCount }
@@ -122,13 +125,15 @@ export async function loader({ params, request }) {
   const removedProductIds = willApply
     .filter((a) => a.type === "REMOVE_PRODUCT" && a.sourceProductId)
     .map((a) => a.sourceProductId);
-  // const currencyCode =
-  //   contract.deliveryPrice?.currencyCode ||
-  //   lines[0]?.currentPrice?.currencyCode ||
-  //   "INR";
 
+
+// const currencyCode =
+//   preview?.allExtraSettings?.currencyCode ||
+//   contract.deliveryPrice?.currencyCode ||
+//   lines[0]?.currentPrice?.currencyCode ||
+//   "USD";
 const currencyCode =
-  preview?.allExtraSettings?.currencyCode ||
+  contract.currencyCode ||
   contract.deliveryPrice?.currencyCode ||
   lines[0]?.currentPrice?.currencyCode ||
   "USD";
@@ -167,15 +172,17 @@ export async function action({ request, params }) {
         deferredRemoval = removedLines[removedLines.length - 1];
         removedLines = removedLines.slice(0, -1);
       }
-
       for (const newLine of payload.newLines || []) {
-        const result = await addContractLine(admin, contractId, {
-          variantId: newLine.variantId,
-          quantity: Number(newLine.quantity) || 1,
-          currentPrice: newLine.price != null ? Number(newLine.price) : null,
-        });
-        if (!result.success) return { success: false, error: result.error };
-      }
+  const finalPrice =
+    newLine.price != null ? Number(newLine.price) : null;
+
+  const result = await addContractLine(admin, contractId, {
+    variantId: newLine.variantId,
+    quantity: Number(newLine.quantity) || 1,
+    currentPrice: finalPrice,
+  });
+  if (!result.success) return { success: false, error: result.error };
+}
 
       for (const line of payload.lines) {
         const result = await updateContractLineProduct(admin, contractId, {
@@ -996,12 +1003,11 @@ export default function EditPage() {
   const handleUpdatePrice = () => {
     if (!priceEditTarget) return;
     setPriceEditError("");
-
-    if (priceEditTarget.kind === "new") {
+if (priceEditTarget.kind === "new") {
       setNewLines((prev) =>
         prev.map((l) =>
           l.tempId === priceEditTarget.tempId
-            ? { ...l, price: priceEditValue }
+            ? { ...l, price: priceEditValue, priceIsRaw: false } // NEW — merchant ne khud type kiya, ab convert mat karo
             : l,
         ),
       );
@@ -1009,6 +1015,18 @@ export default function EditPage() {
       setPriceEditValue("");
       return;
     }
+    // if (priceEditTarget.kind === "new") {
+    //   setNewLines((prev) =>
+    //     prev.map((l) =>
+    //       l.tempId === priceEditTarget.tempId
+    //         ? { ...l, price: priceEditValue }
+    //         : l,
+    //     ),
+    //   );
+    //   setPriceEditTarget(null);
+    //   setPriceEditValue("");
+    //   return;
+    // }
 
     if (priceEditTarget.kind === "committed") {
       fetcher.submit(
@@ -1076,7 +1094,6 @@ export default function EditPage() {
           continue;
         }
         existingVariantIds.add(variant.id);
-
         toAdd.push({
           tempId: `new-${Date.now()}-${variant.id}`,
           variantId: variant.id,
@@ -1091,7 +1108,23 @@ export default function EditPage() {
             "",
           price: variant.price,
           quantity: "1",
+          priceIsRaw: true, // NEW — ye shop-currency ka raw price hai, save se pehle convert karna hoga
         });
+        // toAdd.push({
+        //   tempId: `new-${Date.now()}-${variant.id}`,
+        //   variantId: variant.id,
+        //   title: product.title,
+        //   variantTitle:
+        //     variant.title && variant.title !== "Default Title"
+        //       ? variant.title
+        //       : null,
+        //   imageUrl:
+        //     variant.image?.originalSrc ||
+        //     product.images?.[0]?.originalSrc ||
+        //     "",
+        //   price: variant.price,
+        //   quantity: "1",
+        // });
       }
     }
 
@@ -1183,10 +1216,16 @@ export default function EditPage() {
             })),
           removedLines,
           nextOrderCycleIndex: previewNextOrderCycleIndex,
-          newLines: newLines.map((l) => ({
+          // newLines: newLines.map((l) => ({
+          //   variantId: l.variantId,
+          //   quantity: l.quantity,
+          //   price: l.price,
+          // })),
+           newLines: newLines.map((l) => ({
             variantId: l.variantId,
             quantity: l.quantity,
             price: l.price,
+            priceIsRaw: !!l.priceIsRaw,
           })),
           automationQuantityUpdates,
           deliveryCount,

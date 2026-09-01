@@ -16,6 +16,7 @@ import {
   fetchVariantPrice,
   addManualDiscount,
   removeManualDiscount,
+  getShopCurrencyCode,
 } from "../lib/billing-preview.server";
 const API = import.meta.env.VITE_API_URL;
 const SECRET_KEY = import.meta.env.VITE_API_SECRET_KEY;
@@ -1157,6 +1158,7 @@ export async function action({ request, params }) {
           `
         query getContractLineForCharge($contractId: ID!) {
           subscriptionContract(id: $contractId) {
+          currencyCode
             deliveryPrice { amount currencyCode }
              billingPolicy { maxCycles }
             lines(first: 5) {
@@ -1199,14 +1201,24 @@ export async function action({ request, params }) {
           firstLine?.variantId,
         );
         const basePriceAmount =
-          liveVariantPrice ??
           firstLine?.pricingPolicy?.basePrice?.amount ??
+          liveVariantPrice ??
           null;
+        // const firstLine =
+        //   contractData.data?.subscriptionContract?.lines?.edges?.[0]?.node;
+        // const liveVariantPrice = await fetchVariantPrice(
+        //   admin,
+        //   firstLine?.variantId,
+        // );
+        // const basePriceAmount =
+        //   liveVariantPrice ??
+        //   firstLine?.pricingPolicy?.basePrice?.amount ??
+        //   null;
         const pricingPolicy = firstLine?.pricingPolicy ?? null;
         const deliveryPriceAmount =
           contractData.data?.subscriptionContract?.deliveryPrice?.amount ??
           null;
-        const extraSettings = await getContractSettingsSnapshot(
+                  const extraSettings = await getContractSettingsSnapshot(
           admin,
           contractId,
         );
@@ -1218,6 +1230,9 @@ export async function action({ request, params }) {
               firstLine?.variantId,
             )
           : [];
+
+        const contractCurrencyForCharge = contractData.data?.subscriptionContract?.currencyCode ?? null;
+        const shopCurrencyForCharge = await getShopCurrencyCode(admin);
 
         let skippedActions = [];
         if (actionsForThisCycle.length > 0) {
@@ -1231,9 +1246,39 @@ export async function action({ request, params }) {
             null,
             deliveryPriceAmount,
             extraSettings,
+            contractCurrencyForCharge,
+            shopCurrencyForCharge,
           );
           skippedActions = result?.skippedActions || [];
         }
+        // const extraSettings = await getContractSettingsSnapshot(
+        //   admin,
+        //   contractId,
+        // );
+        // const actionsForThisCycle = extraSettings
+        //   ? collectActionsForCycle(
+        //       extraSettings,
+        //       cycleIndex,
+        //       pricingPolicy,
+        //       firstLine?.variantId,
+        //     )
+        //   : [];
+
+        // let skippedActions = [];
+        // if (actionsForThisCycle.length > 0) {
+        //   const result = await applyActionsToCycle(
+        //     admin,
+        //     contractId,
+        //     cycleIndex,
+        //     actionsForThisCycle,
+        //     basePriceAmount,
+        //     pricingPolicy,
+        //     null,
+        //     deliveryPriceAmount,
+        //     extraSettings,
+        //   );
+        //   skippedActions = result?.skippedActions || [];
+        // }
 
         const chargeRes = await admin.graphql(
           `

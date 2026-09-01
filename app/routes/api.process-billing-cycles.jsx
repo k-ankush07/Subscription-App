@@ -7,6 +7,7 @@ import {
   getContractPreview,
   clearAnyOpenDraft,
   fetchVariantPrice,
+  getShopCurrencyCode,
 } from "../lib/billing-preview.server";
 
 const EXTRA_SETTINGS_NAMESPACE = "subscription_app";
@@ -406,6 +407,7 @@ async function findEarliestDueCycle(admin, contractId, now, contractCreatedAt) {
 async function processShop(admin) {
   const { shopId, sellingPlanIdToInfo } =
     await loadPlanGroupsAndSettings(admin);
+    const shopCurrencyCode = await getShopCurrencyCode(admin);
   const processedCycles = await getProcessedCycles(admin, shopId);
   const chargedCycles = await getChargedCycles(admin, shopId);
 
@@ -416,6 +418,7 @@ async function processShop(admin) {
           node {
             id
             status
+             currencyCode
             createdAt
             nextBillingDate
             deliveryPrice { amount currencyCode }
@@ -478,14 +481,24 @@ async function processShop(admin) {
 
     const sellingPlanId = contract.lines.edges[0]?.node?.sellingPlanId;
     const firstLineNode = contract.lines.edges[0]?.node;
+    // const liveVariantPrice = await fetchVariantPrice(
+    //   admin,
+    //   firstLineNode?.variantId,
+    // );
+    // const basePriceAmount =
+    //   liveVariantPrice ??
+    //   firstLineNode?.pricingPolicy?.basePrice?.amount ??
+    //   null;
+
     const liveVariantPrice = await fetchVariantPrice(
       admin,
       firstLineNode?.variantId,
     );
     const basePriceAmount =
-      liveVariantPrice ??
       firstLineNode?.pricingPolicy?.basePrice?.amount ??
+      liveVariantPrice ??
       null;
+      
     const pricingPolicy = contract.lines.edges[0]?.node?.pricingPolicy ?? null; // needed for swap price recalc
     const deliveryPriceAmount = contract.deliveryPrice?.amount ?? null; // needed for shipping discount recalc
     const planInfo = sellingPlanId
@@ -646,8 +659,19 @@ async function processShop(admin) {
               actionsForUpcoming,
               basePriceAmount,
               pricingPolicy,
-              nextUpcoming.billingAttemptExpectedDate, // still future here — date selector is valid
+              nextUpcoming.billingAttemptExpectedDate,
               deliveryPriceAmount,
+              null,
+              contract.currencyCode ?? null,
+              shopCurrencyCode,
+              // admin,
+              // contract.id,
+              // nextUpcoming.cycleIndex,
+              // actionsForUpcoming,
+              // basePriceAmount,
+              // pricingPolicy,
+              // nextUpcoming.billingAttemptExpectedDate, // still future here — date selector is valid
+              // deliveryPriceAmount,
             );
             await markCycleProcessed(
               admin,
