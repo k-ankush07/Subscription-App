@@ -350,11 +350,7 @@ function QuickCheckoutPage({
             ? initialData?.name || "Edit link"
             : "Create quick checkout link"
         }
-        backAction={
-          isEditMode
-            ? { onAction: () => navigate("/app/quick-checkout-links") }
-            : undefined
-        }
+        backAction={ {onAction: () => navigate("/app/quick-checkout-links")} }
       >
         <Card>
           <BlockStack gap="400">
