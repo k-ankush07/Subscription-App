@@ -875,7 +875,7 @@ function QuickCheckoutPage({
               onChange={setOrderNote}
               autoComplete="off"
               multiline={3}
-              helpText="This note will be added to the order and visible to store staff"
+             
             />
           </BlockStack>
         </Card>
