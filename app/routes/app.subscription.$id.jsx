@@ -235,6 +235,7 @@ export async function loader({ request, params }) {
       subscriptionContract(id: $contractId) {
         id
         status
+        currencyCode
         createdAt
         updatedAt
         nextBillingDate

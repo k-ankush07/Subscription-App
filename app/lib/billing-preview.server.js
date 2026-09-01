@@ -2148,7 +2148,8 @@ async function getContractPreview(
     cycleIndex,
   );
 
-const currencyCodeFallback = (await getShopCurrencyCode(admin)) ?? "USD";
+// const currencyCodeFallback = (await getShopCurrencyCode(admin)) ?? "USD";
+const currencyCodeFallback = contract.currencyCode;
   // const currencyCodeFallback =
   // (await getShopCurrencyCode(admin)) ??        
   // firstLine?.pricingPolicy?.basePrice?.currencyCode ??
