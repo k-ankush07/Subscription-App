@@ -2148,14 +2148,7 @@ async function getContractPreview(
     cycleIndex,
   );
 
-const currencyCodeFallback =
-  contract.currencyCode ??                              // ← authoritative, locked currency
-  contract.deliveryPrice?.currencyCode ??
-  firstLine?.pricingPolicy?.basePrice?.currencyCode ??
-  firstLine?.currentPrice?.currencyCode ??
-  extraSettings?.currencyCode ??
-  (await getShopCurrencyCode(admin)) ??
-  "USD";
+const currencyCodeFallback = (await getShopCurrencyCode(admin)) ?? "USD";
   // const currencyCodeFallback =
   // (await getShopCurrencyCode(admin)) ??        
   // firstLine?.pricingPolicy?.basePrice?.currencyCode ??
@@ -2510,7 +2503,8 @@ const currencyCodeFallback =
   const originalShippingPriceAmount = Number(
     contract.deliveryPrice?.amount ?? 0,
   );
-  const shippingCurrency = contract.deliveryPrice?.currencyCode ?? currencyCode;
+  // const shippingCurrency = contract.deliveryPrice?.currencyCode ?? currencyCode;
+  const shippingCurrency = currencyCode;
   const calculatedShippingPriceAmount = hasRealShippingDiscount
     ? applyShippingDiscountToPrice(originalShippingPriceAmount, shippingAction)
     : originalShippingPriceAmount;

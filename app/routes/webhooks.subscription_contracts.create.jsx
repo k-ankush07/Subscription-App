@@ -234,10 +234,15 @@ export const action = async ({ request }) => {
       const shopCurrencyCode = await getShopCurrencyCode(admin); 
       console.log(`[webhook] snapshotting for shop=${shop}, resolved currency=${shopCurrencyCode}`);
       const combinedSettings = {
-        ...(liveSettings || {}), 
-        products: groupSnapshotData?.products ?? [],
-        currencyCode: shopCurrencyCode,
-      };
+  ...(liveSettings || {}),
+  products: groupSnapshotData?.products ?? [],
+  currencyCode: shopCurrencyCode,
+};
+      // const combinedSettings = {
+      //   ...(liveSettings || {}), 
+      //   products: groupSnapshotData?.products ?? [],
+      //   currencyCode: shopCurrencyCode,
+      // };
 
       const { snapshotted } = await snapshotContractSettings(
         admin,
