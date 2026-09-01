@@ -32,6 +32,7 @@ async function getExchangeRate(fromCurrency, toCurrency) {
   try {
     const res = await fetch(`https://api.exchangerate-api.com/v4/latest/${fromCurrency}`);
     const data = await res.json();
+    console.log('FX data', data);
     const rate = data?.rates?.[toCurrency];
     if (rate) {
       currencyRateCache[key] = { rate, fetchedAt: Date.now() };
