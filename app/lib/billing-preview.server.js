@@ -1848,6 +1848,7 @@ function removeLineDiscount(
   {
     isBaseLine,
     discountPhase,
+     discountSource, 
     automationCycleIndex,
     automationActionIndex,
     variantId,
@@ -2400,6 +2401,13 @@ const shopCurrencyCode = await getShopCurrencyCode(admin);
           return `Fixed price: ${currencySymbol(pricePerUnit.currencyCode)}${src.adjustmentValue}`;
         return `${currencySymbol(pricePerUnit.currencyCode)}${src.adjustmentValue} off`;
       })(),
+      discountSource: (() => {
+  const m = variantDiscountActions.find((a) =>
+    actionMatchesLine(a, line),
+  );
+  if (m) return "variant";
+  return showDiscountOnThisLine ? "base" : null;
+})(),
     });
   }
 
