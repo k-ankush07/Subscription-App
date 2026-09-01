@@ -544,46 +544,53 @@ export default function SubscriptionDetail() {
     );
   };
 
-  const handleRemoveLineDiscount = (li) => {
-    const confirmed = confirm("Remove the discount from this product?");
-    if (!confirmed) return;
-    fetcher.submit(
-      {
-        type: "remove_line_discount",
-        isBaseLine: li.isBaseLine ? "true" : "false",
-        discountPhase: li.discountPhase || "",
-        automationCycleIndex:
-          li.automationCycleIndex != null
-            ? String(li.automationCycleIndex)
-            : "",
-        automationActionIndex:
-          li.automationActionIndex != null
-            ? String(li.automationActionIndex)
-            : "",
-        productId: li.productId || "",
-        variantId: li.variantId || "",
-        sellingPlanId: lines?.[0]?.node?.sellingPlanId || "",
-      },
-      { method: "post" },
-    );
-  };
-  // const handleAddManualDiscount = (payload) => {
+  // const handleRemoveLineDiscount = (li) => {
+  //   const confirmed = confirm("Remove the discount from this product?");
+  //   if (!confirmed) return;
   //   fetcher.submit(
   //     {
-  //       type: "add_manual_discount",
-  //       name: payload.name,
-  //       adjustmentType: payload.adjustmentType,
-  //       adjustmentValue: payload.adjustmentValue,
-  //       appliesToAll: payload.appliesToAll ? "true" : "false",
-  //       variantId: payload.variantId || "",
-  //       cycleLimit: payload.cycleLimit || "",
-  //       cycleIndex: preview?.nextOrder?.cycleIndex ?? 0,
+  //       type: "remove_line_discount",
+  //       isBaseLine: li.isBaseLine ? "true" : "false",
+  //       discountPhase: li.discountPhase || "",
+  //       automationCycleIndex:
+  //         li.automationCycleIndex != null
+  //           ? String(li.automationCycleIndex)
+  //           : "",
+  //       automationActionIndex:
+  //         li.automationActionIndex != null
+  //           ? String(li.automationActionIndex)
+  //           : "",
+  //       productId: li.productId || "",
+  //       variantId: li.variantId || "",
   //       sellingPlanId: lines?.[0]?.node?.sellingPlanId || "",
   //     },
   //     { method: "post" },
   //   );
-  //   setShowAddDiscountModal(false);
   // };
+const handleRemoveLineDiscount = (li) => {
+  const confirmed = confirm("Remove the discount from this product?");
+  if (!confirmed) return;
+  fetcher.submit(
+    {
+      type: "remove_line_discount",
+      isBaseLine: li.isBaseLine ? "true" : "false",
+      discountPhase: li.discountPhase || "",
+      discountSource: li.discountSource || "", // NEW
+      automationCycleIndex:
+        li.automationCycleIndex != null
+          ? String(li.automationCycleIndex)
+          : "",
+      automationActionIndex:
+        li.automationActionIndex != null
+          ? String(li.automationActionIndex)
+          : "",
+      productId: li.productId || "",
+      variantId: li.variantId || "",
+      sellingPlanId: lines?.[0]?.node?.sellingPlanId || "",
+    },
+    { method: "post" },
+  );
+};
   const handleAddManualDiscount = (payload) => {
     lastSubmittedTypeRef.current = "add_manual_discount"; // 👈 NAYA
     fetcher.submit(

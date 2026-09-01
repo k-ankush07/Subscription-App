@@ -1109,12 +1109,20 @@ export async function action({ request, params }) {
           };
         }
         const updatedSettings = removeLineDiscount(currentSettings, {
-          isBaseLine,
-          discountPhase,
-          automationCycleIndex,
-          automationActionIndex,
-          variantId: formData.get("variantId") || null,
-        });
+  isBaseLine,
+  discountPhase,
+  discountSource: formData.get("discountSource") || null, // NEW
+  automationCycleIndex,
+  automationActionIndex,
+  variantId: formData.get("variantId") || null,
+});
+        // const updatedSettings = removeLineDiscount(currentSettings, {
+        //   isBaseLine,
+        //   discountPhase,
+        //   automationCycleIndex,
+        //   automationActionIndex,
+        //   variantId: formData.get("variantId") || null,
+        // });
         const { snapshotted } = await snapshotContractSettings(
           admin,
           contractId,

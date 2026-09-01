@@ -1860,21 +1860,27 @@ function removeLineDiscount(
   const clonedSettings = JSON.parse(JSON.stringify(settings));
 
   if (isBaseLine) {
-    if (variantId && clonedSettings.lineFixedPrices?.[variantId] != null) {
-      delete clonedSettings.lineFixedPrices[variantId];
-      return clonedSettings;
-    }
-    if (variantId && Array.isArray(clonedSettings.products)) {
-      for (const product of clonedSettings.products) {
-        const variant = (product.variants || []).find(
-          (v) => v.variantsId === variantId,
-        );
-        if (variant) {
-          variant.discountMode = "NONE";
-          return clonedSettings;
+    // Sirf tabhi per-variant discountMode clear karo jab discount
+    // actually variant-specific tha — warna native/base discount ke
+    // upar galat "fix" apply ho jata hai aur discount hata hi nahi hai.
+    if (discountSource === "variant") {
+      if (variantId && clonedSettings.lineFixedPrices?.[variantId] != null) {
+        delete clonedSettings.lineFixedPrices[variantId];
+        return clonedSettings;
+      }
+      if (variantId && Array.isArray(clonedSettings.products)) {
+        for (const product of clonedSettings.products) {
+          const variant = (product.variants || []).find(
+            (v) => v.variantsId === variantId,
+          );
+          if (variant) {
+            variant.discountMode = "NONE";
+            return clonedSettings;
+          }
         }
       }
     }
+
     if (discountPhase === "before") {
       clonedSettings.beforeDiscountDisabled = true;
     } else {

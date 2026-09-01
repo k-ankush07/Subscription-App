@@ -340,60 +340,6 @@ export async function action({ request, params }) {
     }
   }
 
-  // if (type === "update_automation_quantity") {
-  //   const automationCycleIndex = parseInt(
-  //     formData.get("automationCycleIndex"),
-  //     10,
-  //   );
-  //   const automationActionIndex = parseInt(
-  //     formData.get("automationActionIndex"),
-  //     10,
-  //   );
-  //   const quantity = formData.get("quantity");
-  //   const sellingPlanId = formData.get("sellingPlanId") || null;
-
-  //   if (
-  //     Number.isNaN(automationCycleIndex) ||
-  //     Number.isNaN(automationActionIndex)
-  //   ) {
-  //     return { success: false, error: "Invalid automation item reference" };
-  //   }
-
-  //   try {
-  //     const currentSettings = await getEffectiveSettingsForContract(
-  //       admin,
-  //       contractId,
-  //       sellingPlanId,
-  //     );
-  //     if (!currentSettings) {
-  //       return {
-  //         success: false,
-  //         error: "No automation settings found for this subscription",
-  //       };
-  //     }
-  //     const updatedSettings = updateAutomationVariantQuantity(
-  //       currentSettings,
-  //       automationCycleIndex,
-  //       automationActionIndex,
-  //       quantity,
-  //     );
-  //     const { snapshotted } = await snapshotContractSettings(
-  //       admin,
-  //       contractId,
-  //       updatedSettings,
-  //     );
-  //     if (!snapshotted) {
-  //       return {
-  //         success: false,
-  //         error: "Failed to save updated automation settings",
-  //       };
-  //     }
-  //     return { success: true, isAutomationChange: true };
-  //   } catch (err) {
-  //     console.error("[edit update_automation_quantity] failed:", err);
-  //     return { success: false, error: String(err?.message || err) };
-  //   }
-  // }
   if (type === "update_automation_quantity") {
     const automationCycleIndex = parseInt(
       formData.get("automationCycleIndex"),
@@ -611,48 +557,7 @@ export async function action({ request, params }) {
       };
     }
   }
-  // if (type === "update_line_price") {
-  //   const lineId = formData.get("lineId");
 
-  //   const price = formData.get("price");
-
-  //   if (!lineId) {
-  //     return { success: false, error: "Invalid line reference", type: "update_line_price" };
-  //   }
-  //   if (price == null || price === "" || Number.isNaN(Number(price))) {
-  //     return { success: false, error: "Invalid price", type: "update_line_price" };
-  //   }
-
-  //   try {
-  //     const result = await updateContractLinePrice(admin, contractId, { lineId, price });
-  //     if (!result.success) {
-  //       return { success: false, error: result.error, type: "update_line_price" };
-  //     }
-
-  //     const currentSettings = await getEffectiveSettingsForContract(admin, contractId, null);
-  //     const updatedSettings = setBaseLineFixedPrice(currentSettings, price);
-  //     const { snapshotted } = await snapshotContractSettings(admin, contractId, updatedSettings);
-  //     if (!snapshotted) {
-  //       return {
-  //         success: false,
-  //         error: "Price updated but failed to save it for future orders",
-  //         type: "update_line_price",
-  //       };
-  //     }
-
-  //     // NEW — client ko bhej do taaki formData pe depend na karna pade (idle hote hi wo undefined ho jata hai)
-  //     return {
-  //       success: true,
-  //       isAutomationChange: true,
-  //       type: "update_line_price",
-  //       lineId,
-  //       price,
-  //     };
-  //   } catch (err) {
-  //     console.error("[edit update_line_price] failed:", err);
-  //     return { success: false, error: String(err?.message || err), type: "update_line_price" };
-  //   }
-  // }
 
   return { success: false, error: "Unknown action type" };
 }
