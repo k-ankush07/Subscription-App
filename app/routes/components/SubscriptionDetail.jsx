@@ -591,6 +591,7 @@ const handleRemoveLineDiscount = (li) => {
     { method: "post" },
   );
 };
+// sdfbsdfdsfj
   const handleAddManualDiscount = (payload) => {
     lastSubmittedTypeRef.current = "add_manual_discount"; // 👈 NAYA
     fetcher.submit(
