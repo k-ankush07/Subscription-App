@@ -29,7 +29,7 @@ async function getExchangeRate(fromCurrency, toCurrency) {
   if (cached && Date.now() - cached.fetchedAt < CURRENCY_CACHE_TTL_MS) {
     return cached.rate;
   }
-  fsfjbfjwdbfs
+ 
   try {
     const res = await fetch(`https://api.exchangerate-api.com/v4/latest/${fromCurrency}`);
     const data = await res.json();
