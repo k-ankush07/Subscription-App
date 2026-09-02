@@ -2,9 +2,9 @@ import "@shopify/ui-extensions/preact";
 import { render } from "preact";
 import { useState, useEffect, useCallback, useRef } from "preact/hooks";
 import { COUNTRIES } from "../../../app/routes/utils/countries";
-import { currencySymbol } from "../../../app/routes/utils/formatMoney";
+
 const API_BASE =
-  "https://isolated-reflections-consensus-fossil.trycloudflare.com";
+  "https://montana-tariff-latino-extends.trycloudflare.com";
 const PAGE_SIZE = 7;
 const CANCEL_REASONS = [
   "Too expensive",
@@ -1525,15 +1525,9 @@ function SubscriptionDetail({
                               {selectedVariant.variantsTitle}
                             </s-text>
                           )}
-                          {/* {selectedVariant?.price != null && (
-                            <s-text tone="subdued">
-                              ₹{selectedVariant.price}.00
-                            </s-text>
-                          )} */}
                           {selectedVariant?.price != null && (
                             <s-text tone="subdued">
-                              {currencySymbol(sub.nextOrderTotal?.currencyCode)}
-                              {Number(selectedVariant.price).toFixed(2)}
+                              ₹{selectedVariant.price}.00
                             </s-text>
                           )}
                           {isCurrentProductCard && (
@@ -2390,8 +2384,7 @@ function SubscriptionDetail({
                     <s-text tone="subdued">Qty {item.quantity}</s-text>
                   </s-stack>
                   <s-text>
-                    {/* {item.itemTotal?.currencyCode} {item.itemTotal?.amount} */}
-                    {currencySymbol(item.itemTotal?.currencyCode)}{item.itemTotal?.amount}
+                    {item.itemTotal?.currencyCode} {item.itemTotal?.amount}
                   </s-text>
                 </s-stack>
               ))}
@@ -2401,18 +2394,14 @@ function SubscriptionDetail({
                   <s-stack direction="inline" gap="tight">
                     <s-text>Subtotal</s-text>
                     <s-text>
-                      {/* {total.currencyCode} {total.amount} */}
-                      {currencySymbol(total.currencyCode)}
-                      {total.amount}
+                      {total.currencyCode} {total.amount}
                     </s-text>
                   </s-stack>
                   {shipping && (
                     <s-stack direction="inline" gap="tight">
                       <s-text>Shipping</s-text>
                       <s-text>
-                        {/* {shipping.calculatedPrice?.currencyCode}{" "}
-                        {shipping.calculatedPrice?.amount} */}
-                        {currencySymbol(shipping.calculatedPrice?.currencyCode)}
+                        {shipping.calculatedPrice?.currencyCode}{" "}
                         {shipping.calculatedPrice?.amount}
                       </s-text>
                     </s-stack>
@@ -2420,8 +2409,7 @@ function SubscriptionDetail({
                   <s-stack direction="inline" gap="tight">
                     <s-text fontWeight="bold">Total</s-text>
                     <s-text fontWeight="bold">
-                      {/* {total.currencyCode} {grandTotal} */}
-                      {currencySymbol(total.currencyCode)}{grandTotal}
+                      {total.currencyCode} {grandTotal}
                     </s-text>
                   </s-stack>
                 </s-stack>
