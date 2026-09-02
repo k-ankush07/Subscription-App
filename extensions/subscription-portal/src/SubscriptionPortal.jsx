@@ -1187,10 +1187,7 @@ function SubscriptionDetail({
       setSavingProductId(null);
     }
   }
-useEffect(() => {
-  console.log("swapOptions raw:", JSON.stringify(sub.swapOptions, null, 2));
-  console.log("contract currency:", sub.nextOrderTotal?.currencyCode);
-}, [sub]);
+
   const items = sub.nextOrderLineItems?.length
     ? sub.nextOrderLineItems
     : (sub.lines?.edges?.map((e) => e.node) ?? []);
