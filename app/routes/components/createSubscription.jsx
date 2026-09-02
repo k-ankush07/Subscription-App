@@ -319,7 +319,6 @@ const handleSubmit = async () => {
       afterOrders,
       discountAmount2,
       discountType2,
-      currencyCode: selectedCurrency,
     };
 
     const selectedCard = paymentMethods.find(
