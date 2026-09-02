@@ -12,7 +12,7 @@ import {
   Select,
 } from "@shopify/polaris";
 import Product from "./Product";
-
+import { currencySymbol } from "../utils/formatMoney";
 function generateTimeOptions() {
   const times = [];
   for (let hour = 0; hour < 24; hour++) {
@@ -152,7 +152,7 @@ function CreateSubscription({ currencyCode, shop ,enabledCurrencies = [],}) {
   };
 
   // const suffixFor = (type) => (type === "PERCENTAGE" ? "%" : currencyCode);
-  const suffixFor = (type) => (type === "PERCENTAGE" ? "%" : selectedCurrency);
+  const suffixFor = (type) => (type === "PERCENTAGE" ? "%" : currencySymbol(selectedCurrency));
 
   const handelBack = () => {
     navigate("/app/subscriptions");
@@ -890,15 +890,15 @@ useEffect(() => {
 
 
             <div style={{ marginTop: "12px" }}>
-              <TextField
-                label="Delivery price"
-                type="number"
-                min={0}
-                prefix="₹"
-                value={deliveryPrice}
-                onChange={(value) => setDeliveryPrice(value)}
-                autoComplete="off"
-              />
+            <TextField
+  label="Delivery price"
+  type="number"
+  min={0}
+  prefix={currencySymbol(selectedCurrency)}
+  value={deliveryPrice}
+  onChange={(value) => setDeliveryPrice(value)}
+  autoComplete="off"
+/>
             </div>
 
             <div style={{ marginTop: "12px" }}>
