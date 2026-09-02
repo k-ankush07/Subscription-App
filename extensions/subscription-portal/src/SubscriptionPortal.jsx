@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "preact/hooks";
 import { COUNTRIES } from "../../../app/routes/utils/countries";
 
 const API_BASE =
-  "https://montana-tariff-latino-extends.trycloudflare.com";
+  "https://isolated-reflections-consensus-fossil.trycloudflare.com";
 const PAGE_SIZE = 7;
 const CANCEL_REASONS = [
   "Too expensive",
