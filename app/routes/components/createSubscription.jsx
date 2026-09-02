@@ -48,7 +48,7 @@ const countryOptions = [
   }),
 ];
 
-function CreateSubscription({ currencyCode, shop }) {
+function CreateSubscription({ currencyCode, shop ,enabledCurrencies = [],}) {
   const navigate = useNavigate();
   const shopify = useAppBridge();
 
@@ -83,7 +83,7 @@ function CreateSubscription({ currencyCode, shop }) {
   const [interval, setInterval] = useState("MONTH");
   const [minOrders, setMinOrders] = useState("");
   const [maxOrders, setMaxOrders] = useState("");
-
+  const [selectedCurrency, setSelectedCurrency] = useState(currencyCode);
   const [giveDiscount, setGiveDiscount] = useState(false);
   const [discountAmount, setDiscountAmount] = useState("0");
   const [discountType, setDiscountType] = useState("PERCENTAGE");
@@ -151,7 +151,8 @@ function CreateSubscription({ currencyCode, shop }) {
     }
   };
 
-  const suffixFor = (type) => (type === "PERCENTAGE" ? "%" : currencyCode);
+  // const suffixFor = (type) => (type === "PERCENTAGE" ? "%" : currencyCode);
+  const suffixFor = (type) => (type === "PERCENTAGE" ? "%" : selectedCurrency);
 
   const handelBack = () => {
     navigate("/app/subscriptions");
@@ -265,104 +266,6 @@ function CreateSubscription({ currencyCode, shop }) {
     }
   };
 
-  // const handleSubmit = async () => {
-  //   if (selectedProducts.length === 0) {
-  //     setProductError(true);
-  //     return;
-  //   }
-  //   setProductError(false);
-  //   setSaveError(null);
-  //   setDeliveryError(null);
-
-  //   if (isDigitalProduct) {
-  //     const missing =
-  //       !address1.trim() ||
-  //       !city.trim() ||
-  //       !province.trim() ||
-  //       !zip.trim() ||
-  //       !country.trim();
-
-  //     if (missing) {
-  //       const firstProductTitle = selectedProducts[0]?.title || "This product";
-  //       setDeliveryError(
-  //         `"${firstProductTitle}" requires shipping information`,
-  //       );
-  //       return;
-  //     }
-  //   }
-
-  //   const contractDetails = {
-  //     nextOrderDate,
-  //     nextOrderTime,
-  //     nextBillingDateISO: new Date(`${nextOrderDate}T${nextOrderTime}:00`).toISOString(),
-  //     currencyCode,
-  //     billingType,
-  //     intervalCount,
-  //     interval,
-  //     billingFrequency: intervalCount,
-  //     billingInterval: interval,
-  //     minOrders,
-  //     maxOrders,
-  //     giveDiscount,
-  //     discountAmount,
-  //     discountType,
-  //     changeDiscountAfterOrders,
-  //     afterOrders,
-  //     discountAmount2,
-  //     discountType2,
-  //   };
-
-  //   const selectedCard = paymentMethods.find(
-  //     (pm) => pm.id === selectedPaymentMethod,
-  //   );
-
-  //   const paymentMethod = selectedCard
-  //     ? {
-  //         id: selectedCard.id,
-  //         name: selectedCard.instrument?.name || "",
-  //         brand: selectedCard.instrument?.brand || "",
-  //         lastDigits: selectedCard.instrument?.lastDigits || "",
-  //         expiryMonth: selectedCard.instrument?.expiryMonth || "",
-  //         expiryYear: selectedCard.instrument?.expiryYear || "",
-  //       }
-  //     : null;
-
-  //   const customer = {
-  //     customerId,
-  //     customerEmail,
-  //     firstName,
-  //     lastName,
-  //     phoneNumber,
-  //     company,
-  //     paymentMethod,
-  //   };
-
-  //   const delivery = {
-  //     isDigitalProduct,
-  //     address1: isDigitalProduct ? address1 : "",
-  //     address2: isDigitalProduct ? address2 : "",
-  //     country: isDigitalProduct ? country : "",
-  //     province: isDigitalProduct ? province : "",
-  //     city: isDigitalProduct ? city : "",
-  //     zip: isDigitalProduct ? zip : "",
-  //     deliveryPrice,
-  //     deliveryMethodTitle,
-  //   };
-
-  //   const payload = {
-  //     shop,
-  //     contractDetails,
-  //     customer,
-  //     delivery,
-  //     products: selectedProducts,
-  //   };
-
-  //   setIsSaving(true);
-  //   createFetcher.submit(
-  //     { payload: JSON.stringify(payload) },
-  //     { method: "post" },
-  //   );
-  // };
 
 const handleSubmit = async () => {
     if (selectedProducts.length === 0) {
@@ -416,6 +319,7 @@ const handleSubmit = async () => {
       afterOrders,
       discountAmount2,
       discountType2,
+      currencyCode: selectedCurrency,
     };
 
     const selectedCard = paymentMethods.find(
@@ -556,12 +460,26 @@ useEffect(() => {
           </select>
         </div>
 
-        <div>
+
+<div>
+  <h2>Currency</h2>
+  <select
+    value={selectedCurrency}
+    onChange={(e) => setSelectedCurrency(e.target.value)}
+  >
+    {enabledCurrencies.map((code) => (
+      <option key={code} value={code}>
+        {code}
+      </option>
+    ))}
+  </select>
+</div>
+        {/* <div>
           <h2>Currency</h2>
           <select>
             <option value={currencyCode}>{currencyCode}</option>
           </select>
-        </div>
+        </div> */}
 
         <div>
           <h2>Selling plan type</h2>
@@ -749,8 +667,9 @@ useEffect(() => {
           setSelectedProducts={setSelectedProducts}
           editPlandData={false}
           shop={shop}
+          
           productError={productError}
-          currencyCode={currencyCode}
+          currencyCode={selectedCurrency}
           showOrderOptions={true}
           sellingPlanDiscount={{
             giveDiscount,

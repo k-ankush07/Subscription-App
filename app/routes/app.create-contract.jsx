@@ -389,7 +389,7 @@ export async function action({ request }) {
 
 
 function contractCreate() {
-  const { currencyCode, shop } = useLoaderData();
+  const { currencyCode, shop,enabledCurrencies } = useLoaderData();
 
   return (
     <div>
