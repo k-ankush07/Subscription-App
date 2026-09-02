@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "preact/hooks";
 import { COUNTRIES } from "../../../app/routes/utils/countries";
 
 const API_BASE =
-  "https://stream-departments-basement-tire.trycloudflare.com";
+  "https://montana-tariff-latino-extends.trycloudflare.com";
 const PAGE_SIZE = 7;
 const CANCEL_REASONS = [
   "Too expensive",
