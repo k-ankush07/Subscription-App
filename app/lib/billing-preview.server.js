@@ -20,24 +20,6 @@ async function getShopCurrencyCode(admin) {
   }
 }
 
-
-async function getContractCurrencyCode(admin, contractId) {
-  try {
-    const res = await admin.graphql(
-      `
-      query getContractCurrency($id: ID!) {
-        subscriptionContract(id: $id) { currencyCode }
-      }
-      `,
-      { variables: { id: contractId } },
-    );
-    const data = await res.json();
-    return data.data?.subscriptionContract?.currencyCode ?? null;
-  } catch (err) {
-    console.warn("[getContractCurrencyCode] failed:", err);
-    return null;
-  }
-}
 const currencyRateCache = {};
 const CURRENCY_CACHE_TTL_MS = 60 * 60 * 1000; 
 
@@ -2981,12 +2963,6 @@ async function updateContractLineProduct(
     return { success: false, error: "Subscription line not found" };
   }
 
-    // 👇 NEW — dono currencies fetch karo
-  const [shopCurrencyCode, contractCurrencyCode] = await Promise.all([
-    getShopCurrencyCode(admin),
-    getContractCurrencyCode(admin, contractId),
-  ]);
-
   const newRawPrice = await fetchVariantPrice(admin, variantId);
   if (newRawPrice == null) {
     return {
@@ -2995,12 +2971,7 @@ async function updateContractLineProduct(
     };
   }
 
-  // 👇 CHANGED — shop currency (USD) se contract currency (INR) me convert karo
-  let finalPrice = await convertCurrency(
-    newRawPrice,
-    shopCurrencyCode,
-    contractCurrencyCode,
-  );
+  let finalPrice = newRawPrice;
 
   if (keepDiscount) {
     let discountFraction = null;
@@ -3011,59 +2982,20 @@ async function updateContractLineProduct(
       discountFraction = Math.max(0, Math.min(1, discountFractionOverride));
     } else if (targetLine.variantId) {
       const oldRawPrice = await fetchVariantPrice(admin, targetLine.variantId);
-      // 👇 CHANGED — ise bhi convert karke compare karo, warna USD vs INR compare ho jayega
-      const oldRawPriceConverted =
-        oldRawPrice != null
-          ? await convertCurrency(oldRawPrice, shopCurrencyCode, contractCurrencyCode)
-          : null;
       const oldCurrentPrice = Number(targetLine.currentPrice?.amount);
 
-      if (oldRawPriceConverted > 0 && !Number.isNaN(oldCurrentPrice)) {
+      if (oldRawPrice > 0 && !Number.isNaN(oldCurrentPrice)) {
         discountFraction = Math.max(
           0,
-          (oldRawPriceConverted - oldCurrentPrice) / oldRawPriceConverted,
+          (oldRawPrice - oldCurrentPrice) / oldRawPrice,
         );
       }
     }
 
     if (discountFraction != null) {
-      finalPrice = Math.max(0, finalPrice * (1 - discountFraction));
+      finalPrice = Math.max(0, newRawPrice * (1 - discountFraction));
     }
   }
-
-  // const newRawPrice = await fetchVariantPrice(admin, variantId);
-  // if (newRawPrice == null) {
-  //   return {
-  //     success: false,
-  //     error: "Could not fetch price for selected variant",
-  //   };
-  // }
-
-  // let finalPrice = newRawPrice;
-
-  // if (keepDiscount) {
-  //   let discountFraction = null;
-  //   if (
-  //     discountFractionOverride != null &&
-  //     !Number.isNaN(discountFractionOverride)
-  //   ) {
-  //     discountFraction = Math.max(0, Math.min(1, discountFractionOverride));
-  //   } else if (targetLine.variantId) {
-  //     const oldRawPrice = await fetchVariantPrice(admin, targetLine.variantId);
-  //     const oldCurrentPrice = Number(targetLine.currentPrice?.amount);
-
-  //     if (oldRawPrice > 0 && !Number.isNaN(oldCurrentPrice)) {
-  //       discountFraction = Math.max(
-  //         0,
-  //         (oldRawPrice - oldCurrentPrice) / oldRawPrice,
-  //       );
-  //     }
-  //   }
-
-  //   if (discountFraction != null) {
-  //     finalPrice = Math.max(0, newRawPrice * (1 - discountFraction));
-  //   }
-  // }
 
   const finalQuantity = allowQuantityChanges
     ? Number(quantity) || 1
@@ -3473,6 +3405,5 @@ export {
   getActiveManualDiscountsForLine,
   applyManualDiscountsToPrice,
   getShopCurrencyCode,
-  convertCurrency,
-  getContractCurrencyCode,
+  convertCurrency
 };
