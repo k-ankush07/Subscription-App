@@ -74,20 +74,37 @@ export async function loader({ request }) {
   }
 
   const response = await admin.graphql(`
-    query {
-      shop {
-        currencyCode
-      }
+  query {
+    shop {
+      currencyCode
+      enabledPresentmentCurrencies
     }
-  `);
+  }
+`);
 
-  const data = await response.json();
-  const shopData = data.data.shop;
+const data = await response.json();
+const shopData = data.data.shop;
 
-  return {
-    currencyCode: shopData.currencyCode,
-    shop: session.shop,
-  };
+return {
+  currencyCode: shopData.currencyCode,
+  enabledCurrencies: shopData.enabledPresentmentCurrencies, // array
+  shop: session.shop,
+};
+  // const response = await admin.graphql(`
+  //   query {
+  //     shop {
+  //       currencyCode
+  //     }
+  //   }
+  // `);
+
+  // const data = await response.json();
+  // const shopData = data.data.shop;
+
+  // return {
+  //   currencyCode: shopData.currencyCode,
+  //   shop: session.shop,
+  // };
 }
 
 const CREATE_CUSTOMER_SUBSCRIPTION_CONTRACT_MUTATION = `
@@ -376,7 +393,7 @@ function contractCreate() {
 
   return (
     <div>
-      <CreateSubscription currencyCode={currencyCode} shop={shop} />
+      <CreateSubscription currencyCode={currencyCode} shop={shop} enabledCurrencies={enabledCurrencies} />
     </div>
   );
 }
