@@ -1525,11 +1525,18 @@ function SubscriptionDetail({
                               {selectedVariant.variantsTitle}
                             </s-text>
                           )}
+
                           {selectedVariant?.price != null && (
+  <s-text tone="subdued">
+    {selectedVariant.currencyCode ?? total?.currencyCode ?? ""}{" "}
+    {Number(selectedVariant.price).toFixed(2)}
+  </s-text>
+)}
+                          {/* {selectedVariant?.price != null && (
                             <s-text tone="subdued">
                               ₹{selectedVariant.price}.00
                             </s-text>
-                          )}
+                          )} */}
                           {isCurrentProductCard && (
                             <s-text tone="subdued">(Current product)</s-text>
                           )}
